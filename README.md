@@ -11,7 +11,7 @@ OfferLai 是一个本地优先的求职管理工具，用于管理岗位投递�
 
 ## 本机开发
 
-环境要求：Node.js 20 或更高版本、npm、Chrome 或 Edge。
+环境要求：Node.js 22 或更高版本、npm、Chrome 或 Edge。
 
 ```powershell
 Copy-Item .env.example .env.local
