@@ -1,0 +1,14 @@
+node_modules
+.next
+.git
+.github
+.local
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+.env
+.env.*
+!.env.example
+npm-debug.log*
+coverage
