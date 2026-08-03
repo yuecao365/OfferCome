@@ -1,0 +1,28 @@
+"use client";
+
+import { SunMoon } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+
+export function ThemeButton() {
+  const toggleTheme = () => {
+    const current =
+      document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+    const next = current === "dark" ? "light" : "dark";
+    document.documentElement.dataset.theme = next;
+    localStorage.setItem("career-agent-theme", next);
+  };
+
+  return (
+    <Button
+      aria-label="切换浅色或深色主题"
+      className="gap-2"
+      onClick={toggleTheme}
+      title="切换主题"
+      variant="ghost"
+    >
+      <SunMoon aria-hidden="true" className="size-4" />
+      <span className="hidden sm:inline">主题</span>
+    </Button>
+  );
+}

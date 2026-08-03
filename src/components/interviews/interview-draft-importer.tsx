@@ -1,0 +1,241 @@
+"use client";
+
+import { useRef, useState } from "react";
+
+import type {
+  InterviewQuestionCategory,
+  InterviewQuestionInput,
+} from "@/lib/interviews/types";
+
+type DraftQuestionResponse = {
+  question: string;
+  answer: string;
+  category: InterviewQuestionCategory;
+  relatedItemId: string | null;
+  confidence: number;
+};
+
+type DraftResponse = {
+  questions?: DraftQuestionResponse[];
+  provider?: "heuristic" | "openai";
+  source?: "audio" | "document" | "pasted";
+  transcript?: string;
+  artifactId?: string;
+  sourceType?: "real_audio" | "real_transcript" | "real_summary";
+  speakers?: string[];
+  segments?: Array<{
+    text: string;
+    start: number | null;
+    end: number | null;
+    speaker: string | null;
+  }>;
+  capabilities?: {
+    hasTimestamps: boolean;
+    hasSpeakers: boolean;
+    hasVoiceMetrics: boolean;
+  };
+  error?: string;
+};
+
+type InterviewDraftImporterProps = {
+  onDraft: (questions: InterviewQuestionInput[]) => void;
+};
+
+export function InterviewDraftImporter({
+  onDraft,
+}: InterviewDraftImporterProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [text, setText] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [pending, setPending] = useState(false);
+  const [message, setMessage] = useState("");
+  const [isError, setIsError] = useState(false);
+  const [importMode, setImportMode] = useState<
+    "full_recording" | "candidate_recording" | "transcript" | "summary"
+  >("summary");
+  const [artifactId, setArtifactId] = useState("");
+  const [sourceType, setSourceType] = useState<
+    "real_audio" | "real_transcript" | "real_summary"
+  >("real_summary");
+  const [speakers, setSpeakers] = useState<string[]>([]);
+  const [segments, setSegments] = useState<NonNullable<DraftResponse["segments"]>>([]);
+  const [candidateSpeaker, setCandidateSpeaker] = useState("");
+  const [hasVoiceMetrics, setHasVoiceMetrics] = useState(false);
+
+  const generateDraft = async () => {
+    if (!file && !text.trim()) {
+      setIsError(true);
+      setMessage("请先选择文件或粘贴面试文本。");
+      return;
+    }
+
+    setPending(true);
+    setMessage("");
+    setIsError(false);
+
+    try {
+      const formData = new FormData();
+      if (file) formData.set("file", file);
+      else formData.set("text", text);
+      formData.set("importMode", importMode);
+
+      const response = await fetch("/api/interviews/draft", {
+        method: "POST",
+        body: formData,
+      });
+      const result = (await response.json()) as DraftResponse;
+      if (!response.ok || !result.questions) {
+        throw new Error(result.error ?? "生成面试草稿失败。");
+      }
+
+      onDraft(
+        result.questions.map((question, index) => ({
+          question: question.question,
+          answer: question.answer,
+          category: question.category,
+          resumeProjectId:
+            question.category === "resume_project"
+              ? question.relatedItemId
+              : null,
+          sortOrder: index,
+          confidence: question.confidence,
+        })),
+      );
+      setText(result.transcript ?? text);
+      setArtifactId(result.artifactId ?? "");
+      setSourceType(result.sourceType ?? "real_summary");
+      setSpeakers(result.speakers ?? []);
+      setSegments(result.segments ?? []);
+      setCandidateSpeaker("");
+      setHasVoiceMetrics(Boolean(result.capabilities?.hasVoiceMetrics));
+      setFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      setMessage(
+        `已生成 ${result.questions.length} 条问题草稿（${
+          result.provider === "openai" ? "AI 识别" : "本地规则识别"
+        }），请在下方确认和修改。`,
+      );
+    } catch (error) {
+      setIsError(true);
+      setMessage(error instanceof Error ? error.message : "生成面试草稿失败。");
+    } finally {
+      setPending(false);
+    }
+  };
+
+  return (
+    <section className="rounded border border-zinc-200 bg-zinc-50 p-3">
+      <input name="importArtifactId" type="hidden" value={artifactId} />
+      <input name="candidateSpeaker" type="hidden" value={candidateSpeaker} />
+      <input name="sourceType" type="hidden" value={sourceType} />
+      <div>
+        <h3 className="text-sm font-medium text-zinc-900">从文件或文本生成草稿</h3>
+        <p className="mt-1 text-xs leading-5 text-zinc-600">
+          支持 MP3、WAV、M4A、WebM、TXT、MD、DOCX 和 PDF。识别结果只填入表单，不会自动保存。
+        </p>
+      </div>
+
+      <div className="mt-3 grid gap-3 md:grid-cols-2">
+        <label className="block text-sm font-medium text-zinc-800 md:col-span-2">
+          导入内容类型（保存前确认）
+          <select
+            className="mt-1 block w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm"
+            onChange={(event) => {
+              const mode = event.target.value as typeof importMode;
+              setImportMode(mode);
+              setArtifactId("");
+              setSpeakers([]);
+              setSegments([]);
+              setCandidateSpeaker("");
+              setSourceType(
+                mode === "full_recording" || mode === "candidate_recording"
+                  ? "real_audio"
+                  : mode === "transcript"
+                    ? "real_transcript"
+                    : "real_summary",
+              );
+            }}
+            value={importMode}
+          >
+            <option value="full_recording">完整录音（面试官 + 本人）</option>
+            <option value="candidate_recording">仅本人录音</option>
+            <option value="transcript">逐字转写文本</option>
+            <option value="summary">复盘总结</option>
+          </select>
+        </label>
+        <label className="block text-sm font-medium text-zinc-800">
+          录音或文本文件
+          <input
+            accept="audio/*,.mp3,.wav,.m4a,.webm,.ogg,.txt,.md,.docx,.pdf"
+            className="mt-1 block w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm file:mr-3 file:border-0 file:bg-transparent file:text-sm file:font-medium"
+            onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+            ref={fileInputRef}
+            type="file"
+          />
+        </label>
+        <label className="block text-sm font-medium text-zinc-800">
+          或粘贴面试文本
+          <textarea
+            className="mt-1 block min-h-24 w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm"
+            onChange={(event) => setText(event.target.value)}
+            placeholder="例如：面试官：请介绍一下你的项目？\n我：我主要负责……"
+            value={text}
+          />
+        </label>
+      </div>
+
+      {speakers.length > 0 ? (
+        <div className="mt-3 rounded border border-zinc-200 bg-white p-3">
+          <label className="block text-sm font-medium text-zinc-800">
+            哪位说话人是你？
+            <select
+              className="mt-1 block w-full rounded border border-zinc-300 px-3 py-2 text-sm"
+              onChange={(event) => setCandidateSpeaker(event.target.value)}
+              required
+              value={candidateSpeaker}
+            >
+              <option value="">请选择</option>
+              {speakers.map((speaker) => (
+                <option key={speaker} value={speaker}>{speaker}</option>
+              ))}
+            </select>
+          </label>
+          <div className="mt-3 max-h-44 space-y-2 overflow-y-auto text-xs text-zinc-700">
+            {segments.slice(0, 24).map((segment, index) => (
+              <p key={`${segment.speaker}-${segment.start}-${index}`}>
+                <strong>{segment.speaker ?? "未知"}</strong>
+                {segment.start !== null ? ` ${segment.start.toFixed(1)}s` : ""}：{segment.text}
+              </p>
+            ))}
+          </div>
+        </div>
+      ) : artifactId && sourceType === "real_audio" && !hasVoiceMetrics ? (
+        <p className="mt-3 rounded border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+          本次转写服务没有返回可用的说话人或时间戳，将继续按文本分析，不生成口语流畅度结论。
+        </p>
+      ) : null}
+
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <button
+          className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:text-zinc-400"
+          disabled={pending}
+          onClick={generateDraft}
+          type="button"
+        >
+          {pending ? "识别中..." : "生成表单草稿"}
+        </button>
+        {message ? (
+          <p
+            aria-live="polite"
+            className={isError ? "text-sm text-red-700" : "text-sm text-zinc-700"}
+          >
+            {message}
+          </p>
+        ) : null}
+      </div>
+      <p className="mt-2 text-xs text-zinc-500">
+        音频会发送给配置的语音转写服务；文本文件和粘贴文本会直接进入结构化识别。
+      </p>
+    </section>
+  );
+}

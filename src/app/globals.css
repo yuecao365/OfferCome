@@ -1,0 +1,274 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f4f7f6;
+  --foreground: #17211e;
+  --surface: #ffffff;
+  --surface-subtle: #f8faf9;
+  --surface-raised: #ffffff;
+  --muted: #edf2f0;
+  --muted-foreground: #64716d;
+  --border: #dde5e2;
+  --border-strong: #c5d0cc;
+  --brand: #176b5d;
+  --brand-hover: #11574c;
+  --brand-foreground: #ffffff;
+  --accent: #e5f3ef;
+  --accent-strong: #d7ebe5;
+  --accent-foreground: #145e52;
+  --ring: #278878;
+  --info: #3572a5;
+  --info-soft: #edf5fb;
+  --info-strong: #245b89;
+  --success: #17805f;
+  --success-soft: #e9f7f1;
+  --success-strong: #116348;
+  --warning: #b7791f;
+  --warning-soft: #fff7e6;
+  --warning-strong: #8a5a13;
+  --danger: #c2414a;
+  --danger-soft: #fff0f1;
+  --danger-strong: #9f3039;
+  --app-shadow-card: 0 1px 2px rgb(23 33 30 / 0.04);
+  --app-shadow-overlay: 0 20px 50px rgb(23 33 30 / 0.16);
+}
+
+[data-theme="dark"] {
+  --background: #111816;
+  --foreground: #edf4f1;
+  --surface: #17201d;
+  --surface-subtle: #1b2522;
+  --surface-raised: #202b27;
+  --muted: #26312e;
+  --muted-foreground: #a5b2ad;
+  --border: #2c3935;
+  --border-strong: #3c4b46;
+  --brand: #58ad9e;
+  --brand-hover: #6db9ab;
+  --brand-foreground: #0c2420;
+  --accent: #1c3832;
+  --accent-strong: #24463f;
+  --accent-foreground: #8cd0c3;
+  --ring: #67b9aa;
+  --info: #78aeda;
+  --info-soft: #1b2d3b;
+  --info-strong: #a4ccec;
+  --success: #63c59f;
+  --success-soft: #19342a;
+  --success-strong: #8ad9b9;
+  --warning: #e2ae5d;
+  --warning-soft: #382c19;
+  --warning-strong: #f0c982;
+  --danger: #e2767d;
+  --danger-soft: #3b2023;
+  --danger-strong: #f1a1a6;
+  --app-shadow-card: 0 1px 2px rgb(0 0 0 / 0.18);
+  --app-shadow-overlay: 0 24px 60px rgb(0 0 0 / 0.42);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-subtle: var(--surface-subtle);
+  --color-surface-raised: var(--surface-raised);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-ring: var(--ring);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-info-strong: var(--info-strong);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-success-strong: var(--success-strong);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-strong: var(--warning-strong);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-strong: var(--danger-strong);
+  --shadow-card: var(--app-shadow-card);
+  --shadow-overlay: var(--app-shadow-overlay);
+}
+
+/* Keep legacy Tailwind utilities readable until each page uses semantic tokens. */
+html[data-theme="dark"] {
+  --color-white: var(--surface);
+  --color-zinc-50: var(--surface-subtle);
+  --color-zinc-100: var(--muted);
+  --color-zinc-200: var(--border);
+  --color-zinc-300: var(--border-strong);
+  --color-zinc-400: var(--muted-foreground);
+  --color-zinc-500: var(--muted-foreground);
+  --color-zinc-600: var(--muted-foreground);
+  --color-zinc-700: var(--foreground);
+  --color-zinc-800: var(--foreground);
+  --color-zinc-900: var(--foreground);
+  --color-zinc-950: var(--foreground);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    background: var(--background);
+    color-scheme: light;
+    overflow-x: clip;
+    scroll-behavior: smooth;
+  }
+
+  html[data-theme="dark"] {
+    color-scheme: dark;
+  }
+
+  body {
+    min-height: 100vh;
+    background: var(--background);
+    color: var(--foreground);
+    font-family:
+      Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+      "Segoe UI", "Microsoft YaHei", sans-serif;
+    text-rendering: optimizeLegibility;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+
+  :where(a, button, input, select, textarea, summary):focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  :where(input, select, textarea) {
+    background-color: var(--surface);
+    color: var(--foreground);
+  }
+
+  :where(input, select, textarea)::placeholder {
+    color: var(--muted-foreground);
+    opacity: 0.8;
+  }
+
+  ::selection {
+    background: var(--accent-strong);
+    color: var(--foreground);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes drawer-enter {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes overlay-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modal-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes interview-current-x {
+  to { background-position: 28px 0; }
+}
+
+@keyframes interview-current-y {
+  to { background-position: 0 28px; }
+}
+
+.page-content {
+  animation: page-enter 240ms ease-out both;
+}
+
+.drawer-overlay {
+  animation: overlay-enter 180ms ease-out both;
+}
+
+.drawer-panel {
+  animation: drawer-enter 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.modal-overlay {
+  animation: overlay-enter 160ms ease-out both;
+}
+
+.modal-panel {
+  animation: modal-enter 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.interview-current-x {
+  animation: interview-current-x 1.8s linear infinite;
+  background-image: repeating-linear-gradient(
+    90deg,
+    transparent 0 7px,
+    var(--brand) 7px 13px,
+    transparent 13px 20px
+  );
+}
+
+.interview-current-y {
+  animation: interview-current-y 1.8s linear infinite;
+  background-image: repeating-linear-gradient(
+    180deg,
+    transparent 0 7px,
+    var(--brand) 7px 13px,
+    transparent 13px 20px
+  );
+}

@@ -1,0 +1,420 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model AppSetting {
+  key       String   @id
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model BossContact {
+  id               String    @id @default(cuid())
+  companyName      String
+  jobTitle         String
+  source           String    @default("boss_zhipin")
+  sourceKey        String    @unique
+  jobUrl           String?
+  appliedAt        DateTime?
+  stage            String    @default("applied")
+  note             String?
+  sourceActivityAt DateTime?
+  sourceStatusCode Int?
+  unchangedSince   DateTime?
+  autoRejectedAt   DateTime?
+  firstSeenAt      DateTime  @default(now())
+  lastSeenAt       DateTime  @default(now())
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([source])
+  @@index([stage])
+  @@index([appliedAt])
+  @@index([lastSeenAt])
+  @@index([sourceActivityAt])
+  @@index([autoRejectedAt])
+}
+
+model Resume {
+  id             String                 @id @default(cuid())
+  originalName   String
+  storedName     String                 @unique
+  filePath       String
+  mimeType       String
+  fileSize       Int
+  isDefault      Boolean                @default(false)
+  projects       ResumeProject[]
+  projectSources ResumeProjectSource[]
+  mockSessions   MockInterviewSession[]
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  @@index([isDefault])
+  @@index([createdAt])
+}
+
+model ResumeProject {
+  id           String                @id @default(cuid())
+  resumeId     String?
+  resume       Resume?               @relation(fields: [resumeId], references: [id], onDelete: SetNull)
+  name         String
+  type         String                @default("project")
+  organization String?
+  description  String?
+  startDate    String?
+  endDate      String?
+  sourceText   String?
+  sortOrder    Int                   @default(0)
+  sources      ResumeProjectSource[]
+  questions    InterviewQuestion[]
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  @@index([resumeId])
+  @@index([type])
+  @@index([name])
+  @@index([sortOrder])
+}
+
+model ResumeProjectSource {
+  id              String        @id @default(cuid())
+  resumeId        String
+  resume          Resume        @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+  resumeProjectId String
+  resumeProject   ResumeProject @relation(fields: [resumeProjectId], references: [id], onDelete: Cascade)
+  extractedName   String
+  finalName       String
+  sourceText      String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([resumeId, resumeProjectId, extractedName])
+  @@index([resumeId])
+  @@index([resumeProjectId])
+}
+
+model Interview {
+  id              String                     @id @default(cuid())
+  kind            String                     @default("real")
+  sourceType      String                     @default("real_summary")
+  companyName     String
+  jobTitle        String
+  roleKey         String?
+  roleContext     RoleContext?               @relation(fields: [roleKey], references: [key], onDelete: SetNull)
+  interviewedAt   DateTime?
+  scheduledAt     DateTime?
+  round           String?
+  status          String                     @default("completed")
+  note            String?
+  questions       InterviewQuestion[]
+  mockSession     MockInterviewSession?
+  importArtifact  InterviewImportArtifact?
+  assessments     InterviewAssessment[]
+  observations    AbilityObservation[]
+  insightEvidence CandidateInsightEvidence[]
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
+
+  @@index([interviewedAt])
+  @@index([kind])
+  @@index([sourceType])
+  @@index([roleKey])
+  @@index([scheduledAt])
+  @@index([status])
+  @@index([round])
+  @@index([updatedAt])
+}
+
+model InterviewQuestion {
+  id              String                       @id @default(cuid())
+  interviewId     String
+  interview       Interview                    @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  question        String
+  answer          String?
+  category        String                       @default("general")
+  resumeProjectId String?
+  resumeProject   ResumeProject?               @relation(fields: [resumeProjectId], references: [id], onDelete: SetNull)
+  evaluation      InterviewQuestionEvaluation?
+  observations    AbilityObservation[]
+  insightEvidence CandidateInsightEvidence[]
+  sortOrder       Int
+  createdAt       DateTime                     @default(now())
+  updatedAt       DateTime                     @updatedAt
+
+  @@index([interviewId, sortOrder])
+  @@index([category])
+  @@index([resumeProjectId])
+}
+
+model MockInterviewSession {
+  id                   String    @id @default(cuid())
+  interviewId          String    @unique
+  interview            Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  resumeId             String?
+  resume               Resume?   @relation(fields: [resumeId], references: [id], onDelete: SetNull)
+  jdOriginalName       String?
+  jdTextSnapshot       String
+  resumeTextSnapshot   String
+  contextSnapshotJson  String
+  status               String    @default("generating")
+  interactionMode      String    @default("text")
+  currentQuestionIndex Int       @default(0)
+  questionCount        Int
+  provider             String
+  model                String
+  promptVersion        String
+  totalScore           Int?
+  reportJson           String?
+  startedAt            DateTime?
+  completedAt          DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@index([resumeId])
+  @@index([status])
+  @@index([updatedAt])
+}
+
+model InterviewQuestionEvaluation {
+  id                       String               @id @default(cuid())
+  interviewQuestionId      String               @unique
+  interviewQuestion        InterviewQuestion    @relation(fields: [interviewQuestionId], references: [id], onDelete: Cascade)
+  assessmentId             String?
+  assessment               InterviewAssessment? @relation(fields: [assessmentId], references: [id], onDelete: SetNull)
+  difficulty               String               @default("standard")
+  sourceKind               String               @default("profile")
+  rubricJson               String               @default("{}")
+  expectedSignalsJson      String               @default("[]")
+  applicableDimensionsJson String?
+  generationMetadataJson   String               @default("{}")
+  dimensionsJson           String?
+  score                    Int?
+  strengthsJson            String?
+  improvementsJson         String?
+  feedback                 String?
+  evaluatedAt              DateTime?
+  createdAt                DateTime             @default(now())
+  updatedAt                DateTime             @updatedAt
+
+  @@index([score])
+  @@index([assessmentId])
+}
+
+model RoleContext {
+  key                  String      @id
+  displayName          String
+  normalizedTitle      String      @unique
+  targetJobDescription String?
+  blueprintJson        String      @default("{}")
+  isPinned             Boolean     @default(false)
+  interviews           Interview[]
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+}
+
+model InterviewImportArtifact {
+  id               String     @id @default(cuid())
+  interviewId      String?    @unique
+  interview        Interview? @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  sourceType       String
+  transcriptText   String
+  segmentsJson     String     @default("[]")
+  durationSeconds  Float?
+  candidateSpeaker String?
+  voiceMetricsJson String?
+  capabilitiesJson String     @default("{}")
+  expiresAt        DateTime
+  consumedAt       DateTime?
+  createdAt        DateTime   @default(now())
+
+  @@index([expiresAt])
+}
+
+model InterviewAssessment {
+  id                  String                        @id @default(cuid())
+  interviewId         String
+  interview           Interview                     @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  sourceHash          String
+  assessmentVersion   String
+  promptVersion       String
+  status              String                        @default("pending")
+  provider            String?
+  model               String?
+  error               String?
+  startedAt           DateTime                      @default(now())
+  completedAt         DateTime?
+  questionEvaluations InterviewQuestionEvaluation[]
+  observations        AbilityObservation[]
+  createdAt           DateTime                      @default(now())
+  updatedAt           DateTime                      @updatedAt
+
+  @@unique([interviewId, sourceHash, assessmentVersion])
+  @@index([interviewId, status])
+  @@index([completedAt])
+}
+
+model AbilityObservation {
+  id                String                     @id @default(cuid())
+  assessmentId      String
+  assessment        InterviewAssessment        @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  interviewId       String
+  interview         Interview                  @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  questionId        String?
+  question          InterviewQuestion?         @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  dimension         String
+  score             Float
+  modelConfidence   Float
+  evidenceExcerpt   String
+  sourceType        String
+  sourceWeight      Float
+  roleKey           String?
+  speechMetricsJson String?
+  status            String                     @default("active")
+  originalDimension String?
+  userCorrectedAt   DateTime?
+  insightEvidence   CandidateInsightEvidence[]
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+
+  @@unique([assessmentId, questionId, dimension])
+  @@index([interviewId, dimension, status])
+  @@index([roleKey, dimension])
+}
+
+model CandidateProfileState {
+  id                String    @id
+  status            String    @default("idle")
+  revision          Int       @default(0)
+  summaryJson       String    @default("{}")
+  pendingSince      DateTime?
+  dueAt             DateTime?
+  lastSourceAt      DateTime?
+  lastProcessedAt   DateTime?
+  lastRefreshedAt   DateTime?
+  needsFullRebuild  Boolean   @default(false)
+  phase             String    @default("idle")
+  completedCount    Int       @default(0)
+  totalCount        Int       @default(0)
+  assessmentVersion String    @default("ability-assessment-v2")
+  lastError         String?
+  leaseToken        String?
+  leaseExpiresAt    DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+model CandidateInsight {
+  id              String                     @id @default(cuid())
+  dimension       String
+  kind            String
+  title           String
+  statement       String
+  normalizedKey   String
+  roleKey         String                     @default("all")
+  confidence      Float
+  level           Float?
+  levelLabel      String                     @default("待积累")
+  trend           String                     @default("insufficient")
+  confidenceLabel String                     @default("待积累")
+  status          String                     @default("tentative")
+  isUserLocked    Boolean                    @default(false)
+  userEditedAt    DateTime?
+  hasConflict     Boolean                    @default(false)
+  evidence        CandidateInsightEvidence[]
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
+
+  @@unique([roleKey, normalizedKey])
+  @@index([dimension, status])
+  @@index([roleKey, dimension, status])
+  @@index([isUserLocked])
+}
+
+model CandidateInsightEvidence {
+  id                String              @id @default(cuid())
+  insightId         String
+  insight           CandidateInsight    @relation(fields: [insightId], references: [id], onDelete: Cascade)
+  interviewId       String
+  interview         Interview           @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  questionId        String?
+  question          InterviewQuestion?  @relation(fields: [questionId], references: [id], onDelete: SetNull)
+  observationId     String?
+  observation       AbilityObservation? @relation(fields: [observationId], references: [id], onDelete: SetNull)
+  polarity          String              @default("supports")
+  sourceKind        String
+  excerpt           String
+  weight            Float
+  status            String              @default("active")
+  originalDimension String?
+  userCorrectedAt   DateTime?
+  createdAt         DateTime            @default(now())
+
+  @@unique([insightId, interviewId, questionId, polarity])
+  @@index([interviewId])
+  @@index([questionId])
+  @@index([observationId])
+}
+
+model CandidateProfileMetric {
+  id                 String   @id @default(cuid())
+  roleKey            String   @default("all")
+  dimension          String
+  level              Float?
+  levelLabel         String   @default("待积累")
+  trend              String   @default("insufficient")
+  evidenceConfidence Float    @default(0)
+  confidenceLabel    String   @default("待积累")
+  interviewCount     Int      @default(0)
+  realInterviewCount Int      @default(0)
+  evidenceCount      Int      @default(0)
+  updatedAt          DateTime @updatedAt
+  createdAt          DateTime @default(now())
+
+  @@unique([roleKey, dimension])
+  @@index([roleKey])
+}
+
+model CandidateProfileSnapshot {
+  id                String   @id @default(cuid())
+  revision          Int
+  roleKey           String   @default("all")
+  metricsJson       String
+  insightIdsJson    String   @default("[]")
+  assessmentVersion String
+  createdAt         DateTime @default(now())
+
+  @@unique([revision, roleKey])
+  @@index([roleKey, createdAt])
+}
+
+model CandidateProfileRun {
+  id                String    @id @default(cuid())
+  mode              String
+  status            String    @default("running")
+  fullRebuild       Boolean   @default(false)
+  evidenceCount     Int       @default(0)
+  phase             String    @default("assessment")
+  completedCount    Int       @default(0)
+  totalCount        Int       @default(0)
+  assessmentVersion String    @default("ability-assessment-v2")
+  provider          String?
+  model             String?
+  promptVersion     String
+  error             String?
+  startedAt         DateTime  @default(now())
+  completedAt       DateTime?
+
+  @@index([status])
+  @@index([startedAt])
+}

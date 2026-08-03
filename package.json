@@ -1,0 +1,49 @@
+{
+  "name": "career-agent",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "test": "tsx --test \"src/**/*.test.ts\"",
+    "db:push": "prisma db push",
+    "boss:login": "tsx scripts/boss-login.ts",
+    "boss:sync": "tsx scripts/boss-sync.ts"
+  },
+  "dependencies": {
+    "@ai-sdk/openai": "^4.0.7",
+    "@ai-sdk/openai-compatible": "^3.0.5",
+    "@ai-sdk/react": "^4.0.16",
+    "@antv/g6": "^5.1.1",
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "@prisma/adapter-better-sqlite3": "^7.8.0",
+    "@prisma/client": "^7.8.0",
+    "ai": "^7.0.15",
+    "better-sqlite3": "^12.11.1",
+    "dotenv": "^17.4.2",
+    "lucide-react": "^1.24.0",
+    "mammoth": "^1.12.0",
+    "next": "16.2.10",
+    "pdf-parse": "^2.4.5",
+    "playwright": "^1.61.1",
+    "prisma": "^7.8.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "recharts": "^3.9.2",
+    "undici": "^8.7.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.10",
+    "tailwindcss": "^4",
+    "tsx": "^4.23.0",
+    "typescript": "^5"
+  }
+}

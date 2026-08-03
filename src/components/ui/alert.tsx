@@ -1,0 +1,42 @@
+import { CircleAlert, CircleCheck, Info } from "lucide-react";
+import type { HTMLAttributes } from "react";
+
+import { cn } from "@/lib/cn";
+
+type AlertTone = "info" | "success" | "danger";
+
+const alertStyles: Record<AlertTone, string> = {
+  info: "border-info/20 bg-info-soft text-info-strong",
+  success: "border-success/20 bg-success-soft text-success-strong",
+  danger: "border-danger/20 bg-danger-soft text-danger-strong",
+};
+
+const alertIcons = {
+  info: Info,
+  success: CircleCheck,
+  danger: CircleAlert,
+};
+
+export function Alert({
+  className,
+  tone = "info",
+  children,
+  ...props
+}: HTMLAttributes<HTMLDivElement> & { tone?: AlertTone }) {
+  const Icon = alertIcons[tone];
+
+  return (
+    <div
+      className={cn(
+        "flex items-start gap-3 rounded-lg border px-4 py-3 text-sm leading-6",
+        alertStyles[tone],
+        className,
+      )}
+      role={tone === "danger" ? "alert" : "status"}
+      {...props}
+    >
+      <Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+      <div className="min-w-0">{children}</div>
+    </div>
+  );
+}
