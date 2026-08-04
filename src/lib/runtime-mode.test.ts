@@ -15,10 +15,13 @@ test("keeps local and Docker runtimes fully enabled", () => {
   assert.equal(isDemoMode({ APP_MODE: "local", VERCEL: undefined }), false);
 });
 
-test("allows only static showcase routes in demo mode", () => {
+test("allows the real read-only product routes in demo mode", () => {
   assert.equal(isPublicDemoPath("/showcase"), true);
   assert.equal(isPublicDemoPath("/homepage"), true);
   assert.equal(isPublicDemoPath("/_next/static/app.js"), true);
-  assert.equal(isPublicDemoPath("/applications"), false);
+  assert.equal(isPublicDemoPath("/applications"), true);
+  assert.equal(isPublicDemoPath("/resumes"), true);
+  assert.equal(isPublicDemoPath("/interviews/mock/demo-session"), true);
+  assert.equal(isPublicDemoPath("/settings"), true);
   assert.equal(isPublicDemoPath("/api/resumes"), false);
 });

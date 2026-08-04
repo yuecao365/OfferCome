@@ -36,7 +36,13 @@ function isBranchActive(
   );
 }
 
-export function ProductMark({ collapsed = false }: { collapsed?: boolean }) {
+export function ProductMark({
+  collapsed = false,
+  homeHref = "/",
+}: {
+  collapsed?: boolean;
+  homeHref?: string;
+}) {
   return (
     <Link
       aria-label="返回数据概览"
@@ -44,7 +50,7 @@ export function ProductMark({ collapsed = false }: { collapsed?: boolean }) {
         "flex h-16 items-center gap-3 border-b border-border px-4 focus-visible:outline-offset-[-2px]",
         collapsed && "justify-center px-2",
       )}
-      href="/"
+      href={homeHref}
     >
       <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand text-sm font-bold tracking-tight text-brand-foreground shadow-card">
         CA
@@ -67,11 +73,13 @@ export function Navigation({
   active,
   subActive,
   collapsed = false,
+  homeHref = "/",
   onNavigate,
 }: {
   active: AppSection;
   subActive?: InterviewSection;
   collapsed?: boolean;
+  homeHref?: string;
   onNavigate?: () => void;
 }) {
   return (
@@ -106,7 +114,7 @@ export function Navigation({
                             : "text-muted-foreground hover:bg-muted hover:text-foreground",
                         collapsed && "justify-center px-2",
                       )}
-                      href={item.href}
+                      href={item.href === "/" ? homeHref : item.href}
                       onClick={onNavigate}
                       title={
                         collapsed
@@ -193,17 +201,24 @@ export function DesktopSidebar({
   active,
   subActive,
   collapsed,
+  homeHref,
   onToggle,
 }: {
   active: AppSection;
   subActive?: InterviewSection;
   collapsed: boolean;
+  homeHref: string;
   onToggle: () => void;
 }) {
   return (
     <aside className="sticky top-0 hidden h-screen flex-col border-r border-border bg-surface lg:flex">
-      <ProductMark collapsed={collapsed} />
-      <Navigation active={active} collapsed={collapsed} subActive={subActive} />
+      <ProductMark collapsed={collapsed} homeHref={homeHref} />
+      <Navigation
+        active={active}
+        collapsed={collapsed}
+        homeHref={homeHref}
+        subActive={subActive}
+      />
       <div className="grid gap-1 border-t border-border p-3">
         <Link
           aria-current={active === "settings" ? "page" : undefined}

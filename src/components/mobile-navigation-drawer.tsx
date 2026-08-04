@@ -11,12 +11,14 @@ import { Button } from "@/components/ui/button";
 export function MobileNavigationDrawer({
   active,
   subActive,
+  homeHref,
   open,
   onClose,
   triggerRef,
 }: {
   active: AppSection;
   subActive?: InterviewSection;
+  homeHref: string;
   open: boolean;
   onClose: () => void;
   triggerRef: RefObject<HTMLButtonElement | null>;
@@ -83,7 +85,7 @@ export function MobileNavigationDrawer({
         role="dialog"
       >
         <div className="flex h-16 items-center justify-between border-b border-border pr-3">
-          <ProductMark />
+          <ProductMark homeHref={homeHref} />
           <Button
             aria-label="关闭主导航"
             onClick={onClose}
@@ -94,7 +96,12 @@ export function MobileNavigationDrawer({
             <X aria-hidden="true" className="size-5" />
           </Button>
         </div>
-        <Navigation active={active} onNavigate={onClose} subActive={subActive} />
+        <Navigation
+          active={active}
+          homeHref={homeHref}
+          onNavigate={onClose}
+          subActive={subActive}
+        />
         <div className="border-t border-border p-3">
           <Link
             className="flex h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"

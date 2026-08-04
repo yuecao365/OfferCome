@@ -33,6 +33,7 @@ import { getApplicationStats } from "@/lib/applications/queries";
 import type { ApplicationTrendRange } from "@/lib/applications/types";
 import { cn } from "@/lib/cn";
 import { getInterviewStats } from "@/lib/interviews/queries";
+import { isDemoMode } from "@/lib/runtime-mode";
 
 function formatDateTime(date: Date | null): string {
   if (!date) return "尚未同步";
@@ -42,8 +43,8 @@ function formatDateTime(date: Date | null): string {
   }).format(date);
 }
 
-function trendHref(range: ApplicationTrendRange): string {
-  return range === "14d" ? "/" : `/?trend=${range}`;
+function trendHref(range: ApplicationTrendRange, homeHref: string): string {
+  return range === "14d" ? homeHref : `${homeHref}?trend=${range}`;
 }
 
 export default async function Home({
@@ -53,6 +54,7 @@ export default async function Home({
 }) {
   await connection();
   const trendRange = parseApplicationTrendRange((await searchParams).trend);
+  const homeHref = isDemoMode() ? "/homepage" : "/";
   const trendOption = getApplicationTrendRangeOption(trendRange);
   const [stats, interviewStats] = await Promise.all([
     getApplicationStats({ trendRange }),
@@ -129,7 +131,7 @@ export default async function Home({
                           "flex h-8 flex-1 items-center justify-center whitespace-nowrap rounded-md px-3 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground sm:flex-none",
                           isActive && "bg-surface text-foreground shadow-card",
                         )}
-                        href={trendHref(option.value)}
+                        href={trendHref(option.value, homeHref)}
                         key={option.value}
                         scroll={false}
                       >

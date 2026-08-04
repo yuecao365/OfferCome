@@ -71,8 +71,10 @@ Boss 登录需要在用户桌面弹出有头 Chrome/Edge，并允许用户手动
 
 Vercel 部署自动进入只读展示模式：
 
-- `/` 等业务页面会跳转到 `/showcase`
-- `/homepage` 提供仅使用虚构数据的产品界面预览
+- `/` 会跳转到 `/showcase` 产品介绍页
+- `/homepage` 使用独立虚构数据库呈现真实产品概览
+- 投递岗位、简历中心、面试工作台及其子页面、能力画像和设置页均复用正式产品界面
+- 所有写请求和数据 API 会被统一拦截，不接收或保存访问者数据
 - `/api/*` 数据接口返回 404
 - 不读取或写入 SQLite
 - 不接受简历、面试、API Key 或 Boss 登录信息
@@ -83,9 +85,11 @@ Vercel 部署自动进入只读展示模式：
 2. Framework Preset 选择 Next.js。
 3. Build Command 保持 `npm run build`。
 4. 不要配置生产数据库或真实 API Key。
-5. 部署后访问 `/showcase`。
+5. 部署后访问 `/showcase`，点击“在线体验”进入 `/homepage`。
 
 Vercel 会提供预览域名，也可以在项目设置中绑定自定义域名。`VERCEL=1` 会自动启用展示模式；其他平台也可通过 `APP_MODE=demo` 启用。
+
+修改 Prisma schema 或演示数据后，可运行 `npm run demo:db` 重新生成 `prisma/demo.db`。该文件只包含 `scripts/seed-demo.ts` 中定义的虚构数据。
 
 ## 镜像发布
 

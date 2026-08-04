@@ -7,6 +7,7 @@ const root = path.dirname(fileURLToPath(import.meta.url));
 const nextConfig: NextConfig = {
   serverExternalPackages: ["@ffmpeg-installer/ffmpeg"],
   outputFileTracingIncludes: {
+    "/*": ["./prisma/demo.db"],
     "/api/interviews/draft": [
       "./node_modules/@ffmpeg-installer/*/ffmpeg*",
     ],
