@@ -13,7 +13,7 @@ function getDatabaseUrl(): string {
   if (isDemoMode()) {
     const source = path.join(process.cwd(), "prisma", "demo.db");
     const directory = path.join(tmpdir(), "offerlai-demo");
-    const target = path.join(directory, "demo.db");
+    const target = path.join(directory, `demo-${process.pid}.db`);
     mkdirSync(directory, { recursive: true });
     copyFileSync(source, target);
     return `file:${target}`;

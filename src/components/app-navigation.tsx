@@ -53,12 +53,12 @@ export function ProductMark({
       href={homeHref}
     >
       <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand text-sm font-bold tracking-tight text-brand-foreground shadow-card">
-        CA
+        OL
       </span>
       {collapsed ? null : (
         <span className="min-w-0">
           <span className="block truncate text-sm font-semibold tracking-tight text-foreground">
-            Career Agent
+            OfferLai
           </span>
           <span className="mt-0.5 block truncate text-xs text-muted-foreground">
             Career Workspace
