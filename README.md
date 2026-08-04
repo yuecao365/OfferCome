@@ -1,28 +1,96 @@
 # OfferLai
 
-OfferLai 是一个本地优先的求职管理工具，用于管理岗位投递、简历、真实面试、AI 模拟面试、面试复盘和能力画像。
+[简体中文](#简体中文) | [English](#english)
 
-## 数据与隐私
+## 简体中文
 
-- 正式使用时，SQLite 数据库、简历文件和 Boss 登录状态默认保存在用户自己的设备中。
-- `.local/`、SQLite 文件和 `.env*` 不应提交到 Git。
-- Boss 登录、扫码、验证码和安全校验必须由用户本人在本机完成。
-- AI 功能会把完成任务所需的内容发送给用户配置的模型服务商。
+### 简介
 
-## 本机开发
+OfferLai 是一个本地优先的求职管理工作台，用于集中管理岗位投递、简历、真实面试、AI 模拟面试、面试复盘和能力画像。
 
-环境要求：Node.js 22 或更高版本、npm、Chrome 或 Edge。
+正式使用时，SQLite 数据库、简历文件和 Boss 登录状态默认保存在用户自己的设备中。AI 功能仅在用户主动配置模型服务后调用对应服务商。
+
+### 项目预览
+
+- **产品介绍：** [https://offer-lai.vercel.app](https://offer-lai.vercel.app)
+- **在线体验：** [https://offer-lai.vercel.app/homepage](https://offer-lai.vercel.app/homepage)
+
+> 在线体验使用虚构数据并以只读模式运行，不接收或保存简历、面试记录、API Key 或 Boss 登录信息。完整读写功能请使用本地部署。
+
+#### 数据概览
+
+![数据概览](docs/images/dashboard.png)
+
+#### 投递管理
+
+![投递管理](docs/images/applications.png)
+
+#### AI 模拟面试
+
+![AI 模拟面试](docs/images/mock-interview.png)
+
+#### 历史面试
+
+![历史面试](docs/images/interview-history.png)
+
+#### 面试复盘
+
+![面试复盘](docs/images/interview-review.png)
+
+#### 能力画像
+
+![能力画像](docs/images/ability-profile.png)
+
+### 项目功能亮点
+
+- **本地优先与隐私保护：** SQLite 数据库、简历文件和登录状态保存在本机，不依赖 OfferLai 中央数据库。
+- **投递全流程管理：** 支持手动创建、编辑、删除、搜索、筛选、排序和分页，并可同步本人 Boss 直聘已有沟通记录。
+- **简历管理：** 支持 PDF、Word 和图片上传、预览、下载、默认简历管理，以及实习和项目索引提取。
+- **真实面试记录：** 管理公司、岗位、轮次、时间、问题、回答和备注，支持录音转写与结构化整理。
+- **AI 模拟面试：** 根据目标岗位 JD、简历和历史记录生成训练问题，支持文字或语音作答及逐题反馈。
+- **面试复盘：** 按实习、项目、技术问题和通用问题聚合历史回答，便于针对性复习。
+- **能力画像：** 根据真实面试与模拟面试证据整理能力维度、优势、短板、趋势和训练重点。
+- **多模型配置：** 文本理解与语音转写可分别选择模型服务商、模型和 API 地址。
+
+### 快速开始
+
+#### 方式一：在线体验
+
+直接访问 [OfferLai 在线体验](https://offer-lai.vercel.app/homepage)。该环境只用于浏览，不会保存操作结果。
+
+#### 方式二：Docker 本地部署（推荐）
+
+环境要求：Docker Desktop 或 Docker Engine + Docker Compose。
+
+```bash
+git clone https://github.com/yuecao365/OfferLai.git
+cd OfferLai
+docker compose up -d --build
+```
+
+打开 [http://localhost:3000](http://localhost:3000)。SQLite 数据和上传文件分别持久化到 `offerlai-data` 与 `offerlai-local` Docker Volume。
+
+```bash
+docker compose logs -f offerlai
+docker compose down
+```
+
+`docker compose down` 不会删除数据；`docker compose down -v` 会永久删除本地数据卷。
+
+#### 方式三：源码运行
+
+环境要求：Node.js 22+、npm，以及用于 Boss 手动登录的 Chrome 或 Edge。
 
 ```powershell
+git clone https://github.com/yuecao365/OfferLai.git
+Set-Location OfferLai
 Copy-Item .env.example .env.local
 npm ci
 npm run db:push
 npm run dev
 ```
 
-打开 <http://localhost:3000>。
-
-Boss 同步命令：
+打开 [http://localhost:3000](http://localhost:3000)。需要 Boss 同步时，在本机运行：
 
 ```powershell
 npm run boss:login
@@ -30,92 +98,104 @@ npm run boss:sync -- --dry-run
 npm run boss:sync
 ```
 
-## Docker 本地部署
+Boss 登录、扫码、验证码和安全校验必须由用户本人手动完成。普通 Docker 容器无法直接打开宿主机有头浏览器，因此 Boss 登录与同步目前建议使用源码运行方式。
 
-Docker 版本会持久化以下内容：
+---
 
-- SQLite 数据库：Docker Volume `offerlai-data`
-- 简历与本地运行文件：Docker Volume `offerlai-local`
+## English
 
-从源码构建并启动：
+### Introduction
+
+OfferLai is a local-first career management workspace for tracking job applications, resumes, real interviews, AI mock interviews, interview reviews, and capability profiles.
+
+For normal use, the SQLite database, resume files, and Boss Zhipin login state stay on the user's own device. AI providers are contacted only after the user explicitly configures a model service.
+
+### Project Preview
+
+- **Product overview:** [https://offer-lai.vercel.app](https://offer-lai.vercel.app)
+- **Live preview:** [https://offer-lai.vercel.app/homepage](https://offer-lai.vercel.app/homepage)
+
+> The live preview uses fictional data in read-only mode. It does not accept or store resumes, interview records, API keys, or Boss Zhipin login information. Use a local deployment for the complete writable product.
+
+#### Dashboard
+
+![Dashboard](docs/images/dashboard.png)
+
+#### Applications
+
+![Applications](docs/images/applications.png)
+
+#### AI Mock Interview
+
+![AI Mock Interview](docs/images/mock-interview.png)
+
+#### Interview History
+
+![Interview History](docs/images/interview-history.png)
+
+#### Interview Review
+
+![Interview Review](docs/images/interview-review.png)
+
+#### Capability Profile
+
+![Capability Profile](docs/images/ability-profile.png)
+
+### Feature Highlights
+
+- **Local-first privacy:** SQLite data, resume files, and login state remain on the user's machine without an OfferLai-hosted central database.
+- **Application tracking:** Create, edit, delete, search, filter, sort, and paginate applications, with optional read-only synchronization of the user's existing Boss Zhipin conversations.
+- **Resume workspace:** Upload PDF, Word, and image resumes; preview or download files; select a default resume; and extract internship and project indexes.
+- **Real interview records:** Manage companies, roles, rounds, dates, questions, answers, and notes, with optional transcription and structured import.
+- **AI mock interviews:** Generate practice questions from a target JD, resume, and interview history, then answer by text or voice and review per-question feedback.
+- **Interview review:** Group historical answers by internship, project, technical topic, or general question.
+- **Capability profile:** Organize evidence-backed ability dimensions, strengths, weaknesses, trends, and training priorities.
+- **Flexible model settings:** Configure text-understanding and speech-to-text providers, models, API keys, and endpoints independently.
+
+### Quick Start
+
+#### Option 1: Live Preview
+
+Open the [OfferLai live preview](https://offer-lai.vercel.app/homepage). This environment is read-only and does not persist changes.
+
+#### Option 2: Local Docker Deployment (Recommended)
+
+Requirements: Docker Desktop or Docker Engine with Docker Compose.
 
 ```bash
+git clone https://github.com/yuecao365/OfferLai.git
+cd OfferLai
 docker compose up -d --build
 ```
 
-使用发布到 GHCR 的镜像：
-
-```bash
-docker pull ghcr.io/yuecao365/offerlai:latest
-docker compose up -d
-```
-
-打开 <http://localhost:3000>。
-
-查看日志或停止服务：
+Open [http://localhost:3000](http://localhost:3000). SQLite data and uploaded files persist in the `offerlai-data` and `offerlai-local` Docker volumes.
 
 ```bash
 docker compose logs -f offerlai
 docker compose down
 ```
 
-`docker compose down` 不会删除数据卷。只有显式执行 `docker compose down -v` 才会删除本地数据。
+`docker compose down` preserves the volumes. `docker compose down -v` permanently deletes the local volumes.
 
-### Docker 中的 Boss 同步限制
+#### Option 3: Run from Source
 
-Boss 登录需要在用户桌面弹出有头 Chrome/Edge，并允许用户手动处理安全校验。普通 Docker 容器无法自然访问宿主机桌面，因此当前 Docker 版本适合使用岗位、简历、面试和 AI 功能；Boss 登录与同步请在源码本机模式中运行。
+Requirements: Node.js 22+, npm, and Chrome or Edge for manual Boss Zhipin login.
 
-不要为绕过该限制而改成无头登录或绕过安全校验。后续可通过桌面客户端或本地 companion service 改善体验。
-
-## Vercel 展示部署
-
-Vercel 部署自动进入只读展示模式：
-
-- `/` 会跳转到 `/showcase` 产品介绍页
-- `/homepage` 使用独立虚构数据库呈现真实产品概览
-- 投递岗位、简历中心、面试工作台及其子页面、能力画像和设置页均复用正式产品界面
-- 所有写请求和数据 API 会被统一拦截，不接收或保存访问者数据
-- `/api/*` 数据接口返回 404
-- 不读取或写入 SQLite
-- 不接受简历、面试、API Key 或 Boss 登录信息
-
-部署步骤：
-
-1. 在 Vercel 导入 `yuecao365/OfferLai`。
-2. Framework Preset 选择 Next.js。
-3. Build Command 保持 `npm run build`。
-4. 不要配置生产数据库或真实 API Key。
-5. 部署后访问 `/showcase`，点击“在线体验”进入 `/homepage`。
-
-Vercel 会提供预览域名，也可以在项目设置中绑定自定义域名。`VERCEL=1` 会自动启用展示模式；其他平台也可通过 `APP_MODE=demo` 启用。
-
-修改 Prisma schema 或演示数据后，可运行 `npm run demo:db` 重新生成 `prisma/demo.db`。该文件只包含 `scripts/seed-demo.ts` 中定义的虚构数据。
-
-## 镜像发布
-
-GitHub Actions 在以下情况构建并发布镜像：
-
-- 推送到 `main`
-- 推送 `v*` 版本标签
-- 手动运行 `Docker Image` workflow
-
-镜像标签：
-
-```text
-ghcr.io/yuecao365/offerlai:latest
-ghcr.io/yuecao365/offerlai:v0.1.0
-ghcr.io/yuecao365/offerlai:sha-xxxxxxx
+```powershell
+git clone https://github.com/yuecao365/OfferLai.git
+Set-Location OfferLai
+Copy-Item .env.example .env.local
+npm ci
+npm run db:push
+npm run dev
 ```
 
-如果 GHCR Package 初次发布后是私有状态，需要在 GitHub Package 设置中将其改为 Public，公开用户才能直接拉取。
+Open [http://localhost:3000](http://localhost:3000). To use Boss Zhipin synchronization, run locally:
 
-## 常用命令
-
-```bash
-npm run lint
-npm test
-npm run build
-npm run db:push
+```powershell
 npm run boss:login
+npm run boss:sync -- --dry-run
 npm run boss:sync
 ```
+
+Login, QR codes, CAPTCHAs, and security checks must be completed manually by the account owner. A standard Docker container cannot open a headed browser on the host desktop, so Boss Zhipin login and sync currently work best when running from source.
