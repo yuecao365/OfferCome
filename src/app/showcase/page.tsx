@@ -11,8 +11,6 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 
-import productDashboard from "../../../docs/images/dashboard.png";
-
 const productHighlights = [
   {
     icon: BriefcaseBusiness,
@@ -139,10 +137,11 @@ export default function ShowcasePage() {
             <Image
               alt="OfferLai 实际产品的数据概览主页"
               className="h-auto w-full"
-              placeholder="blur"
+              height={952}
               priority
               sizes="(max-width: 1280px) 100vw, 1280px"
-              src={productDashboard}
+              src="/showcase/product-dashboard.png"
+              width={1918}
             />
           </Link>
         </div>
