@@ -3,7 +3,7 @@ import Script from "next/script";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Career Agent",
+  title: "OfferLai",
   description: "个人求职进度、简历与面试训练工作区",
 };
 
