@@ -1,14 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
-import { isDemoMode } from "@/lib/runtime-mode";
-
-const PUBLIC_DEMO_PATHS = new Set([
-  "/showcase",
-  "/favicon.ico",
-  "/robots.txt",
-  "/sitemap.xml",
-]);
+import { isDemoMode, isPublicDemoPath } from "@/lib/runtime-mode";
 
 export function proxy(request: NextRequest) {
   if (!isDemoMode()) {
@@ -17,11 +10,7 @@ export function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  if (
-    PUBLIC_DEMO_PATHS.has(pathname) ||
-    pathname.startsWith("/_next/") ||
-    pathname.startsWith("/showcase/")
-  ) {
+  if (isPublicDemoPath(pathname)) {
     return NextResponse.next();
   }
 

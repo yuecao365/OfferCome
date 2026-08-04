@@ -5,6 +5,7 @@ import {
   Database,
   FileText,
   HardDrive,
+  MonitorPlay,
   MessagesSquare,
   ShieldCheck,
 } from "lucide-react";
@@ -74,16 +75,17 @@ export default function ShowcasePage() {
             <div className="mt-7 flex flex-wrap gap-3">
               <Link
                 className="inline-flex h-10 items-center gap-2 rounded-lg border border-brand bg-brand px-4 text-sm font-semibold text-brand-foreground hover:bg-brand-hover"
+                href="/homepage"
+              >
+                <MonitorPlay aria-hidden="true" className="size-4" />
+                在线体验
+              </Link>
+              <Link
+                className="inline-flex h-10 items-center gap-2 rounded-lg border border-border-strong bg-surface px-4 text-sm font-semibold hover:border-brand/40 hover:bg-surface-subtle"
                 href="https://github.com/yuecao365/OfferLai#docker-本地部署"
               >
                 <HardDrive aria-hidden="true" className="size-4" />
                 本地部署
-              </Link>
-              <Link
-                className="inline-flex h-10 items-center gap-2 rounded-lg border border-border-strong bg-surface px-4 text-sm font-semibold hover:border-brand/40 hover:bg-surface-subtle"
-                href="https://github.com/yuecao365/OfferLai"
-              >
-                查看源码
               </Link>
             </div>
             <div className="mt-7 flex items-start gap-3 rounded-lg border border-success/25 bg-success-soft p-4 text-sm text-success-strong">

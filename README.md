@@ -72,6 +72,7 @@ Boss 登录需要在用户桌面弹出有头 Chrome/Edge，并允许用户手动
 Vercel 部署自动进入只读展示模式：
 
 - `/` 等业务页面会跳转到 `/showcase`
+- `/homepage` 提供仅使用虚构数据的产品界面预览
 - `/api/*` 数据接口返回 404
 - 不读取或写入 SQLite
 - 不接受简历、面试、API Key 或 Boss 登录信息
