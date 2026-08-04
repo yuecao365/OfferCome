@@ -8,3 +8,19 @@ export function isDemoMode(
 
   return runtimeEnv.APP_MODE === "demo" || runtimeEnv.VERCEL === "1";
 }
+
+const PUBLIC_DEMO_PATHS = new Set([
+  "/homepage",
+  "/showcase",
+  "/favicon.ico",
+  "/robots.txt",
+  "/sitemap.xml",
+]);
+
+export function isPublicDemoPath(pathname: string): boolean {
+  return (
+    PUBLIC_DEMO_PATHS.has(pathname) ||
+    pathname.startsWith("/_next/") ||
+    pathname.startsWith("/showcase/")
+  );
+}
