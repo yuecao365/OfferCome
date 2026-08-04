@@ -12,6 +12,10 @@ export function isDemoMode(
 const PUBLIC_DEMO_PATHS = new Set([
   "/homepage",
   "/showcase",
+  "/applications",
+  "/resumes",
+  "/interviews",
+  "/settings",
   "/favicon.ico",
   "/robots.txt",
   "/sitemap.xml",
@@ -21,6 +25,7 @@ export function isPublicDemoPath(pathname: string): boolean {
   return (
     PUBLIC_DEMO_PATHS.has(pathname) ||
     pathname.startsWith("/_next/") ||
-    pathname.startsWith("/showcase/")
+    pathname.startsWith("/showcase/") ||
+    pathname.startsWith("/interviews/")
   );
 }

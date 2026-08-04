@@ -10,6 +10,8 @@
     "lint": "eslint",
     "test": "tsx --test \"src/**/*.test.ts\"",
     "db:push": "prisma db push",
+    "demo:db": "tsx scripts/create-demo-db.ts",
+    "demo:seed": "tsx scripts/seed-demo.ts",
     "boss:login": "tsx scripts/boss-login.ts",
     "boss:sync": "tsx scripts/boss-sync.ts"
   },
@@ -38,6 +40,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

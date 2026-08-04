@@ -15,11 +15,13 @@ import { cn } from "@/lib/cn";
 export function AppChrome({
   active,
   subActive,
+  homeHref,
   immersive = false,
   children,
 }: {
   active: AppSection;
   subActive?: InterviewSection;
+  homeHref: string;
   immersive?: boolean;
   children: ReactNode;
 }) {
@@ -49,6 +51,7 @@ export function AppChrome({
       <DesktopSidebar
         active={active}
         collapsed={collapsed}
+        homeHref={homeHref}
         onToggle={() => setCollapsed((value) => !value)}
         subActive={subActive}
       />
@@ -112,6 +115,7 @@ export function AppChrome({
 
       <MobileNavigationDrawer
         active={active}
+        homeHref={homeHref}
         onClose={() => setMobileOpen(false)}
         open={mobileOpen}
         subActive={subActive}
