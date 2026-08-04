@@ -46,14 +46,14 @@ The [live preview](https://offer-lai.vercel.app/homepage) uses fictional data in
 
 | Area | Capabilities |
 | --- | --- |
-| **Local-first privacy** | Keep SQLite data, resume files, and login state on your own machine without an OfferLai-hosted central database. |
-| **Application tracking** | Create, edit, delete, search, filter, sort, and paginate applications; optionally synchronize your existing Boss Zhipin conversations. |
-| **Resume workspace** | Upload PDF, Word, and image resumes; preview or download files; select a default resume; and extract internship and project indexes. |
-| **Real interview records** | Manage companies, roles, rounds, dates, questions, answers, and notes, with optional transcription and structured import. |
-| **AI mock interviews** | Generate practice questions from a target JD, resume, and interview history; answer by text or voice and receive per-question feedback. |
-| **Interview review** | Group historical answers by internship, project, technical topic, or general question for focused revision. |
-| **Capability profile** | Organize evidence-backed ability dimensions, strengths, weaknesses, trends, and training priorities. |
-| **Flexible model settings** | Configure text-understanding and speech-to-text providers, models, API keys, and endpoints independently. |
+| **One-click Boss Zhipin import** | From the applications page, open a local headed browser and import the account owner's existing records across all available pages. OfferLai retries after manual login, deduplicates stable job identities, highlights new or changed records, and only evaluates the 30-day no-activity rejection rule during a sync. It never applies or sends messages for you. |
+| **Memory-grounded AI interviews** | Build each mock interview from the target JD, selected resume and projects, relevant answers from completed real interviews, and the latest capability-profile insights. Relevance filtering, source quotas, and duplicate checks keep the injected memory job-specific; the selected context IDs and profile revision are saved for traceability. |
+| **Text and voice interview modes** | Let the browser read each question aloud, record an answer through the microphone, transcribe it with the configured speech model, and edit the transcript before submission. Raw answer audio is used for transcription only and is not stored. |
+| **Continuously evolving capability profile** | Completing a real or mock interview automatically schedules a persistent profile refresh. Versioned assessments and snapshots combine answer evidence, AI feedback, role context, and available delivery metrics, while prioritizing real-interview evidence and supporting later correction or rebuild. |
+| **Resume-to-experience indexing** | Upload PDF, Word, or image resumes and extract internships and projects. A confirmation step lets you rename results or link them to existing records before the resume and relationships are committed, reducing duplicate review indexes. |
+| **Structured real-interview import** | Create completed interview records manually or import audio, transcripts, summaries, PDF, Word, and text files. Speaker-aware transcription separates speakers and lets the user identify the candidate before generating editable question-and-answer drafts, classifying questions, and linking project-related questions. |
+| **Layered interview review** | Review questions by a single internship/project or through technical and general question banks. Repeated questions aggregate historical answers with source interview context, newest first, with server-side filtering and pagination. |
+| **Local-first, provider-flexible architecture** | Keep SQLite data, resume files, and Boss browser state on your own machine. Configure text-understanding and speech-to-text providers, models, API keys, and compatible endpoints independently; only configured AI tasks send the required content to a provider. |
 
 ## Quick Start
 
