@@ -31,6 +31,7 @@ import {
   getResumeProjectOptions,
 } from "@/lib/interviews/queries";
 import { roundLabel, statusLabel } from "@/lib/interviews/types";
+import { getAiTaskConfig, isAiTaskConfigured } from "@/lib/settings/ai";
 
 function formatDate(date: Date): string {
   return new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium" }).format(date);
@@ -38,11 +39,12 @@ function formatDate(date: Date): string {
 
 export default async function InterviewsPage() {
   await connection();
-  const [resumeProjects, workspace, applicationSnapshot, profile] = await Promise.all([
+  const [resumeProjects, workspace, applicationSnapshot, profile, transcriptionConfig] = await Promise.all([
     getResumeProjectOptions(),
     getInterviewWorkspaceData(),
     getApplicationStageSnapshot(),
     getCandidateProfileContext(),
+    getAiTaskConfig("transcription"),
   ]);
   const flow = buildCareerFlowSnapshot(applicationSnapshot.stageCounts);
   const applicationProgress = buildInterviewStageProgress(flow);
@@ -65,7 +67,7 @@ export default async function InterviewsPage() {
   return (
     <AppShell active="interviews">
       <PageHeader
-        actions={<NewInterviewModal resumeProjects={resumeProjects} />}
+        actions={<NewInterviewModal resumeProjects={resumeProjects} transcriptionConfigured={isAiTaskConfigured(transcriptionConfig)} />}
         description="集中管理面试记录、模拟训练与复盘，并用真实证据持续完善能力画像。"
         eyebrow="面试训练"
         title="面试工作台"

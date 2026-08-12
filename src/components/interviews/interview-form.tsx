@@ -28,6 +28,7 @@ type InterviewFormProps =
       onCancel?: () => void;
       resumeProjects: ResumeProjectOption[];
       onSaved?: () => void;
+      transcriptionConfigured: boolean;
     }
   | {
       mode: "edit";
@@ -35,6 +36,7 @@ type InterviewFormProps =
       onCancel?: () => void;
       resumeProjects: ResumeProjectOption[];
       onSaved?: () => void;
+      transcriptionConfigured?: boolean;
     };
 
 type InterviewServerAction = (
@@ -125,6 +127,7 @@ export function InterviewForm(props: InterviewFormProps) {
       {props.mode === "create" ? (
         <InterviewDraftImporter
           onDraft={(draftQuestions) => setQuestions(draftQuestions)}
+          transcriptionConfigured={props.transcriptionConfigured}
         />
       ) : null}
       <div className="grid gap-3 md:grid-cols-2">

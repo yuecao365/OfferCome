@@ -54,6 +54,10 @@ export async function getAiTaskConfig(task: AiTask): Promise<AiTaskConfig> {
   };
 }
 
+export function isAiTaskConfigured(config: AiTaskConfig): boolean {
+  return !config.requiresApiKey || Boolean(config.apiKey);
+}
+
 export function toPublicAiTaskConfig(config: AiTaskConfig): PublicAiTaskConfig {
   const { apiKey, ...publicConfig } = config;
   return {

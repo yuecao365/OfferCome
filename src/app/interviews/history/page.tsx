@@ -20,6 +20,7 @@ import {
   INTERVIEW_STATUSES,
   parseInterviewFilters,
 } from "@/lib/interviews/types";
+import { getAiTaskConfig, isAiTaskConfigured } from "@/lib/settings/ai";
 
 export default async function InterviewHistoryPage({
   searchParams,
@@ -29,15 +30,16 @@ export default async function InterviewHistoryPage({
   await connection();
 
   const filters = parseInterviewFilters(await searchParams);
-  const [interviews, resumeProjects] = await Promise.all([
+  const [interviews, resumeProjects, transcriptionConfig] = await Promise.all([
     getInterviews(filters),
     getResumeProjectOptions(),
+    getAiTaskConfig("transcription"),
   ]);
 
   return (
     <AppShell active="interviews" subActive="interviews-history">
       <PageHeader
-        actions={<NewInterviewModal resumeProjects={resumeProjects} />}
+        actions={<NewInterviewModal resumeProjects={resumeProjects} transcriptionConfigured={isAiTaskConfigured(transcriptionConfig)} />}
         description="查看真实与模拟面试记录，维护面试问题、回答、轮次和状态。"
         eyebrow="面试训练"
         title="历史面试"

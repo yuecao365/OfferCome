@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getRecentMockInterviews } from "@/lib/mock-interviews/queries";
 import { getResumes } from "@/lib/resumes/queries";
+import { getAiTaskConfig, isAiTaskConfigured } from "@/lib/settings/ai";
 
 function statusLabel(status: string): string {
   if (status === "completed") return "已完成";
@@ -19,7 +20,12 @@ function statusLabel(status: string): string {
 
 export default async function MockInterviewsPage() {
   await connection();
-  const [resumes, recent] = await Promise.all([getResumes(), getRecentMockInterviews()]);
+  const [resumes, recent, textConfig, transcriptionConfig] = await Promise.all([
+    getResumes(),
+    getRecentMockInterviews(),
+    getAiTaskConfig("text"),
+    getAiTaskConfig("transcription"),
+  ]);
 
   return (
     <AppShell active="interviews" subActive="interviews-mock">
@@ -31,6 +37,8 @@ export default async function MockInterviewsPage() {
 
       {resumes.length > 0 ? (
         <MockInterviewSetup
+          textConfigured={isAiTaskConfigured(textConfig)}
+          transcriptionConfigured={isAiTaskConfigured(transcriptionConfig)}
           resumes={resumes.map((resume) => ({
             id: resume.id,
             name: resume.originalName,

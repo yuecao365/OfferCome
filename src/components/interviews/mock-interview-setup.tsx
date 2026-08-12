@@ -25,7 +25,15 @@ import {
 
 type ResumeOption = { id: string; name: string; isDefault: boolean };
 
-export function MockInterviewSetup({ resumes }: { resumes: ResumeOption[] }) {
+export function MockInterviewSetup({
+  resumes,
+  textConfigured,
+  transcriptionConfigured,
+}: {
+  resumes: ResumeOption[];
+  textConfigured: boolean;
+  transcriptionConfigured: boolean;
+}) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
@@ -52,6 +60,13 @@ export function MockInterviewSetup({ resumes }: { resumes: ResumeOption[] }) {
 
   return (
     <form className="grid gap-4" onSubmit={submit}>
+      {!textConfigured ? (
+        <Alert tone="danger">
+          文本模型尚未配置，暂时不能创建 AI 模拟面试。请先前往
+          <a className="ml-1 font-semibold underline" href="/settings">设置页</a>
+          完成配置。
+        </Alert>
+      ) : null}
       <Card className="p-5">
         <div className="mb-5 flex items-start gap-3 border-b border-border pb-4">
           <span className="flex size-9 items-center justify-center rounded-lg bg-accent text-accent-foreground">
@@ -148,6 +163,7 @@ export function MockInterviewSetup({ resumes }: { resumes: ResumeOption[] }) {
                   <input
                     className="peer sr-only"
                     defaultChecked={mode === "text"}
+                    disabled={mode === "voice" && !transcriptionConfigured}
                     name="interactionMode"
                     type="radio"
                     value={mode}
@@ -160,7 +176,9 @@ export function MockInterviewSetup({ resumes }: { resumes: ResumeOption[] }) {
                       </strong>
                       <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">
                         {mode === "voice"
-                          ? "朗读 AI 问题，录音转写后可编辑再提交。"
+                          ? transcriptionConfigured
+                            ? "朗读 AI 问题，录音转写后可编辑再提交。"
+                            : "需先在设置页配置语音转写模型。"
                           : "直接输入并提交文字回答。"}
                       </span>
                     </span>
@@ -187,7 +205,7 @@ export function MockInterviewSetup({ resumes }: { resumes: ResumeOption[] }) {
         <p className="max-w-3xl text-xs leading-5 text-muted-foreground">
           历史和画像只用于调整与 JD 相关的问题角度；评分标准保存在服务端，答题前不会展示。
         </p>
-        <Button disabled={pending || resumes.length === 0} type="submit">
+        <Button disabled={pending || resumes.length === 0 || !textConfigured} type="submit">
           <Sparkles aria-hidden="true" className="size-4" />
           {pending ? "正在生成" : "开始 AI 模拟面试"}
         </Button>

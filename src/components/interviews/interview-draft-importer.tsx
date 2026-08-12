@@ -39,10 +39,12 @@ type DraftResponse = {
 
 type InterviewDraftImporterProps = {
   onDraft: (questions: InterviewQuestionInput[]) => void;
+  transcriptionConfigured: boolean;
 };
 
 export function InterviewDraftImporter({
   onDraft,
+  transcriptionConfigured,
 }: InterviewDraftImporterProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [text, setText] = useState("");
@@ -157,8 +159,8 @@ export function InterviewDraftImporter({
             }}
             value={importMode}
           >
-            <option value="full_recording">完整录音（面试官 + 本人）</option>
-            <option value="candidate_recording">仅本人录音</option>
+            <option disabled={!transcriptionConfigured} value="full_recording">完整录音（面试官 + 本人）</option>
+            <option disabled={!transcriptionConfigured} value="candidate_recording">仅本人录音</option>
             <option value="transcript">逐字转写文本</option>
             <option value="summary">复盘总结</option>
           </select>
@@ -183,6 +185,11 @@ export function InterviewDraftImporter({
           />
         </label>
       </div>
+      {!transcriptionConfigured ? (
+        <p className="mt-2 text-xs text-amber-700">
+          录音导入需先在设置页配置语音转写；文本和文档导入仍可使用。
+        </p>
+      ) : null}
 
       {speakers.length > 0 ? (
         <div className="mt-3 rounded border border-zinc-200 bg-white p-3">

@@ -11,8 +11,10 @@ import { InterviewForm } from "./interview-form";
 
 export function NewInterviewModal({
   resumeProjects,
+  transcriptionConfigured,
 }: {
   resumeProjects: ResumeProjectOption[];
+  transcriptionConfigured: boolean;
 }) {
   return (
     <Modal
@@ -31,6 +33,7 @@ export function NewInterviewModal({
             onCancel={close}
             onSaved={close}
             resumeProjects={resumeProjects}
+            transcriptionConfigured={transcriptionConfigured}
           />
         </div>
       )}
