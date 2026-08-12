@@ -150,6 +150,15 @@ export type MockInterviewQuestionTeaching = {
   difficulty: string;
 };
 
+export type MockInterviewPersonalizationUsed = {
+  profileInsights: { id: string; title: string; kind: string }[];
+  historyQuestions: {
+    id: string;
+    question: string;
+    companyName: string;
+  }[];
+};
+
 export type MockInterviewView = {
   id: string;
   interviewId: string;
@@ -161,6 +170,8 @@ export type MockInterviewView = {
   questionCount: number;
   totalScore: number | null;
   report: MockInterviewReport | null;
+  personalizationUsed?: MockInterviewPersonalizationUsed;
+  profileContributionCount?: number | null;
   questions: {
     id: string;
     question: string;

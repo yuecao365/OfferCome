@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
   MOCK_INTERVIEW_DIFFICULTY_LABELS,
@@ -33,6 +34,53 @@ export function MockInterviewReport({ session }: { session: MockInterviewView })
           </p>
         </div>
       </Card>
+
+      {session.personalizationUsed ? (
+        <Card className="grid gap-5 p-5 md:grid-cols-2">
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">出题参考</h3>
+            {session.personalizationUsed.profileInsights.length === 0 &&
+            session.personalizationUsed.historyQuestions.length === 0 ? (
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                本场为纯 JD 出题。
+              </p>
+            ) : (
+              <div className="mt-3 grid gap-3 text-sm text-muted-foreground">
+                {session.personalizationUsed.profileInsights.map((insight) => (
+                  <div className="flex items-start gap-2" key={insight.id}>
+                    <Badge>画像</Badge>
+                    <span>{insight.title}</span>
+                  </div>
+                ))}
+                {session.personalizationUsed.historyQuestions.map((question) => (
+                  <div className="flex items-start gap-2" key={question.id}>
+                    <Badge>历史回答</Badge>
+                    <span>
+                      {question.question} · {question.companyName}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">画像贡献</h3>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              {session.profileContributionCount === null
+                ? "画像正在吸收本场证据…"
+                : `本场为能力画像新增 ${session.profileContributionCount} 条证据。`}
+            </p>
+            <ButtonLink
+              className="mt-3"
+              href="/interviews/profile"
+              size="sm"
+              variant="outline"
+            >
+              查看能力画像
+            </ButtonLink>
+          </div>
+        </Card>
+      ) : null}
 
       <section className="grid gap-4 md:grid-cols-2">
         <Card className="p-4">
