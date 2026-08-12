@@ -143,6 +143,7 @@ model InterviewQuestion {
   question        String
   answer          String?
   voiceMetricsJson String?
+  skippedAt       DateTime?
   category        String                       @default("general")
   resumeProjectId String?
   resumeProject   ResumeProject?               @relation(fields: [resumeProjectId], references: [id], onDelete: SetNull)

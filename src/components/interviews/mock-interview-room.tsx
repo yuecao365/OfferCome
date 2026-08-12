@@ -50,8 +50,7 @@ export function MockInterviewRoom({ initial }: { initial: MockInterviewView }) {
   }
 
   const currentQuestion = initial.questions[currentIndex] ?? null;
-  const submitAnswer = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const advanceQuestion = async (skip: boolean) => {
     if (!currentQuestion) return;
     setPending(true);
     setError("");
@@ -59,7 +58,11 @@ export function MockInterviewRoom({ initial }: { initial: MockInterviewView }) {
       const response = await fetch(`/api/interviews/mock/${initial.id}/answer`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ questionId: currentQuestion.id, answer }),
+        body: JSON.stringify({
+          questionId: currentQuestion.id,
+          answer: skip ? undefined : answer,
+          skip,
+        }),
       });
       const result = (await response.json()) as {
         status?: string;
@@ -77,6 +80,18 @@ export function MockInterviewRoom({ initial }: { initial: MockInterviewView }) {
     } finally {
       setPending(false);
     }
+  };
+
+  const submitAnswer = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    await advanceQuestion(false);
+  };
+
+  const skipQuestion = async () => {
+    if (!window.confirm("确认跳过这道题吗？跳过后将按 0 分计入总分。")) {
+      return;
+    }
+    await advanceQuestion(true);
   };
 
   const complete = async () => {
@@ -207,6 +222,14 @@ export function MockInterviewRoom({ initial }: { initial: MockInterviewView }) {
             type="submit"
           >
             {pending ? "正在保存…" : currentIndex + 1 === initial.questionCount ? "提交最后一题" : "提交并进入下一题"}
+          </Button>
+          <Button
+            disabled={pending || voiceBusy}
+            onClick={skipQuestion}
+            type="button"
+            variant="outline"
+          >
+            跳过这题
           </Button>
           <span className="text-xs text-muted-foreground">提交后将保存进度，刷新页面也可以继续。</span>
         </div>

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { computeQuestionScore } from "./scoring";
+import { computeInterviewTotalScore, computeQuestionScore } from "./scoring";
 
 test("computes a normalized weighted score even when rubric weights do not sum to 100", () => {
   assert.equal(
@@ -25,4 +25,9 @@ test("treats missing dimensions and invalid rubrics safely", () => {
     0,
   );
   assert.equal(computeQuestionScore([], [{ name: "正确性", score: 90 }]), 0);
+});
+
+test("counts skipped questions as zero in the interview total", () => {
+  assert.equal(computeInterviewTotalScore([80, 0, 70]), 50);
+  assert.equal(computeInterviewTotalScore([0, 0]), 0);
 });

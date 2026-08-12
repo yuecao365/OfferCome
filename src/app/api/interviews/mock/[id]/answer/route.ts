@@ -6,14 +6,23 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const body = (await request.json()) as { questionId?: unknown; answer?: unknown };
-    if (typeof body.questionId !== "string" || typeof body.answer !== "string") {
+    const body = (await request.json()) as {
+      questionId?: unknown;
+      answer?: unknown;
+      skip?: unknown;
+    };
+    const skip = body.skip === true;
+    if (
+      typeof body.questionId !== "string" ||
+      (!skip && typeof body.answer !== "string")
+    ) {
       return Response.json({ error: "回答参数无效。" }, { status: 400 });
     }
     const session = await submitMockInterviewAnswer({
       sessionId: id,
       questionId: body.questionId,
-      answer: body.answer,
+      answer: typeof body.answer === "string" ? body.answer : undefined,
+      skip,
     });
     return Response.json({
       status: session.status,

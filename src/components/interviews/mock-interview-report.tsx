@@ -115,12 +115,18 @@ export function MockInterviewReport({ session }: { session: MockInterviewView })
                 <p className="text-xs font-medium text-muted-foreground">问题 {index + 1}</p>
                 <h4 className="mt-1 text-sm font-semibold text-foreground">{question.question}</h4>
               </div>
-              <Badge tone="brand">{question.evaluation?.score ?? 0} 分</Badge>
+              {question.skipped ? (
+                <Badge tone="warning">已跳过</Badge>
+              ) : (
+                <Badge tone="brand">{question.evaluation?.score ?? 0} 分</Badge>
+              )}
             </div>
-            <details className="mt-3 rounded-lg border border-border bg-surface-subtle p-3">
-              <summary className="cursor-pointer text-sm font-medium text-foreground">查看我的回答</summary>
-              <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{question.answer}</p>
-            </details>
+            {!question.skipped ? (
+              <details className="mt-3 rounded-lg border border-border bg-surface-subtle p-3">
+                <summary className="cursor-pointer text-sm font-medium text-foreground">查看我的回答</summary>
+                <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{question.answer}</p>
+              </details>
+            ) : null}
             {question.teaching ? (
               <details className="mt-3 rounded-lg border border-border bg-surface-subtle p-3">
                 <summary className="cursor-pointer text-sm font-medium text-foreground">
@@ -162,7 +168,7 @@ export function MockInterviewReport({ session }: { session: MockInterviewView })
                 </div>
               </details>
             ) : null}
-            {question.evaluation ? (
+            {!question.skipped && question.evaluation ? (
               <div className="mt-3 grid gap-3">
                 <p className="text-sm leading-6 text-muted-foreground">{question.evaluation.feedback}</p>
                 <div className="grid gap-2 sm:grid-cols-2">

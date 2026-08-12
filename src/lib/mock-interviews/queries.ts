@@ -131,6 +131,7 @@ export async function getMockInterviewView(id: string): Promise<MockInterviewVie
         answer: question.answer ?? "",
         category: question.category,
         sortOrder: question.sortOrder,
+        skipped: Boolean(question.skippedAt),
         ...(completedEvaluation
           ? {
               teaching: buildQuestionTeaching(

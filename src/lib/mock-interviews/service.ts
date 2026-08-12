@@ -12,7 +12,7 @@ import {
 import { evaluateMockInterview } from "./agent";
 import { analyzeMockInterviewJob } from "./job-analysis-agent";
 import { generateMockInterviewPlan } from "./question-generation-agent";
-import { computeQuestionScore } from "./scoring";
+import { computeInterviewTotalScore, computeQuestionScore } from "./scoring";
 import {
   buildMockInterviewContext,
   serializeMockInterviewContext,
@@ -156,10 +156,12 @@ export async function createMockInterview(input: CreateMockInterviewInput) {
 export async function submitMockInterviewAnswer(input: {
   sessionId: string;
   questionId: string;
-  answer: string;
+  answer?: string;
+  skip?: boolean;
 }) {
-  const answer = input.answer.trim();
-  if (!answer || answer.length > 20_000) {
+  const skip = input.skip === true;
+  const answer = input.answer?.trim() ?? "";
+  if (!skip && (!answer || answer.length > 20_000)) {
     throw new Error("回答不能为空，且不能超过 2 万字符。");
   }
 
@@ -181,7 +183,8 @@ export async function submitMockInterviewAnswer(input: {
 
     if (
       question.sortOrder < session.currentQuestionIndex &&
-      question.answer?.trim() === answer
+      ((skip && question.skippedAt) ||
+        (!skip && question.answer?.trim() === answer))
     ) {
       return session;
     }
@@ -211,7 +214,10 @@ export async function submitMockInterviewAnswer(input: {
 
     await tx.interviewQuestion.update({
       where: { id: question.id },
-      data: { answer },
+      data: {
+        answer: skip ? null : answer,
+        skippedAt: skip ? new Date() : null,
+      },
     });
     return tx.mockInterviewSession.findUniqueOrThrow({ where: { id: session.id } });
   });
@@ -247,7 +253,11 @@ export async function completeMockInterview(sessionId: string): Promise<MockInte
   if (existing.status !== "ready_to_evaluate") {
     throw new Error("请先完成全部题目。");
   }
-  if (existing.interview.questions.some((question) => !question.answer?.trim())) {
+  if (
+    existing.interview.questions.some(
+      (question) => !question.answer?.trim() && !question.skippedAt,
+    )
+  ) {
     throw new Error("仍有题目尚未回答。");
   }
 
@@ -264,21 +274,33 @@ export async function completeMockInterview(sessionId: string): Promise<MockInte
   }
 
   try {
-    const output = await evaluateMockInterview({
-      companyName: existing.interview.companyName,
-      jobTitle: existing.interview.jobTitle,
-      jobDescription: existing.jdTextSnapshot,
-      resumeText: existing.resumeTextSnapshot,
-      questions: existing.interview.questions.map((question) => ({
-        id: question.id,
-        question: question.question,
-        answer: question.answer ?? "",
-        rubric: parseJsonArray(question.evaluation?.rubricJson ?? "[]"),
-        expectedSignals: parseJsonArray(
-          question.evaluation?.expectedSignalsJson ?? "[]",
-        ),
-      })),
-    });
+    const answeredQuestions = existing.interview.questions.filter(
+      (question) => !question.skippedAt && question.answer?.trim(),
+    );
+    const output =
+      answeredQuestions.length > 0
+        ? await evaluateMockInterview({
+            companyName: existing.interview.companyName,
+            jobTitle: existing.interview.jobTitle,
+            jobDescription: existing.jdTextSnapshot,
+            resumeText: existing.resumeTextSnapshot,
+            questions: answeredQuestions.map((question) => ({
+              id: question.id,
+              question: question.question,
+              answer: question.answer ?? "",
+              rubric: parseJsonArray(question.evaluation?.rubricJson ?? "[]"),
+              expectedSignals: parseJsonArray(
+                question.evaluation?.expectedSignalsJson ?? "[]",
+              ),
+            })),
+          })
+        : {
+            questionEvaluations: [],
+            summary: "本场所有题目均已跳过，暂时没有可评分的回答。",
+            strengths: [],
+            improvements: ["从一道最熟悉的题目开始练习，先说出思路再逐步补充细节。"],
+            actionPlan: ["重新发起一场模拟面试，并尝试完整回答至少一道题。"],
+          };
     const evaluationsByQuestionId = new Map(
       output.questionEvaluations.map((item) => [item.questionId, item]),
     );
@@ -295,9 +317,8 @@ export async function completeMockInterview(sessionId: string): Promise<MockInte
           : 0,
       };
     });
-    const totalScore = Math.round(
-      scores.reduce((total, item) => total + item.score, 0) /
-        Math.max(scores.length, 1),
+    const totalScore = computeInterviewTotalScore(
+      scores.map((item) => item.score),
     );
     const report: MockInterviewReport = {
       totalScore,

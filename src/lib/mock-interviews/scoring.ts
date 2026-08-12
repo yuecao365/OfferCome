@@ -20,3 +20,10 @@ export function computeQuestionScore(
   }
   return totalWeight > 0 ? Math.round(weightedScore / totalWeight) : 0;
 }
+
+export function computeInterviewTotalScore(questionScores: number[]): number {
+  return Math.round(
+    questionScores.reduce((total, score) => total + score, 0) /
+      Math.max(questionScores.length, 1),
+  );
+}
