@@ -1,6 +1,16 @@
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import type { MockInterviewView } from "@/lib/mock-interviews/types";
+import {
+  MOCK_INTERVIEW_DIFFICULTY_LABELS,
+  type MockInterviewView,
+} from "@/lib/mock-interviews/types";
+
+const SOURCE_LABELS: Record<string, string> = {
+  job_description: "岗位描述",
+  resume: "简历经历",
+  history: "历史回答",
+  profile: "能力画像",
+};
 
 export function MockInterviewReport({ session }: { session: MockInterviewView }) {
   const report = session.report;
@@ -63,6 +73,47 @@ export function MockInterviewReport({ session }: { session: MockInterviewView })
               <summary className="cursor-pointer text-sm font-medium text-foreground">查看我的回答</summary>
               <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{question.answer}</p>
             </details>
+            {question.teaching ? (
+              <details className="mt-3 rounded-lg border border-border bg-surface-subtle p-3">
+                <summary className="cursor-pointer text-sm font-medium text-foreground">
+                  这道题在考察什么
+                </summary>
+                <div className="mt-3 grid gap-3 text-sm leading-6 text-muted-foreground">
+                  <div className="flex flex-wrap gap-2">
+                    {question.teaching.competencyName ? (
+                      <Badge>{question.teaching.competencyName}</Badge>
+                    ) : null}
+                    <Badge>{SOURCE_LABELS[question.teaching.sourceKind] ?? "综合出题"}</Badge>
+                    <Badge>
+                      {MOCK_INTERVIEW_DIFFICULTY_LABELS[
+                        question.teaching.difficulty as keyof typeof MOCK_INTERVIEW_DIFFICULTY_LABELS
+                      ] ?? question.teaching.difficulty}
+                    </Badge>
+                  </div>
+                  {question.teaching.jdEvidence ? (
+                    <blockquote className="border-l-2 border-brand pl-3 italic">
+                      JD 依据：{question.teaching.jdEvidence}
+                    </blockquote>
+                  ) : null}
+                  {question.teaching.expectedSignals.length > 0 ? (
+                    <div>
+                      <p className="font-medium text-foreground">期望信号</p>
+                      <ul className="mt-1 grid gap-1">
+                        {question.teaching.expectedSignals.map((signal) => (
+                          <li key={signal}>· {signal}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                  {question.teaching.rationale ? (
+                    <p>
+                      <span className="font-medium text-foreground">出题理由：</span>
+                      {question.teaching.rationale}
+                    </p>
+                  ) : null}
+                </div>
+              </details>
+            ) : null}
             {question.evaluation ? (
               <div className="mt-3 grid gap-3">
                 <p className="text-sm leading-6 text-muted-foreground">{question.evaluation.feedback}</p>

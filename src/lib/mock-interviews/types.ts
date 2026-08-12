@@ -141,6 +141,15 @@ export type MockInterviewReport = {
   actionPlan: string[];
 };
 
+export type MockInterviewQuestionTeaching = {
+  competencyName: string | null;
+  jdEvidence: string | null;
+  expectedSignals: string[];
+  rationale: string | null;
+  sourceKind: string;
+  difficulty: string;
+};
+
 export type MockInterviewView = {
   id: string;
   interviewId: string;
@@ -158,6 +167,7 @@ export type MockInterviewView = {
     answer: string;
     category: string;
     sortOrder: number;
+    teaching?: MockInterviewQuestionTeaching;
     evaluation: null | {
       score: number | null;
       dimensions: { name: string; score: number; evidence: string }[];

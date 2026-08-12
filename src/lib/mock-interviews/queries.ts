@@ -7,6 +7,7 @@ import {
   type MockInterviewReport,
   type MockInterviewView,
 } from "./types";
+import { buildQuestionTeaching } from "./teaching";
 
 function parseArray<T>(value: string | null): T[] {
   if (!value) return [];
@@ -49,29 +50,41 @@ export async function getMockInterviewView(id: string): Promise<MockInterviewVie
     report: session.reportJson
       ? (JSON.parse(session.reportJson) as MockInterviewReport)
       : null,
-    questions: session.interview.questions.map((question) => ({
-      id: question.id,
-      question: question.question,
-      answer: question.answer ?? "",
-      category: question.category,
-      sortOrder: question.sortOrder,
-      evaluation:
-        session.status === "completed" && question.evaluation
+    questions: session.interview.questions.map((question) => {
+      const completedEvaluation =
+        session.status === "completed" ? question.evaluation : null;
+
+      return {
+        id: question.id,
+        question: question.question,
+        answer: question.answer ?? "",
+        category: question.category,
+        sortOrder: question.sortOrder,
+        ...(completedEvaluation
           ? {
-              score: question.evaluation.score,
+              teaching: buildQuestionTeaching(
+                session.contextSnapshotJson,
+                completedEvaluation,
+              ),
+            }
+          : {}),
+        evaluation: completedEvaluation
+          ? {
+              score: completedEvaluation.score,
               dimensions: parseArray<{
                 name: string;
                 score: number;
                 evidence: string;
-              }>(question.evaluation.dimensionsJson),
-              strengths: parseArray<string>(question.evaluation.strengthsJson),
+              }>(completedEvaluation.dimensionsJson),
+              strengths: parseArray<string>(completedEvaluation.strengthsJson),
               improvements: parseArray<string>(
-                question.evaluation.improvementsJson,
+                completedEvaluation.improvementsJson,
               ),
-              feedback: question.evaluation.feedback ?? "",
+              feedback: completedEvaluation.feedback ?? "",
             }
           : null,
-    })),
+      };
+    }),
   };
 }
 
