@@ -108,12 +108,15 @@ export function MockInterviewReport({ session }: { session: MockInterviewView })
 
       <section className="grid gap-3">
         <h3 className="text-base font-semibold text-foreground">逐题反馈</h3>
-        {session.questions.map((question, index) => (
+        {session.questions.filter((question) => !question.isFollowUp).map((question, index) => (
           <Card className="p-4" key={question.id}>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-xs font-medium text-muted-foreground">问题 {index + 1}</p>
-                <h4 className="mt-1 text-sm font-semibold text-foreground">{question.question}</h4>
+                <div className="mt-1 flex items-center gap-2">
+                  {question.isFollowUp ? <Badge tone="brand">追问</Badge> : null}
+                  <h4 className="text-sm font-semibold text-foreground">{question.question}</h4>
+                </div>
               </div>
               {question.skipped ? (
                 <Badge tone="warning">已跳过</Badge>
@@ -184,6 +187,25 @@ export function MockInterviewReport({ session }: { session: MockInterviewView })
                 </div>
               </div>
             ) : null}
+            {session.questions
+              .filter((followUp) => followUp.parentQuestionId === question.id)
+              .map((followUp) => (
+                <div className="mt-4 border-l-2 border-brand pl-4" key={followUp.id}>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <Badge tone="brand">追问</Badge>
+                      <h5 className="text-sm font-semibold text-foreground">{followUp.question}</h5>
+                    </div>
+                    {followUp.skipped ? <Badge tone="warning">已跳过</Badge> : <Badge>{followUp.evaluation?.score ?? 0} 分</Badge>}
+                  </div>
+                  {!followUp.skipped ? (
+                    <>
+                      <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{followUp.answer}</p>
+                      {followUp.evaluation ? <p className="mt-2 text-sm leading-6 text-muted-foreground">{followUp.evaluation.feedback}</p> : null}
+                    </>
+                  ) : null}
+                </div>
+              ))}
           </Card>
         ))}
       </section>

@@ -31,6 +31,8 @@ function categoryLabel(value: string): string {
 export function MockInterviewRoom({ initial }: { initial: MockInterviewView }) {
   const router = useRouter();
   const [currentIndex, setCurrentIndex] = useState(initial.currentQuestionIndex);
+  const [questions, setQuestions] = useState(initial.questions);
+  const [questionCount, setQuestionCount] = useState(initial.questionCount);
   const [status, setStatus] = useState(initial.status);
   const [answer, setAnswer] = useState("");
   const [pending, setPending] = useState(false);
@@ -45,7 +47,7 @@ export function MockInterviewRoom({ initial }: { initial: MockInterviewView }) {
     setError("");
   }, []);
 
-  const currentQuestion = initial.questions[currentIndex] ?? null;
+  const currentQuestion = questions[currentIndex] ?? null;
   const draftStorageKey = currentQuestion
     ? `mock-answer:${initial.id}:${currentQuestion.id}`
     : null;
@@ -91,12 +93,35 @@ export function MockInterviewRoom({ initial }: { initial: MockInterviewView }) {
       const result = (await response.json()) as {
         status?: string;
         currentQuestionIndex?: number;
+        questionCount?: number;
+        nextQuestion?: {
+          id: string;
+          question: string;
+          category: string;
+          sortOrder: number;
+          isFollowUp: boolean;
+        } | null;
         error?: string;
       };
       if (!response.ok || typeof result.currentQuestionIndex !== "number") {
         throw new Error(result.error ?? "提交回答失败。");
       }
       setCurrentIndex(result.currentQuestionIndex);
+      if (typeof result.questionCount === "number") setQuestionCount(result.questionCount);
+      if (result.nextQuestion && !questions.some((item) => item.id === result.nextQuestion!.id)) {
+        setQuestions((current) => {
+          const next = [...current];
+          next.splice(result.nextQuestion!.sortOrder, 0, {
+            ...result.nextQuestion!,
+            answer: "",
+            skipped: false,
+            parentQuestionId: currentQuestion.id,
+            teaching: undefined,
+            evaluation: null,
+          });
+          return next;
+        });
+      }
       setStatus(result.status ?? "in_progress");
       if (draftStorageKey) window.localStorage.removeItem(draftStorageKey);
       setAnswer("");
@@ -169,7 +194,7 @@ export function MockInterviewRoom({ initial }: { initial: MockInterviewView }) {
       <Card aria-label="面试进度" className="p-4">
         <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
           <div className="flex items-center gap-3">
-            <span className="font-semibold text-foreground">问题 {currentIndex + 1} / {initial.questionCount}</span>
+            <span className="font-semibold text-foreground">问题 {currentIndex + 1} / {questionCount}</span>
             <Badge tone="info">{MOCK_INTERVIEW_MODE_LABELS[mode]}</Badge>
           </div>
           <div className="flex items-center gap-2">
@@ -198,8 +223,8 @@ export function MockInterviewRoom({ initial }: { initial: MockInterviewView }) {
             </Button>
           </div>
         </div>
-        <progress className="mt-3 h-2 w-full accent-brand" max={initial.questionCount} value={currentIndex}>
-          {currentIndex}/{initial.questionCount}
+        <progress className="mt-3 h-2 w-full accent-brand" max={questionCount} value={currentIndex}>
+          {currentIndex}/{questionCount}
         </progress>
       </Card>
 
@@ -207,6 +232,7 @@ export function MockInterviewRoom({ initial }: { initial: MockInterviewView }) {
       <form className="grid gap-4" onSubmit={submitAnswer}>
         <div>
           <Badge>{categoryLabel(currentQuestion.category)}</Badge>
+          {currentQuestion.isFollowUp ? <Badge tone="brand">追问</Badge> : null}
           <h3 className="mt-3 text-lg font-semibold leading-7 text-foreground">{currentQuestion.question}</h3>
         </div>
         {mode === "voice" ? (
@@ -246,7 +272,7 @@ export function MockInterviewRoom({ initial }: { initial: MockInterviewView }) {
             disabled={pending || voiceBusy || !answer.trim()}
             type="submit"
           >
-            {pending ? "正在保存…" : currentIndex + 1 === initial.questionCount ? "提交最后一题" : "提交并进入下一题"}
+            {pending ? "正在保存…" : currentIndex + 1 === questionCount ? "提交最后一题" : "提交并进入下一题"}
           </Button>
           <Button
             disabled={pending || voiceBusy}

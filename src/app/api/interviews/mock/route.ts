@@ -66,6 +66,7 @@ export async function POST(request: Request) {
       difficulty: stringValue(formData, "difficulty") || "standard",
       interactionMode: stringValue(formData, "interactionMode") || "text",
       questionCount: Number(stringValue(formData, "questionCount") || 8),
+      followUpsEnabled: formData.get("followUpsEnabled") === "on",
     });
     if (!result.mockSession) throw new Error("模拟面试会话创建失败。");
     scheduleMockInterviewGeneration(result.mockSession.id);

@@ -28,6 +28,8 @@ import {
 import { getAiTaskConfig } from "@/lib/settings/ai";
 import { assertMockInterviewAiConfigured } from "./agent-runtime";
 import { isMockInterviewGenerationError } from "./errors";
+import { generateMockInterviewFollowUp } from "./follow-up-agent";
+import { canRequestFollowUp } from "./follow-up-policy";
 
 export type CreateMockInterviewInput = {
   companyName: string;
@@ -39,6 +41,7 @@ export type CreateMockInterviewInput = {
   difficulty: string;
   interactionMode: string;
   questionCount: number;
+  followUpsEnabled?: boolean;
 };
 
 function validateCreateInput(input: CreateMockInterviewInput) {
@@ -122,6 +125,7 @@ export async function createMockInterview(input: CreateMockInterviewInput) {
           contextSnapshotJson: JSON.stringify(snapshot),
           status: "generating",
           generationPhase: "job_blueprint",
+          followUpsEnabled: input.followUpsEnabled !== false,
           interactionMode: validated.interactionMode,
           questionCount: validated.questionCount,
           provider: config.provider,
@@ -314,7 +318,7 @@ export async function submitMockInterviewAnswer(input: {
     throw new Error("回答不能为空，且不能超过 2 万字符。");
   }
 
-  return prisma.$transaction(async (tx) => {
+  const submitted = await prisma.$transaction(async (tx) => {
     const session = await tx.mockInterviewSession.findUnique({
       where: { id: input.sessionId },
       include: {
@@ -335,7 +339,7 @@ export async function submitMockInterviewAnswer(input: {
       ((skip && question.skippedAt) ||
         (!skip && question.answer?.trim() === answer))
     ) {
-      return session;
+      return { session, question, newlySubmitted: false };
     }
     if (session.status !== "in_progress") {
       throw new Error("当前面试不能继续提交回答。");
@@ -368,7 +372,140 @@ export async function submitMockInterviewAnswer(input: {
         skippedAt: skip ? new Date() : null,
       },
     });
-    return tx.mockInterviewSession.findUniqueOrThrow({ where: { id: session.id } });
+    return {
+      session: await tx.mockInterviewSession.findUniqueOrThrow({ where: { id: session.id } }),
+      question,
+      newlySubmitted: true,
+    };
+  });
+  if (
+    !submitted.newlySubmitted ||
+    skip ||
+    submitted.question.parentQuestionId ||
+    !submitted.session.followUpsEnabled
+  ) {
+    return submitted.session;
+  }
+
+  const mainQuestionCount = await prisma.interviewQuestion.count({
+    where: { interviewId: submitted.session.interviewId, parentQuestionId: null },
+  });
+  const [followUpCount, existingFollowUp, evaluation] = await Promise.all([
+    prisma.interviewQuestion.count({
+      where: {
+        interviewId: submitted.session.interviewId,
+        parentQuestionId: { not: null },
+      },
+    }),
+    prisma.interviewQuestion.findFirst({
+      where: { parentQuestionId: submitted.question.id },
+      select: { id: true },
+    }),
+    prisma.interviewQuestionEvaluation.findUnique({
+      where: { interviewQuestionId: submitted.question.id },
+    }),
+  ]);
+  if (
+    !canRequestFollowUp({
+      mainQuestionCount,
+      existingFollowUpCount: followUpCount,
+      hasFollowUpForQuestion: Boolean(existingFollowUp),
+    }) ||
+    !evaluation
+  ) {
+    return submitted.session;
+  }
+
+  const snapshot = parseGenerationSnapshot(submitted.session.contextSnapshotJson);
+  const metadata = parseGenerationSnapshot(evaluation.generationMetadataJson);
+  const blueprint = mockInterviewJobBlueprintSchema.safeParse(snapshot.jobBlueprint);
+  const competencyId =
+    typeof metadata.jobCompetencyId === "string"
+      ? metadata.jobCompetencyId
+      : null;
+  const competency =
+    blueprint.success && competencyId
+      ? blueprint.data.competencies.find((item) => item.id === competencyId) ?? null
+      : null;
+  const expectedSignals = parseJsonArray(evaluation.expectedSignalsJson).filter(
+    (item): item is string => typeof item === "string",
+  );
+  const followUp = await generateMockInterviewFollowUp({
+    question: submitted.question.question,
+    answer,
+    competency: competency
+      ? { name: competency.name, jdEvidence: competency.jdEvidence }
+      : null,
+    expectedSignals,
+  });
+  if (!followUp?.question) return submitted.session;
+
+  return prisma.$transaction(async (tx) => {
+    const current = await tx.mockInterviewSession.findUnique({
+      where: { id: submitted.session.id },
+      select: { status: true, currentQuestionIndex: true },
+    });
+    if (
+      !current ||
+      !["in_progress", "ready_to_evaluate"].includes(current.status) ||
+      current.currentQuestionIndex !== submitted.question.sortOrder + 1
+    ) {
+      return submitted.session;
+    }
+    const duplicate = await tx.interviewQuestion.findFirst({
+      where: { parentQuestionId: submitted.question.id },
+      select: { id: true },
+    });
+    if (duplicate) return submitted.session;
+    const claimed = await tx.mockInterviewSession.updateMany({
+      where: {
+        id: submitted.session.id,
+        status: current.status,
+        currentQuestionIndex: current.currentQuestionIndex,
+      },
+      data: { updatedAt: new Date() },
+    });
+    if (claimed.count !== 1) return submitted.session;
+    await tx.interviewQuestion.updateMany({
+      where: {
+        interviewId: submitted.session.interviewId,
+        sortOrder: { gt: submitted.question.sortOrder },
+      },
+      data: { sortOrder: { increment: 1 } },
+    });
+    await tx.interviewQuestion.create({
+      data: {
+        interviewId: submitted.session.interviewId,
+        parentQuestionId: submitted.question.id,
+        question: followUp.question!,
+        category: submitted.question.category,
+        resumeProjectId: submitted.question.resumeProjectId,
+        sortOrder: submitted.question.sortOrder + 1,
+        evaluation: {
+          create: {
+            difficulty: evaluation.difficulty,
+            sourceKind: evaluation.sourceKind,
+            rubricJson: evaluation.rubricJson,
+            expectedSignalsJson: JSON.stringify(
+              followUp.expectedSignals.length > 0
+                ? followUp.expectedSignals
+                : expectedSignals,
+            ),
+            generationMetadataJson: JSON.stringify({
+              followUpOf: submitted.question.id,
+              jobCompetencyId: competencyId,
+            }),
+          },
+        },
+      },
+    });
+    return tx.mockInterviewSession.update({
+      where: { id: submitted.session.id },
+      data: {
+        questionCount: { increment: 1 },
+        status: "in_progress",
+      },
+    });
   });
 }
 

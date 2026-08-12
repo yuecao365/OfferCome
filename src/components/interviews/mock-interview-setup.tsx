@@ -188,6 +188,10 @@ export function MockInterviewSetup({
             })}
           </div>
         </fieldset>
+        <FieldLabel className="mt-5 flex-row items-center gap-2">
+          <input defaultChecked name="followUpsEnabled" type="checkbox" />
+          允许 AI 追问
+        </FieldLabel>
       </Card>
 
       {pending ? (

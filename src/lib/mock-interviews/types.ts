@@ -182,6 +182,8 @@ export type MockInterviewView = {
     category: string;
     sortOrder: number;
     skipped: boolean;
+    isFollowUp: boolean;
+    parentQuestionId: string | null;
     teaching?: MockInterviewQuestionTeaching;
     evaluation: null | {
       score: number | null;

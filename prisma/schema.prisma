@@ -144,6 +144,9 @@ model InterviewQuestion {
   answer          String?
   voiceMetricsJson String?
   skippedAt       DateTime?
+  parentQuestionId String?
+  parentQuestion  InterviewQuestion?          @relation("QuestionFollowUps", fields: [parentQuestionId], references: [id], onDelete: Cascade)
+  followUps       InterviewQuestion[]          @relation("QuestionFollowUps")
   category        String                       @default("general")
   resumeProjectId String?
   resumeProject   ResumeProject?               @relation(fields: [resumeProjectId], references: [id], onDelete: SetNull)
@@ -173,6 +176,7 @@ model MockInterviewSession {
   generationPhase      String?
   generationErrorCode  String?
   generationError      String?
+  followUpsEnabled     Boolean   @default(true)
   interactionMode      String    @default("text")
   currentQuestionIndex Int       @default(0)
   questionCount        Int

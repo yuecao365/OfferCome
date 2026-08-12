@@ -2,7 +2,7 @@ import type { LanguageModelUsage } from "ai";
 
 type GenerationEvent = {
   generationId: string;
-  stage: "job_blueprint" | "questions_initial" | "questions_top_up";
+  stage: "job_blueprint" | "questions_initial" | "questions_top_up" | "follow_up";
   status: "success" | "partial" | "failed";
   provider: string;
   model: string;

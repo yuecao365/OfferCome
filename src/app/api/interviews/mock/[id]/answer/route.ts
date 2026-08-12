@@ -1,4 +1,5 @@
 import { submitMockInterviewAnswer } from "@/lib/mock-interviews/service";
+import { prisma } from "@/lib/db";
 
 export async function POST(
   request: Request,
@@ -24,9 +25,26 @@ export async function POST(
       answer: typeof body.answer === "string" ? body.answer : undefined,
       skip,
     });
+    const nextQuestion = await prisma.interviewQuestion.findFirst({
+      where: {
+        interviewId: session.interviewId,
+        sortOrder: session.currentQuestionIndex,
+      },
+      select: {
+        id: true,
+        question: true,
+        category: true,
+        sortOrder: true,
+        parentQuestionId: true,
+      },
+    });
     return Response.json({
       status: session.status,
       currentQuestionIndex: session.currentQuestionIndex,
+      questionCount: session.questionCount,
+      nextQuestion: nextQuestion
+        ? { ...nextQuestion, isFollowUp: Boolean(nextQuestion.parentQuestionId) }
+        : null,
     });
   } catch (error) {
     return Response.json(
