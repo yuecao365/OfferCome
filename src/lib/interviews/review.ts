@@ -66,6 +66,12 @@ export type QuestionReviewPage = {
   totalPages: number;
 };
 
+export function getLatestAnsweredQuestionId(
+  item: Pick<QuestionReviewItem, "answers">,
+): string | null {
+  return item.answers.find((answer) => answer.answer.trim())?.id ?? null;
+}
+
 function firstParam(value: string | string[] | undefined): string {
   return typeof value === "string" ? value.trim() : "";
 }

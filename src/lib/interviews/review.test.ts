@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  getLatestAnsweredQuestionId,
   groupQuestionReviewItems,
   paginateQuestionReviewItems,
   parseInterviewReviewFilters,
@@ -167,5 +168,29 @@ test("paginates grouped review questions", () => {
       "question-15",
       "question-16",
     ],
+  );
+});
+
+test("selects the newest non-empty answer for directed practice", () => {
+  const base = {
+    companyName: "示例公司",
+    jobTitle: "工程师",
+    interviewedAt: null,
+    round: null,
+  };
+  assert.equal(
+    getLatestAnsweredQuestionId({
+      answers: [
+        { id: "new-empty", answer: "  ", ...base },
+        { id: "older-answer", answer: "有效回答", ...base },
+      ],
+    }),
+    "older-answer",
+  );
+  assert.equal(
+    getLatestAnsweredQuestionId({
+      answers: [{ id: "empty", answer: "", ...base }],
+    }),
+    null,
   );
 });

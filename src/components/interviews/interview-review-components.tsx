@@ -16,6 +16,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/cn";
 import {
+  getLatestAnsweredQuestionId,
   type QuestionReviewItem,
   type QuestionReviewPage,
 } from "@/lib/interviews/review";
@@ -185,11 +186,13 @@ export function QuestionReviewList({
 
   return (
     <div className="grid gap-3">
-      {items.map((item) => (
-        <details
-          className="group overflow-hidden rounded-xl border border-border bg-surface shadow-card"
-          key={`${item.category}-${item.resumeProjectId ?? "none"}-${item.question}`}
-        >
+      {items.map((item) => {
+        const latestAnsweredQuestionId = getLatestAnsweredQuestionId(item);
+        return (
+          <details
+            className="group overflow-hidden rounded-xl border border-border bg-surface shadow-card"
+            key={`${item.category}-${item.resumeProjectId ?? "none"}-${item.question}`}
+          >
           <summary className="flex cursor-pointer list-none items-start justify-between gap-4 p-4 transition-colors hover:bg-surface-subtle">
             <div className="min-w-0">
               <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -207,10 +210,10 @@ export function QuestionReviewList({
             </span>
           </summary>
           <div className="grid gap-3 border-t border-border bg-surface-subtle p-4">
-            {item.answers[0] ? (
+            {latestAnsweredQuestionId ? (
               <div>
                 <ButtonLink
-                  href={`/interviews/mock?seedQuestionId=${encodeURIComponent(item.answers[0].id)}`}
+                  href={`/interviews/mock?seedQuestionId=${encodeURIComponent(latestAnsweredQuestionId)}`}
                   size="sm"
                   variant="outline"
                 >
@@ -230,8 +233,9 @@ export function QuestionReviewList({
               </article>
             ))}
           </div>
-        </details>
-      ))}
+          </details>
+        );
+      })}
     </div>
   );
 }
