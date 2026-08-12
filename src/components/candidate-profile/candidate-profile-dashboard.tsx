@@ -8,7 +8,8 @@ import { CandidateInsightCard } from "./candidate-insight-card";
 import { ProfileGraph, type ProfileGraphInsight } from "./profile-graph";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
   PROFILE_DIMENSIONS,
@@ -198,7 +199,29 @@ export function CandidateProfileDashboard({
     router.refresh();
   };
 
+  const retryRefresh = async () => {
+    setMutating(true);
+    setMessage("");
+    const response = await fetch("/api/candidate-profile/refresh", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ force: true }),
+    });
+    const payload = (await response.json()) as { error?: string };
+    setMutating(false);
+    if (!response.ok) {
+      setIsError(true);
+      setMessage(payload.error ?? "重试画像刷新失败。");
+      return;
+    }
+    setIsError(false);
+    setLiveStatus((current) => ({ ...current, status: "pending" }));
+    setMessage("已重新开始画像刷新，请保持页面打开。");
+  };
+
   const isUpdating = liveStatus.status === "pending" || liveStatus.status === "running";
+  const isEmptyProfile =
+    insights.length === 0 && metrics.every((metric) => metric.interviewCount === 0);
   const statusLabel = isUpdating
     ? liveStatus.phase === "synthesis"
       ? "正在生成新洞察"
@@ -224,11 +247,11 @@ export function CandidateProfileDashboard({
         selectedId={selectedId}
       />
 
-      <div className="absolute left-4 right-24 top-4 z-30 flex max-w-max flex-wrap items-center gap-1.5 rounded-xl border border-white/10 bg-slate-950/80 p-1.5 text-slate-200 shadow-xl backdrop-blur-xl">
-        <span className="hidden items-center gap-2 border-r border-white/10 px-2.5 py-1 text-xs font-semibold sm:inline-flex">
+      <div className="absolute left-4 right-24 top-4 z-30 flex max-w-max flex-wrap items-center gap-1.5 rounded-xl border border-border bg-surface/90 p-1.5 text-foreground shadow-xl backdrop-blur-xl">
+        <span className="hidden items-center gap-2 border-r border-border px-2.5 py-1 text-xs font-semibold sm:inline-flex">
           <i className={`size-1.5 rounded-full ${isUpdating ? "animate-pulse bg-violet-400" : liveStatus.status === "failed" ? "bg-rose-400" : "bg-emerald-400"}`} />
           能力图谱
-          <span className="font-normal text-slate-400">{statusLabel}</span>
+          <span className="font-normal text-muted-foreground">{statusLabel}</span>
         </span>
         <nav aria-label="能力画像视图" className="flex gap-1">
           {views.map((item) => {
@@ -239,8 +262,8 @@ export function CandidateProfileDashboard({
                 aria-label={item.label}
                 className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
                   view === item.id
-                    ? "bg-white/15 text-white"
-                    : "text-slate-400 hover:bg-white/10 hover:text-white"
+                    ? "bg-accent text-accent-foreground"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 }`}
                 key={item.id}
                 onClick={() => setView(item.id)}
@@ -255,7 +278,7 @@ export function CandidateProfileDashboard({
         <button
           aria-expanded={showFilters}
           className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium ${
-            showFilters ? "bg-violet-500/25 text-violet-100" : "text-slate-400 hover:bg-white/10 hover:text-white"
+            showFilters ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
           }`}
           onClick={() => setShowFilters((open) => !open)}
           type="button"
@@ -268,40 +291,40 @@ export function CandidateProfileDashboard({
       {showFilters ? (
         <section
           aria-label="画像筛选"
-          className="absolute left-4 top-16 z-40 grid w-[min(760px,calc(100%-2rem))] gap-3 rounded-xl border border-white/10 bg-slate-950/95 p-4 text-slate-100 shadow-2xl backdrop-blur-xl sm:grid-cols-2 lg:grid-cols-4"
+          className="absolute left-4 top-16 z-40 grid w-[min(760px,calc(100%-2rem))] gap-3 rounded-xl border border-border bg-surface/95 p-4 text-foreground shadow-2xl backdrop-blur-xl sm:grid-cols-2 lg:grid-cols-4"
         >
           <div className="col-span-full flex items-center justify-between">
             <strong className="text-sm">筛选与岗位视角</strong>
-            <button aria-label="关闭筛选" className="rounded-md p-1 text-slate-400 hover:bg-white/10 hover:text-white" onClick={() => setShowFilters(false)} type="button">
+            <button aria-label="关闭筛选" className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setShowFilters(false)} type="button">
               <X aria-hidden="true" className="size-4" />
             </button>
           </div>
-          <label className="text-xs text-slate-400">画像视角
-            <select className="mt-1 block w-full rounded-lg border border-white/10 bg-slate-900 px-2.5 py-2 text-sm text-white" onChange={(event) => setRoleKey(event.target.value)} value={roleKey}>
+          <label className="text-xs text-muted-foreground">画像视角
+            <select className="mt-1 block w-full rounded-lg border border-border bg-surface px-2.5 py-2 text-sm text-foreground" onChange={(event) => setRoleKey(event.target.value)} value={roleKey}>
               <option value="all">全部画像</option>
               {roles.map((role) => <option key={role.key} value={role.key}>{role.displayName}</option>)}
             </select>
           </label>
-          <label className="text-xs text-slate-400">日期范围
-            <select className="mt-1 block w-full rounded-lg border border-white/10 bg-slate-900 px-2.5 py-2 text-sm text-white" onChange={(event) => setDateRange(event.target.value)} value={dateRange}>
+          <label className="text-xs text-muted-foreground">日期范围
+            <select className="mt-1 block w-full rounded-lg border border-border bg-surface px-2.5 py-2 text-sm text-foreground" onChange={(event) => setDateRange(event.target.value)} value={dateRange}>
               <option value="all">全部时间</option><option value="90">近 90 天</option><option value="180">近 180 天</option><option value="365">近一年</option>
             </select>
           </label>
-          <label className="text-xs text-slate-400">证据来源
-            <select className="mt-1 block w-full rounded-lg border border-white/10 bg-slate-900 px-2.5 py-2 text-sm text-white" onChange={(event) => setSourceFilter(event.target.value)} value={sourceFilter}>
+          <label className="text-xs text-muted-foreground">证据来源
+            <select className="mt-1 block w-full rounded-lg border border-border bg-surface px-2.5 py-2 text-sm text-foreground" onChange={(event) => setSourceFilter(event.target.value)} value={sourceFilter}>
               <option value="all">真实 + 模拟</option><option value="real">仅真实面试</option><option value="mock">仅模拟面试</option>
             </select>
           </label>
-          <label className="text-xs text-slate-400">洞察类型
-            <select className="mt-1 block w-full rounded-lg border border-white/10 bg-slate-900 px-2.5 py-2 text-sm text-white" onChange={(event) => setKindFilter(event.target.value)} value={kindFilter}>
+          <label className="text-xs text-muted-foreground">洞察类型
+            <select className="mt-1 block w-full rounded-lg border border-border bg-surface px-2.5 py-2 text-sm text-foreground" onChange={(event) => setKindFilter(event.target.value)} value={kindFilter}>
               <option value="all">全部洞察</option>
               {PROFILE_INSIGHT_KINDS.map((kind) => <option key={kind} value={kind}>{PROFILE_INSIGHT_KIND_LABELS[kind]}</option>)}
             </select>
           </label>
           {roleKey !== "all" && roles.length > 1 ? (
-            <div className="col-span-full flex flex-wrap items-end gap-2 border-t border-white/10 pt-3">
-              <label className="min-w-56 flex-1 text-xs text-slate-400">将当前岗位合并到
-                <select className="mt-1 block w-full rounded-lg border border-white/10 bg-slate-900 px-2.5 py-2 text-sm text-white" onChange={(event) => setMergeTarget(event.target.value)} value={mergeTarget}>
+            <div className="col-span-full flex flex-wrap items-end gap-2 border-t border-border pt-3">
+              <label className="min-w-56 flex-1 text-xs text-muted-foreground">将当前岗位合并到
+                <select className="mt-1 block w-full rounded-lg border border-border bg-surface px-2.5 py-2 text-sm text-foreground" onChange={(event) => setMergeTarget(event.target.value)} value={mergeTarget}>
                   <option value="">选择目标岗位</option>
                   {roles.filter((role) => role.key !== roleKey).map((role) => <option key={role.key} value={role.key}>{role.displayName}</option>)}
                 </select>
@@ -312,10 +335,19 @@ export function CandidateProfileDashboard({
         </section>
       ) : null}
 
-      {message || liveStatus.lastError ? (
+      {message || liveStatus.lastError || isUpdating ? (
         <div className="absolute bottom-16 right-4 z-40 w-[min(420px,calc(100%-2rem))]">
           <Alert tone={isError || liveStatus.lastError ? "danger" : "success"}>
-            {message || `上次自动更新未完成：${liveStatus.lastError}。系统会自动重试。`}
+            <span>
+              {message || (isUpdating
+                ? "刷新在页面打开时进行，保持页面打开可加速。"
+                : `上次自动更新未完成：${liveStatus.lastError}。系统会自动重试。`)}
+              {liveStatus.status === "failed" ? (
+                <Button className="ml-3" disabled={mutating} onClick={retryRefresh} size="sm" variant="outline">
+                  立即重试
+                </Button>
+              ) : null}
+            </span>
           </Alert>
         </div>
       ) : null}
@@ -333,7 +365,7 @@ export function CandidateProfileDashboard({
       ) : null}
 
       {view !== "graph" ? (
-        <section className="absolute bottom-16 right-4 top-16 z-30 w-[min(780px,calc(100%-2rem))] overflow-y-auto rounded-xl border border-white/20 bg-white/95 p-5 shadow-2xl backdrop-blur-xl">
+        <section className="absolute bottom-16 right-4 top-16 z-30 w-[min(780px,calc(100%-2rem))] overflow-y-auto rounded-xl border border-border bg-surface/95 p-5 text-foreground shadow-2xl backdrop-blur-xl">
           <div className="mb-5 flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">能力图谱分析</p>
@@ -353,6 +385,9 @@ export function CandidateProfileDashboard({
                     if (insight) {
                       setSelectedId(insight.id);
                       setView("graph");
+                    } else {
+                      setIsError(false);
+                      setMessage("该维度还没有洞察，先积累面试证据。");
                     }
                   }} type="button">
                     <span className="text-xs text-muted-foreground">{PROFILE_DIMENSION_LABELS[dimension]}</span>
@@ -380,6 +415,19 @@ export function CandidateProfileDashboard({
           )}
         </section>
       ) : null}
+
+      {isEmptyProfile && view === "graph" ? (
+        <Card className="absolute left-1/2 top-1/2 z-20 w-[min(520px,calc(100%-2rem))] -translate-x-1/2 -translate-y-1/2 p-6 text-center">
+          <h2 className="text-lg font-semibold text-foreground">画像需要至少两场有效面试</h2>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            完成训练或导入真实面试后，系统会逐步形成可解释的能力洞察。
+          </p>
+          <div className="mt-4 flex flex-wrap justify-center gap-3">
+            <ButtonLink href="/interviews/mock">先做一场 AI 模拟面试</ButtonLink>
+            <ButtonLink href="/interviews/history" variant="outline">导入真实面试记录</ButtonLink>
+          </div>
+        </Card>
+      ) : null}
     </div>
   );
 }
@@ -396,7 +444,7 @@ function InsightDetail({ insight, metrics, snapshots, onClose, onCorrect }: {
     const item = snapshot.metrics.find((entry) => entry.dimension === insight.dimension);
     return item?.level === null || item?.level === undefined ? [] : [{ date: snapshot.createdAt, level: item.level }];
   }).reverse();
-  return <aside className="h-full overflow-y-auto rounded-xl border border-white/20 bg-white/95 p-5 shadow-2xl backdrop-blur-xl">
+  return <aside className="h-full overflow-y-auto rounded-xl border border-border bg-surface/95 p-5 text-foreground shadow-2xl backdrop-blur-xl">
     <div className="flex items-start justify-between gap-3"><div className="flex flex-wrap gap-2"><Badge tone="brand">{PROFILE_INSIGHT_KIND_LABELS[insight.kind]}</Badge><Badge>{PROFILE_DIMENSION_LABELS[insight.dimension]}</Badge></div><button aria-label="关闭洞察详情" className="rounded px-2 py-1 text-sm text-muted-foreground hover:bg-muted" onClick={onClose} type="button">×</button></div>
     <h2 className="mt-3 text-lg font-semibold">{insight.title}</h2>
     <p className="mt-2 text-sm leading-6 text-muted-foreground">{insight.statement}</p>
@@ -431,10 +479,10 @@ function MiniHistory({ points }: { points: Array<{ date: string; level: number }
   const width = 280;
   const height = 84;
   const path = points.map((point, index) => `${(index / Math.max(1, points.length - 1)) * width},${height - ((point.level - 1) / 4) * height}`).join(" ");
-  return <div className="mt-5"><p className="mb-2 text-xs text-muted-foreground">历史等级曲线</p><svg aria-label="历史等级变化" className="w-full" role="img" viewBox={`0 0 ${width} ${height}`}><polyline fill="none" points={path} stroke="#2563eb" strokeWidth="3" /></svg></div>;
+  return <div className="mt-5"><p className="mb-2 text-xs text-muted-foreground">历史等级曲线</p><svg aria-label="历史等级变化" className="w-full text-brand" role="img" viewBox={`0 0 ${width} ${height}`}><polyline fill="none" points={path} stroke="currentColor" strokeWidth="3" /></svg></div>;
 }
 
 function ProfileTimeline({ snapshots }: { snapshots: ProfileSnapshotValue[] }) {
   if (snapshots.length === 0) return <EmptyState description="成功刷新画像后会生成可比较的历史快照。" title="还没有画像快照" />;
-  return <div className="grid gap-3">{snapshots.map((snapshot) => <article className="rounded-xl border border-border bg-white p-4" key={snapshot.id}><div className="flex justify-between"><strong>画像版本 {snapshot.revision}</strong><time className="text-sm text-muted-foreground">{new Date(snapshot.createdAt).toLocaleString("zh-CN")}</time></div><div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">{snapshot.metrics.map((metric) => <div className="text-sm" key={metric.dimension}><span className="text-muted-foreground">{PROFILE_DIMENSION_LABELS[metric.dimension]}</span><strong className="ml-2">{metric.levelLabel}</strong></div>)}</div></article>)}</div>;
+  return <div className="grid gap-3">{snapshots.map((snapshot) => <article className="rounded-xl border border-border bg-surface p-4" key={snapshot.id}><div className="flex justify-between"><strong>画像版本 {snapshot.revision}</strong><time className="text-sm text-muted-foreground">{new Date(snapshot.createdAt).toLocaleString("zh-CN")}</time></div><div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">{snapshot.metrics.map((metric) => <div className="text-sm" key={metric.dimension}><span className="text-muted-foreground">{PROFILE_DIMENSION_LABELS[metric.dimension]}</span><strong className="ml-2">{metric.levelLabel}</strong></div>)}</div></article>)}</div>;
 }
