@@ -165,6 +165,9 @@ export type MockInterviewView = {
   companyName: string;
   jobTitle: string;
   status: string;
+  generationPhase: string | null;
+  generationErrorCode: string | null;
+  generationError: string | null;
   interactionMode: MockInterviewMode;
   currentQuestionIndex: number;
   questionCount: number;

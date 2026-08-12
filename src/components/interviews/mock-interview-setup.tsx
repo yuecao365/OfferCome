@@ -194,9 +194,9 @@ export function MockInterviewSetup({
         <Alert tone="info">
           <span className="flex items-center gap-2 font-semibold">
             <LoaderCircle aria-hidden="true" className="size-4 animate-spin" />
-            正在读取 JD 与简历并生成问题
+            正在创建面试房间…
           </span>
-          <span className="mt-1 block">生成完成后会自动进入面试房间，请不要重复提交或关闭页面。</span>
+          <span className="mt-1 block">创建后会立即进入房间，面试题将在后台生成。</span>
         </Alert>
       ) : null}
       {error ? <Alert tone="danger">{error}</Alert> : null}

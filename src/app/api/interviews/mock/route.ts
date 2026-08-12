@@ -3,6 +3,7 @@ import path from "node:path";
 import { extractDocumentText } from "@/lib/documents/extract-text";
 import { isMockInterviewGenerationError } from "@/lib/mock-interviews/errors";
 import { createMockInterview } from "@/lib/mock-interviews/service";
+import { scheduleMockInterviewGeneration } from "@/lib/mock-interviews/generation-background";
 
 const MAX_JD_BYTES = 10 * 1024 * 1024;
 const MAX_JD_TEXT = 100_000;
@@ -67,6 +68,7 @@ export async function POST(request: Request) {
       questionCount: Number(stringValue(formData, "questionCount") || 8),
     });
     if (!result.mockSession) throw new Error("模拟面试会话创建失败。");
+    scheduleMockInterviewGeneration(result.mockSession.id);
     return Response.json({
       id: result.mockSession.id,
       interviewId: result.id,

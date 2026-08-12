@@ -23,7 +23,11 @@ import {
   MOCK_INTERVIEW_PROMPT_VERSION,
   type MockInterviewMode,
   type MockInterviewReport,
+  mockInterviewJobBlueprintSchema,
 } from "./types";
+import { getAiTaskConfig } from "@/lib/settings/ai";
+import { assertMockInterviewAiConfigured } from "./agent-runtime";
+import { isMockInterviewGenerationError } from "./errors";
 
 export type CreateMockInterviewInput = {
   companyName: string;
@@ -65,32 +69,40 @@ function validateCreateInput(input: CreateMockInterviewInput) {
   };
 }
 
+type GenerationSnapshot = {
+  jobBlueprint?: unknown;
+  generationRequest?: { difficulty?: unknown; round?: unknown };
+  [key: string]: unknown;
+};
+
+function parseGenerationSnapshot(value: string): GenerationSnapshot {
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return parsed && typeof parsed === "object"
+      ? (parsed as GenerationSnapshot)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
 export async function createMockInterview(input: CreateMockInterviewInput) {
   const validated = validateCreateInput(input);
-  const generationId = randomUUID();
-  const [context, jobBlueprint] = await Promise.all([
+  const [context, config] = await Promise.all([
     buildMockInterviewContext({
       resumeId: input.resumeId,
       jobTitle: validated.jobTitle,
       jobDescription: validated.jobDescription,
     }),
-    analyzeMockInterviewJob({
-      generationId,
-      jobTitle: validated.jobTitle,
-      jobDescription: validated.jobDescription,
-    }),
+    getAiTaskConfig("text"),
   ]);
-  const generated = await generateMockInterviewPlan({
-    generationId,
-    context,
-    blueprint: jobBlueprint,
-    jobTitle: validated.jobTitle,
-    questionCount: validated.questionCount,
+  assertMockInterviewAiConfigured(config);
+  const now = new Date();
+  const snapshot = parseGenerationSnapshot(serializeMockInterviewContext(context));
+  snapshot.generationRequest = {
     difficulty: input.difficulty,
     round: input.round,
-  });
-  const projectIds = new Set(context.projects.map((project) => project.id));
-  const now = new Date();
+  };
 
   return prisma.interview.create({
     data: {
@@ -99,7 +111,7 @@ export async function createMockInterview(input: CreateMockInterviewInput) {
       jobTitle: validated.jobTitle,
       scheduledAt: now,
       round: normalizeInterviewRound(input.round),
-      status: ACTIVE_MOCK_INTERVIEW_STATUS,
+      status: "generating",
       note: "AI 模拟面试",
       mockSession: {
         create: {
@@ -107,50 +119,187 @@ export async function createMockInterview(input: CreateMockInterviewInput) {
           jdOriginalName: input.jdOriginalName,
           jdTextSnapshot: validated.jobDescription,
           resumeTextSnapshot: context.resume.text,
+          contextSnapshotJson: JSON.stringify(snapshot),
+          status: "generating",
+          generationPhase: "job_blueprint",
+          interactionMode: validated.interactionMode,
+          questionCount: validated.questionCount,
+          provider: config.provider,
+          model: config.model,
+          promptVersion: MOCK_INTERVIEW_PROMPT_VERSION,
+        },
+      },
+    },
+    select: { id: true, mockSession: { select: { id: true } } },
+  });
+}
+
+export async function generateMockInterviewQuestions(
+  sessionId: string,
+): Promise<void> {
+  const session = await prisma.mockInterviewSession.findUnique({
+    where: { id: sessionId },
+    include: {
+      interview: { select: { companyName: true, jobTitle: true } },
+    },
+  });
+  if (!session || session.status !== "generating" || !session.resumeId) return;
+
+  const generationId = randomUUID();
+  const snapshot = parseGenerationSnapshot(session.contextSnapshotJson);
+  const request = snapshot.generationRequest ?? {};
+  const difficulty =
+    typeof request.difficulty === "string" ? request.difficulty : "standard";
+  const round = typeof request.round === "string" ? request.round : null;
+
+  try {
+    const context = await buildMockInterviewContext({
+      resumeId: session.resumeId,
+      jobTitle: session.interview.jobTitle,
+      jobDescription: session.jdTextSnapshot,
+    });
+    const storedBlueprint = mockInterviewJobBlueprintSchema.safeParse(
+      snapshot.jobBlueprint,
+    );
+    let blueprint = storedBlueprint.success ? storedBlueprint.data : null;
+    if (!blueprint) {
+      await prisma.mockInterviewSession.updateMany({
+        where: { id: sessionId, status: "generating" },
+        data: { generationPhase: "job_blueprint" },
+      });
+      blueprint = await analyzeMockInterviewJob({
+        generationId,
+        jobTitle: session.interview.jobTitle,
+        jobDescription: session.jdTextSnapshot,
+      });
+      snapshot.jobBlueprint = blueprint;
+      const saved = await prisma.mockInterviewSession.updateMany({
+        where: { id: sessionId, status: "generating" },
+        data: { contextSnapshotJson: JSON.stringify(snapshot) },
+      });
+      if (saved.count !== 1) return;
+    }
+
+    const advanced = await prisma.mockInterviewSession.updateMany({
+      where: { id: sessionId, status: "generating" },
+      data: { generationPhase: "questions" },
+    });
+    if (advanced.count !== 1) return;
+    const generated = await generateMockInterviewPlan({
+      generationId,
+      context,
+      blueprint,
+      jobTitle: session.interview.jobTitle,
+      questionCount: session.questionCount,
+      difficulty,
+      round,
+    });
+    const projectIds = new Set(context.projects.map((project) => project.id));
+
+    await prisma.$transaction(async (tx) => {
+      const claimed = await tx.mockInterviewSession.updateMany({
+        where: {
+          id: sessionId,
+          status: "generating",
+          generationPhase: "questions",
+        },
+        data: { generationPhase: "persisting" },
+      });
+      if (claimed.count !== 1) return;
+      const existingQuestionCount = await tx.interviewQuestion.count({
+        where: { interviewId: session.interviewId },
+      });
+      if (existingQuestionCount > 0) {
+        throw new Error("模拟面试题目已经生成，请刷新页面。");
+      }
+      for (const [index, question] of generated.plan.questions.entries()) {
+        await tx.interviewQuestion.create({
+          data: {
+            interviewId: session.interviewId,
+            question: question.question.trim(),
+            answer: null,
+            category: question.category,
+            resumeProjectId:
+              question.category === "resume_project" &&
+              question.resumeProjectId &&
+              projectIds.has(question.resumeProjectId)
+                ? question.resumeProjectId
+                : null,
+            sortOrder: index,
+            evaluation: {
+              create: {
+                difficulty: question.difficulty,
+                sourceKind: question.sourceKind,
+                rubricJson: JSON.stringify(question.rubric),
+                expectedSignalsJson: JSON.stringify(question.expectedSignals),
+                generationMetadataJson: JSON.stringify({
+                  jobCompetencyId: question.jobCompetencyId,
+                  jdEvidence: question.jdEvidence,
+                  relevanceScore: question.relevanceScore,
+                  personalizationSourceId: question.personalizationSourceId,
+                  rationale: question.rationale,
+                }),
+              },
+            },
+          },
+        });
+      }
+      const completed = await tx.mockInterviewSession.updateMany({
+        where: {
+          id: sessionId,
+          status: "generating",
+          generationPhase: "persisting",
+        },
+        data: {
           contextSnapshotJson: serializeMockInterviewContext(context, {
             blueprint: generated.blueprint,
             personalization: generated.personalization,
           }),
           status: "in_progress",
-          interactionMode: validated.interactionMode,
-          questionCount: validated.questionCount,
-          provider: generated.provider,
-          model: generated.model,
-          promptVersion: MOCK_INTERVIEW_PROMPT_VERSION,
+          generationPhase: null,
+          generationErrorCode: null,
+          generationError: null,
         },
+      });
+      if (completed.count !== 1) {
+        throw new Error("生成状态已变化，请刷新页面。");
+      }
+      await tx.interview.update({
+        where: { id: session.interviewId },
+        data: { status: ACTIVE_MOCK_INTERVIEW_STATUS },
+      });
+    });
+  } catch (error) {
+    const code = isMockInterviewGenerationError(error)
+      ? error.code
+      : "model_unavailable";
+    const message =
+      error instanceof Error ? error.message.slice(0, 1_000) : "生成面试题失败。";
+    await prisma.mockInterviewSession.updateMany({
+      where: { id: sessionId, status: "generating" },
+      data: {
+        status: "generation_failed",
+        generationPhase: null,
+        generationErrorCode: code,
+        generationError: message,
       },
-      questions: {
-        create: generated.plan.questions.map((question, index) => ({
-          question: question.question.trim(),
-          answer: null,
-          category: question.category,
-          resumeProjectId:
-            question.category === "resume_project" &&
-            question.resumeProjectId &&
-            projectIds.has(question.resumeProjectId)
-              ? question.resumeProjectId
-              : null,
-          sortOrder: index,
-          evaluation: {
-            create: {
-              difficulty: question.difficulty,
-              sourceKind: question.sourceKind,
-              rubricJson: JSON.stringify(question.rubric),
-              expectedSignalsJson: JSON.stringify(question.expectedSignals),
-              generationMetadataJson: JSON.stringify({
-                jobCompetencyId: question.jobCompetencyId,
-                jdEvidence: question.jdEvidence,
-                relevanceScore: question.relevanceScore,
-                personalizationSourceId: question.personalizationSourceId,
-                rationale: question.rationale,
-              }),
-            },
-          },
-        })),
-      },
+    });
+  }
+}
+
+export async function claimMockInterviewGenerationRetry(
+  sessionId: string,
+): Promise<boolean> {
+  const result = await prisma.mockInterviewSession.updateMany({
+    where: { id: sessionId, status: "generation_failed" },
+    data: {
+      status: "generating",
+      generationPhase: "job_blueprint",
+      generationErrorCode: null,
+      generationError: null,
     },
-    select: { id: true, mockSession: { select: { id: true } } },
   });
+  return result.count === 1;
 }
 
 export async function submitMockInterviewAnswer(input: {

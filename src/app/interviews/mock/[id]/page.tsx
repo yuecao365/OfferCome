@@ -3,6 +3,7 @@ import { connection } from "next/server";
 
 import { AppShell } from "@/components/app-shell";
 import { MockInterviewRoom } from "@/components/interviews/mock-interview-room";
+import { MockInterviewGenerationProgress } from "@/components/interviews/mock-interview-generation-progress";
 import { PageHeader } from "@/components/page-header";
 import { ButtonLink } from "@/components/ui/button";
 import { getMockInterviewView } from "@/lib/mock-interviews/queries";
@@ -29,7 +30,19 @@ export default async function MockInterviewPage({
         eyebrow="AI 模拟面试"
         title={`${session.companyName} · ${session.jobTitle}`}
       />
-      <MockInterviewRoom initial={session} />
+      {session.status === "generating" || session.status === "generation_failed" ? (
+        <MockInterviewGenerationProgress
+          initial={{
+            status: session.status,
+            generationPhase: session.generationPhase,
+            errorCode: session.generationErrorCode,
+            error: session.generationError,
+          }}
+          sessionId={session.id}
+        />
+      ) : (
+        <MockInterviewRoom initial={session} />
+      )}
     </AppShell>
   );
 }

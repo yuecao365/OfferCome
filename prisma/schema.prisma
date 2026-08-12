@@ -170,6 +170,9 @@ model MockInterviewSession {
   resumeTextSnapshot   String
   contextSnapshotJson  String
   status               String    @default("generating")
+  generationPhase      String?
+  generationErrorCode  String?
+  generationError      String?
   interactionMode      String    @default("text")
   currentQuestionIndex Int       @default(0)
   questionCount        Int

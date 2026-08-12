@@ -111,6 +111,9 @@ export async function getMockInterviewView(id: string): Promise<MockInterviewVie
     companyName: session.interview.companyName,
     jobTitle: session.interview.jobTitle,
     status: session.status,
+    generationPhase: session.generationPhase,
+    generationErrorCode: session.generationErrorCode,
+    generationError: session.generationError,
     interactionMode: isMockInterviewMode(session.interactionMode)
       ? session.interactionMode
       : "text",
