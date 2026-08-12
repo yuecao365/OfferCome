@@ -142,6 +142,7 @@ model InterviewQuestion {
   interview       Interview                    @relation(fields: [interviewId], references: [id], onDelete: Cascade)
   question        String
   answer          String?
+  voiceMetricsJson String?
   category        String                       @default("general")
   resumeProjectId String?
   resumeProject   ResumeProject?               @relation(fields: [resumeProjectId], references: [id], onDelete: SetNull)

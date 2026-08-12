@@ -33,6 +33,47 @@ export const voiceMetricsSchema = z.object({
 
 export type VoiceMetrics = z.infer<typeof voiceMetricsSchema>;
 
+function pauseSeconds(metrics: VoiceMetrics): number {
+  if (metrics.pauseRatio >= 1) return Number.POSITIVE_INFINITY;
+  return (
+    (metrics.pauseRatio / (1 - metrics.pauseRatio)) *
+    metrics.effectiveSpeakingSeconds
+  );
+}
+
+export function mergeVoiceMetrics(
+  existing: VoiceMetrics | null,
+  incoming: VoiceMetrics | null,
+): VoiceMetrics | null {
+  if (!existing) return incoming ? { ...incoming } : null;
+  if (!incoming) return { ...existing };
+
+  const effectiveSpeakingSeconds =
+    existing.effectiveSpeakingSeconds + incoming.effectiveSpeakingSeconds;
+  const tokenCount = existing.tokenCount + incoming.tokenCount;
+  const totalPauseSeconds = pauseSeconds(existing) + pauseSeconds(incoming);
+  const fillerCount =
+    existing.fillerDensity * existing.tokenCount +
+    incoming.fillerDensity * incoming.tokenCount;
+
+  return {
+    candidateSpeaker:
+      existing.candidateSpeaker === incoming.candidateSpeaker
+        ? existing.candidateSpeaker
+        : null,
+    effectiveSpeakingSeconds,
+    tokenCount,
+    longPauseCount: existing.longPauseCount + incoming.longPauseCount,
+    pauseRatio: Number.isFinite(totalPauseSeconds)
+      ? totalPauseSeconds / (totalPauseSeconds + effectiveSpeakingSeconds)
+      : 1,
+    speakingRatePerMinute: effectiveSpeakingSeconds
+      ? (tokenCount / effectiveSpeakingSeconds) * 60
+      : 0,
+    fillerDensity: tokenCount ? fillerCount / tokenCount : 0,
+  };
+}
+
 const FILLER_PATTERN = /(?:嗯+|呃+|额+|然后|就是说|那个|这个|um+|uh+|like)/giu;
 
 function speechTokenCount(text: string): number {

@@ -16,6 +16,7 @@ const MAX_RECORDING_MS = 5 * 60_000;
 type MockInterviewVoiceControlsProps = {
   disabled: boolean;
   question: string;
+  questionId: string;
   sessionId: string;
   onBusyChange: (busy: boolean) => void;
   onError: (message: string) => void;
@@ -29,6 +30,7 @@ function stopStream(stream: MediaStream | null): void {
 export function MockInterviewVoiceControls({
   disabled,
   question,
+  questionId,
   sessionId,
   onBusyChange,
   onError,
@@ -95,6 +97,7 @@ export function MockInterviewVoiceControls({
           "audio",
           new File([blob], `answer.${extension}`, { type: mediaType }),
         );
+        formData.append("questionId", questionId);
         const response = await fetch(
           `/api/interviews/mock/${sessionId}/transcribe`,
           { method: "POST", body: formData },
@@ -115,7 +118,7 @@ export function MockInterviewVoiceControls({
         if (mountedRef.current) setRecordingPhase("idle");
       }
     },
-    [onError, onTranscript, sessionId, setRecordingPhase],
+    [onError, onTranscript, questionId, sessionId, setRecordingPhase],
   );
 
   const startRecording = async () => {

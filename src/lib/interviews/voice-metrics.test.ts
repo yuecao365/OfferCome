@@ -1,7 +1,22 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { deriveDeliveryObservation, deriveVoiceMetrics } from "./voice-metrics";
+import {
+  deriveDeliveryObservation,
+  deriveVoiceMetrics,
+  mergeVoiceMetrics,
+  type VoiceMetrics,
+} from "./voice-metrics";
+
+const firstMetrics: VoiceMetrics = {
+  candidateSpeaker: null,
+  speakingRatePerMinute: 120,
+  effectiveSpeakingSeconds: 30,
+  pauseRatio: 0.25,
+  longPauseCount: 1,
+  fillerDensity: 0.1,
+  tokenCount: 60,
+};
 
 test("derives metrics only for the selected speaker", () => {
   const metrics = deriveVoiceMetrics(
@@ -35,4 +50,28 @@ test("requires enough recorded speech before producing a fluency observation", (
     tokenCount: 5,
   };
   assert.equal(deriveDeliveryObservation(JSON.stringify(short)), null);
+});
+
+test("mergeVoiceMetrics preserves a single recording", () => {
+  assert.deepEqual(mergeVoiceMetrics(null, firstMetrics), firstMetrics);
+  assert.deepEqual(mergeVoiceMetrics(firstMetrics, null), firstMetrics);
+});
+
+test("mergeVoiceMetrics recomputes rates and ratios across recordings", () => {
+  const merged = mergeVoiceMetrics(firstMetrics, {
+    candidateSpeaker: null,
+    speakingRatePerMinute: 80,
+    effectiveSpeakingSeconds: 30,
+    pauseRatio: 0.5,
+    longPauseCount: 2,
+    fillerDensity: 0.05,
+    tokenCount: 40,
+  });
+
+  assert.equal(merged?.effectiveSpeakingSeconds, 60);
+  assert.equal(merged?.tokenCount, 100);
+  assert.equal(merged?.longPauseCount, 3);
+  assert.equal(merged?.speakingRatePerMinute, 100);
+  assert.equal(merged?.pauseRatio, 0.4);
+  assert.equal(merged?.fillerDensity, 0.08);
 });

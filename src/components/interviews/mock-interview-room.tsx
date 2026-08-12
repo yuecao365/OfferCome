@@ -176,6 +176,7 @@ export function MockInterviewRoom({ initial }: { initial: MockInterviewView }) {
             onError={setError}
             onTranscript={handleTranscript}
             question={currentQuestion.question}
+            questionId={currentQuestion.id}
             sessionId={initial.id}
           />
         ) : null}

@@ -86,6 +86,7 @@ function interviewSourceHash(interview: CompletedInterview): string {
           question: question.question,
           answer: question.answer,
           category: question.category,
+          voiceMetricsJson: question.voiceMetricsJson,
           evaluation: question.evaluation
             ? {
                 score: question.evaluation.score,
@@ -226,8 +227,45 @@ async function assessInterview(interview: CompletedInterview, sourceHash: string
         userCorrectedAt: correction?.userCorrectedAt ?? null,
       };
     });
+    const mockDeliveryObservations =
+      interview.kind === "mock"
+        ? interview.questions.flatMap((question) => {
+            if (!question.voiceMetricsJson) return [];
+            const delivery = deriveDeliveryObservation(question.voiceMetricsJson);
+            if (!delivery) return [];
+            const correction = correctionBySource.get(
+              `${question.id}:delivery_fluency`,
+            );
+            return [
+              {
+                assessmentId: assessment.id,
+                interviewId: interview.id,
+                questionId: question.id,
+                dimension: normalizeProfileDimension(
+                  correction?.dimension ?? "delivery_fluency",
+                )!,
+                score: delivery.score,
+                modelConfidence: delivery.confidence,
+                evidenceExcerpt: delivery.summary,
+                sourceType: "mock_text" as const,
+                sourceWeight: profileSourceWeight("mock_text"),
+                roleKey,
+                speechMetricsJson: question.voiceMetricsJson,
+                status: correction?.status === "excluded" ? "excluded" : "active",
+                originalDimension: correction?.originalDimension ?? null,
+                userCorrectedAt: correction?.userCorrectedAt ?? null,
+              },
+            ];
+          })
+        : [];
     const dimensionsByQuestion = new Map<string, ProfileDimension[]>();
     for (const item of correctedObservations) {
+      dimensionsByQuestion.set(item.questionId, [
+        ...(dimensionsByQuestion.get(item.questionId) ?? []),
+        item.dimension,
+      ]);
+    }
+    for (const item of mockDeliveryObservations) {
       dimensionsByQuestion.set(item.questionId, [
         ...(dimensionsByQuestion.get(item.questionId) ?? []),
         item.dimension,
@@ -257,6 +295,11 @@ async function assessInterview(interview: CompletedInterview, sourceHash: string
             originalDimension: item.originalDimension,
             userCorrectedAt: item.userCorrectedAt,
           })),
+        });
+      }
+      if (mockDeliveryObservations.length > 0) {
+        await tx.abilityObservation.createMany({
+          data: mockDeliveryObservations,
         });
       }
       if (delivery) {
