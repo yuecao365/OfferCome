@@ -1,5 +1,6 @@
 import {
   BossBrowserLoginRequiredError,
+  BossBrowserClosedError,
   collectBossContactsFromBrowser,
   type BossBrowserCollectionResult,
   type BossBrowserPageDiagnostics,
@@ -165,6 +166,11 @@ export async function runBossSync(
   } catch (error) {
     if (error instanceof BossBrowserLoginRequiredError) {
       return loginRequiredResult(error.message);
+    }
+
+    if (error instanceof BossBrowserClosedError) {
+      options.onWarning?.("Boss browser window closed during sync.", error);
+      return failedResult(error.message);
     }
 
     options.onWarning?.("Boss browser sync failed.", error);

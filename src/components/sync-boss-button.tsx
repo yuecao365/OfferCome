@@ -1,6 +1,6 @@
 "use client";
 
-import { LogIn, RefreshCw } from "lucide-react";
+import { LogIn, RefreshCw, RotateCcw, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -189,9 +189,13 @@ function SyncResultModal({
 
 function SyncStatus({
   message,
+  onDismiss,
+  onRetry,
   phase,
 }: {
   message: string;
+  onDismiss: () => void;
+  onRetry: () => void;
   phase: SyncPhase;
 }) {
   if (!message || phase === "success") {
@@ -199,12 +203,35 @@ function SyncStatus({
   }
 
   return (
-    <Alert
-      className="w-full max-w-xl text-left"
-      tone={phase === "failed" ? "danger" : "info"}
-    >
-      <p>{message}</p>
-    </Alert>
+    <div className="absolute right-0 top-full z-30 mt-2 w-[min(22rem,calc(100vw-2rem))] text-left shadow-lg">
+      <Alert
+        className="relative pr-10"
+        tone={phase === "failed" ? "danger" : "info"}
+      >
+        <div className="grid gap-2.5">
+          <div>
+            <p className="font-semibold">
+              {phase === "failed" ? "Boss 同步未完成" : "正在等待 Boss"}
+            </p>
+            <p className="mt-0.5 text-xs leading-5 opacity-90">{message}</p>
+          </div>
+          {phase === "failed" ? (
+            <Button onClick={onRetry} size="sm" variant="outline">
+              <RotateCcw aria-hidden="true" className="size-3.5" />
+              重新同步
+            </Button>
+          ) : null}
+        </div>
+        <button
+          aria-label="关闭同步提示"
+          className="absolute right-2 top-2 rounded-md p-1 opacity-70 transition hover:bg-black/5 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          onClick={onDismiss}
+          type="button"
+        >
+          <X aria-hidden="true" className="size-4" />
+        </button>
+      </Alert>
+    </div>
   );
 }
 
@@ -226,7 +253,9 @@ export function SyncBossButton() {
     }
 
     setPhase("syncing");
-    setMessage("");
+    setMessage(
+      "正在打开 Boss 同步窗口。若页面要求登录或安全验证，请手动完成并保持窗口打开，同步会自动继续。",
+    );
     setSyncResult(null);
 
     try {
@@ -273,7 +302,7 @@ export function SyncBossButton() {
         : "同步 Boss 新投递岗位";
 
   return (
-    <div className="flex flex-col items-start gap-2 sm:items-end">
+    <div className="relative flex items-center">
       <Button disabled={isBusy} onClick={handleClick} variant="secondary">
         {phase === "login" ? (
           <LogIn aria-hidden="true" className="size-4" />
@@ -285,7 +314,15 @@ export function SyncBossButton() {
         )}
         {buttonLabel}
       </Button>
-      <SyncStatus message={message} phase={phase} />
+      <SyncStatus
+        message={message}
+        onDismiss={() => {
+          setMessage("");
+          if (phase === "failed") setPhase("idle");
+        }}
+        onRetry={handleClick}
+        phase={phase}
+      />
       {syncResult ? (
         <SyncResultModal
           onClose={() => setSyncResult(null)}

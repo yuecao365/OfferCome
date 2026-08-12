@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  BossBrowserClosedError,
   BossBrowserLoginRequiredError,
   type BossBrowserCollectionResult,
 } from "./browser-collector";
@@ -54,6 +55,19 @@ test("returns login_required when the browser collector requires login", async (
   assert.equal(result.success, false);
   assert.equal(result.status, "login_required");
   assert.match(result.message, /登录|验证/);
+});
+
+test("preserves an actionable message when the sync browser is closed", async () => {
+  const result = await runBossSync({
+    db: noopDb,
+    collectContacts: async () => {
+      throw new BossBrowserClosedError();
+    },
+  });
+
+  assert.equal(result.success, false);
+  assert.equal(result.status, "failed");
+  assert.match(result.message, /保持窗口打开/);
 });
 
 test("uses the browser collector and keeps dry-run free of database writes", async () => {

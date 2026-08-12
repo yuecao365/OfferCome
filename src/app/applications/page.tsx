@@ -31,8 +31,8 @@ export default async function ApplicationsPage({
       <PageHeader
         actions={
           <>
-          <NewApplicationModal />
-          <SyncBossButton />
+            <NewApplicationModal />
+            <SyncBossButton />
           </>
         }
         description="集中管理投递记录，按公司、岗位、流程状态、来源和时间快速筛选。"

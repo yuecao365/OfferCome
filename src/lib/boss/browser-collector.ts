@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { createServer } from "node:net";
 
-import type { Locator, Page, Response } from "playwright";
+import type { BrowserContext, Locator, Page, Response } from "playwright";
 
 import {
   getBossApiCode,
@@ -34,6 +34,7 @@ import type { BossSyncStopReason } from "./sync-policy";
 const BOSS_RECOMMEND_URL = "https://www.zhipin.com/web/geek/recommend";
 const BOSS_JOB_RESPONSE_PATH = "/wapi/zprelation/interaction/geekGetJob";
 const DEFAULT_PAGE_SETTLE_MS = 2_000;
+const DEFAULT_LOGIN_TIMEOUT_MS = 10 * 60 * 1_000;
 const RESPONSE_TIMEOUT_MS = 12_000;
 
 const NEXT_PAGE_SELECTORS = [
@@ -63,6 +64,7 @@ export type CollectBossContactsOptions = {
   cwd?: string;
   maxPages: number;
   pageSettleMs?: number;
+  loginTimeoutMs?: number;
   onMessage?: (message: string) => void;
 };
 
@@ -71,6 +73,56 @@ export class BossBrowserLoginRequiredError extends Error {
     super(message);
     this.name = "BossBrowserLoginRequiredError";
   }
+}
+
+export class BossBrowserClosedError extends Error {
+  constructor(message = "Boss 同步窗口已关闭。请重新同步，并在读取完成前保持窗口打开。") {
+    super(message);
+    this.name = "BossBrowserClosedError";
+  }
+}
+
+type ManualLoginWaitInput = {
+  timeoutMs: number;
+  isClosed: () => boolean;
+  isLoginRequired: () => Promise<boolean>;
+  delay?: (durationMs: number) => Promise<void>;
+  now?: () => number;
+  onMessage?: (message: string) => void;
+};
+
+export async function waitForManualBossLogin(
+  input: ManualLoginWaitInput,
+): Promise<void> {
+  const now = input.now ?? Date.now;
+  const delay =
+    input.delay ??
+    ((durationMs: number) =>
+      new Promise<void>((resolve) => setTimeout(resolve, durationMs)));
+  const deadline = now() + input.timeoutMs;
+
+  input.onMessage?.(
+    "Boss 需要登录或安全验证。请在已打开的窗口中手动完成，完成后不要关闭窗口，同步会自动继续。",
+  );
+
+  while (now() < deadline) {
+    if (input.isClosed()) throw new BossBrowserClosedError();
+    if (!(await input.isLoginRequired())) return;
+    await delay(500);
+  }
+
+  throw new BossBrowserLoginRequiredError(
+    "等待 Boss 登录或安全验证超时，请重新同步后再试。",
+  );
+}
+
+function isTargetClosedError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    /target page, context or browser has been closed|page has been closed|browser has been closed/i.test(
+      error.message,
+    )
+  );
 }
 
 function assertBossAccessAvailable(
@@ -160,6 +212,15 @@ async function looksLikeLoginPage(page: Page): Promise<boolean> {
     .catch(() => false);
 }
 
+async function getBossAuthSignature(context: BrowserContext): Promise<string> {
+  const cookies = await context.cookies("https://www.zhipin.com/");
+  return cookies
+    .filter((cookie) => cookie.name === "wt2" || cookie.name === "zp_at")
+    .map((cookie) => `${cookie.name}:${cookie.value}`)
+    .sort()
+    .join("|");
+}
+
 export async function collectBossContactsFromBrowser(
   options: CollectBossContactsOptions,
 ): Promise<BossBrowserCollectionResult> {
@@ -181,17 +242,21 @@ export async function collectBossContactsFromBrowser(
     buildBrowserLaunchArgs({
       userDataDir: paths.browserProfileDir,
       remoteDebuggingPort: cdpPort,
-      url: "about:blank",
+      url: BOSS_RECOMMEND_URL,
     }),
   );
   let browser = null as Awaited<ReturnType<typeof connectOverCdp>> | null;
+  let page: Page | null = null;
 
   try {
     browser = await connectOverCdp(cdpPort);
     const context = browser.contexts()[0];
     if (!context) throw new Error("Boss 同步浏览器没有可用上下文。" );
 
-    const page = context.pages()[0] ?? (await context.newPage());
+    page =
+      context.pages().find((candidate) => candidate.url() !== "about:blank") ??
+      context.pages()[0] ??
+      (await context.newPage());
     const candidates: BossContactCandidate[] = [];
     const responseTasks: Promise<void>[] = [];
     let hasMore: boolean | null = null;
@@ -212,6 +277,7 @@ export async function collectBossContactsFromBrowser(
             return;
           }
 
+          accessIssue.current = null;
           candidates.push(...extractBossContactCandidatesFromApiPayload(payload));
           hasMore = getBossHasMore(payload);
         })
@@ -223,19 +289,53 @@ export async function collectBossContactsFromBrowser(
     const initialResponse = page
       .waitForResponse(isBossJobResponse, { timeout: RESPONSE_TIMEOUT_MS })
       .catch(() => null);
-    await page.goto(BOSS_RECOMMEND_URL, {
-      waitUntil: "domcontentloaded",
-      timeout: 30_000,
-    });
+    if (page.url() !== BOSS_RECOMMEND_URL) {
+      await page.goto(BOSS_RECOMMEND_URL, {
+        waitUntil: "domcontentloaded",
+        timeout: 30_000,
+      });
+    }
     await initialResponse;
     await Promise.all(responseTasks);
-    candidates.push(...(await extractDomCandidates(page)));
 
-    if (await looksLikeLoginPage(page)) {
-      throw new BossBrowserLoginRequiredError(
-        "Boss 登录态已失效，请在打开的浏览器中手动完成登录或安全校验。",
+    const initialAccessIssue = accessIssue.current;
+    const needsManualLogin =
+      (await looksLikeLoginPage(page)) ||
+      Boolean(
+        initialAccessIssue &&
+          isBossLoginRequiredResponse(
+            initialAccessIssue.code,
+            initialAccessIssue.message,
+          ),
       );
+    if (needsManualLogin) {
+      const initialAuthSignature = await getBossAuthSignature(context);
+      await waitForManualBossLogin({
+        timeoutMs: options.loginTimeoutMs ?? DEFAULT_LOGIN_TIMEOUT_MS,
+        isClosed: () => page?.isClosed() ?? true,
+        isLoginRequired: async () => {
+          const pageStillRequiresLogin = await looksLikeLoginPage(page!);
+          if (pageStillRequiresLogin) return true;
+          const issue = accessIssue.current;
+          if (!issue || !isBossLoginRequiredResponse(issue.code, issue.message)) {
+            return false;
+          }
+          return (await getBossAuthSignature(context)) === initialAuthSignature;
+        },
+        onMessage: options.onMessage,
+      });
+      accessIssue.current = null;
+      const retryResponse = page
+        .waitForResponse(isBossJobResponse, { timeout: RESPONSE_TIMEOUT_MS })
+        .catch(() => null);
+      await page.goto(BOSS_RECOMMEND_URL, {
+        waitUntil: "domcontentloaded",
+        timeout: 30_000,
+      });
+      await retryResponse;
+      await Promise.all(responseTasks);
     }
+    candidates.push(...(await extractDomCandidates(page)));
     assertBossAccessAvailable(accessIssue.current);
 
     const diagnostics: BossBrowserPageDiagnostics[] = [];
@@ -266,7 +366,10 @@ export async function collectBossContactsFromBrowser(
       }
 
       await naturalResponse;
-      await page.waitForTimeout(options.pageSettleMs ?? DEFAULT_PAGE_SETTLE_MS);
+      await new Promise((resolve) =>
+        setTimeout(resolve, options.pageSettleMs ?? DEFAULT_PAGE_SETTLE_MS),
+      );
+      if (page.isClosed()) throw new BossBrowserClosedError();
       await Promise.all(responseTasks);
       candidates.push(...(await extractDomCandidates(page)));
 
@@ -301,6 +404,17 @@ export async function collectBossContactsFromBrowser(
       diagnostics,
       stopReason,
     };
+  } catch (error) {
+    if (
+      error instanceof BossBrowserLoginRequiredError ||
+      error instanceof BossBrowserClosedError
+    ) {
+      throw error;
+    }
+    if (page?.isClosed() || isTargetClosedError(error)) {
+      throw new BossBrowserClosedError();
+    }
+    throw error;
   } finally {
     await browser?.close().catch(() => undefined);
     stopBrowserProcess(browserProcess);
