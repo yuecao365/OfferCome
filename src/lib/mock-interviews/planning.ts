@@ -1,10 +1,10 @@
 import type { InterviewQuestionCategory } from "@/lib/interviews/types";
+import { questionSimilarity } from "@/lib/text/similarity";
 
 import type { MockInterviewContext } from "./context";
 import {
   isJobDescriptionEvidence,
   jobCompetencyRelevance,
-  questionSimilarity,
   type RelevantPersonalizationContext,
 } from "./relevance";
 import type {

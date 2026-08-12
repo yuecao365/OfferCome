@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { MockInterviewContext } from "./context";
-import { questionSimilarity, selectRelevantPersonalization } from "./relevance";
+import { selectRelevantPersonalization } from "./relevance";
 import type { MockInterviewJobBlueprint } from "./types";
 
 const jobDescription = `团队结合大模型、Agent 与端侧能力建设客户端基础设施。
@@ -78,19 +78,4 @@ test("keeps JD-related history but filters adjacent model theory", () => {
     ["harness"],
   );
   assert.equal(selected.history[0]?.jobCompetencyId, "agent_harness");
-});
-
-test("detects near-copy questions while allowing different job scenarios", () => {
-  assert.ok(
-    questionSimilarity(
-      "请详述 Transformer 中自注意力机制的工作原理，以及为何优于传统 RNN。",
-      "Transformer 的 self-attention 工作原理是什么？为什么它比 RNN 更有优势？",
-    ) > 0.3,
-  );
-  assert.ok(
-    questionSimilarity(
-      "如何设计 Agent Harness 的规模化验证？",
-      "如何通过 Trace 定位长链路工具调用失败？",
-    ) < 0.4,
-  );
 });

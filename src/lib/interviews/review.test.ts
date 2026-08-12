@@ -8,6 +8,33 @@ import {
   type QuestionReviewItem,
 } from "./review";
 
+function reviewRow(input: {
+  id: string;
+  question: string;
+  category?: string;
+  resumeProjectId?: string | null;
+  date: string;
+}) {
+  return {
+    id: input.id,
+    question: input.question,
+    answer: `${input.id} answer`,
+    category: input.category ?? "general",
+    resumeProjectId: input.resumeProjectId ?? null,
+    sortOrder: 0,
+    createdAt: new Date(input.date),
+    updatedAt: new Date(input.date),
+    interview: {
+      id: `interview-${input.id}`,
+      companyName: "示例公司",
+      jobTitle: "工程师",
+      interviewedAt: new Date(input.date),
+      scheduledAt: null,
+      round: "first_interview",
+    },
+  };
+}
+
 test("groups repeated questions with answers newest first", () => {
   const rows = [
     {
@@ -55,6 +82,33 @@ test("groups repeated questions with answers newest first", () => {
   assert.equal(grouped[0].askedCount, 2);
   assert.equal(grouped[0].answers[0].answer, "new answer");
   assert.equal(grouped[0].answers[1].answer, "old answer");
+});
+
+test("merges similarly worded questions and keeps the newest wording", () => {
+  const grouped = groupQuestionReviewItems([
+    reviewRow({ id: "old", question: "请介绍一下你的项目经验和主要职责", date: "2026-07-01T00:00:00Z" }),
+    reviewRow({ id: "new", question: "请介绍一下你的项目经历和主要职责", date: "2026-07-02T00:00:00Z" }),
+  ]);
+  assert.equal(grouped.length, 1);
+  assert.equal(grouped[0].question, "请介绍一下你的项目经历和主要职责");
+  assert.equal(grouped[0].askedCount, 2);
+  assert.deepEqual(grouped[0].answers.map((item) => item.id), ["new", "old"]);
+});
+
+test("does not merge similar questions across categories", () => {
+  const grouped = groupQuestionReviewItems([
+    reviewRow({ id: "general", question: "请介绍一下你的项目经验和主要职责", category: "general", date: "2026-07-01T00:00:00Z" }),
+    reviewRow({ id: "technical", question: "请介绍一下你的项目经历和主要职责", category: "technical", date: "2026-07-02T00:00:00Z" }),
+  ]);
+  assert.equal(grouped.length, 2);
+});
+
+test("does not merge low-similarity questions in the same bucket", () => {
+  const grouped = groupQuestionReviewItems([
+    reviewRow({ id: "intro", question: "请介绍一下你的项目经验和主要职责", date: "2026-07-01T00:00:00Z" }),
+    reviewRow({ id: "debug", question: "如何定位线上内存泄漏问题", date: "2026-07-02T00:00:00Z" }),
+  ]);
+  assert.equal(grouped.length, 2);
 });
 
 test("parses review filters from query params", () => {

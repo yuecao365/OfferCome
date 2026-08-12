@@ -1,5 +1,6 @@
 import { normalizeInterviewRound, normalizeQuestionCategory } from "./types";
 import type { InterviewQuestionCategory, InterviewRound } from "./types";
+import { questionSimilarity } from "@/lib/text/similarity";
 
 export const INTERVIEW_REVIEW_PAGE_SIZE = 8;
 
@@ -176,7 +177,7 @@ export function groupQuestionReviewItems(
     grouped.set(key, existing);
   }
 
-  return Array.from(grouped.values())
+  const exactGroups = Array.from(grouped.values())
     .map((item) => ({
       ...item,
       answers: item.answers.sort(
@@ -189,4 +190,26 @@ export function groupQuestionReviewItems(
         timeValue(right.lastAskedAt) - timeValue(left.lastAskedAt) ||
         right.askedCount - left.askedCount,
     );
+
+  const merged: QuestionReviewItem[] = [];
+  for (const item of exactGroups) {
+    const similar = merged.find(
+      (candidate) =>
+        candidate.category === item.category &&
+        candidate.resumeProjectId === item.resumeProjectId &&
+        questionSimilarity(candidate.question, item.question) >= 0.72,
+    );
+    if (!similar) {
+      merged.push({ ...item, answers: [...item.answers] });
+      continue;
+    }
+    const itemIsNewer = timeValue(item.lastAskedAt) > timeValue(similar.lastAskedAt);
+    similar.question = itemIsNewer ? item.question : similar.question;
+    similar.askedCount += item.askedCount;
+    similar.lastAskedAt = itemIsNewer ? item.lastAskedAt : similar.lastAskedAt;
+    similar.answers = [...similar.answers, ...item.answers].sort(
+      (left, right) => timeValue(right.interviewedAt) - timeValue(left.interviewedAt),
+    );
+  }
+  return merged;
 }
