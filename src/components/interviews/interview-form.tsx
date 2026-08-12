@@ -81,6 +81,7 @@ function initialQuestions(initial?: InterviewListItem): InterviewQuestionInput[]
   }
 
   return initial.questions.map((question, index) => ({
+    id: question.id,
     question: question.question,
     answer: question.answer,
     category: question.category,

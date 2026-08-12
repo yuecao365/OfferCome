@@ -92,7 +92,7 @@ export function InterviewQuestionsEditor({
         {questions.map((question, index) => (
           <div
             className="grid gap-2 rounded border border-zinc-200 p-3"
-            key={question.sortOrder}
+            key={question.id ?? question.sortOrder}
           >
             <div className="flex items-center justify-between gap-3">
               <p className="text-sm font-medium text-zinc-800">

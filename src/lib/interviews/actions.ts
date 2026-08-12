@@ -17,16 +17,21 @@ import {
   type InterviewQuestionInput,
   parseInterviewFormData,
 } from "./types";
+import { diffInterviewQuestions } from "./question-diff";
 
-function questionCreateData(questions: InterviewQuestionInput[]) {
-  return questions.map((question) => ({
+function questionData(question: InterviewQuestionInput) {
+  return {
     question: question.question,
     answer: question.answer || null,
     category: question.category,
     resumeProjectId:
       question.category === "resume_project" ? question.resumeProjectId : null,
     sortOrder: question.sortOrder,
-  }));
+  };
+}
+
+function questionCreateData(questions: InterviewQuestionInput[]) {
+  return questions.map(questionData);
 }
 
 function revalidateInterviewRoutes() {
@@ -115,7 +120,7 @@ export async function updateInterview(
 ): Promise<InterviewActionState> {
   const existing = await prisma.interview.findUnique({
     where: { id },
-    select: { kind: true },
+    select: { kind: true, questions: { select: { id: true } } },
   });
   if (!existing || existing.kind === "mock") {
     return { status: "error", message: "AI 模拟面试不能通过历史记录表单编辑。" };
@@ -126,9 +131,21 @@ export async function updateInterview(
     return { status: "error", message: parsed.message };
   }
 
-  await prisma.$transaction([
-    prisma.interviewQuestion.deleteMany({ where: { interviewId: id } }),
-    prisma.interview.update({
+  let questionDiff;
+  try {
+    questionDiff = diffInterviewQuestions(
+      existing.questions,
+      parsed.value.questions,
+    );
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "问题数据无效。",
+    };
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.interview.update({
       where: { id },
       data: {
         companyName: parsed.value.companyName,
@@ -138,14 +155,32 @@ export async function updateInterview(
         round: parsed.value.round,
         status: REAL_INTERVIEW_STATUS,
         note: parsed.value.note || null,
-        questions: {
-          create: questionCreateData(parsed.value.questions),
-        },
       },
-    }),
-  ]);
+    });
+    await Promise.all(
+      questionDiff.toUpdate.map((question) =>
+        tx.interviewQuestion.update({
+          where: { id: question.id },
+          data: questionData(question),
+        }),
+      ),
+    );
+    if (questionDiff.toCreate.length > 0) {
+      await tx.interviewQuestion.createMany({
+        data: questionDiff.toCreate.map((question) => ({
+          interviewId: id,
+          ...questionData(question),
+        })),
+      });
+    }
+    if (questionDiff.toDeleteIds.length > 0) {
+      await tx.interviewQuestion.deleteMany({
+        where: { interviewId: id, id: { in: questionDiff.toDeleteIds } },
+      });
+    }
+  });
 
-  await enqueueCandidateProfileRefresh({ fullRebuild: true });
+  await enqueueCandidateProfileRefresh();
 
   revalidateInterviewRoutes();
   return { status: "success", message: "面试记录已更新。" };

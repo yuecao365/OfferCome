@@ -22,6 +22,7 @@ export type InterviewQuestionCategory =
 export type InterviewSort = (typeof INTERVIEW_SORTS)[number];
 
 export type InterviewQuestionInput = {
+  id?: string;
   question: string;
   answer: string;
   category: InterviewQuestionCategory;
@@ -221,6 +222,10 @@ export function parseInterviewQuestionsJson(value: string): InterviewQuestionInp
       }
 
       return {
+        id:
+          typeof record.id === "string" && record.id.trim()
+            ? record.id.trim()
+            : undefined,
         question,
         answer: typeof record.answer === "string" ? record.answer.trim() : "",
         category: normalizeQuestionCategory(
@@ -237,6 +242,7 @@ export function parseInterviewQuestionsJson(value: string): InterviewQuestionInp
       (
         question,
       ): question is {
+        id: string | undefined;
         question: string;
         answer: string;
         category: InterviewQuestionCategory;
