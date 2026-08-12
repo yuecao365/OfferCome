@@ -1,6 +1,10 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { FieldLabel, Input, Select, Textarea } from "@/components/ui/form-controls";
 
 import type {
   InterviewQuestionCategory,
@@ -156,7 +160,7 @@ export function InterviewDraftImporter({
   };
 
   return (
-    <section className="rounded border border-zinc-200 bg-zinc-50 p-3">
+    <Card className="p-3">
       <input name="importArtifactId" type="hidden" value={artifactId} />
       <input name="candidateSpeaker" type="hidden" value={candidateSpeaker} />
       <input name="sourceType" type="hidden" value={sourceType} />
@@ -168,10 +172,9 @@ export function InterviewDraftImporter({
       </div>
 
       <div className="mt-3 grid gap-3 md:grid-cols-2">
-        <label className="block text-sm font-medium text-zinc-800 md:col-span-2">
+        <FieldLabel className="md:col-span-2">
           导入内容类型（保存前确认）
-          <select
-            className="mt-1 block w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm"
+          <Select
             onChange={(event) => {
               const mode = event.target.value as typeof importMode;
               setImportMode(mode);
@@ -194,27 +197,27 @@ export function InterviewDraftImporter({
             <option disabled={!transcriptionConfigured} value="candidate_recording">仅本人录音</option>
             <option value="transcript">逐字转写文本</option>
             <option value="summary">复盘总结</option>
-          </select>
-        </label>
-        <label className="block text-sm font-medium text-zinc-800">
+          </Select>
+        </FieldLabel>
+        <FieldLabel>
           录音或文本文件
-          <input
+          <Input
             accept="audio/*,.mp3,.wav,.m4a,.webm,.ogg,.txt,.md,.docx,.pdf"
-            className="mt-1 block w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm file:mr-3 file:border-0 file:bg-transparent file:text-sm file:font-medium"
+            className="h-auto py-1.5"
             onChange={(event) => setFile(event.target.files?.[0] ?? null)}
             ref={fileInputRef}
             type="file"
           />
-        </label>
-        <label className="block text-sm font-medium text-zinc-800">
+        </FieldLabel>
+        <FieldLabel>
           或粘贴面试文本
-          <textarea
-            className="mt-1 block min-h-24 w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm"
+          <Textarea
+            className="min-h-24"
             onChange={(event) => setText(event.target.value)}
             placeholder="例如：面试官：请介绍一下你的项目？\n我：我主要负责……"
             value={text}
           />
-        </label>
+        </FieldLabel>
       </div>
       {isAudioMode && artifactId ? (
         <div className="mt-3 rounded border border-zinc-200 bg-white p-3">
@@ -225,17 +228,14 @@ export function InterviewDraftImporter({
         </div>
       ) : null}
       {!transcriptionConfigured ? (
-        <p className="mt-2 text-xs text-amber-700">
-          录音导入需先在设置页配置语音转写；文本和文档导入仍可使用。
-        </p>
+        <Alert className="mt-2" tone="info">录音导入需先在设置页配置语音转写；文本和文档导入仍可使用。</Alert>
       ) : null}
 
       {speakers.length > 0 ? (
         <div className="mt-3 rounded border border-zinc-200 bg-white p-3">
-          <label className="block text-sm font-medium text-zinc-800">
+          <FieldLabel>
             哪位说话人是你？
-            <select
-              className="mt-1 block w-full rounded border border-zinc-300 px-3 py-2 text-sm"
+            <Select
               onChange={(event) => setCandidateSpeaker(event.target.value)}
               required
               value={candidateSpeaker}
@@ -244,8 +244,8 @@ export function InterviewDraftImporter({
               {speakers.map((speaker) => (
                 <option key={speaker} value={speaker}>{speaker}</option>
               ))}
-            </select>
-          </label>
+            </Select>
+          </FieldLabel>
           <div className="mt-3 max-h-44 space-y-2 overflow-y-auto text-xs text-zinc-700">
             {segments.slice(0, 24).map((segment, index) => (
               <p key={`${segment.speaker}-${segment.start}-${index}`}>
@@ -256,17 +256,17 @@ export function InterviewDraftImporter({
           </div>
         </div>
       ) : artifactId && sourceType === "real_audio" && !hasVoiceMetrics ? (
-        <p className="mt-3 rounded border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+        <Alert className="mt-3" tone="info">
           本次转写服务没有返回可用的说话人或时间戳，将继续按文本分析，不生成口语流畅度结论。
-        </p>
+        </Alert>
       ) : null}
 
       <div className="mt-3 flex flex-wrap items-center gap-3">
-        <button
-          className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:text-zinc-400"
+        <Button
           disabled={pending || (isAudioMode && Boolean(artifactId) && speakers.length > 0 && !candidateSpeaker)}
           onClick={runImportStep}
           type="button"
+          variant="outline"
         >
           {pending
             ? isAudioMode && !artifactId
@@ -277,7 +277,7 @@ export function InterviewDraftImporter({
               : isAudioMode
                 ? "生成问题草稿"
                 : "生成表单草稿"}
-        </button>
+        </Button>
         {message ? (
           <p
             aria-live="polite"
@@ -290,6 +290,6 @@ export function InterviewDraftImporter({
       <p className="mt-2 text-xs text-zinc-500">
         音频会发送给配置的语音转写服务；文本文件和粘贴文本会直接进入结构化识别。
       </p>
-    </section>
+    </Card>
   );
 }

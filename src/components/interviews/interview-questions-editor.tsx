@@ -7,6 +7,9 @@ import {
   type InterviewQuestionInput,
   type ResumeProjectOption,
 } from "@/lib/interviews/types";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Select, Textarea } from "@/components/ui/form-controls";
 
 type InterviewQuestionsEditorProps = {
   onChange: (questions: InterviewQuestionInput[]) => void;
@@ -74,16 +77,17 @@ export function InterviewQuestionsEditor({
   };
 
   return (
-    <section className="rounded border border-zinc-200">
+    <Card>
       <div className="flex items-center justify-between gap-3 border-b border-zinc-200 px-3 py-2">
         <h3 className="text-sm font-medium text-zinc-900">问题与回答</h3>
-        <button
-          className="rounded border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+        <Button
           onClick={addQuestion}
+          size="sm"
           type="button"
+          variant="outline"
         >
           添加问题
-        </button>
+        </Button>
       </div>
       <div className="grid gap-3 p-3">
         {questions.length === 0 ? (
@@ -103,18 +107,19 @@ export function InterviewQuestionsEditor({
                   </span>
                 ) : null}
               </p>
-              <button
-                className="text-sm font-medium text-red-700 hover:text-red-800"
+              <Button
                 onClick={() => removeQuestion(index)}
+                size="sm"
                 type="button"
+                variant="ghost"
               >
                 删除
-              </button>
+              </Button>
             </div>
             <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_180px_180px]">
-              <textarea
+              <Textarea
                 aria-label={`问题 ${index + 1}`}
-                className="min-h-20 resize-y rounded border border-zinc-300 px-3 py-3 text-sm leading-6"
+                className="min-h-20 resize-y"
                 onChange={(event) =>
                   updateQuestion(index, "question", event.target.value)
                 }
@@ -123,9 +128,8 @@ export function InterviewQuestionsEditor({
                 rows={2}
                 value={question.question}
               />
-              <select
+              <Select
                 aria-label={`问题 ${index + 1} 类型`}
-                className="rounded border border-zinc-300 px-3 py-2 text-sm"
                 onChange={(event) =>
                   updateQuestion(index, "category", event.target.value)
                 }
@@ -136,10 +140,9 @@ export function InterviewQuestionsEditor({
                     {INTERVIEW_QUESTION_CATEGORY_LABELS[category]}
                   </option>
                 ))}
-              </select>
-              <select
+              </Select>
+              <Select
                 aria-label={`问题 ${index + 1} 关联实习/项目`}
-                className="rounded border border-zinc-300 px-3 py-2 text-sm disabled:bg-zinc-100 disabled:text-zinc-500"
                 disabled={question.category !== "resume_project"}
                 onChange={(event) =>
                   updateQuestion(
@@ -156,11 +159,11 @@ export function InterviewQuestionsEditor({
                     {project.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
-            <textarea
+            <Textarea
               aria-label={`问题 ${index + 1} 回答`}
-              className="min-h-40 resize-y rounded border border-zinc-300 px-3 py-3 text-sm leading-6"
+              className="min-h-40 resize-y"
               onChange={(event) =>
                 updateQuestion(index, "answer", event.target.value)
               }
@@ -171,6 +174,6 @@ export function InterviewQuestionsEditor({
           </div>
         ))}
       </div>
-    </section>
+    </Card>
   );
 }

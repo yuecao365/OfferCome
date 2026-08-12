@@ -3,6 +3,9 @@
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
+import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { FieldLabel, Input, Select, Textarea } from "@/components/ui/form-controls";
 
 import {
   createInterview,
@@ -59,13 +62,12 @@ function SubmitButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
 
   return (
-    <button
-      className="rounded bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-zinc-400"
+    <Button
       disabled={pending}
       type="submit"
     >
       {pending ? "保存中..." : label}
-    </button>
+    </Button>
   );
 }
 
@@ -132,43 +134,39 @@ export function InterviewForm(props: InterviewFormProps) {
       ) : null}
       <div className="grid gap-3 md:grid-cols-2">
         <div>
-          <label className="block text-sm font-medium text-zinc-800">
+          <FieldLabel>
             公司名称
-            <input
-              className="mt-1 block w-full rounded border border-zinc-300 px-3 py-2 text-sm"
+            <Input
               defaultValue={initial?.companyName ?? ""}
               name="companyName"
               required
             />
-          </label>
+          </FieldLabel>
         </div>
         <div>
-          <label className="block text-sm font-medium text-zinc-800">
+          <FieldLabel>
             工作岗位
-            <input
-              className="mt-1 block w-full rounded border border-zinc-300 px-3 py-2 text-sm"
+            <Input
               defaultValue={initial?.jobTitle ?? ""}
               name="jobTitle"
               required
             />
-          </label>
+          </FieldLabel>
         </div>
         <div>
-          <label className="block text-sm font-medium text-zinc-800">
+          <FieldLabel>
             面试时间
-            <input
-              className="mt-1 block w-full rounded border border-zinc-300 px-3 py-2 text-sm"
+            <Input
               defaultValue={toDatetimeLocal(initial?.interviewedAt ?? null)}
               name="interviewedAt"
               required
               type="datetime-local"
             />
-          </label>
+          </FieldLabel>
         </div>
-        <label className="block text-sm font-medium text-zinc-800">
+        <FieldLabel>
           轮次/类型
-          <select
-            className="mt-1 block w-full rounded border border-zinc-300 px-3 py-2 text-sm"
+          <Select
             defaultValue={initial?.round ?? ""}
             name="round"
           >
@@ -178,18 +176,18 @@ export function InterviewForm(props: InterviewFormProps) {
                 {INTERVIEW_ROUND_LABELS[round]}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </FieldLabel>
       </div>
 
-      <label className="block text-sm font-medium text-zinc-800">
+      <FieldLabel>
         备注
-        <textarea
-          className="mt-1 block min-h-20 w-full rounded border border-zinc-300 px-3 py-2 text-sm"
+        <Textarea
+          className="min-h-20"
           defaultValue={initial?.note ?? ""}
           name="note"
         />
-      </label>
+      </FieldLabel>
 
       <InterviewQuestionsEditor
         onChange={setQuestions}
@@ -198,24 +196,16 @@ export function InterviewForm(props: InterviewFormProps) {
       />
 
       <div className="flex flex-wrap items-center gap-3">
-        <button
-          className="rounded border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+        <Button
           onClick={props.onCancel}
           type="button"
+          variant="outline"
         >
           取消
-        </button>
+        </Button>
         <SubmitButton label={props.mode === "edit" ? "保存修改" : "新建面试"} />
         {state.message ? (
-          <p
-            aria-live="polite"
-            className={[
-              "text-sm",
-              state.status === "error" ? "text-red-700" : "text-zinc-700",
-            ].join(" ")}
-          >
-            {state.message}
-          </p>
+          <Alert aria-live="polite" tone={state.status === "error" ? "danger" : "success"}>{state.message}</Alert>
         ) : null}
       </div>
     </form>
