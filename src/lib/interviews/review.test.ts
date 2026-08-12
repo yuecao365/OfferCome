@@ -14,6 +14,7 @@ function reviewRow(input: {
   question: string;
   category?: string;
   resumeProjectId?: string | null;
+  origin?: "real" | "mock";
   date: string;
 }) {
   return {
@@ -32,6 +33,7 @@ function reviewRow(input: {
       interviewedAt: new Date(input.date),
       scheduledAt: null,
       round: "first_interview",
+      kind: input.origin ?? "real",
     },
   };
 }
@@ -54,6 +56,7 @@ test("groups repeated questions with answers newest first", () => {
         interviewedAt: new Date("2026-07-01T10:00:00Z"),
         scheduledAt: null,
         round: "first_interview",
+        kind: "real",
       },
     },
     {
@@ -72,6 +75,7 @@ test("groups repeated questions with answers newest first", () => {
         interviewedAt: new Date("2026-07-05T10:00:00Z"),
         scheduledAt: null,
         round: "second_interview",
+        kind: "mock",
       },
     },
   ];
@@ -81,19 +85,28 @@ test("groups repeated questions with answers newest first", () => {
   assert.equal(grouped.length, 1);
   assert.equal(grouped[0].question, "What does React key do?");
   assert.equal(grouped[0].askedCount, 2);
+  assert.equal(grouped[0].realAskedCount, 1);
+  assert.equal(grouped[0].mockAskedCount, 1);
+  assert.deepEqual(grouped[0].answers.map((answer) => answer.origin), [
+    "mock",
+    "real",
+  ]);
   assert.equal(grouped[0].answers[0].answer, "new answer");
   assert.equal(grouped[0].answers[1].answer, "old answer");
 });
 
-test("merges similarly worded questions and keeps the newest wording", () => {
+test("merges similarly worded questions with source counts and keeps the newest wording", () => {
   const grouped = groupQuestionReviewItems([
-    reviewRow({ id: "old", question: "请介绍一下你的项目经验和主要职责", date: "2026-07-01T00:00:00Z" }),
-    reviewRow({ id: "new", question: "请介绍一下你的项目经历和主要职责", date: "2026-07-02T00:00:00Z" }),
+    reviewRow({ id: "old-real", question: "请介绍一下你的项目经验和主要职责", date: "2026-07-01T00:00:00Z" }),
+    reviewRow({ id: "new-real", question: "请介绍一下你的项目经历和主要职责", date: "2026-07-02T00:00:00Z" }),
+    reviewRow({ id: "mock", question: "请介绍一下你的项目经历和主要职责", origin: "mock", date: "2026-07-03T00:00:00Z" }),
   ]);
   assert.equal(grouped.length, 1);
   assert.equal(grouped[0].question, "请介绍一下你的项目经历和主要职责");
-  assert.equal(grouped[0].askedCount, 2);
-  assert.deepEqual(grouped[0].answers.map((item) => item.id), ["new", "old"]);
+  assert.equal(grouped[0].askedCount, 3);
+  assert.equal(grouped[0].realAskedCount, 2);
+  assert.equal(grouped[0].mockAskedCount, 1);
+  assert.deepEqual(grouped[0].answers.map((item) => item.id), ["mock", "new-real", "old-real"]);
 });
 
 test("does not merge similar questions across categories", () => {
@@ -117,6 +130,7 @@ test("parses review filters from query params", () => {
     section: "overview",
     projectId: null,
     category: null,
+    source: "all",
     page: 1,
   });
 
@@ -126,19 +140,23 @@ test("parses review filters from query params", () => {
       section: "projects",
       projectId: "project-1",
       category: null,
+      source: "all",
       page: 2,
     },
   );
 
   assert.deepEqual(
-    parseInterviewReviewFilters({ category: "technical", page: "-1" }),
+    parseInterviewReviewFilters({ category: "technical", source: "mock", page: "-1" }),
     {
       section: "question_bank",
       projectId: null,
       category: "technical",
+      source: "mock",
       page: 1,
     },
   );
+
+  assert.equal(parseInterviewReviewFilters({ source: "invalid" }).source, "all");
 });
 
 test("paginates grouped review questions", () => {
@@ -147,6 +165,8 @@ test("paginates grouped review questions", () => {
     category: "general",
     resumeProjectId: null,
     askedCount: 1,
+    realAskedCount: 1,
+    mockAskedCount: 0,
     lastAskedAt: null,
     answers: [],
   }));
@@ -171,16 +191,18 @@ test("paginates grouped review questions", () => {
   );
 });
 
-test("selects the newest non-empty answer for directed practice", () => {
+test("selects the newest non-empty real answer for directed practice", () => {
   const base = {
     companyName: "示例公司",
     jobTitle: "工程师",
     interviewedAt: null,
     round: null,
+    origin: "real" as const,
   };
   assert.equal(
     getLatestAnsweredQuestionId({
       answers: [
+        { id: "new-mock", answer: "模拟回答", ...base, origin: "mock" },
         { id: "new-empty", answer: "  ", ...base },
         { id: "older-answer", answer: "有效回答", ...base },
       ],
@@ -189,7 +211,10 @@ test("selects the newest non-empty answer for directed practice", () => {
   );
   assert.equal(
     getLatestAnsweredQuestionId({
-      answers: [{ id: "empty", answer: "", ...base }],
+      answers: [
+        { id: "mock", answer: "模拟回答", ...base, origin: "mock" },
+        { id: "empty", answer: "", ...base },
+      ],
     }),
     null,
   );

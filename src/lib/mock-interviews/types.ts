@@ -14,6 +14,12 @@ export function isMockInterviewMode(value: string): value is MockInterviewMode {
   return (MOCK_INTERVIEW_MODES as readonly string[]).includes(value);
 }
 
+export function mockInterviewDeleteConfirmMessage(status: string): string {
+  return status === "completed"
+    ? "删除后这场模拟面试的报告和评分记录都会消失，确定删除吗？"
+    : "这场模拟面试还没有完成，删除后已作答的内容和进度都会一起消失，确定删除吗？";
+}
+
 export const MOCK_INTERVIEW_DIFFICULTIES = [
   "foundational",
   "standard",

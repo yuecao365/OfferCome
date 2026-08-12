@@ -23,17 +23,28 @@ function DeleteButton() {
   );
 }
 
-export function InterviewDeleteButton({ id }: { id: string }) {
+export function InterviewDeleteButton({
+  id,
+  confirmMessage = "确定删除这条面试记录吗？",
+  redirectTo,
+}: {
+  id: string;
+  confirmMessage?: string;
+  redirectTo?: "/interviews/mock";
+}) {
   return (
     <form
       action={deleteInterview}
       onSubmit={(event) => {
-        if (!window.confirm("确定删除这条面试记录吗？")) {
+        if (!window.confirm(confirmMessage)) {
           event.preventDefault();
         }
       }}
     >
       <input name="id" type="hidden" value={id} />
+      {redirectTo ? (
+        <input name="redirectTo" type="hidden" value={redirectTo} />
+      ) : null}
       <DeleteButton />
     </form>
   );

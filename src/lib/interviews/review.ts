@@ -14,10 +14,30 @@ export type InterviewReviewQuestionCategory = Extract<
   "technical" | "general"
 >;
 
+export type QuestionReviewOrigin = "real" | "mock";
+export type InterviewReviewSourceFilter = QuestionReviewOrigin | "all";
+
+export const QUESTION_REVIEW_ORIGIN_LABELS: Record<
+  QuestionReviewOrigin,
+  string
+> = {
+  real: "真实面试",
+  mock: "AI 模拟",
+};
+
+export const INTERVIEW_REVIEW_SOURCE_LABELS: Record<
+  InterviewReviewSourceFilter,
+  string
+> = {
+  all: "全部来源",
+  ...QUESTION_REVIEW_ORIGIN_LABELS,
+};
+
 export type InterviewReviewFilters = {
   section: InterviewReviewSection;
   projectId: string | null;
   category: InterviewReviewQuestionCategory | null;
+  source: InterviewReviewSourceFilter;
   page: number;
 };
 
@@ -37,6 +57,7 @@ export type QuestionReviewSource = {
     interviewedAt: Date | null;
     scheduledAt: Date | null;
     round: string | null;
+    kind: string;
   };
 };
 
@@ -47,6 +68,7 @@ export type QuestionReviewAnswer = {
   jobTitle: string;
   interviewedAt: Date | null;
   round: InterviewRound | null;
+  origin: QuestionReviewOrigin;
 };
 
 export type QuestionReviewItem = {
@@ -54,6 +76,8 @@ export type QuestionReviewItem = {
   category: InterviewQuestionCategory;
   resumeProjectId: string | null;
   askedCount: number;
+  realAskedCount: number;
+  mockAskedCount: number;
   lastAskedAt: Date | null;
   answers: QuestionReviewAnswer[];
 };
@@ -69,7 +93,11 @@ export type QuestionReviewPage = {
 export function getLatestAnsweredQuestionId(
   item: Pick<QuestionReviewItem, "answers">,
 ): string | null {
-  return item.answers.find((answer) => answer.answer.trim())?.id ?? null;
+  return (
+    item.answers.find(
+      (answer) => answer.origin === "real" && answer.answer.trim(),
+    )?.id ?? null
+  );
 }
 
 function firstParam(value: string | string[] | undefined): string {
@@ -91,6 +119,12 @@ function isReviewQuestionCategory(
   return value === "technical" || value === "general";
 }
 
+function isReviewSource(
+  value: string,
+): value is InterviewReviewSourceFilter {
+  return value === "real" || value === "mock" || value === "all";
+}
+
 export function parseInterviewReviewFilters(
   params: Record<string, string | string[] | undefined>,
 ): InterviewReviewFilters {
@@ -98,6 +132,7 @@ export function parseInterviewReviewFilters(
   const rawProjectId = firstParam(params.projectId).slice(0, 120);
   const rawCategory = firstParam(params.category);
   const category = isReviewQuestionCategory(rawCategory) ? rawCategory : null;
+  const rawSource = firstParam(params.source);
   const section = isReviewSection(explicitSection)
     ? explicitSection
     : rawProjectId
@@ -110,6 +145,7 @@ export function parseInterviewReviewFilters(
     section,
     projectId: section === "projects" ? rawProjectId || null : null,
     category: section === "question_bank" ? category : null,
+    source: isReviewSource(rawSource) ? rawSource : "all",
     page: parsePositiveInteger(firstParam(params.page)),
   };
 }
@@ -157,6 +193,8 @@ export function groupQuestionReviewItems(
       category === "resume_project" ? row.resumeProjectId : null;
     const key = `${category}:${resumeProjectId ?? "none"}:${question}`;
     const interviewedAt = row.interview.interviewedAt ?? row.interview.scheduledAt;
+    const origin: QuestionReviewOrigin =
+      row.interview.kind === "mock" ? "mock" : "real";
     const existing =
       grouped.get(key) ??
       ({
@@ -164,11 +202,18 @@ export function groupQuestionReviewItems(
         category,
         resumeProjectId,
         askedCount: 0,
+        realAskedCount: 0,
+        mockAskedCount: 0,
         lastAskedAt: null,
         answers: [],
       } satisfies QuestionReviewItem);
 
     existing.askedCount += 1;
+    if (origin === "mock") {
+      existing.mockAskedCount += 1;
+    } else {
+      existing.realAskedCount += 1;
+    }
     if (timeValue(interviewedAt) > timeValue(existing.lastAskedAt)) {
       existing.lastAskedAt = interviewedAt;
     }
@@ -179,6 +224,7 @@ export function groupQuestionReviewItems(
       jobTitle: row.interview.jobTitle,
       interviewedAt,
       round: normalizeInterviewRound(row.interview.round),
+      origin,
     });
     grouped.set(key, existing);
   }
@@ -212,6 +258,8 @@ export function groupQuestionReviewItems(
     const itemIsNewer = timeValue(item.lastAskedAt) > timeValue(similar.lastAskedAt);
     similar.question = itemIsNewer ? item.question : similar.question;
     similar.askedCount += item.askedCount;
+    similar.realAskedCount += item.realAskedCount;
+    similar.mockAskedCount += item.mockAskedCount;
     similar.lastAskedAt = itemIsNewer ? item.lastAskedAt : similar.lastAskedAt;
     similar.answers = [...similar.answers, ...item.answers].sort(
       (left, right) => timeValue(right.interviewedAt) - timeValue(left.interviewedAt),

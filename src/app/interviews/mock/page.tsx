@@ -3,12 +3,14 @@ import { connection } from "next/server";
 
 import { AppShell } from "@/components/app-shell";
 import { MockInterviewSetup } from "@/components/interviews/mock-interview-setup";
+import { InterviewDeleteButton } from "@/components/interviews/interview-delete-button";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getRecentMockInterviews } from "@/lib/mock-interviews/queries";
+import { mockInterviewDeleteConfirmMessage } from "@/lib/mock-interviews/types";
 import { getResumes } from "@/lib/resumes/queries";
 import { getAiTaskConfig, isAiTaskConfigured } from "@/lib/settings/ai";
 import { resolveMockInterviewSeed } from "@/lib/mock-interviews/seeds";
@@ -76,22 +78,29 @@ export default async function MockInterviewsPage({
         ) : (
           <Card className="divide-y divide-border overflow-hidden">
             {recent.map((session) => (
-              <Link
-                className="flex items-center justify-between gap-4 px-4 py-3.5 hover:bg-surface-subtle"
-                href={`/interviews/mock/${session.id}`}
-                key={session.id}
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-foreground">
-                    {session.interview.companyName} · {session.interview.jobTitle}
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    已回答 {Math.min(session.currentQuestionIndex, session.questionCount)}/{session.questionCount} 题
-                    {session.totalScore !== null ? ` · ${session.totalScore} 分` : ""}
-                  </p>
+              <div className="flex items-center gap-2" key={session.id}>
+                <Link
+                  className="flex min-w-0 flex-1 items-center justify-between gap-4 px-4 py-3.5 hover:bg-surface-subtle"
+                  href={`/interviews/mock/${session.id}`}
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-foreground">
+                      {session.interview.companyName} · {session.interview.jobTitle}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      已回答 {Math.min(session.currentQuestionIndex, session.questionCount)}/{session.questionCount} 题
+                      {session.totalScore !== null ? ` · ${session.totalScore} 分` : ""}
+                    </p>
+                  </div>
+                  <Badge tone={session.status === "completed" ? "success" : "info"}>{statusLabel(session.status)}</Badge>
+                </Link>
+                <div className="shrink-0 pr-3">
+                  <InterviewDeleteButton
+                    confirmMessage={mockInterviewDeleteConfirmMessage(session.status)}
+                    id={session.interviewId}
+                  />
                 </div>
-                <Badge tone={session.status === "completed" ? "success" : "info"}>{statusLabel(session.status)}</Badge>
-              </Link>
+              </div>
             ))}
           </Card>
         )}

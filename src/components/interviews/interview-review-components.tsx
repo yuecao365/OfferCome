@@ -17,6 +17,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/cn";
 import {
   getLatestAnsweredQuestionId,
+  QUESTION_REVIEW_ORIGIN_LABELS,
   type QuestionReviewItem,
   type QuestionReviewPage,
 } from "@/lib/interviews/review";
@@ -196,9 +197,12 @@ export function QuestionReviewList({
           <summary className="flex cursor-pointer list-none items-start justify-between gap-4 p-4 transition-colors hover:bg-surface-subtle">
             <div className="min-w-0">
               <div className="mb-2 flex flex-wrap items-center gap-2">
-                <Badge tone={item.askedCount > 1 ? "warning" : "neutral"}>
-                  被问到 {item.askedCount} 次
-                </Badge>
+                {item.realAskedCount > 0 ? (
+                  <Badge tone="brand">真实 {item.realAskedCount} 次</Badge>
+                ) : null}
+                {item.mockAskedCount > 0 ? (
+                  <Badge tone="info">模拟 {item.mockAskedCount} 次</Badge>
+                ) : null}
                 <span className="text-xs text-muted-foreground">最近 {formatDateTime(item.lastAskedAt)}</span>
               </div>
               <h3 className="text-sm font-semibold leading-6 text-foreground">{item.question}</h3>
@@ -225,11 +229,16 @@ export function QuestionReviewList({
             {item.answers.map((answer) => (
               <article className="rounded-lg border border-border bg-surface p-4" key={answer.id}>
                 <p className="whitespace-pre-wrap border-l-2 border-brand/40 pl-3 text-sm leading-7 text-foreground">
-                  {answer.answer || "未记录回答"}
+                  {answer.answer}
                 </p>
-                <p className="mt-3 text-xs text-muted-foreground">
-                  {answer.companyName} · {answer.jobTitle} · {formatDateTime(answer.interviewedAt)} · {roundLabel(answer.round)}
-                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <Badge tone={answer.origin === "mock" ? "info" : "brand"}>
+                    {QUESTION_REVIEW_ORIGIN_LABELS[answer.origin]}
+                  </Badge>
+                  <span>
+                    {answer.companyName} · {answer.jobTitle} · {formatDateTime(answer.interviewedAt)} · {roundLabel(answer.round)}
+                  </span>
+                </div>
               </article>
             ))}
           </div>

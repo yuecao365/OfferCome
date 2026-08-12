@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 import { prisma } from "@/lib/db";
 import { enqueueCandidateProfileRefresh } from "@/lib/candidate-profile/background";
@@ -195,4 +196,8 @@ export async function deleteInterview(formData: FormData): Promise<void> {
   await prisma.interview.delete({ where: { id } });
   await enqueueCandidateProfileRefresh({ fullRebuild: true });
   revalidateInterviewRoutes();
+
+  if (formData.get("redirectTo") === "/interviews/mock") {
+    redirect("/interviews/mock");
+  }
 }

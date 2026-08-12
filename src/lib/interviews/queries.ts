@@ -302,11 +302,30 @@ const INTERVIEW_REVIEW_QUESTION_INCLUDE = {
       interviewedAt: true,
       scheduledAt: true,
       round: true,
+      kind: true,
     },
   },
 } satisfies Prisma.InterviewQuestionInclude;
 
-async function getInterviewReviewProjects(): Promise<{
+function reviewQuestionBaseWhere(
+  source: InterviewReviewFilters["source"],
+): Prisma.InterviewQuestionWhereInput {
+  return {
+    AND: [
+      { question: { not: "" } },
+      { answer: { not: null } },
+      { answer: { not: "" } },
+    ],
+    interview: {
+      status: "completed",
+      ...(source === "all" ? {} : { kind: source }),
+    },
+  };
+}
+
+async function getInterviewReviewProjects(
+  source: InterviewReviewFilters["source"],
+): Promise<{
   projects: InterviewReviewProject[];
   unlinkedProjectQuestionCount: number;
 }> {
@@ -323,8 +342,8 @@ async function getInterviewReviewProjects(): Promise<{
     prisma.interviewQuestion.groupBy({
       by: ["resumeProjectId"],
       where: {
+        ...reviewQuestionBaseWhere(source),
         category: "resume_project",
-        question: { not: "" },
       },
       _count: { _all: true },
     }),
@@ -348,15 +367,17 @@ async function getInterviewReviewProjects(): Promise<{
   };
 }
 
-async function getInterviewReviewQuestionCounts(): Promise<{
+async function getInterviewReviewQuestionCounts(
+  source: InterviewReviewFilters["source"],
+): Promise<{
   technicalQuestionCount: number;
   generalQuestionCount: number;
 }> {
   const rows = await prisma.interviewQuestion.groupBy({
     by: ["category"],
     where: {
+      ...reviewQuestionBaseWhere(source),
       category: { in: ["technical", "general"] },
-      question: { not: "" },
     },
     _count: { _all: true },
   });
@@ -373,8 +394,8 @@ function buildInterviewReviewQuestionWhere(
 ): Prisma.InterviewQuestionWhereInput | null {
   if (filters.section === "projects" && filters.projectId) {
     return {
+      ...reviewQuestionBaseWhere(filters.source),
       category: "resume_project",
-      question: { not: "" },
       resumeProjectId:
         filters.projectId === "unlinked" ? null : filters.projectId,
     };
@@ -382,8 +403,8 @@ function buildInterviewReviewQuestionWhere(
 
   if (filters.section === "question_bank" && filters.category) {
     return {
+      ...reviewQuestionBaseWhere(filters.source),
       category: filters.category,
-      question: { not: "" },
     };
   }
 
@@ -419,8 +440,8 @@ export async function getInterviewReviewPageData(
 ): Promise<InterviewReviewPageData> {
   const [{ projects, unlinkedProjectQuestionCount }, questionCounts] =
     await Promise.all([
-      getInterviewReviewProjects(),
-      getInterviewReviewQuestionCounts(),
+      getInterviewReviewProjects(filters.source),
+      getInterviewReviewQuestionCounts(filters.source),
     ]);
   const questionsPage = await getInterviewReviewQuestionsPage(filters);
   const selectedProject =

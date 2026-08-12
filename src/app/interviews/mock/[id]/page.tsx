@@ -3,10 +3,12 @@ import { connection } from "next/server";
 
 import { AppShell } from "@/components/app-shell";
 import { MockInterviewRoom } from "@/components/interviews/mock-interview-room";
+import { InterviewDeleteButton } from "@/components/interviews/interview-delete-button";
 import { MockInterviewGenerationProgress } from "@/components/interviews/mock-interview-generation-progress";
 import { PageHeader } from "@/components/page-header";
 import { ButtonLink } from "@/components/ui/button";
 import { getMockInterviewView } from "@/lib/mock-interviews/queries";
+import { mockInterviewDeleteConfirmMessage } from "@/lib/mock-interviews/types";
 
 export default async function MockInterviewPage({
   params,
@@ -22,9 +24,16 @@ export default async function MockInterviewPage({
     <AppShell active="interviews" subActive="interviews-mock">
       <PageHeader
         actions={
-          <ButtonLink href="/interviews/mock" variant="outline">
-            返回模拟面试列表
-          </ButtonLink>
+          <>
+            <ButtonLink href="/interviews/mock" variant="outline">
+              返回模拟面试列表
+            </ButtonLink>
+            <InterviewDeleteButton
+              confirmMessage={mockInterviewDeleteConfirmMessage(session.status)}
+              id={session.interviewId}
+              redirectTo="/interviews/mock"
+            />
+          </>
         }
         description="按顺序完成问题，系统会保存回答并在结束后生成基于证据的评估。"
         eyebrow="AI 模拟面试"
