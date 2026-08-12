@@ -2,7 +2,7 @@
 
 import { Keyboard, Mic } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -45,11 +45,35 @@ export function MockInterviewRoom({ initial }: { initial: MockInterviewView }) {
     setError("");
   }, []);
 
+  const currentQuestion = initial.questions[currentIndex] ?? null;
+  const draftStorageKey = currentQuestion
+    ? `mock-answer:${initial.id}:${currentQuestion.id}`
+    : null;
+
+  useEffect(() => {
+    if (!draftStorageKey) return;
+    const timeout = window.setTimeout(() => {
+      setAnswer(window.localStorage.getItem(draftStorageKey) ?? "");
+    }, 0);
+    return () => window.clearTimeout(timeout);
+  }, [draftStorageKey]);
+
+  useEffect(() => {
+    if (!draftStorageKey) return;
+    const timeout = window.setTimeout(() => {
+      if (answer) {
+        window.localStorage.setItem(draftStorageKey, answer);
+      } else {
+        window.localStorage.removeItem(draftStorageKey);
+      }
+    }, 300);
+    return () => window.clearTimeout(timeout);
+  }, [answer, draftStorageKey]);
+
   if (initial.status === "completed") {
     return <MockInterviewReport session={initial} />;
   }
 
-  const currentQuestion = initial.questions[currentIndex] ?? null;
   const advanceQuestion = async (skip: boolean) => {
     if (!currentQuestion) return;
     setPending(true);
@@ -74,6 +98,7 @@ export function MockInterviewRoom({ initial }: { initial: MockInterviewView }) {
       }
       setCurrentIndex(result.currentQuestionIndex);
       setStatus(result.status ?? "in_progress");
+      if (draftStorageKey) window.localStorage.removeItem(draftStorageKey);
       setAnswer("");
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "提交回答失败。");

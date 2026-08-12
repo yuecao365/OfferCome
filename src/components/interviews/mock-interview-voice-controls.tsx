@@ -37,10 +37,14 @@ export function MockInterviewVoiceControls({
   onTranscript,
 }: MockInterviewVoiceControlsProps) {
   const [phase, setPhase] = useState<RecordingPhase>("idle");
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [recordingNotice, setRecordingNotice] = useState("");
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const recordingStartedAtRef = useRef<number | null>(null);
   const mountedRef = useRef(true);
 
   const setRecordingPhase = useCallback(
@@ -77,6 +81,7 @@ export function MockInterviewVoiceControls({
       window.clearTimeout(timer);
       window.speechSynthesis?.cancel();
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (intervalRef.current) clearInterval(intervalRef.current);
       const recorder = recorderRef.current;
       if (recorder && recorder.state !== "inactive") {
         recorder.onstop = null;
@@ -148,6 +153,9 @@ export function MockInterviewVoiceControls({
       recorder.onstop = () => {
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
         timeoutRef.current = null;
+        if (intervalRef.current) clearInterval(intervalRef.current);
+        intervalRef.current = null;
+        recordingStartedAtRef.current = null;
         stopStream(streamRef.current);
         streamRef.current = null;
         const finalType = recorder.mimeType || mediaType || "audio/webm";
@@ -161,9 +169,28 @@ export function MockInterviewVoiceControls({
         void transcribe(blob, finalType);
       };
       recorder.start(1_000);
+      setElapsedSeconds(0);
+      setRecordingNotice("");
+      recordingStartedAtRef.current = Date.now();
       setRecordingPhase("recording");
+      intervalRef.current = setInterval(() => {
+        if (recordingStartedAtRef.current !== null) {
+          setElapsedSeconds(
+            Math.min(
+              MAX_RECORDING_MS / 1_000,
+              Math.floor((Date.now() - recordingStartedAtRef.current) / 1_000),
+            ),
+          );
+        }
+      }, 1_000);
       timeoutRef.current = setTimeout(() => {
-        if (recorder.state === "recording") recorder.stop();
+        if (recorder.state === "recording") {
+          setElapsedSeconds(MAX_RECORDING_MS / 1_000);
+          setRecordingNotice(
+            "已达单次录音上限，已自动停止并开始转写",
+          );
+          recorder.stop();
+        }
       }, MAX_RECORDING_MS);
     } catch (error) {
       stopStream(streamRef.current);
@@ -183,6 +210,8 @@ export function MockInterviewVoiceControls({
   };
 
   const busy = phase !== "idle";
+  const elapsedMinutes = Math.floor(elapsedSeconds / 60);
+  const elapsedRemainder = String(elapsedSeconds % 60).padStart(2, "0");
   return (
     <div className="grid gap-2 rounded-lg border border-border bg-surface-subtle p-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -197,10 +226,21 @@ export function MockInterviewVoiceControls({
           朗读问题
         </Button>
         {phase === "recording" ? (
-          <Button onClick={stopRecording} size="sm" type="button" variant="danger">
-            <Square aria-hidden="true" className="size-3.5" />
-            结束录音
-          </Button>
+          <>
+            <Button onClick={stopRecording} size="sm" type="button" variant="danger">
+              <Square aria-hidden="true" className="size-3.5" />
+              结束录音
+            </Button>
+            <span
+              className={
+                elapsedSeconds >= 270
+                  ? "text-sm font-semibold text-warning-strong"
+                  : "text-sm font-medium text-foreground"
+              }
+            >
+              {elapsedMinutes}:{elapsedRemainder} / 5:00
+            </span>
+          </>
         ) : (
           <Button
             disabled={disabled || busy}
@@ -227,6 +267,9 @@ export function MockInterviewVoiceControls({
           : phase === "transcribing"
             ? "录音仅用于本次转写，不保存音频文件。"
             : "录音会转成可编辑文字，确认内容后再提交回答。"}
+      </p>
+      <p aria-live="assertive" className="sr-only">
+        {recordingNotice}
       </p>
     </div>
   );
