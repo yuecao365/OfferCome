@@ -102,3 +102,9 @@ npm run boss:sync
 ```
 
 > Boss Zhipin login, QR codes, CAPTCHAs, and security checks must be completed manually by the account owner. A standard Docker container cannot open a headed browser on the host desktop, so login and sync currently work best when running from source.
+
+## Deployment Notes
+
+OfferLai is designed as a local-first application. Several complete-product workflows depend on long-running tasks or local resources: LLM calls may run for 60 seconds or longer, audio transcription can run for up to 10 minutes, large audio files may be split with ffmpeg, mock-interview generation and profile refreshes use Next.js `after()` background work, and resume files plus browser session state are stored on the local filesystem.
+
+Deploying the writable product to a serverless platform such as Vercel therefore requires your own solutions for function timeouts, an available ffmpeg runtime, durable background execution, and persistent file/database storage. The hosted Vercel site in this repository is a read-only preview. For the complete product, the recommended deployment is local Docker Compose as described above.
