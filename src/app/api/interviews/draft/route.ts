@@ -126,11 +126,32 @@ export async function POST(request: Request) {
     await prisma.interviewImportArtifact.deleteMany({
       where: { expiresAt: { lt: new Date() }, consumedAt: null },
     });
-    const [{ artifact, source, sourceType, importMode }, projects] = await Promise.all([
-      sourceFromRequest(formData),
-      getInterviewDraftProjectOptions(),
-    ]);
-    const draft = await structureInterviewText(artifact.text, projects);
+    const action = formData.get("action");
+    const artifactId = formData.get("artifactId");
+    if (action === "structure" && typeof artifactId === "string" && artifactId) {
+      const stored = await prisma.interviewImportArtifact.findFirst({
+        where: { id: artifactId, consumedAt: null, expiresAt: { gt: new Date() } },
+      });
+      if (!stored) throw new Error("转写稿已过期，请重新转写录音。");
+      const draft = await structureInterviewText(
+        stored.transcriptText,
+        await getInterviewDraftProjectOptions(),
+      );
+      const capabilities = JSON.parse(stored.capabilitiesJson) as unknown;
+      return Response.json({
+        ...draft,
+        source: "audio",
+        sourceType: stored.sourceType,
+        artifactId: stored.id,
+        transcript: stored.transcriptText,
+        segments: JSON.parse(stored.segmentsJson) as unknown,
+        speakers: [],
+        capabilities,
+      });
+    }
+
+    const { artifact, source, sourceType, importMode } =
+      await sourceFromRequest(formData);
     const immediateMetrics =
       importMode === "candidate_recording"
         ? deriveVoiceMetrics(artifact.segments, null)
@@ -147,6 +168,25 @@ export async function POST(request: Request) {
         expiresAt: new Date(Date.now() + 24 * 60 * 60_000),
       },
     });
+
+    if (action === "transcribe") {
+      if (source !== "audio") {
+        throw new Error("转写步骤仅支持录音文件。");
+      }
+      return Response.json({
+        artifactId: stored.id,
+        transcript: artifact.text.slice(0, MAX_PASTED_TEXT_LENGTH),
+        speakers: artifact.speakers,
+        segments: artifact.segments.slice(0, 300),
+        capabilities: artifact.capabilities,
+        sourceType,
+      });
+    }
+
+    const draft = await structureInterviewText(
+      artifact.text,
+      await getInterviewDraftProjectOptions(),
+    );
 
     return Response.json({
       ...draft,

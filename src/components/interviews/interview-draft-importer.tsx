@@ -63,9 +63,17 @@ export function InterviewDraftImporter({
   const [segments, setSegments] = useState<NonNullable<DraftResponse["segments"]>>([]);
   const [candidateSpeaker, setCandidateSpeaker] = useState("");
   const [hasVoiceMetrics, setHasVoiceMetrics] = useState(false);
+  const isAudioMode =
+    importMode === "full_recording" || importMode === "candidate_recording";
 
-  const generateDraft = async () => {
-    if (!file && !text.trim()) {
+  const runImportStep = async () => {
+    const shouldTranscribe = isAudioMode && !artifactId;
+    if (shouldTranscribe && !file) {
+      setIsError(true);
+      setMessage("请先选择录音文件。");
+      return;
+    }
+    if (!shouldTranscribe && !artifactId && !file && !text.trim()) {
       setIsError(true);
       setMessage("请先选择文件或粘贴面试文本。");
       return;
@@ -77,7 +85,13 @@ export function InterviewDraftImporter({
 
     try {
       const formData = new FormData();
-      if (file) formData.set("file", file);
+      if (shouldTranscribe && file) {
+        formData.set("file", file);
+        formData.set("action", "transcribe");
+      } else if (isAudioMode && artifactId) {
+        formData.set("artifactId", artifactId);
+        formData.set("action", "structure");
+      } else if (file) formData.set("file", file);
       else formData.set("text", text);
       formData.set("importMode", importMode);
 
@@ -86,9 +100,25 @@ export function InterviewDraftImporter({
         body: formData,
       });
       const result = (await response.json()) as DraftResponse;
-      if (!response.ok || !result.questions) {
+      if (!response.ok) {
         throw new Error(result.error ?? "生成面试草稿失败。");
       }
+
+      if (shouldTranscribe) {
+        if (!result.artifactId || !result.transcript) {
+          throw new Error("录音转写失败。");
+        }
+        setText(result.transcript);
+        setArtifactId(result.artifactId);
+        setSourceType(result.sourceType ?? "real_audio");
+        setSpeakers(result.speakers ?? []);
+        setSegments(result.segments ?? []);
+        setCandidateSpeaker("");
+        setHasVoiceMetrics(Boolean(result.capabilities?.hasVoiceMetrics));
+        setMessage("录音已转写。请检查转写稿和说话人，再生成问题草稿。");
+        return;
+      }
+      if (!result.questions) throw new Error("生成面试草稿失败。");
 
       onDraft(
         result.questions.map((question, index) => ({
@@ -156,6 +186,7 @@ export function InterviewDraftImporter({
                     ? "real_transcript"
                     : "real_summary",
               );
+              setText("");
             }}
             value={importMode}
           >
@@ -185,6 +216,14 @@ export function InterviewDraftImporter({
           />
         </label>
       </div>
+      {isAudioMode && artifactId ? (
+        <div className="mt-3 rounded border border-zinc-200 bg-white p-3">
+          <p className="text-sm font-medium text-zinc-800">转写稿预览</p>
+          <div className="mt-2 max-h-52 overflow-y-auto whitespace-pre-wrap rounded bg-zinc-50 p-3 text-xs leading-5 text-zinc-700">
+            {text}
+          </div>
+        </div>
+      ) : null}
       {!transcriptionConfigured ? (
         <p className="mt-2 text-xs text-amber-700">
           录音导入需先在设置页配置语音转写；文本和文档导入仍可使用。
@@ -225,11 +264,19 @@ export function InterviewDraftImporter({
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <button
           className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:text-zinc-400"
-          disabled={pending}
-          onClick={generateDraft}
+          disabled={pending || (isAudioMode && Boolean(artifactId) && speakers.length > 0 && !candidateSpeaker)}
+          onClick={runImportStep}
           type="button"
         >
-          {pending ? "识别中..." : "生成表单草稿"}
+          {pending
+            ? isAudioMode && !artifactId
+              ? "转写中..."
+              : "结构化中..."
+            : isAudioMode && !artifactId
+              ? "转写录音"
+              : isAudioMode
+                ? "生成问题草稿"
+                : "生成表单草稿"}
         </button>
         {message ? (
           <p
