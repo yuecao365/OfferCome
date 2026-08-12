@@ -79,3 +79,46 @@ test("keeps JD-related history but filters adjacent model theory", () => {
   );
   assert.equal(selected.history[0]?.jobCompetencyId, "agent_harness");
 });
+
+test("force-injects a seeded history item and maps zero relevance to a core competency", () => {
+  const context = contextWithHistory([
+    {
+      id: "seed",
+      question: "请介绍一次完全不同领域的沟通经历。",
+      jobTitle: "销售",
+    },
+  ]);
+
+  const selected = selectRelevantPersonalization({
+    context,
+    blueprint,
+    jobTitle: "AI Agent 开发实习生",
+    seedQuestionId: "seed",
+  });
+
+  assert.equal(selected.history[0]?.questionId, "seed");
+  assert.equal(selected.history[0]?.jobCompetencyId, "agent_harness");
+  assert.equal(selected.history[0]?.jobRelevance, 0);
+});
+
+test("force-injects a seeded profile insight below the normal relevance threshold", () => {
+  const context = contextWithHistory([]);
+  context.profile.insights.push({
+    id: "insight-seed",
+    dimension: "communication_clarity",
+    kind: "training_focus",
+    title: "表达精炼",
+    statement: "回答时先给结论。",
+    confidence: 0.8,
+  });
+
+  const selected = selectRelevantPersonalization({
+    context,
+    blueprint,
+    jobTitle: "AI Agent 开发实习生",
+    seedInsightId: "insight-seed",
+  });
+
+  assert.equal(selected.profileInsights[0]?.id, "insight-seed");
+  assert.equal(selected.profileInsights[0]?.jobCompetencyId, "agent_harness");
+});

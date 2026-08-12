@@ -93,6 +93,18 @@ function bestCompetencyMatch(
   return best;
 }
 
+function seededCompetencyMatch(
+  text: string,
+  blueprint: MockInterviewJobBlueprint,
+): CompetencyMatch {
+  const match = bestCompetencyMatch(text, blueprint);
+  if (match.competencyId) return match;
+  const fallback =
+    blueprint.competencies.find((item) => item.priority === "core") ??
+    blueprint.competencies[0];
+  return { competencyId: fallback?.id ?? "", relevance: 0 };
+}
+
 export type RelevantHistoryItem = MockInterviewContext["history"][number] & {
   jobCompetencyId: string;
   jobRelevance: number;
@@ -112,10 +124,15 @@ export function selectRelevantPersonalization(input: {
   context: MockInterviewContext;
   blueprint: MockInterviewJobBlueprint;
   jobTitle: string;
+  seedQuestionId?: string | null;
+  seedInsightId?: string | null;
 }): RelevantPersonalizationContext {
   const history = input.context.history
     .map((item): RelevantHistoryItem => {
-      const match = bestCompetencyMatch(item.question, input.blueprint);
+      const seeded = item.questionId === input.seedQuestionId;
+      const match = seeded
+        ? seededCompetencyMatch(item.question, input.blueprint)
+        : bestCompetencyMatch(item.question, input.blueprint);
       const titleRelevance = tokenCoverage(item.jobTitle, input.jobTitle);
       return {
         ...item,
@@ -125,16 +142,25 @@ export function selectRelevantPersonalization(input: {
         ),
       };
     })
-    .filter((item) => item.jobCompetencyId && item.jobRelevance >= 0.16)
-    .toSorted((left, right) => right.jobRelevance - left.jobRelevance)
+    .filter(
+      (item) =>
+        item.jobCompetencyId &&
+        (item.questionId === input.seedQuestionId || item.jobRelevance >= 0.16),
+    )
+    .toSorted((left, right) =>
+      Number(right.questionId === input.seedQuestionId) -
+        Number(left.questionId === input.seedQuestionId) ||
+      right.jobRelevance - left.jobRelevance,
+    )
     .slice(0, 12);
 
   const profileInsights = input.context.profile.insights
     .map((insight): RelevantProfileInsight => {
-      const match = bestCompetencyMatch(
-        `${insight.title}\n${insight.statement}`,
-        input.blueprint,
-      );
+      const text = `${insight.title}\n${insight.statement}`;
+      const match =
+        insight.id === input.seedInsightId
+          ? seededCompetencyMatch(text, input.blueprint)
+          : bestCompetencyMatch(text, input.blueprint);
       return {
         ...insight,
         jobCompetencyId: match.competencyId,
@@ -142,9 +168,15 @@ export function selectRelevantPersonalization(input: {
       };
     })
     .filter(
-      (insight) => insight.jobCompetencyId && insight.jobRelevance >= 0.16,
+      (insight) =>
+        insight.jobCompetencyId &&
+        (insight.id === input.seedInsightId || insight.jobRelevance >= 0.16),
     )
-    .toSorted((left, right) => right.jobRelevance - left.jobRelevance)
+    .toSorted((left, right) =>
+      Number(right.id === input.seedInsightId) -
+        Number(left.id === input.seedInsightId) ||
+      right.jobRelevance - left.jobRelevance,
+    )
     .slice(0, 8);
 
   return { history, profileInsights };

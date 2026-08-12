@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import Link from "next/link";
 
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -29,10 +30,12 @@ export function MockInterviewSetup({
   resumes,
   textConfigured,
   transcriptionConfigured,
+  seed,
 }: {
   resumes: ResumeOption[];
   textConfigured: boolean;
   transcriptionConfigured: boolean;
+  seed?: { id: string; kind: "question" | "insight"; title: string } | null;
 }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
@@ -60,6 +63,19 @@ export function MockInterviewSetup({
 
   return (
     <form className="grid gap-4" onSubmit={submit}>
+      {seed ? (
+        <Alert tone="info">
+          <span>本场将围绕「{seed.title}」重点出题。</span>
+          <Link className="ml-2 font-semibold underline" href="/interviews/mock">
+            关闭
+          </Link>
+          <input
+            name={seed.kind === "question" ? "seedQuestionId" : "seedInsightId"}
+            type="hidden"
+            value={seed.id}
+          />
+        </Alert>
+      ) : null}
       {!textConfigured ? (
         <Alert tone="danger">
           文本模型尚未配置，暂时不能创建 AI 模拟面试。请先前往

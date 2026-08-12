@@ -79,6 +79,21 @@ test("allocates a majority of questions to direct JD coverage", () => {
   });
 });
 
+test("reserves a personalization slot for short seeded interviews", () => {
+  assert.deepEqual(getQuestionSourceAllocation(3), {
+    directJobDescriptionMin: 2,
+    resumeMax: 1,
+    personalizationMax: 0,
+    secondaryCompetencyMax: 1,
+  });
+  assert.deepEqual(getQuestionSourceAllocation(3, true), {
+    directJobDescriptionMin: 1,
+    resumeMax: 1,
+    personalizationMax: 1,
+    secondaryCompetencyMax: 1,
+  });
+});
+
 test("rejects invalid JD evidence and duplicate questions", () => {
   const result = selectValidQuestions({
     candidates: [

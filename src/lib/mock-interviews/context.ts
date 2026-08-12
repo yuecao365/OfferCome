@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getCandidateProfileContext } from "@/lib/candidate-profile/queries";
+import { normalizeProfileDimension } from "@/lib/candidate-profile/types";
 import { prisma } from "@/lib/db";
 import { extractResumeTextFromFile } from "@/lib/resumes/extract";
 
@@ -33,8 +34,10 @@ export async function buildMockInterviewContext(input: {
   resumeId: string;
   jobTitle: string;
   jobDescription: string;
+  seedQuestionId?: string | null;
+  seedInsightId?: string | null;
 }): Promise<MockInterviewContext> {
-  const [resume, historyRows, profile] = await Promise.all([
+  const [resume, historyRows, profile, seedQuestion, seedInsight] = await Promise.all([
     prisma.resume.findUnique({
       where: { id: input.resumeId },
       include: {
@@ -55,6 +58,24 @@ export async function buildMockInterviewContext(input: {
       take: 12,
     }),
     getCandidateProfileContext(),
+    input.seedQuestionId
+      ? prisma.interviewQuestion.findFirst({
+          where: {
+            id: input.seedQuestionId,
+            answer: { not: null },
+            interview: { kind: "real", status: "completed" },
+          },
+          include: { interview: true },
+        })
+      : null,
+    input.seedInsightId
+      ? prisma.candidateInsight.findFirst({
+          where: {
+            id: input.seedInsightId,
+            kind: { in: ["weakness", "training_focus"] },
+          },
+        })
+      : null,
   ]);
   if (!resume) throw new Error("所选简历不存在，请重新选择。");
 
@@ -70,7 +91,7 @@ export async function buildMockInterviewContext(input: {
     const rightMatch = right.jobTitle.trim().toLocaleLowerCase() === normalizedJobTitle;
     return Number(rightMatch) - Number(leftMatch);
   });
-  const history = sortedHistory
+  let history = sortedHistory
     .flatMap((interview) =>
       interview.questions.flatMap((question) => {
         const answer = question.answer?.trim();
@@ -89,6 +110,35 @@ export async function buildMockInterviewContext(input: {
       }),
     )
     .slice(0, 30);
+  if (seedQuestion?.answer && !history.some((item) => item.questionId === seedQuestion.id)) {
+    history = [
+      {
+        interviewId: seedQuestion.interview.id,
+        companyName: seedQuestion.interview.companyName,
+        jobTitle: seedQuestion.interview.jobTitle,
+        questionId: seedQuestion.id,
+        question: seedQuestion.question,
+        answer: seedQuestion.answer.slice(0, 2_000),
+        category: seedQuestion.category,
+      },
+      ...history.slice(0, 29),
+    ];
+  }
+
+  const profileInsights = [...profile.insights];
+  if (seedInsight && !profileInsights.some((item) => item.id === seedInsight.id)) {
+    const dimension = normalizeProfileDimension(seedInsight.dimension);
+    if (dimension) {
+      profileInsights.unshift({
+        id: seedInsight.id,
+        dimension,
+        kind: seedInsight.kind as "weakness" | "training_focus",
+        title: seedInsight.title,
+        statement: seedInsight.statement,
+        confidence: seedInsight.confidence,
+      });
+    }
+  }
 
   const projectsById = new Map<
     string,
@@ -114,7 +164,7 @@ export async function buildMockInterviewContext(input: {
     },
     projects: Array.from(projectsById.values()),
     history,
-    profile,
+    profile: { ...profile, insights: profileInsights },
   };
 }
 

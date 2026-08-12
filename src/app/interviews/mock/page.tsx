@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { getRecentMockInterviews } from "@/lib/mock-interviews/queries";
 import { getResumes } from "@/lib/resumes/queries";
 import { getAiTaskConfig, isAiTaskConfigured } from "@/lib/settings/ai";
+import { resolveMockInterviewSeed } from "@/lib/mock-interviews/seeds";
 
 function statusLabel(status: string): string {
   if (status === "completed") return "已完成";
@@ -18,13 +19,27 @@ function statusLabel(status: string): string {
   return "进行中";
 }
 
-export default async function MockInterviewsPage() {
+function firstParam(value: string | string[] | undefined): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+export default async function MockInterviewsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   await connection();
-  const [resumes, recent, textConfig, transcriptionConfig] = await Promise.all([
+  const params = await searchParams;
+  const seedPromise = resolveMockInterviewSeed({
+    seedQuestionId: firstParam(params.seedQuestionId),
+    seedInsightId: firstParam(params.seedInsightId),
+  });
+  const [resumes, recent, textConfig, transcriptionConfig, seed] = await Promise.all([
     getResumes(),
     getRecentMockInterviews(),
     getAiTaskConfig("text"),
     getAiTaskConfig("transcription"),
+    seedPromise,
   ]);
 
   return (
@@ -44,6 +59,7 @@ export default async function MockInterviewsPage() {
             name: resume.originalName,
             isDefault: resume.isDefault,
           }))}
+          seed={seed}
         />
       ) : (
         <EmptyState

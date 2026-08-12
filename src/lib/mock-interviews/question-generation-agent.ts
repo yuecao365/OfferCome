@@ -96,6 +96,7 @@ async function requestQuestionBatch(input: {
   round: string | null;
   context: ReturnType<typeof promptContext>;
   existingQuestions: MockInterviewQuestionDraft[];
+  seedSourceId?: string | null;
 }): Promise<QuestionBatchResult> {
   const startedAt = Date.now();
   let rawText: string | undefined;
@@ -103,7 +104,10 @@ async function requestQuestionBatch(input: {
   let usage: LanguageModelUsage | undefined;
 
   try {
-    const allocation = getQuestionSourceAllocation(input.totalQuestionCount);
+    const allocation = getQuestionSourceAllocation(
+      input.totalQuestionCount,
+      Boolean(input.seedSourceId),
+    );
     const result = await generateText({
       model: input.modelInstance,
       output: Output.object({
@@ -120,6 +124,7 @@ async function requestQuestionBatch(input: {
 简历用于验证候选人能否把已有经历迁移到岗位职责。历史和画像只用于调整已相关问题的训练角度，不能独立引入 JD 没有支持的主题；history/profile 必须使用输入中已映射到同一 jobCompetencyId 的来源 ID。不要复述或近似改写历史原题。
 
 整场 ${input.totalQuestionCount} 题至少 ${allocation.directJobDescriptionMin} 题以 job_description 为 sourceKind；resume 最多 ${allocation.resumeMax} 题；history 与 profile 合计最多 ${allocation.personalizationMax} 题。所有题仍必须通过 JD 关联门槛。resume 题必须引用有效 resumeProjectId，其他题的 resumeProjectId 为 null。history/profile 之外的 personalizationSourceId 必须为 null。
+${input.seedSourceId ? `必须至少生成一题以 ${input.seedSourceId} 为 personalizationSourceId，围绕该内容进行针对性训练。` : ""}
 
 映射到 secondary 岗位能力的问题整场最多 ${allocation.secondaryCompetencyMax} 题，不能挤占核心岗位职责。
 
@@ -200,6 +205,8 @@ export async function generateMockInterviewPlan(input: {
   questionCount: number;
   difficulty: string;
   round: string | null;
+  seedQuestionId?: string | null;
+  seedInsightId?: string | null;
 }): Promise<{
   plan: MockInterviewQuestionPlan;
   provider: string;
@@ -214,7 +221,10 @@ export async function generateMockInterviewPlan(input: {
     context: input.context,
     blueprint: input.blueprint,
     jobTitle: input.jobTitle,
+    seedQuestionId: input.seedQuestionId,
+    seedInsightId: input.seedInsightId,
   });
+  const seedSourceId = input.seedQuestionId ?? input.seedInsightId ?? null;
   const context = promptContext({
     context: input.context,
     blueprint: input.blueprint,
@@ -233,6 +243,7 @@ export async function generateMockInterviewPlan(input: {
     round: input.round,
     context,
     existingQuestions: [],
+    seedSourceId,
   });
   const initialSelection = selectValidQuestions({
     candidates: initial.questions,
@@ -240,6 +251,7 @@ export async function generateMockInterviewPlan(input: {
     context: input.context,
     blueprint: input.blueprint,
     personalization,
+    seedSourceId,
   });
   logMockInterviewGeneration({
     generationId: input.generationId,
@@ -258,6 +270,13 @@ export async function generateMockInterviewPlan(input: {
   });
 
   let accepted = initialSelection.accepted;
+  if (
+    seedSourceId &&
+    accepted.length === input.questionCount &&
+    !accepted.some((question) => question.personalizationSourceId === seedSourceId)
+  ) {
+    accepted = accepted.slice(0, -1);
+  }
   if (accepted.length < input.questionCount) {
     const missingCount = input.questionCount - accepted.length;
     const topUp = await requestQuestionBatch({
@@ -272,6 +291,7 @@ export async function generateMockInterviewPlan(input: {
       round: input.round,
       context,
       existingQuestions: accepted,
+      seedSourceId,
     });
     const topUpSelection = selectValidQuestions({
       candidates: topUp.questions,
@@ -280,6 +300,7 @@ export async function generateMockInterviewPlan(input: {
       context: input.context,
       blueprint: input.blueprint,
       personalization,
+      seedSourceId,
     });
     accepted = topUpSelection.accepted;
     logMockInterviewGeneration({
@@ -299,10 +320,15 @@ export async function generateMockInterviewPlan(input: {
     });
   }
 
-  if (accepted.length !== input.questionCount) {
+  const includesSeed =
+    !seedSourceId ||
+    accepted.some((question) => question.personalizationSourceId === seedSourceId);
+  if (accepted.length !== input.questionCount || !includesSeed) {
     throw new MockInterviewGenerationError({
       code: "question_validation_failed",
-      message: `模型题目经岗位相关性和去重检查后仍不足 ${input.questionCount} 道，请重试。`,
+      message: !includesSeed
+        ? "未能围绕所选内容出题，请确认它与本次 JD 相关。"
+        : `模型题目经岗位相关性和去重检查后仍不足 ${input.questionCount} 道，请重试。`,
     });
   }
 

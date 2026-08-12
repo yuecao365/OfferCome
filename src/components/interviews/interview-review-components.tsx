@@ -207,6 +207,18 @@ export function QuestionReviewList({
             </span>
           </summary>
           <div className="grid gap-3 border-t border-border bg-surface-subtle p-4">
+            {item.answers[0] ? (
+              <div>
+                <ButtonLink
+                  href={`/interviews/mock?seedQuestionId=${encodeURIComponent(item.answers[0].id)}`}
+                  size="sm"
+                  variant="outline"
+                >
+                  用这题再练
+                  <ArrowRight aria-hidden="true" className="size-4" />
+                </ButtonLink>
+              </div>
+            ) : null}
             {item.answers.map((answer) => (
               <article className="rounded-lg border border-border bg-surface p-4" key={answer.id}>
                 <p className="whitespace-pre-wrap border-l-2 border-brand/40 pl-3 text-sm leading-7 text-foreground">

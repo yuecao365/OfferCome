@@ -30,6 +30,7 @@ import { assertMockInterviewAiConfigured } from "./agent-runtime";
 import { isMockInterviewGenerationError } from "./errors";
 import { generateMockInterviewFollowUp } from "./follow-up-agent";
 import { canRequestFollowUp } from "./follow-up-policy";
+import { resolveMockInterviewSeed } from "./seeds";
 
 export type CreateMockInterviewInput = {
   companyName: string;
@@ -42,6 +43,8 @@ export type CreateMockInterviewInput = {
   interactionMode: string;
   questionCount: number;
   followUpsEnabled?: boolean;
+  seedQuestionId?: string | null;
+  seedInsightId?: string | null;
 };
 
 function validateCreateInput(input: CreateMockInterviewInput) {
@@ -74,7 +77,12 @@ function validateCreateInput(input: CreateMockInterviewInput) {
 
 type GenerationSnapshot = {
   jobBlueprint?: unknown;
-  generationRequest?: { difficulty?: unknown; round?: unknown };
+  generationRequest?: {
+    difficulty?: unknown;
+    round?: unknown;
+    seedQuestionId?: unknown;
+    seedInsightId?: unknown;
+  };
   [key: string]: unknown;
 };
 
@@ -91,11 +99,19 @@ function parseGenerationSnapshot(value: string): GenerationSnapshot {
 
 export async function createMockInterview(input: CreateMockInterviewInput) {
   const validated = validateCreateInput(input);
+  const seed = await resolveMockInterviewSeed(input);
+  if ((input.seedQuestionId || input.seedInsightId) && !seed) {
+    throw new Error("所选训练内容不存在或已不可用，请重新选择。");
+  }
+  const seedQuestionId = seed?.kind === "question" ? seed.id : null;
+  const seedInsightId = seed?.kind === "insight" ? seed.id : null;
   const [context, config] = await Promise.all([
     buildMockInterviewContext({
       resumeId: input.resumeId,
       jobTitle: validated.jobTitle,
       jobDescription: validated.jobDescription,
+      seedQuestionId,
+      seedInsightId,
     }),
     getAiTaskConfig("text"),
   ]);
@@ -105,6 +121,8 @@ export async function createMockInterview(input: CreateMockInterviewInput) {
   snapshot.generationRequest = {
     difficulty: input.difficulty,
     round: input.round,
+    seedQuestionId,
+    seedInsightId,
   };
 
   return prisma.interview.create({
@@ -155,12 +173,18 @@ export async function generateMockInterviewQuestions(
   const difficulty =
     typeof request.difficulty === "string" ? request.difficulty : "standard";
   const round = typeof request.round === "string" ? request.round : null;
+  const seedQuestionId =
+    typeof request.seedQuestionId === "string" ? request.seedQuestionId : null;
+  const seedInsightId =
+    typeof request.seedInsightId === "string" ? request.seedInsightId : null;
 
   try {
     const context = await buildMockInterviewContext({
       resumeId: session.resumeId,
       jobTitle: session.interview.jobTitle,
       jobDescription: session.jdTextSnapshot,
+      seedQuestionId,
+      seedInsightId,
     });
     const storedBlueprint = mockInterviewJobBlueprintSchema.safeParse(
       snapshot.jobBlueprint,
@@ -197,6 +221,8 @@ export async function generateMockInterviewQuestions(
       questionCount: session.questionCount,
       difficulty,
       round,
+      seedQuestionId,
+      seedInsightId,
     });
     const projectIds = new Set(context.projects.map((project) => project.id));
 

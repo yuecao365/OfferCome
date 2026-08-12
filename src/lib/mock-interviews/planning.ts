@@ -25,8 +25,12 @@ export type QuestionSourceAllocation = {
 
 export function getQuestionSourceAllocation(
   questionCount: number,
+  hasSeed = false,
 ): QuestionSourceAllocation {
-  const personalizationMax = questionCount >= 5 ? Math.min(2, Math.floor(questionCount * 0.2)) : 0;
+  const personalizationMax = Math.max(
+    hasSeed ? 1 : 0,
+    questionCount >= 5 ? Math.min(2, Math.floor(questionCount * 0.2)) : 0,
+  );
   const resumeMax = Math.max(1, Math.floor(questionCount * 0.3));
   return {
     directJobDescriptionMin: questionCount - resumeMax - personalizationMax,
@@ -60,6 +64,7 @@ export function selectValidQuestions(input: {
   context: MockInterviewContext;
   blueprint: MockInterviewJobBlueprint;
   personalization: RelevantPersonalizationContext;
+  seedSourceId?: string | null;
 }): QuestionSelectionResult {
   const accepted = [...(input.existing ?? [])];
   const rejected: QuestionSelectionResult["rejected"] = [];
@@ -73,7 +78,10 @@ export function selectValidQuestions(input: {
   const profileById = new Map(
     input.personalization.profileInsights.map((item) => [item.id, item]),
   );
-  const allocation = getQuestionSourceAllocation(input.questionCount);
+  const allocation = getQuestionSourceAllocation(
+    input.questionCount,
+    Boolean(input.seedSourceId),
+  );
 
   const countSource = (sourceKind: MockInterviewQuestionDraft["sourceKind"]) =>
     accepted.filter((item) => item.sourceKind === sourceKind).length;
