@@ -16,6 +16,7 @@ import {
   type MockInterviewMode,
   type MockInterviewView,
 } from "@/lib/mock-interviews/types";
+import { useReducedMotion } from "@/lib/use-reduced-motion";
 
 import { MockInterviewReport } from "./mock-interview-report";
 import { MockInterviewVoiceControls } from "./mock-interview-voice-controls";
@@ -39,6 +40,8 @@ export function MockInterviewRoom({ initial }: { initial: MockInterviewView }) {
   const [mode, setMode] = useState<MockInterviewMode>(initial.interactionMode);
   const [voiceBusy, setVoiceBusy] = useState(false);
   const [error, setError] = useState("");
+  const [insertedFollowUpId, setInsertedFollowUpId] = useState<string | null>(null);
+  const reducedMotion = useReducedMotion();
 
   const handleTranscript = useCallback((transcript: string) => {
     setAnswer((current) =>
@@ -71,6 +74,12 @@ export function MockInterviewRoom({ initial }: { initial: MockInterviewView }) {
     }, 300);
     return () => window.clearTimeout(timeout);
   }, [answer, draftStorageKey]);
+
+  useEffect(() => {
+    if (!insertedFollowUpId || reducedMotion) return;
+    const timeout = window.setTimeout(() => setInsertedFollowUpId(null), 320);
+    return () => window.clearTimeout(timeout);
+  }, [insertedFollowUpId, reducedMotion]);
 
   if (initial.status === "completed") {
     return <MockInterviewReport session={initial} />;
@@ -106,9 +115,19 @@ export function MockInterviewRoom({ initial }: { initial: MockInterviewView }) {
       if (!response.ok || typeof result.currentQuestionIndex !== "number") {
         throw new Error(result.error ?? "提交回答失败。");
       }
+      setQuestions((current) =>
+        current.map((question) =>
+          question.id === currentQuestion.id
+            ? { ...question, answer: skip ? "" : answer, skipped: skip }
+            : question,
+        ),
+      );
       setCurrentIndex(result.currentQuestionIndex);
       if (typeof result.questionCount === "number") setQuestionCount(result.questionCount);
       if (result.nextQuestion && !questions.some((item) => item.id === result.nextQuestion!.id)) {
+        if (result.nextQuestion.isFollowUp) {
+          setInsertedFollowUpId(result.nextQuestion.id);
+        }
         setQuestions((current) => {
           const next = [...current];
           next.splice(result.nextQuestion!.sortOrder, 0, {
@@ -223,12 +242,50 @@ export function MockInterviewRoom({ initial }: { initial: MockInterviewView }) {
             </Button>
           </div>
         </div>
-        <progress className="mt-3 h-2 w-full accent-brand" max={questionCount} value={currentIndex}>
-          {currentIndex}/{questionCount}
-        </progress>
+        <ol
+          aria-label={`面试进度，已完成 ${currentIndex} 题，共 ${questionCount} 题`}
+          className="mt-3 grid gap-1.5"
+          style={{ gridTemplateColumns: `repeat(${questionCount}, minmax(0, 1fr))` }}
+        >
+          {questions.slice(0, questionCount).map((question, index) => {
+            const isCurrent = index === currentIndex;
+            const isCompleted = index < currentIndex;
+            const isSkipped = isCompleted && question.skipped;
+            return (
+              <li
+                aria-current={isCurrent ? "step" : undefined}
+                aria-label={`${question.isFollowUp ? "追问" : `问题 ${index + 1}`}，${isCurrent ? "当前" : isSkipped ? "已跳过" : isCompleted ? "已答" : "未答"}`}
+                className={`h-2.5 rounded-full border ${
+                  isCurrent
+                    ? "border-brand bg-accent ring-2 ring-brand/20"
+                    : isSkipped
+                      ? "border-warning bg-warning-soft"
+                      : isCompleted
+                        ? "border-brand bg-brand"
+                        : question.isFollowUp
+                          ? "border-dashed border-info bg-info-soft"
+                          : "border-border bg-muted"
+                }`}
+                key={question.id}
+              />
+            );
+          })}
+        </ol>
+        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+          <span><i className="mr-1 inline-block size-2 rounded-full bg-brand" />已答</span>
+          <span><i className="mr-1 inline-block size-2 rounded-full bg-accent ring-1 ring-brand" />当前</span>
+          <span><i className="mr-1 inline-block size-2 rounded-full bg-warning-soft ring-1 ring-warning" />已跳过</span>
+          <span><i className="mr-1 inline-block size-2 rounded-full border border-dashed border-info bg-info-soft" />追问</span>
+        </div>
       </Card>
 
-      <Card className="p-5">
+      <Card
+        className={`p-5 ${
+          currentQuestion.isFollowUp && insertedFollowUpId === currentQuestion.id && !reducedMotion
+            ? "animate-follow-up-enter"
+            : ""
+        }`}
+      >
       <form className="grid gap-4" onSubmit={submitAnswer}>
         <div>
           <Badge>{categoryLabel(currentQuestion.category)}</Badge>

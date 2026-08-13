@@ -6,6 +6,11 @@ import {
   type MockInterviewView,
 } from "@/lib/mock-interviews/types";
 
+import {
+  InterviewScoreRing,
+  QuestionDimensionScores,
+} from "./mock-interview-report-visuals";
+
 const SOURCE_LABELS: Record<string, string> = {
   job_description: "岗位描述",
   resume: "简历经历",
@@ -20,13 +25,10 @@ export function MockInterviewReport({ session }: { session: MockInterviewView })
 
   return (
     <div className="grid gap-6">
-      <Card className="grid gap-4 p-5 md:grid-cols-[140px_minmax(0,1fr)]">
-        <div>
-          <p className="text-sm font-medium text-muted-foreground">面试总分</p>
-          <p className="mt-1 text-4xl font-semibold tracking-tight text-foreground">
-            {report.totalScore}
-            <span className="ml-1 text-base font-normal text-muted-foreground">/ 100</span>
-          </p>
+      <Card className="grid items-center gap-5 p-5 md:grid-cols-[160px_minmax(0,1fr)]">
+        <div className="text-center">
+          <p className="mb-2 text-sm font-semibold text-foreground">面试总分</p>
+          <InterviewScoreRing score={report.totalScore} />
         </div>
         <div>
           <h3 className="text-sm font-semibold text-foreground">总体评价</h3>
@@ -194,17 +196,7 @@ export function MockInterviewReport({ session }: { session: MockInterviewView })
             {!question.skipped && question.evaluation ? (
               <div className="mt-3 grid gap-3">
                 <p className="text-sm leading-6 text-muted-foreground">{question.evaluation.feedback}</p>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {question.evaluation.dimensions.map((dimension) => (
-                    <div className="rounded-lg border border-border p-3" key={dimension.name}>
-                      <div className="flex items-center justify-between gap-2 text-sm">
-                        <span className="font-medium text-foreground">{dimension.name}</span>
-                        <span className="text-muted-foreground">{Math.round(dimension.score)} 分</span>
-                      </div>
-                      <p className="mt-1 text-xs leading-5 text-muted-foreground">{dimension.evidence}</p>
-                    </div>
-                  ))}
-                </div>
+                <QuestionDimensionScores dimensions={question.evaluation.dimensions} />
               </div>
             ) : null}
             {session.questions

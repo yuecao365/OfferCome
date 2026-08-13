@@ -27,16 +27,43 @@ type ProfileGraphProps = {
   reducedMotion: boolean;
 };
 
-const KIND_COLORS: Record<ProfileInsightKind, string[]> = {
-  strength: ["#14532d", "#16a34a", "#34d399", "#a7f3d0"],
-  weakness: ["#7f1d1d", "#e11d48", "#fb7185", "#fecdd3"],
-  pattern: ["#1e3a8a", "#2563eb", "#60a5fa", "#bfdbfe"],
-  training_focus: ["#78350f", "#d97706", "#fbbf24", "#fde68a"],
+type GraphTheme = {
+  background: string;
+  foreground: string;
+  surface: string;
+  muted: string;
+  mutedForeground: string;
+  border: string;
+  brand: string;
+  info: string;
+  success: string;
+  warning: string;
+  danger: string;
 };
 
-function colorForInsight(insight: ProfileGraphInsight): string {
-  const index = Math.max(0, Math.min(3, Math.floor((insight.level ?? 2) - 1)));
-  return KIND_COLORS[insight.kind][index];
+function readGraphTheme(element: HTMLElement): GraphTheme {
+  const styles = getComputedStyle(element);
+  const token = (name: string) => styles.getPropertyValue(name).trim();
+  return {
+    background: token("--background"),
+    foreground: token("--foreground"),
+    surface: token("--surface"),
+    muted: token("--muted"),
+    mutedForeground: token("--muted-foreground"),
+    border: token("--border"),
+    brand: token("--brand"),
+    info: token("--info"),
+    success: token("--success"),
+    warning: token("--warning"),
+    danger: token("--danger"),
+  };
+}
+
+function colorForInsight(kind: ProfileInsightKind, theme: GraphTheme): string {
+  if (kind === "strength") return theme.success;
+  if (kind === "weakness") return theme.danger;
+  if (kind === "training_focus") return theme.warning;
+  return theme.info;
 }
 
 function reasonLabel(reasons: string[]): string {
@@ -76,6 +103,21 @@ export function ProfileGraph({ insights, selectedId, onSelect, reducedMotion }: 
   const insightsRef = useRef(insights);
   const onSelectRef = useRef(onSelect);
   const [renderError, setRenderError] = useState("");
+  const [graphTheme, setGraphTheme] = useState<GraphTheme | null>(null);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    setGraphTheme(readGraphTheme(container));
+    const observer = new MutationObserver(() => {
+      setGraphTheme(readGraphTheme(container));
+    });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
+    return () => observer.disconnect();
+  }, []);
 
   const graphModel = useMemo(() => {
     const relations = buildInsightRelations(insights);
@@ -125,6 +167,7 @@ export function ProfileGraph({ insights, selectedId, onSelect, reducedMotion }: 
   }, [insights]);
 
   const graphData = useMemo(() => {
+    if (!graphTheme) return { nodes: [], edges: [] } satisfies GraphData;
     const nodes: NodeData[] = [];
     const edges: EdgeData[] = [];
     const position = (id: string) => graphModel.positions.get(id) ?? { x: 500, y: 350 };
@@ -134,11 +177,11 @@ export function ProfileGraph({ insights, selectedId, onSelect, reducedMotion }: 
       style: {
         ...position("profile:root"),
         size: 20,
-        fill: "#a78bfa",
-        stroke: "#ddd6fe",
+        fill: graphTheme.brand,
+        stroke: graphTheme.foreground,
         lineWidth: 2,
         shadowBlur: 24,
-        shadowColor: "#8b5cf6",
+        shadowColor: graphTheme.brand,
       },
     });
     for (const dimension of PROFILE_DIMENSIONS) {
@@ -149,8 +192,8 @@ export function ProfileGraph({ insights, selectedId, onSelect, reducedMotion }: 
         style: {
           ...position(id),
           size: 10,
-          fill: "#64748b",
-          stroke: "#94a3b8",
+          fill: graphTheme.mutedForeground,
+          stroke: graphTheme.border,
           lineWidth: 1.5,
           opacity: insights.some((insight) => insight.dimension === dimension) ? 0.85 : 0.3,
         },
@@ -175,11 +218,11 @@ export function ProfileGraph({ insights, selectedId, onSelect, reducedMotion }: 
         style: {
           ...position(insight.id),
           size: 18 + insight.confidence * 14,
-          fill: colorForInsight(insight),
-          stroke: selected ? "#ffffff" : "#0f172a",
+          fill: colorForInsight(insight.kind, graphTheme),
+          stroke: selected ? graphTheme.foreground : graphTheme.background,
           lineWidth: selected ? 3.5 : 1.5,
           shadowBlur: selected ? 28 : 12,
-          shadowColor: colorForInsight(insight),
+          shadowColor: colorForInsight(insight.kind, graphTheme),
         },
       });
       edges.push({
@@ -223,15 +266,15 @@ export function ProfileGraph({ insights, selectedId, onSelect, reducedMotion }: 
           size: selected ? (isMockEvidence ? 8 : 12) : cluster.shared ? (isMockEvidence ? 5 : 8) : isMockEvidence ? 2.5 : 4.5,
           fill:
             cluster.evidence.polarity === "contradicts"
-              ? "#fb7185"
+              ? graphTheme.danger
               : isMockEvidence
-                ? "#a78bfa"
-                : "#e0f2fe",
-          stroke: isMockEvidence ? "#7c3aed" : cluster.shared ? "#38bdf8" : "#7dd3fc",
+                ? graphTheme.brand
+                : graphTheme.info,
+          stroke: isMockEvidence ? graphTheme.brand : graphTheme.info,
           lineWidth: isMockEvidence ? 0.8 : cluster.shared ? 1.8 : 1,
           opacity: visible ? (selected ? 1 : isMockEvidence ? 0.42 : 0.82) : isMockEvidence ? 0.08 : 0.2,
           shadowBlur: selected ? (isMockEvidence ? 8 : 18) : 0,
-          shadowColor: isMockEvidence ? "#8b5cf6" : "#38bdf8",
+          shadowColor: isMockEvidence ? graphTheme.brand : graphTheme.info,
         },
       });
       for (const insightId of cluster.insightIds) {
@@ -250,7 +293,7 @@ export function ProfileGraph({ insights, selectedId, onSelect, reducedMotion }: 
       }
     }
     return { nodes, edges } satisfies GraphData;
-  }, [graphModel, insights, selectedId]);
+  }, [graphModel, graphTheme, insights, selectedId]);
 
   useEffect(() => {
     insightsRef.current = insights;
@@ -259,7 +302,7 @@ export function ProfileGraph({ insights, selectedId, onSelect, reducedMotion }: 
   }, [graphData, insights, onSelect]);
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!containerRef.current || !graphTheme) return;
     let disposed = false;
     void import("@antv/g6").then(async ({ Graph }) => {
       if (disposed || !containerRef.current) return;
@@ -299,7 +342,7 @@ export function ProfileGraph({ insights, selectedId, onSelect, reducedMotion }: 
               labelText: String(datum.data?.label ?? ""),
               labelFontSize: nodeKind === "dimension" ? 12 : nodeKind === "root" ? 11 : 10.5,
               labelFontWeight: nodeKind === "dimension" ? 600 : 400,
-              labelFill: nodeKind === "dimension" ? "#cbd5e1" : nodeKind === "root" ? "#ede9fe" : "#e5e7eb",
+              labelFill: nodeKind === "root" ? graphTheme.surface : graphTheme.foreground,
               labelPlacement: nodeKind === "root" ? "center" : "bottom",
               labelOffsetY: nodeKind === "evidence" ? 8 : 5,
               labelMaxWidth: nodeKind === "dimension" ? 130 : 150,
@@ -320,12 +363,12 @@ export function ProfileGraph({ insights, selectedId, onSelect, reducedMotion }: 
             return {
               stroke:
                 datum.data?.polarity === "contradicts"
-                  ? "#fb7185"
+                  ? graphTheme.danger
                   : kind === "relation"
-                    ? "#a78bfa"
+                    ? graphTheme.brand
                     : kind === "evidence"
-                      ? "#93c5fd"
-                      : "#64748b",
+                      ? graphTheme.info
+                      : graphTheme.mutedForeground,
               lineWidth:
                 kind === "relation"
                   ? Math.min(2.4, 0.7 + strength * 0.22)
@@ -351,10 +394,10 @@ export function ProfileGraph({ insights, selectedId, onSelect, reducedMotion }: 
                     ? [2, 4]
                     : [],
               labelText: String(datum.data?.label ?? ""),
-              labelFill: "#c4b5fd",
+              labelFill: graphTheme.foreground,
               labelFontSize: 9,
               labelBackground: true,
-              labelBackgroundFill: "#111827",
+              labelBackgroundFill: graphTheme.surface,
               labelBackgroundOpacity: 0.88,
               labelPadding: [3, 5],
             };
@@ -388,7 +431,7 @@ export function ProfileGraph({ insights, selectedId, onSelect, reducedMotion }: 
       graphRef.current?.destroy();
       graphRef.current = null;
     };
-  }, [reducedMotion]);
+  }, [graphTheme, reducedMotion]);
 
   useEffect(() => {
     const graph = graphRef.current;
@@ -402,16 +445,10 @@ export function ProfileGraph({ insights, selectedId, onSelect, reducedMotion }: 
   return (
     <section
       aria-label="能力画像知识网络。拖拽节点或画布探索关系，选择洞察后突出相关证据。"
-      className="relative h-[calc(100vh-7rem)] min-h-[640px] w-full overflow-hidden rounded-2xl border border-slate-700/70 shadow-2xl shadow-slate-950/15"
-      style={{
-        backgroundColor: "#080b14",
-        backgroundImage:
-          "radial-gradient(circle at 48% 45%, rgba(76, 29, 149, 0.18), transparent 42%), radial-gradient(rgba(148, 163, 184, 0.22) 0.7px, transparent 0.7px)",
-        backgroundSize: "100% 100%, 22px 22px",
-      }}
+      className="profile-graph-canvas relative h-[calc(100vh-7rem)] min-h-[640px] w-full overflow-hidden rounded-2xl border border-border-strong shadow-2xl"
     >
       <button
-        className="absolute right-4 top-4 z-10 rounded-lg border border-white/10 bg-slate-950/75 px-3 py-1.5 text-[11px] font-medium text-slate-200 backdrop-blur hover:bg-slate-800"
+        className="absolute right-4 top-4 z-10 rounded-lg border border-border bg-surface/85 px-3 py-1.5 text-[11px] font-medium text-foreground backdrop-blur hover:bg-surface-raised"
         onClick={() => void graphRef.current?.fitView({ when: "always", direction: "both" }, reducedMotion ? false : { duration: 320 })}
         type="button"
       >
@@ -419,19 +456,19 @@ export function ProfileGraph({ insights, selectedId, onSelect, reducedMotion }: 
       </button>
       <div className="h-full w-full" ref={containerRef} />
       {renderError ? (
-        <div className="absolute inset-x-4 top-20 z-20 rounded-xl border border-rose-400/30 bg-rose-950/90 px-4 py-3 text-sm text-rose-100 backdrop-blur">
+        <div className="absolute inset-x-4 top-20 z-20 rounded-xl border border-danger/30 bg-danger-soft/90 px-4 py-3 text-sm text-danger-strong backdrop-blur">
           图谱暂时无法渲染：{renderError}
         </div>
       ) : null}
-      <div className="pointer-events-none absolute bottom-4 left-4 z-10 flex max-w-[calc(100%-2rem)] flex-wrap gap-x-4 gap-y-2 rounded-xl border border-white/10 bg-slate-950/75 px-3 py-2 text-[10px] text-slate-300 backdrop-blur">
+      <div className="pointer-events-none absolute bottom-4 left-4 z-10 flex max-w-[calc(100%-2rem)] flex-wrap gap-x-4 gap-y-2 rounded-xl border border-border bg-surface/85 px-3 py-2 text-[10px] text-muted-foreground backdrop-blur">
         <span>拖拽节点 · 滚轮缩放 · 悬停追踪</span>
-        <span><i className="mr-1.5 inline-block size-2 rounded-full bg-emerald-400" />优势</span>
-        <span><i className="mr-1.5 inline-block size-2 rounded-full bg-rose-400" />短板</span>
-        <span><i className="mr-1.5 inline-block size-2 rounded-full bg-blue-400" />模式</span>
-        <span><i className="mr-1.5 inline-block size-2 rounded-full bg-amber-300" />训练</span>
-        <span><i className="mr-1.5 inline-block size-2 rounded-full bg-sky-200 ring-1 ring-sky-400" />真实证据（高权重）</span>
-        <span><i className="mr-1.5 inline-block size-2 rounded-full bg-violet-400" />AI 模拟（低权重）</span>
-        <span className="text-violet-300">曲线：洞察间隐含关系（{graphModel.relations.length}）</span>
+        <span><i className="mr-1.5 inline-block size-2 rounded-full bg-success" />优势</span>
+        <span><i className="mr-1.5 inline-block size-2 rounded-full bg-danger" />短板</span>
+        <span><i className="mr-1.5 inline-block size-2 rounded-full bg-info" />模式</span>
+        <span><i className="mr-1.5 inline-block size-2 rounded-full bg-warning" />训练</span>
+        <span><i className="mr-1.5 inline-block size-2 rounded-full bg-info-soft ring-1 ring-info" />真实证据（高权重）</span>
+        <span><i className="mr-1.5 inline-block size-2 rounded-full bg-brand" />AI 模拟（低权重）</span>
+        <span className="text-brand">曲线：洞察间隐含关系（{graphModel.relations.length}）</span>
       </div>
     </section>
   );

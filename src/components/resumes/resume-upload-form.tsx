@@ -255,7 +255,7 @@ function ResumeExperienceConfirmationPanel({
           取消
         </button>
         <button
-          className="rounded bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-zinc-400"
+          className="rounded bg-brand px-4 py-2 text-sm font-medium text-brand-foreground hover:bg-brand-hover disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
           disabled={isPending}
           onClick={handleConfirm}
           type="button"

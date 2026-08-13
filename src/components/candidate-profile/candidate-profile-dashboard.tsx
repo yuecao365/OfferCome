@@ -23,6 +23,13 @@ import {
   PROFILE_SOURCE_LABELS,
   type ProfileDimension,
 } from "@/lib/candidate-profile/types";
+import { useReducedMotion } from "@/lib/use-reduced-motion";
+
+import {
+  MiniHistoryChart,
+  ProfileAbilityBars,
+  ProfileTimelineChart,
+} from "./profile-visualizations";
 
 export type ProfileMetricValue = {
   roleKey: string;
@@ -103,24 +110,20 @@ export function CandidateProfileDashboard({
   const [dateRange, setDateRange] = useState("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mergeTarget, setMergeTarget] = useState("");
-  const [reducedMotion, setReducedMotion] = useState(false);
   const [referenceNow] = useState(() => Date.now());
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
     const mobile = window.matchMedia("(max-width: 767px)");
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
     const apply = () => {
-      setReducedMotion(reduced.matches);
-      if (mobile.matches || reduced.matches) setView("insights");
+      if (mobile.matches || reducedMotion) setView("insights");
     };
     apply();
     mobile.addEventListener("change", apply);
-    reduced.addEventListener("change", apply);
     return () => {
       mobile.removeEventListener("change", apply);
-      reduced.removeEventListener("change", apply);
     };
-  }, []);
+  }, [reducedMotion]);
 
   useEffect(() => {
     let stopped = false;
@@ -265,7 +268,7 @@ export function CandidateProfileDashboard({
 
       <div className="absolute left-4 right-24 top-4 z-30 flex max-w-max flex-wrap items-center gap-1.5 rounded-xl border border-border bg-surface/90 p-1.5 text-foreground shadow-xl backdrop-blur-xl">
         <span className="hidden items-center gap-2 border-r border-border px-2.5 py-1 text-xs font-semibold sm:inline-flex">
-          <i className={`size-1.5 rounded-full ${isUpdating ? "animate-pulse bg-violet-400" : liveStatus.status === "failed" ? "bg-rose-400" : "bg-emerald-400"}`} />
+          <i className={`size-1.5 rounded-full ${isUpdating ? "animate-pulse bg-info" : liveStatus.status === "failed" ? "bg-danger" : "bg-success"}`} />
           能力图谱
           <span className="font-normal text-muted-foreground">{statusLabel}</span>
         </span>
@@ -392,27 +395,19 @@ export function CandidateProfileDashboard({
             </button>
           </div>
           {view === "dimensions" ? (
-            <div className="grid gap-3 sm:grid-cols-2" aria-label="八维能力等级">
-              {PROFILE_DIMENSIONS.map((dimension) => {
-                const metric = currentMetrics.find((item) => item.dimension === dimension);
-                return (
-                  <button className="rounded-xl border border-border bg-surface p-4 text-left hover:border-zinc-400" key={dimension} onClick={() => {
-                    const insight = filteredInsights.find((item) => item.dimension === dimension);
-                    if (insight) {
-                      setSelectedId(insight.id);
-                      setView("graph");
-                    } else {
-                      setIsError(false);
-                      setMessage("该维度还没有洞察，先积累面试证据。");
-                    }
-                  }} type="button">
-                    <span className="text-xs text-muted-foreground">{PROFILE_DIMENSION_LABELS[dimension]}</span>
-                    <strong className="mt-2 block text-2xl">{metric?.levelLabel ?? "待积累"}</strong>
-                    <span className="mt-1 block text-xs text-muted-foreground">{TREND_LABELS[metric?.trend ?? "insufficient"]} · {metric?.confidenceLabel ?? "待积累"}</span>
-                  </button>
-                );
-              })}
-            </div>
+            <ProfileAbilityBars
+              metrics={currentMetrics}
+              onSelect={(dimension) => {
+                const insight = filteredInsights.find((item) => item.dimension === dimension);
+                if (insight) {
+                  setSelectedId(insight.id);
+                  setView("graph");
+                } else {
+                  setIsError(false);
+                  setMessage("该维度还没有洞察，先积累面试证据。");
+                }
+              }}
+            />
           ) : view === "insights" && filteredInsights.length === 0 ? (
             <EmptyState description="至少积累两场有效面试后，系统才会输出确定优势或短板。" title="洞察仍在积累" />
           ) : view === "insights" ? (
@@ -427,7 +422,10 @@ export function CandidateProfileDashboard({
               })}
             </div>
           ) : (
-            <ProfileTimeline snapshots={snapshots.filter((item) => item.roleKey === roleKey)} />
+            <ProfileTimelineChart
+              key={roleKey}
+              snapshots={snapshots.filter((item) => item.roleKey === roleKey)}
+            />
           )}
         </section>
       ) : null}
@@ -470,7 +468,7 @@ function InsightDetail({ insight, metrics, snapshots, onClose, onCorrect }: {
       <div><dt className="text-muted-foreground">证据置信度</dt><dd className="font-semibold">{metric?.confidenceLabel ?? "待积累"}</dd></div>
       <div><dt className="text-muted-foreground">覆盖</dt><dd className="font-semibold">{metric?.interviewCount ?? 0} 场 / {metric?.evidenceCount ?? 0} 条</dd></div>
     </dl>
-    {history.length > 1 ? <MiniHistory points={history} /> : null}
+    {history.length > 1 ? <MiniHistoryChart points={history} /> : null}
     <div className="mt-5 grid gap-3">
       {insight.evidence.map((evidence) => <article
         className={`rounded-lg border p-3 ${evidencePolarityContainerClass(evidence.polarity)}`}
@@ -495,16 +493,4 @@ function InsightDetail({ insight, metrics, snapshots, onClose, onCorrect }: {
       </article>)}
     </div>
   </aside>;
-}
-
-function MiniHistory({ points }: { points: Array<{ date: string; level: number }> }) {
-  const width = 280;
-  const height = 84;
-  const path = points.map((point, index) => `${(index / Math.max(1, points.length - 1)) * width},${height - ((point.level - 1) / 4) * height}`).join(" ");
-  return <div className="mt-5"><p className="mb-2 text-xs text-muted-foreground">历史等级曲线</p><svg aria-label="历史等级变化" className="w-full text-brand" role="img" viewBox={`0 0 ${width} ${height}`}><polyline fill="none" points={path} stroke="currentColor" strokeWidth="3" /></svg></div>;
-}
-
-function ProfileTimeline({ snapshots }: { snapshots: ProfileSnapshotValue[] }) {
-  if (snapshots.length === 0) return <EmptyState description="能力画像更新后会在这里记录变化。" title="还没有成长记录" />;
-  return <div className="grid gap-3">{snapshots.map((snapshot) => <article className="rounded-xl border border-border bg-surface p-4" key={snapshot.id}><div className="flex justify-between"><strong>能力记录</strong><time className="text-sm text-muted-foreground">{new Date(snapshot.createdAt).toLocaleString("zh-CN")}</time></div><div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">{snapshot.metrics.map((metric) => <div className="text-sm" key={metric.dimension}><span className="text-muted-foreground">{PROFILE_DIMENSION_LABELS[metric.dimension]}</span><strong className="ml-2">{metric.levelLabel}</strong></div>)}</div></article>)}</div>;
 }

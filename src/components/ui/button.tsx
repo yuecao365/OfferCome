@@ -16,7 +16,7 @@ const variants: Record<ButtonVariant, string> = {
   ghost:
     "border-transparent bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground",
   danger:
-    "border-danger bg-danger text-white hover:border-danger-strong hover:bg-danger-strong",
+    "border-danger bg-danger text-brand-foreground hover:border-danger-strong hover:bg-danger-strong",
 };
 
 const sizes: Record<ButtonSize, string> = {

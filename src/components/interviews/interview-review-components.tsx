@@ -189,16 +189,24 @@ export function QuestionReviewList({
     <div className="grid gap-3">
       {items.map((item) => {
         const latestAnsweredQuestionId = getLatestAnsweredQuestionId(item);
+        const isFrequentlyAskedInRealInterviews = item.realAskedCount >= 2;
         return (
           <details
-            className="group overflow-hidden rounded-xl border border-border bg-surface shadow-card"
+            className={cn(
+              "group overflow-hidden rounded-xl border bg-surface shadow-card",
+              isFrequentlyAskedInRealInterviews
+                ? "border-brand/45 bg-accent/35 ring-1 ring-brand/10"
+                : "border-border",
+            )}
             key={`${item.category}-${item.resumeProjectId ?? "none"}-${item.question}`}
           >
           <summary className="flex cursor-pointer list-none items-start justify-between gap-4 p-4 transition-colors hover:bg-surface-subtle">
             <div className="min-w-0">
               <div className="mb-2 flex flex-wrap items-center gap-2">
                 {item.realAskedCount > 0 ? (
-                  <Badge tone="brand">真实 {item.realAskedCount} 次</Badge>
+                  <Badge tone={isFrequentlyAskedInRealInterviews ? "warning" : "brand"}>
+                    {isFrequentlyAskedInRealInterviews ? "高频 · " : ""}真实 {item.realAskedCount} 次
+                  </Badge>
                 ) : null}
                 {item.mockAskedCount > 0 ? (
                   <Badge tone="info">模拟 {item.mockAskedCount} 次</Badge>
