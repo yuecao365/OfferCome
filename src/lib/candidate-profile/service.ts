@@ -7,6 +7,7 @@ import { deriveDeliveryObservation } from "@/lib/interviews/voice-metrics";
 
 import { synthesizeCandidateInsights, type ProfileSynthesis } from "./agent";
 import { assessInterviewQuestions } from "./assessment-agent";
+import { detectInsightConflict } from "./conflict";
 import { aggregateProfileDimension, profileSourceWeight } from "./rules";
 import { normalizeRoleTitle, roleContextKey } from "./role-context";
 import { acquireProfileRefreshLease, ensureCandidateProfileState } from "./state";
@@ -480,6 +481,13 @@ async function persistProfileViews(
         const normalizedKey = normalizedInsightKey(insight.dimension, insight.kind, insight.title);
         if (seenKeys.has(normalizedKey)) continue;
         seenKeys.add(normalizedKey);
+        const hasConflict = detectInsightConflict({
+          evidence: insight.evidence.map(({ polarity }) => ({ polarity })),
+          interviewScores: metric.points.map(({ interviewId, score }) => ({
+            interviewId,
+            score,
+          })),
+        });
         const created = await tx.candidateInsight.create({
           data: {
             roleKey: view.roleKey,
@@ -494,6 +502,7 @@ async function persistProfileViews(
             trend: metric.trend,
             confidenceLabel: metric.confidenceLabel,
             status: "active",
+            hasConflict,
           },
         });
         await tx.candidateInsightEvidence.createMany({

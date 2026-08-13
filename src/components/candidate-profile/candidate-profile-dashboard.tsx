@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { CandidateInsightCard } from "./candidate-insight-card";
+import {
+  EvidencePolarityBadge,
+  evidencePolarityContainerClass,
+} from "./evidence-polarity";
 import { ProfileGraph, type ProfileGraphInsight } from "./profile-graph";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -468,8 +472,14 @@ function InsightDetail({ insight, metrics, snapshots, onClose, onCorrect }: {
     </dl>
     {history.length > 1 ? <MiniHistory points={history} /> : null}
     <div className="mt-5 grid gap-3">
-      {insight.evidence.map((evidence) => <article className="rounded-lg border border-border p-3" key={evidence.id}>
-        <p className="text-xs text-muted-foreground">{evidence.companyName} · {PROFILE_SOURCE_LABELS[evidence.sourceKind]}</p>
+      {insight.evidence.map((evidence) => <article
+        className={`rounded-lg border p-3 ${evidencePolarityContainerClass(evidence.polarity)}`}
+        key={evidence.id}
+      >
+        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <span>{evidence.companyName} · {PROFILE_SOURCE_LABELS[evidence.sourceKind]}</span>
+          <EvidencePolarityBadge polarity={evidence.polarity} />
+        </div>
         <h3 className="mt-1 text-sm font-semibold">{evidence.question}</h3>
         <p className="mt-2 text-sm leading-6">{evidence.excerpt}</p>
         {evidence.observationId ? <div className="mt-3 flex flex-wrap gap-2">

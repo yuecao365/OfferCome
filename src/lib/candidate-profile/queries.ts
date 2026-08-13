@@ -18,6 +18,7 @@ export async function getCandidateProfileContext(): Promise<CandidateProfileCont
   const [state, insights] = await Promise.all([
     ensureCandidateProfileState(),
     prisma.candidateInsight.findMany({
+      // Disputed conclusions stay visible in the profile, but must not steer mock interview questions.
       where: { roleKey: "all", status: "active", hasConflict: false },
       orderBy: [{ confidence: "desc" }, { updatedAt: "desc" }],
       take: 18,

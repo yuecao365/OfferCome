@@ -16,6 +16,11 @@ import {
   type ProfileSourceType,
 } from "@/lib/candidate-profile/types";
 
+import {
+  EvidencePolarityBadge,
+  evidencePolarityContainerClass,
+} from "./evidence-polarity";
+
 export type CandidateInsightCardValue = {
   id: string;
   dimension: keyof typeof PROFILE_DIMENSION_LABELS;
@@ -100,10 +105,14 @@ export function CandidateInsightCard({ insight }: { insight: CandidateInsightCar
           <summary className="cursor-pointer text-sm font-semibold text-foreground">查看证据（{insight.evidence.length}）</summary>
           <div className="mt-3 grid max-h-72 gap-2 overflow-y-auto">
             {insight.evidence.map((evidence) => (
-              <div className="rounded-lg border border-border bg-surface p-3" key={evidence.id}>
-                <p className="text-xs text-muted-foreground">
-                  {PROFILE_SOURCE_LABELS[evidence.sourceKind]} · {evidence.companyName} · {evidence.polarity === "supports" ? "支持" : "反向"}
-                </p>
+              <div
+                className={`rounded-lg border bg-surface p-3 ${evidencePolarityContainerClass(evidence.polarity)}`}
+                key={evidence.id}
+              >
+                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <span>{PROFILE_SOURCE_LABELS[evidence.sourceKind]} · {evidence.companyName}</span>
+                  <EvidencePolarityBadge polarity={evidence.polarity} />
+                </div>
                 <p className="mt-1 text-sm font-semibold text-foreground">{evidence.question}</p>
                 <p className="mt-1 text-sm leading-6 text-muted-foreground">{evidence.excerpt}</p>
               </div>
