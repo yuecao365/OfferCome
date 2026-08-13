@@ -207,6 +207,8 @@ model InterviewQuestionEvaluation {
   expectedSignalsJson      String               @default("[]")
   applicableDimensionsJson String?
   generationMetadataJson   String               @default("{}")
+  evaluationStatus         String               @default("pending")
+  evaluationError          String?
   dimensionsJson           String?
   score                    Int?
   strengthsJson            String?
@@ -218,6 +220,7 @@ model InterviewQuestionEvaluation {
 
   @@index([score])
   @@index([assessmentId])
+  @@index([evaluationStatus])
 }
 
 model RoleContext {

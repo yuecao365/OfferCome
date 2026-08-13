@@ -170,7 +170,7 @@ export function MockInterviewRoom({ initial }: { initial: MockInterviewView }) {
       <Card className="p-6">
         <h3 className="text-lg font-semibold text-foreground">全部题目已完成</h3>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-          评分标准在你开始答题前就已确定，现在开始生成报告。
+          逐题评分已经在作答过程中完成，现在只需汇总本场表现。
         </p>
         <Button
           className="mt-4"
@@ -178,7 +178,7 @@ export function MockInterviewRoom({ initial }: { initial: MockInterviewView }) {
           onClick={complete}
           type="button"
         >
-          {pending || status === "evaluating" ? "正在生成报告…" : "生成面试报告"}
+          {pending || status === "evaluating" ? "正在汇总…" : "生成面试报告"}
         </Button>
         {error ? <Alert className="mt-3" tone="danger">{error}</Alert> : null}
       </Card>

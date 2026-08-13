@@ -9,12 +9,11 @@ import {
   normalizeInterviewRound,
 } from "@/lib/interviews/types";
 
-import { evaluateMockInterview } from "./agent";
 import { analyzeMockInterviewJob } from "./job-analysis-agent";
 import { enrichMockInterviewJob } from "./jd-enrichment-agent";
 import { needsJobDescriptionReview } from "./jd-sufficiency";
 import { generateMockInterviewPlan } from "./question-generation-agent";
-import { computeInterviewTotalScore, computeQuestionScore } from "./scoring";
+import { computeInterviewTotalScore } from "./scoring";
 import {
   buildMockInterviewContext,
   serializeMockInterviewContext,
@@ -33,6 +32,12 @@ import { isMockInterviewGenerationError } from "./errors";
 import { generateMockInterviewFollowUp } from "./follow-up-agent";
 import { canRequestFollowUp } from "./follow-up-policy";
 import { resolveMockInterviewSeed } from "./seeds";
+import { scheduleMockInterviewQuestionEvaluation } from "./question-evaluation-background";
+import {
+  evaluatePersistedMockInterviewQuestion,
+  waitForRunningQuestionEvaluations,
+} from "./question-evaluation-service";
+import { summarizeMockInterview } from "./summary-agent";
 
 export type CreateMockInterviewInput = {
   companyName: string;
@@ -538,12 +543,12 @@ export async function submitMockInterviewAnswer(input: {
       newlySubmitted: true,
     };
   });
-  if (
-    !submitted.newlySubmitted ||
-    skip ||
-    submitted.question.parentQuestionId ||
-    !submitted.session.followUpsEnabled
-  ) {
+  if (!submitted.newlySubmitted || skip) {
+    return submitted.session;
+  }
+
+  scheduleMockInterviewQuestionEvaluation(submitted.question.id);
+  if (submitted.question.parentQuestionId || !submitted.session.followUpsEnabled) {
     return submitted.session;
   }
 
@@ -723,73 +728,89 @@ export async function completeMockInterview(sessionId: string): Promise<MockInte
     const answeredQuestions = existing.interview.questions.filter(
       (question) => !question.skippedAt && question.answer?.trim(),
     );
-    const output =
-      answeredQuestions.length > 0
-        ? await evaluateMockInterview({
-            companyName: existing.interview.companyName,
-            jobTitle: existing.interview.jobTitle,
-            jobDescription: existing.jdTextSnapshot,
-            resumeText: existing.resumeTextSnapshot,
-            questions: answeredQuestions.map((question) => ({
-              id: question.id,
-              question: question.question,
-              answer: question.answer ?? "",
-              rubric: parseJsonArray(question.evaluation?.rubricJson ?? "[]"),
-              expectedSignals: parseJsonArray(
-                question.evaluation?.expectedSignalsJson ?? "[]",
-              ),
-            })),
-          })
-        : {
-            questionEvaluations: [],
-            summary: "本场所有题目均已跳过，暂时没有可评分的回答。",
-            strengths: [],
-            improvements: ["从一道最熟悉的题目开始练习，先说出思路再逐步补充细节。"],
-            actionPlan: ["重新发起一场模拟面试，并尝试完整回答至少一道题。"],
-          };
-    const evaluationsByQuestionId = new Map(
-      output.questionEvaluations.map((item) => [item.questionId, item]),
+    await waitForRunningQuestionEvaluations(
+      answeredQuestions.map((question) => question.id),
     );
-    const scores = existing.interview.questions.map((question) => {
-      const evaluation = evaluationsByQuestionId.get(question.id);
-      return {
-        question,
-        evaluation,
-        score: evaluation
-          ? computeQuestionScore(
-              parseJsonArray(question.evaluation?.rubricJson ?? "[]"),
-              evaluation.dimensions,
-            )
-          : 0,
-      };
-    });
+    const pendingEvaluations = answeredQuestions.length > 0
+      ? await prisma.interviewQuestionEvaluation.findMany({
+          where: {
+            interviewQuestionId: { in: answeredQuestions.map((item) => item.id) },
+          },
+          select: { interviewQuestionId: true, evaluationStatus: true },
+        })
+      : [];
+    const statusByQuestionId = new Map(
+      pendingEvaluations.map((item) => [item.interviewQuestionId, item.evaluationStatus]),
+    );
+    for (const question of answeredQuestions) {
+      const evaluationStatus = statusByQuestionId.get(question.id);
+      if (evaluationStatus === "pending" || evaluationStatus === "failed") {
+        await evaluatePersistedMockInterviewQuestion(question.id);
+      }
+    }
+    const refreshedEvaluations = answeredQuestions.length > 0
+      ? await prisma.interviewQuestionEvaluation.findMany({
+          where: {
+            interviewQuestionId: { in: answeredQuestions.map((item) => item.id) },
+          },
+          select: {
+            interviewQuestionId: true,
+            evaluationStatus: true,
+            score: true,
+            feedback: true,
+          },
+        })
+      : [];
+    const evaluationByQuestionId = new Map(
+      refreshedEvaluations.map((item) => [item.interviewQuestionId, item]),
+    );
+    const incompleteEvaluation = refreshedEvaluations.find(
+      (item) =>
+        item.evaluationStatus !== "completed" ||
+        item.score === null ||
+        !item.feedback,
+    );
+    if (
+      incompleteEvaluation ||
+      refreshedEvaluations.length !== answeredQuestions.length
+    ) {
+      throw new Error("仍有题目正在评分，请稍后再次生成报告。");
+    }
+    const scores = existing.interview.questions.map((question) => ({
+      question,
+      score: evaluationByQuestionId.get(question.id)?.score ?? 0,
+    }));
     const totalScore = computeInterviewTotalScore(
       scores.map((item) => item.score),
     );
+    const summary = answeredQuestions.length > 0
+      ? await summarizeMockInterview({
+          jobTitle: existing.interview.jobTitle,
+          questions: answeredQuestions.map((question) => {
+            const evaluation = evaluationByQuestionId.get(question.id);
+            return {
+              question: question.question,
+              score: evaluation?.score ?? 0,
+              feedback: evaluation?.feedback ?? "暂无逐题反馈。",
+            };
+          }),
+        })
+      : {
+          summary: "本场所有题目均已跳过，暂时没有可评分的回答。",
+          strengths: [],
+          improvements: ["从一道最熟悉的题目开始练习，先说出思路再逐步补充细节。"],
+          actionPlan: ["重新发起一场模拟面试，并尝试完整回答至少一道题。"],
+        };
     const report: MockInterviewReport = {
       totalScore,
-      summary: output.summary,
-      strengths: output.strengths,
-      improvements: output.improvements,
-      actionPlan: output.actionPlan,
+      summary: summary.summary,
+      strengths: summary.strengths,
+      improvements: summary.improvements,
+      actionPlan: summary.actionPlan,
     };
     const completedAt = new Date();
 
     await prisma.$transaction(async (tx) => {
-      for (const item of scores) {
-        if (!item.question.evaluation || !item.evaluation) continue;
-        await tx.interviewQuestionEvaluation.update({
-          where: { id: item.question.evaluation.id },
-          data: {
-            score: item.score,
-            dimensionsJson: JSON.stringify(item.evaluation.dimensions),
-            strengthsJson: JSON.stringify(item.evaluation.strengths),
-            improvementsJson: JSON.stringify(item.evaluation.improvements),
-            feedback: item.evaluation.feedback,
-            evaluatedAt: completedAt,
-          },
-        });
-      }
       await tx.mockInterviewSession.update({
         where: { id: sessionId },
         data: {

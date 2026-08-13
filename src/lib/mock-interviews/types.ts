@@ -121,32 +121,6 @@ export type MockInterviewQuestionPlan = {
   })[];
 };
 
-export const mockInterviewEvaluationSchema = z.object({
-  questionEvaluations: z.array(
-    z.object({
-      questionId: z.string(),
-      dimensions: z.array(
-        z.object({
-          name: z.string(),
-          score: z.number().min(0).max(100),
-          evidence: z.string().max(500),
-        }),
-      ),
-      strengths: z.array(z.string().max(300)).max(5),
-      improvements: z.array(z.string().max(300)).max(5),
-      feedback: z.string().min(1).max(1_000),
-    }),
-  ),
-  summary: z.string().min(1).max(2_000),
-  strengths: z.array(z.string().max(500)).max(6),
-  improvements: z.array(z.string().max(500)).max(6),
-  actionPlan: z.array(z.string().max(500)).max(8),
-});
-
-export type MockInterviewEvaluationOutput = z.infer<
-  typeof mockInterviewEvaluationSchema
->;
-
 export type MockInterviewReport = {
   totalScore: number;
   summary: string;
