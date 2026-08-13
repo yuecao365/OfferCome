@@ -89,8 +89,8 @@ export function MockInterviewSetup({
             <FileText aria-hidden="true" className="size-4" />
           </span>
           <div>
-            <h2 className="text-sm font-semibold text-foreground">目标岗位与 JD</h2>
-            <p className="mt-1 text-sm text-muted-foreground">岗位名称和公司为必填；JD 可以上传文件或粘贴文本，二选一即可。</p>
+            <h2 className="text-sm font-semibold text-foreground">目标岗位与岗位描述</h2>
+            <p className="mt-1 text-sm text-muted-foreground">岗位名称和公司为必填；岗位描述可以上传文件或粘贴文本，二选一即可。</p>
           </div>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
@@ -223,7 +223,7 @@ export function MockInterviewSetup({
 
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="max-w-3xl text-xs leading-5 text-muted-foreground">
-          历史和画像只用于调整与 JD 相关的问题角度；评分标准保存在服务端，答题前不会展示。
+          题目会结合你的简历和过往面试记录生成。
         </p>
         <Button disabled={pending || resumes.length === 0 || !textConfigured} type="submit">
           <Sparkles aria-hidden="true" className="size-4" />

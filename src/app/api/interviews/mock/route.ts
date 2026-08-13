@@ -34,21 +34,21 @@ async function readJobDescription(formData: FormData): Promise<{
   if (file instanceof File && file.name) {
     const extension = path.extname(file.name).toLowerCase();
     if (!JD_EXTENSIONS.has(extension)) {
-      throw new Error("Job Description 只支持 TXT、MD、DOCX 或 PDF 文件。");
+      throw new Error("岗位描述只支持 TXT、MD、DOCX 或 PDF 文件。");
     }
-    if (file.size > MAX_JD_BYTES) throw new Error("Job Description 文件不能超过 10MB。");
+    if (file.size > MAX_JD_BYTES) throw new Error("岗位描述文件不能超过 10MB。");
     const text = await extractDocumentText({
       bytes: Buffer.from(await file.arrayBuffer()),
       fileName: file.name,
       mimeType: file.type,
     });
-    if (!text.trim()) throw new Error("没有从 Job Description 中提取到文本。");
+    if (!text.trim()) throw new Error("没有从岗位描述中提取到文本。");
     return { text: text.slice(0, MAX_JD_TEXT), originalName: file.name };
   }
 
   const text = stringValue(formData, "jobDescriptionText");
-  if (!text) throw new Error("请上传或粘贴 Job Description。");
-  if (text.length > MAX_JD_TEXT) throw new Error("Job Description 不能超过 10 万字符。");
+  if (!text) throw new Error("请上传或粘贴岗位描述。");
+  if (text.length > MAX_JD_TEXT) throw new Error("岗位描述不能超过 10 万字符。");
   return { text, originalName: null };
 }
 

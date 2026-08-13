@@ -37,7 +37,7 @@ function cleanBlueprint(
   if (competencies.length < 2) {
     throw new MockInterviewGenerationError({
       code: "job_blueprint_failed",
-      message: "未能从 Job Description 中提取出足够的岗位能力，请补充岗位职责和任职要求后重试。",
+      message: "未能从岗位描述中识别出足够的岗位能力，请补充岗位职责和任职要求后重试。",
     });
   }
   return { ...blueprint, competencies };
@@ -109,7 +109,7 @@ export async function analyzeMockInterviewJob(input: {
       code: isAiTimeoutError(error) ? "model_timeout" : "job_blueprint_failed",
       message: isAiTimeoutError(error)
         ? "岗位分析超时，请稍后重试。"
-        : "岗位能力分析失败，请检查 JD 内容或稍后重试。",
+        : "岗位能力分析失败，请检查岗位描述或稍后重试。",
       cause: error,
     });
   }

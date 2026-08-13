@@ -42,7 +42,7 @@ export function MockInterviewReport({ session }: { session: MockInterviewView })
             {session.personalizationUsed.profileInsights.length === 0 &&
             session.personalizationUsed.historyQuestions.length === 0 ? (
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                本场为纯 JD 出题。
+                本场仅根据岗位描述出题。
               </p>
             ) : (
               <div className="mt-3 grid gap-3 text-sm text-muted-foreground">

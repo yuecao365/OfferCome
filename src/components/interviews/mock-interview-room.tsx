@@ -170,7 +170,7 @@ export function MockInterviewRoom({ initial }: { initial: MockInterviewView }) {
       <Card className="p-6">
         <h3 className="text-lg font-semibold text-foreground">全部题目已完成</h3>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-          评分 Agent 会按照答题前生成的隐藏标准逐题评价，再由程序计算总分。
+          评分标准在你开始答题前就已确定，现在开始生成报告。
         </p>
         <Button
           className="mt-4"

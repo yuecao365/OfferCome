@@ -83,7 +83,7 @@ export default async function InterviewsPage() {
               <p className="mt-6 text-xs font-semibold uppercase tracking-[0.12em] text-brand">主要训练入口</p>
               <h2 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">开始 AI 模拟面试</h2>
               <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground">
-                使用真实 JD、已保存简历、历史面试和已确认画像生成针对性问题。评分标准在答题结束前不会展示。
+                使用真实岗位描述、已保存简历、历史面试和已确认画像生成针对性问题。
               </p>
             </div>
             <ButtonLink className="w-fit" href="/interviews/mock">

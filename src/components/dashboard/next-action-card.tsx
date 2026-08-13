@@ -32,7 +32,7 @@ function getNextAction(applications: ApplicationStats, interviews: InterviewStat
   }
   return {
     title: "开始一次目标岗位模拟面试",
-    description: "现有投递记录尚未进入面试阶段，可以先用真实 JD 做针对性训练。",
+    description: "现有投递记录尚未进入面试阶段，可以先用真实岗位描述做针对性训练。",
     href: "/interviews/mock",
     label: "开始模拟面试",
   };

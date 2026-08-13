@@ -47,7 +47,7 @@ export default async function MockInterviewsPage({
   return (
     <AppShell active="interviews" subActive="interviews-mock">
       <PageHeader
-        description="结合目标岗位 JD、所选简历、历史面试和已确认画像生成逐题训练，完成后获得有证据的评分与建议。"
+        description="结合目标岗位描述、所选简历、历史面试和已确认画像生成逐题训练，完成后获得有证据的评分与建议。"
         eyebrow="面试训练"
         title="AI 模拟面试"
       />
@@ -74,7 +74,7 @@ export default async function MockInterviewsPage({
       <section className="grid gap-3">
         <h2 className="text-base font-semibold tracking-normal">最近的模拟面试</h2>
         {recent.length === 0 ? (
-          <EmptyState className="min-h-40" description="配置目标岗位和 JD 后，开始第一次针对性训练。" title="还没有模拟面试记录" />
+          <EmptyState className="min-h-40" description="配置目标岗位和岗位描述后，开始第一次针对性训练。" title="还没有模拟面试记录" />
         ) : (
           <Card className="divide-y divide-border overflow-hidden">
             {recent.map((session) => (

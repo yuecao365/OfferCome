@@ -68,7 +68,7 @@ const copy = {
       {
         title: "模拟面试，带着你的经历开始",
         description:
-          "将目标 JD、所选简历、历史面试问答和最新能力画像按岗位相关性注入，而不是每次从通用问题重新开始。",
+          "结合目标岗位描述、所选简历、历史面试问答和最新能力画像生成问题，而不是每次从通用问题重新开始。",
       },
       {
         title: "文字与语音，自由切换",
@@ -78,7 +78,7 @@ const copy = {
       {
         title: "能力画像，随面试持续更新",
         description:
-          "真实与模拟面试完成后持续吸收新证据，保留版本快照、岗位上下文、优势短板和下一步训练重点。",
+          "真实与模拟面试完成后持续更新能力记录，呈现不同岗位下的优势短板和下一步训练重点。",
       },
     ],
     privacy: [
@@ -127,7 +127,7 @@ const copy = {
       {
         title: "Start mock interviews with your own memory",
         description:
-          "Inject the target JD, selected resume, relevant historical answers, and current capability insights instead of restarting from generic questions every time.",
+          "Use the target job description, selected resume, relevant historical answers, and current capability insights instead of restarting from generic questions every time.",
       },
       {
         title: "Switch freely between text and voice",
@@ -137,7 +137,7 @@ const copy = {
       {
         title: "Keep a capability profile that evolves",
         description:
-          "Completed real and mock interviews add new evidence to versioned snapshots, role context, strengths, gaps, and the next training priorities.",
+          "Completed real and mock interviews keep your capability record current across role contexts, strengths, gaps, and the next training priorities.",
       },
     ],
     privacy: [

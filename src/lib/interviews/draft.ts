@@ -346,7 +346,7 @@ export async function structureInterviewText(
     return structureInterviewTextHeuristically(normalized, projects);
   }
   if (provider !== "auto" && provider !== "openai") {
-    throw new Error(`暂不支持结构化识别服务：${provider}`);
+    throw new Error("当前识别方式不可用，请检查设置后重试。");
   }
 
   const result = await structureWithConfiguredModel(normalized, projects);

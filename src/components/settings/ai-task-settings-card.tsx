@@ -24,7 +24,7 @@ const TASK_CONTENT = {
     description: "用于将面试录音转换成文字。自定义服务必须兼容 OpenAI 音频转写接口。",
   },
   text: {
-    title: "文本理解与结构化",
+    title: "文本理解",
     description: "用于从面试文本中识别问题、回答和关联项目，并为后续简历 AI 解析复用。",
   },
 } as const;

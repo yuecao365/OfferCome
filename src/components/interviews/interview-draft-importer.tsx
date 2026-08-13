@@ -21,7 +21,6 @@ type DraftQuestionResponse = {
 
 type DraftResponse = {
   questions?: DraftQuestionResponse[];
-  provider?: "heuristic" | "openai";
   source?: "audio" | "document" | "pasted";
   transcript?: string;
   artifactId?: string;
@@ -119,7 +118,7 @@ export function InterviewDraftImporter({
         setSegments(result.segments ?? []);
         setCandidateSpeaker("");
         setHasVoiceMetrics(Boolean(result.capabilities?.hasVoiceMetrics));
-        setMessage("录音已转写。请检查转写稿和说话人，再生成问题草稿。");
+        setMessage("录音已转写。请检查转写稿和说话人，再识别面试问题。");
         return;
       }
       if (!result.questions) throw new Error("生成面试草稿失败。");
@@ -146,11 +145,7 @@ export function InterviewDraftImporter({
       setHasVoiceMetrics(Boolean(result.capabilities?.hasVoiceMetrics));
       setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
-      setMessage(
-        `已生成 ${result.questions.length} 条问题草稿（${
-          result.provider === "openai" ? "AI 识别" : "本地规则识别"
-        }），请在下方确认和修改。`,
-      );
+      setMessage(`已识别出 ${result.questions.length} 个问题，请确认内容后保存。`);
     } catch (error) {
       setIsError(true);
       setMessage(error instanceof Error ? error.message : "生成面试草稿失败。");
@@ -165,7 +160,7 @@ export function InterviewDraftImporter({
       <input name="candidateSpeaker" type="hidden" value={candidateSpeaker} />
       <input name="sourceType" type="hidden" value={sourceType} />
       <div>
-        <h3 className="text-sm font-medium text-zinc-900">从文件或文本生成草稿</h3>
+        <h3 className="text-sm font-medium text-zinc-900">从文件或文本导入面试内容</h3>
         <p className="mt-1 text-xs leading-5 text-zinc-600">
           支持 MP3、WAV、M4A、WebM、TXT、MD、DOCX 和 PDF。识别结果只填入表单，不会自动保存。
         </p>
@@ -271,11 +266,11 @@ export function InterviewDraftImporter({
           {pending
             ? isAudioMode && !artifactId
               ? "转写中..."
-              : "结构化中..."
+              : "识别中..."
             : isAudioMode && !artifactId
               ? "转写录音"
               : isAudioMode
-                ? "生成问题草稿"
+                ? "识别面试问题"
                 : "生成表单草稿"}
         </Button>
         {message ? (
@@ -288,7 +283,7 @@ export function InterviewDraftImporter({
         ) : null}
       </div>
       <p className="mt-2 text-xs text-zinc-500">
-        音频会发送给配置的语音转写服务；文本文件和粘贴文本会直接进入结构化识别。
+        录音只用于本次识别，不会保存音频文件。
       </p>
     </Card>
   );

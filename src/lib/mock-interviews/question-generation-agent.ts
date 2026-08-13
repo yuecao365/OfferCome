@@ -191,7 +191,7 @@ ${input.seedSourceId ? `必须至少生成一题以 ${input.seedSourceId} 为 pe
       code: isAiTimeoutError(error) ? "model_timeout" : "question_output_invalid",
       message: isAiTimeoutError(error)
         ? "面试题生成超时，请稍后重试。"
-        : "模型未能生成有效的面试题结构，请重试。",
+        : "未能生成有效的面试题，请重试。",
       cause: error,
     });
   }
@@ -327,8 +327,8 @@ export async function generateMockInterviewPlan(input: {
     throw new MockInterviewGenerationError({
       code: "question_validation_failed",
       message: !includesSeed
-        ? "未能围绕所选内容出题，请确认它与本次 JD 相关。"
-        : `模型题目经岗位相关性和去重检查后仍不足 ${input.questionCount} 道，请重试。`,
+        ? "未能围绕所选内容出题，请确认它与本次岗位描述相关。"
+        : `符合岗位要求且不重复的题目不足 ${input.questionCount} 道，请重试。`,
     });
   }
 

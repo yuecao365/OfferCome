@@ -65,6 +65,18 @@ const TREND_LABELS: Record<string, string> = {
   insufficient: "趋势待积累",
 };
 
+function profileUpdatedAtLabel(value: string | null): string {
+  if (!value) return "已是最新";
+
+  return `最近更新 ${new Intl.DateTimeFormat("zh-CN", {
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(new Date(value))}`;
+}
+
 type ProfileView = "graph" | "insights" | "dimensions" | "timeline";
 
 export function CandidateProfileDashboard({
@@ -173,7 +185,7 @@ export function CandidateProfileDashboard({
       setMessage(payload.error ?? "纠正证据失败。");
       return;
     }
-    setMessage("证据纠正已保存，画像正在后台自动重算；原始评估仍保留。");
+    setMessage("已保存，能力画像会自动更新。");
     router.refresh();
   };
 
@@ -195,7 +207,7 @@ export function CandidateProfileDashboard({
     }
     setRoleKey("all");
     setMergeTarget("");
-    setMessage("岗位视角已合并，画像正在后台自动重算。");
+    setMessage("岗位视角已合并，能力画像会自动更新。");
     router.refresh();
   };
 
@@ -225,12 +237,12 @@ export function CandidateProfileDashboard({
   const statusLabel = isUpdating
     ? liveStatus.phase === "synthesis"
       ? "正在生成新洞察"
-      : `正在吸收新证据 ${liveStatus.completedCount}/${liveStatus.totalCount}`
+      : `正在分析第 ${liveStatus.completedCount}/${liveStatus.totalCount} 场面试`
     : liveStatus.status === "failed"
       ? "更新暂未完成"
       : profileStatus.needsFullRebuild
-        ? "等待下一次自动重建"
-        : `画像版本 ${liveStatus.revision}`;
+        ? "等待自动更新"
+        : profileUpdatedAtLabel(liveStatus.lastRefreshedAt);
   const views: Array<{ id: ProfileView; label: string; icon: typeof Network }> = [
     { id: "graph", label: "图谱", icon: Network },
     { id: "insights", label: "文字洞察", icon: ListTree },
@@ -483,6 +495,6 @@ function MiniHistory({ points }: { points: Array<{ date: string; level: number }
 }
 
 function ProfileTimeline({ snapshots }: { snapshots: ProfileSnapshotValue[] }) {
-  if (snapshots.length === 0) return <EmptyState description="成功刷新画像后会生成可比较的历史快照。" title="还没有画像快照" />;
-  return <div className="grid gap-3">{snapshots.map((snapshot) => <article className="rounded-xl border border-border bg-surface p-4" key={snapshot.id}><div className="flex justify-between"><strong>画像版本 {snapshot.revision}</strong><time className="text-sm text-muted-foreground">{new Date(snapshot.createdAt).toLocaleString("zh-CN")}</time></div><div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">{snapshot.metrics.map((metric) => <div className="text-sm" key={metric.dimension}><span className="text-muted-foreground">{PROFILE_DIMENSION_LABELS[metric.dimension]}</span><strong className="ml-2">{metric.levelLabel}</strong></div>)}</div></article>)}</div>;
+  if (snapshots.length === 0) return <EmptyState description="能力画像更新后会在这里记录变化。" title="还没有成长记录" />;
+  return <div className="grid gap-3">{snapshots.map((snapshot) => <article className="rounded-xl border border-border bg-surface p-4" key={snapshot.id}><div className="flex justify-between"><strong>能力记录</strong><time className="text-sm text-muted-foreground">{new Date(snapshot.createdAt).toLocaleString("zh-CN")}</time></div><div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">{snapshot.metrics.map((metric) => <div className="text-sm" key={metric.dimension}><span className="text-muted-foreground">{PROFILE_DIMENSION_LABELS[metric.dimension]}</span><strong className="ml-2">{metric.levelLabel}</strong></div>)}</div></article>)}</div>;
 }
