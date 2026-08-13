@@ -11,6 +11,7 @@ const SOURCE_LABELS: Record<string, string> = {
   resume: "简历经历",
   history: "历史回答",
   profile: "能力画像",
+  general_role: "通用岗位题",
 };
 
 export function MockInterviewReport({ session }: { session: MockInterviewView }) {
@@ -147,7 +148,26 @@ export function MockInterviewReport({ session }: { session: MockInterviewView })
                       ] ?? question.teaching.difficulty}
                     </Badge>
                   </div>
-                  {question.teaching.jdEvidence ? (
+                  {question.teaching.competencyOrigin === "inferred" ? (
+                    <div className="rounded-lg border border-border bg-surface p-3">
+                      <p className="font-medium text-foreground">
+                        该岗位的常见要求（非你提供的岗位描述）
+                      </p>
+                      <p className="mt-1">
+                        这道题基于该岗位的常见要求，不是你提供的岗位描述。
+                      </p>
+                      {question.teaching.sourceUrl ? (
+                        <a
+                          className="mt-1 inline-block font-medium text-brand underline"
+                          href={question.teaching.sourceUrl}
+                          rel="noreferrer"
+                          target="_blank"
+                        >
+                          查看公开来源
+                        </a>
+                      ) : null}
+                    </div>
+                  ) : question.teaching.jdEvidence ? (
                     <blockquote className="border-l-2 border-brand pl-3 italic">
                       JD 依据：{question.teaching.jdEvidence}
                     </blockquote>

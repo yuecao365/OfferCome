@@ -21,22 +21,36 @@ export type QuestionSourceAllocation = {
   resumeMax: number;
   personalizationMax: number;
   secondaryCompetencyMax: number;
+  generalRoleMax: number;
 };
 
 export function getQuestionSourceAllocation(
   questionCount: number,
   hasSeed = false,
+  blueprint?: MockInterviewJobBlueprint,
 ): QuestionSourceAllocation {
   const personalizationMax = Math.max(
     hasSeed ? 1 : 0,
     questionCount >= 5 ? Math.min(2, Math.floor(questionCount * 0.2)) : 0,
   );
   const resumeMax = Math.max(1, Math.floor(questionCount * 0.3));
+  const hasInferredCompetency = blueprint?.competencies.some(
+    (item) => item.origin === "inferred",
+  );
+  const jdCompetencyCount =
+    blueprint?.competencies.filter((item) => item.origin === "jd").length ?? 0;
+  const generalRoleMax = hasInferredCompetency
+    ? Math.max(0, Math.min(questionCount, questionCount - jdCompetencyCount * 2))
+    : 0;
   return {
-    directJobDescriptionMin: questionCount - resumeMax - personalizationMax,
+    directJobDescriptionMin: Math.max(
+      0,
+      questionCount - resumeMax - personalizationMax - generalRoleMax,
+    ),
     resumeMax,
     personalizationMax,
     secondaryCompetencyMax: Math.max(1, Math.floor(questionCount * 0.15)),
+    generalRoleMax,
   };
 }
 
@@ -81,6 +95,7 @@ export function selectValidQuestions(input: {
   const allocation = getQuestionSourceAllocation(
     input.questionCount,
     Boolean(input.seedSourceId),
+    input.blueprint,
   );
 
   const countSource = (sourceKind: MockInterviewQuestionDraft["sourceKind"]) =>
@@ -97,7 +112,20 @@ export function selectValidQuestions(input: {
       reason = "invalid_competency";
     } else if (jobCompetencyRelevance(candidate.question, competency) < 0.08) {
       reason = "weak_job_relevance";
-    } else if (!isJobDescriptionEvidence(input.context.jobDescription, candidate.jdEvidence)) {
+    } else if (
+      competency.origin === "inferred" &&
+      (
+        candidate.sourceKind !== "general_role" ||
+        countSource("general_role") >= allocation.generalRoleMax
+      )
+    ) {
+      reason = "source_quota_exceeded";
+    } else if (
+      (competency.origin === "jd" &&
+        candidate.sourceKind === "general_role") ||
+      (competency.origin === "jd" &&
+        !isJobDescriptionEvidence(input.context.jobDescription, candidate.jdEvidence))
+    ) {
       reason = "invalid_jd_evidence";
     } else if (
       accepted.some(

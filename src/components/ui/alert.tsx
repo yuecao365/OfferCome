@@ -1,19 +1,21 @@
-import { CircleAlert, CircleCheck, Info } from "lucide-react";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
 import type { HTMLAttributes } from "react";
 
 import { cn } from "@/lib/cn";
 
-type AlertTone = "info" | "success" | "danger";
+type AlertTone = "info" | "success" | "warning" | "danger";
 
 const alertStyles: Record<AlertTone, string> = {
   info: "border-info/20 bg-info-soft text-info-strong",
   success: "border-success/20 bg-success-soft text-success-strong",
+  warning: "border-warning/20 bg-warning-soft text-warning-strong",
   danger: "border-danger/20 bg-danger-soft text-danger-strong",
 };
 
 const alertIcons = {
   info: Info,
   success: CircleCheck,
+  warning: TriangleAlert,
   danger: CircleAlert,
 };
 

@@ -21,6 +21,8 @@ const blueprint: MockInterviewJobBlueprint = {
       description: "规模化验证",
       priority: "core",
       jdEvidence: "Agent Harness 的规模化验证",
+      origin: "jd",
+      sourceUrl: null,
     },
     {
       id: "trace",
@@ -28,6 +30,8 @@ const blueprint: MockInterviewJobBlueprint = {
       description: "长程执行稳定性",
       priority: "core",
       jdEvidence: "基于 Trace 提升长程执行稳定性",
+      origin: "jd",
+      sourceUrl: null,
     },
   ],
 };
@@ -70,12 +74,14 @@ test("allocates a majority of questions to direct JD coverage", () => {
     resumeMax: 3,
     personalizationMax: 2,
     secondaryCompetencyMax: 1,
+    generalRoleMax: 0,
   });
   assert.deepEqual(getQuestionSourceAllocation(5), {
     directJobDescriptionMin: 3,
     resumeMax: 1,
     personalizationMax: 1,
     secondaryCompetencyMax: 1,
+    generalRoleMax: 0,
   });
 });
 
@@ -85,13 +91,62 @@ test("reserves a personalization slot for short seeded interviews", () => {
     resumeMax: 1,
     personalizationMax: 0,
     secondaryCompetencyMax: 1,
+    generalRoleMax: 0,
   });
   assert.deepEqual(getQuestionSourceAllocation(3, true), {
     directJobDescriptionMin: 1,
     resumeMax: 1,
     personalizationMax: 1,
     secondaryCompetencyMax: 1,
+    generalRoleMax: 0,
   });
+});
+
+test("allocates general role questions only when inferred competencies exist", () => {
+  const enriched = {
+    ...blueprint,
+    competencies: [
+      ...blueprint.competencies,
+      {
+        id: "inferred",
+        name: "通用协作",
+        description: "跨团队协作",
+        priority: "secondary" as const,
+        jdEvidence: "该岗位的通用要求，非用户提供",
+        origin: "inferred" as const,
+        sourceUrl: null,
+      },
+    ],
+  };
+  assert.equal(getQuestionSourceAllocation(8, false, enriched).generalRoleMax, 4);
+});
+
+test("accepts inferred competencies only as general role questions", () => {
+  const inferred = {
+    id: "inferred",
+    name: "Agent 可靠性",
+    description: "保障 Agent 可靠运行",
+    priority: "core" as const,
+    jdEvidence: "该岗位的通用要求，非用户提供",
+    origin: "inferred" as const,
+    sourceUrl: null,
+  };
+  const enriched = { ...blueprint, competencies: [blueprint.competencies[0]!, inferred] };
+  const result = selectValidQuestions({
+    candidates: [
+      question({
+        question: "如何保障 Agent 系统的可靠运行？",
+        sourceKind: "general_role",
+        jobCompetencyId: "inferred",
+        jdEvidence: inferred.jdEvidence,
+      }),
+    ],
+    questionCount: 5,
+    context,
+    blueprint: enriched,
+    personalization,
+  });
+  assert.equal(result.accepted.length, 1);
 });
 
 test("rejects invalid JD evidence and duplicate questions", () => {

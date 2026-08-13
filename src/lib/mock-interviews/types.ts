@@ -52,9 +52,16 @@ export const mockInterviewJobBlueprintSchema = z.object({
           .min(1)
           .max(240)
           .describe("从 JD 原文逐字截取的短证据"),
+        origin: z.enum(["jd", "inferred"]).default("jd"),
+        sourceUrl: z
+          .string()
+          .max(500)
+          .refine((value) => /^https?:\/\//i.test(value), "来源必须是 HTTP(S) 地址")
+          .nullable()
+          .default(null),
       }),
     )
-    .min(2)
+    .min(0)
     .max(10),
 });
 
@@ -67,6 +74,7 @@ export const mockInterviewQuestionDraftSchema = z.object({
     "resume",
     "history",
     "profile",
+    "general_role",
   ]),
   jobCompetencyId: z.string().min(1).max(40),
   jdEvidence: z
@@ -149,6 +157,8 @@ export type MockInterviewReport = {
 
 export type MockInterviewQuestionTeaching = {
   competencyName: string | null;
+  competencyOrigin: "jd" | "inferred" | null;
+  sourceUrl: string | null;
   jdEvidence: string | null;
   expectedSignals: string[];
   rationale: string | null;
@@ -174,6 +184,12 @@ export type MockInterviewView = {
   generationPhase: string | null;
   generationErrorCode: string | null;
   generationError: string | null;
+  generationErrorContext?: MockInterviewGenerationErrorContext | null;
+  jobDescriptionReview?: {
+    completeness: "complete" | "partial" | "minimal";
+    missingInformation: string[];
+    canSupplement: boolean;
+  } | null;
   interactionMode: MockInterviewMode;
   currentQuestionIndex: number;
   questionCount: number;
@@ -201,4 +217,11 @@ export type MockInterviewView = {
   }[];
 };
 
-export const MOCK_INTERVIEW_PROMPT_VERSION = "mock-interview-v2";
+export const MOCK_INTERVIEW_PROMPT_VERSION = "mock-interview-v3";
+
+export type MockInterviewGenerationErrorContext = {
+  competencyCount?: number;
+  requiredCount?: number;
+  jobTitle?: string;
+  questionCount?: number;
+};

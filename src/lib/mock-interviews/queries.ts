@@ -6,6 +6,8 @@ import {
   isMockInterviewMode,
   type MockInterviewReport,
   type MockInterviewView,
+  mockInterviewJobBlueprintSchema,
+  type MockInterviewGenerationErrorContext,
 } from "./types";
 import { buildQuestionTeaching } from "./teaching";
 import { parsePersonalizationSourceIds } from "./personalization";
@@ -82,6 +84,17 @@ function parseArray<T>(value: string | null): T[] {
   }
 }
 
+function generationSnapshot(value: string): Record<string, unknown> {
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return parsed && typeof parsed === "object"
+      ? (parsed as Record<string, unknown>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
 export async function getMockInterviewView(id: string): Promise<MockInterviewView | null> {
   const session = await prisma.mockInterviewSession.findUnique({
     where: { id },
@@ -97,6 +110,15 @@ export async function getMockInterviewView(id: string): Promise<MockInterviewVie
     },
   });
   if (!session) return null;
+  const snapshot = generationSnapshot(session.contextSnapshotJson);
+  const blueprint = mockInterviewJobBlueprintSchema.safeParse(snapshot.jobBlueprint);
+  const reviewCount =
+    typeof snapshot.jdReviewCount === "number" ? snapshot.jdReviewCount : 0;
+  const generationErrorContext =
+    snapshot.generationErrorContext &&
+    typeof snapshot.generationErrorContext === "object"
+      ? (snapshot.generationErrorContext as MockInterviewGenerationErrorContext)
+      : null;
   const completedReportContext =
     session.status === "completed"
       ? await getCompletedReportContext(
@@ -114,6 +136,15 @@ export async function getMockInterviewView(id: string): Promise<MockInterviewVie
     generationPhase: session.generationPhase,
     generationErrorCode: session.generationErrorCode,
     generationError: session.generationError,
+    generationErrorContext,
+    jobDescriptionReview:
+      session.status === "awaiting_jd_review" && blueprint.success
+        ? {
+            completeness: blueprint.data.completeness,
+            missingInformation: blueprint.data.missingInformation,
+            canSupplement: reviewCount < 2,
+          }
+        : null,
     interactionMode: isMockInterviewMode(session.interactionMode)
       ? session.interactionMode
       : "text",

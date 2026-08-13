@@ -9,6 +9,8 @@ const snapshotSchema = z.object({
         z.object({
           id: z.string(),
           name: z.string(),
+          origin: z.enum(["jd", "inferred"]).default("jd"),
+          sourceUrl: z.string().nullable().default(null),
         }),
       ),
     })
@@ -51,15 +53,17 @@ export function buildQuestionTeaching(
   const competencyId = metadata.success
     ? metadata.data.jobCompetencyId
     : undefined;
-  const competencyName =
+  const competency =
     snapshot.success && competencyId
       ? snapshot.data.jobBlueprint?.competencies.find(
           (competency) => competency.id === competencyId,
-        )?.name ?? null
+        ) ?? null
       : null;
 
   return {
-    competencyName,
+    competencyName: competency?.name ?? null,
+    competencyOrigin: competency?.origin ?? null,
+    sourceUrl: competency?.sourceUrl ?? null,
     jdEvidence: metadata.success ? metadata.data.jdEvidence ?? null : null,
     expectedSignals: expectedSignals.success ? expectedSignals.data : [],
     rationale: metadata.success ? metadata.data.rationale ?? null : null,

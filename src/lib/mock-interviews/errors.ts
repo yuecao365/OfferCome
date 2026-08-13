@@ -8,17 +8,20 @@ export type MockInterviewGenerationErrorCode =
 export class MockInterviewGenerationError extends Error {
   readonly code: MockInterviewGenerationErrorCode;
   readonly retryable: boolean;
+  readonly context: import("./types").MockInterviewGenerationErrorContext | null;
 
   constructor(input: {
     code: MockInterviewGenerationErrorCode;
     message: string;
     retryable?: boolean;
+    context?: import("./types").MockInterviewGenerationErrorContext;
     cause?: unknown;
   }) {
     super(input.message, { cause: input.cause });
     this.name = "MockInterviewGenerationError";
     this.code = input.code;
     this.retryable = input.retryable ?? true;
+    this.context = input.context ?? null;
   }
 }
 

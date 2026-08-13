@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createMockInterviewQuestionBatchSchema } from "./types";
+import {
+  createMockInterviewQuestionBatchSchema,
+  mockInterviewJobBlueprintSchema,
+} from "./types";
 
 const validQuestion = {
   question: "如何设计 Agent Harness？",
@@ -27,4 +30,30 @@ test("requires the exact requested question count", () => {
     schema.safeParse({ questions: [validQuestion, validQuestion] }).success,
     false,
   );
+});
+
+test("parses legacy blueprints with default competency provenance", () => {
+  const parsed = mockInterviewJobBlueprintSchema.parse({
+    summary: "旧快照",
+    completeness: "complete",
+    missingInformation: [],
+    competencies: [
+      {
+        id: "one",
+        name: "能力一",
+        description: "描述",
+        priority: "core",
+        jdEvidence: "依据一",
+      },
+      {
+        id: "two",
+        name: "能力二",
+        description: "描述",
+        priority: "secondary",
+        jdEvidence: "依据二",
+      },
+    ],
+  });
+  assert.equal(parsed.competencies[0]?.origin, "jd");
+  assert.equal(parsed.competencies[0]?.sourceUrl, null);
 });

@@ -7,12 +7,16 @@ import { useCallback, useEffect, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import type { MockInterviewGenerationErrorContext } from "@/lib/mock-interviews/types";
 
 type GenerationState = {
   status: string;
   generationPhase: string | null;
   errorCode: string | null;
   error: string | null;
+  errorContext?: MockInterviewGenerationErrorContext | null;
+  questionCount: number;
+  jobTitle: string;
 };
 
 function phaseLabel(phase: string | null): string {
@@ -40,7 +44,7 @@ export function MockInterviewGenerationProgress({
     const next = (await response.json()) as GenerationState & { error?: string };
     if (!response.ok) throw new Error(next.error ?? "读取生成进度失败。");
     setState(next);
-    if (next.status === "in_progress") router.refresh();
+    if (next.status !== "generating") router.refresh();
   }, [router, sessionId]);
 
   useEffect(() => {
@@ -51,12 +55,18 @@ export function MockInterviewGenerationProgress({
     return () => window.clearInterval(interval);
   }, [refreshStatus, state.status]);
 
-  const retry = async () => {
+  const retry = async (questionCount?: number, strategy?: "enrich") => {
     setRetrying(true);
     try {
       const response = await fetch(
         `/api/interviews/mock/${sessionId}/retry-generation`,
-        { method: "POST" },
+        {
+          method: "POST",
+          headers: questionCount || strategy ? { "Content-Type": "application/json" } : undefined,
+          body: questionCount || strategy
+            ? JSON.stringify({ questionCount, strategy })
+            : undefined,
+        },
       );
       const result = (await response.json()) as { error?: string };
       if (!response.ok) throw new Error(result.error ?? "重试生成失败。");
@@ -65,6 +75,9 @@ export function MockInterviewGenerationProgress({
         generationPhase: "job_blueprint",
         errorCode: null,
         error: null,
+        errorContext: null,
+        questionCount: questionCount ?? state.questionCount,
+        jobTitle: state.jobTitle,
       });
     } catch (error) {
       setState((current) => ({
@@ -81,11 +94,46 @@ export function MockInterviewGenerationProgress({
       {state.status === "generation_failed" ? (
         <div className="grid gap-4">
           <Alert tone="danger">
-            {state.error ?? "面试题生成失败，请稍后重试。"}
+            <div>
+              <p className="font-semibold">{state.error ?? "面试题生成没有完成。"}</p>
+              {state.errorContext?.competencyCount !== undefined &&
+              state.errorContext.requiredCount !== undefined ? (
+                <p className="mt-1">
+                  已识别 {state.errorContext.competencyCount} 项岗位能力，当前至少需要 {state.errorContext.requiredCount} 项。
+                </p>
+              ) : null}
+              <p className="mt-1">你可以选择下面的操作继续，不需要反复提交相同内容。</p>
+            </div>
           </Alert>
-          <Button disabled={retrying} onClick={retry} type="button">
-            {retrying ? "正在重试…" : "重试生成"}
-          </Button>
+          <div className="flex flex-wrap gap-3">
+            <Button disabled={retrying} onClick={() => retry()} type="button">
+              {retrying ? "正在重新分析…" : "重新分析岗位描述"}
+            </Button>
+            <Button
+              disabled={retrying}
+              onClick={() => retry(undefined, "enrich")}
+              type="button"
+              variant="outline"
+            >
+              让 AI 按“{state.jobTitle}”的常见要求补全
+            </Button>
+            <Button
+              disabled={retrying}
+              onClick={() => retry(Math.max(3, Math.min(5, state.questionCount - 1)))}
+              type="button"
+              variant="outline"
+            >
+              减少到 {Math.max(3, Math.min(5, state.questionCount - 1))} 题重试
+            </Button>
+            <Button
+              disabled={retrying}
+              onClick={() => router.push("/interviews/mock")}
+              type="button"
+              variant="outline"
+            >
+              返回创建页
+            </Button>
+          </div>
         </div>
       ) : (
         <div className="flex items-center gap-3">

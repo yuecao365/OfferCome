@@ -40,6 +40,11 @@ export function MockInterviewSetup({
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+  const [jobDescriptionText, setJobDescriptionText] = useState("");
+  const jdKeywords = /职责|要求|负责|熟悉|掌握|精通|经验|任职|岗位描述|工作内容|技能/;
+  const showJobDescriptionHint =
+    jobDescriptionText.trim().length > 0 &&
+    (jobDescriptionText.trim().length < 200 || !jdKeywords.test(jobDescriptionText));
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -116,7 +121,17 @@ export function MockInterviewSetup({
           </FieldLabel>
           <FieldLabel>
             或粘贴 Job Description
-            <Textarea name="jobDescriptionText" placeholder="粘贴岗位职责、任职要求和技术栈……" />
+            <Textarea
+              name="jobDescriptionText"
+              onChange={(event) => setJobDescriptionText(event.target.value)}
+              placeholder="粘贴岗位职责、任职要求和技术栈……"
+              value={jobDescriptionText}
+            />
+            {showJobDescriptionHint ? (
+              <Alert className="mt-2 font-normal" tone="warning">
+                这份岗位描述比较简短，补充岗位职责和任职要求能让题目更贴合。也可以直接开始，我们会帮你补全该岗位的常见要求。
+              </Alert>
+            ) : null}
           </FieldLabel>
         </div>
       </Card>

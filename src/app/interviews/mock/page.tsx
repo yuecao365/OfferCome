@@ -18,6 +18,8 @@ import { resolveMockInterviewSeed } from "@/lib/mock-interviews/seeds";
 function statusLabel(status: string): string {
   if (status === "completed") return "已完成";
   if (status === "ready_to_evaluate" || status === "evaluating") return "评分中";
+  if (status === "awaiting_jd_review") return "待补充岗位信息";
+  if (status === "generation_failed") return "生成未完成";
   return "进行中";
 }
 
@@ -92,7 +94,18 @@ export default async function MockInterviewsPage({
                       {session.totalScore !== null ? ` · ${session.totalScore} 分` : ""}
                     </p>
                   </div>
-                  <Badge tone={session.status === "completed" ? "success" : "info"}>{statusLabel(session.status)}</Badge>
+                  <Badge
+                    tone={
+                      session.status === "completed"
+                        ? "success"
+                        : session.status === "awaiting_jd_review" ||
+                            session.status === "generation_failed"
+                          ? "warning"
+                          : "info"
+                    }
+                  >
+                    {statusLabel(session.status)}
+                  </Badge>
                 </Link>
                 <div className="shrink-0 pr-3">
                   <InterviewDeleteButton

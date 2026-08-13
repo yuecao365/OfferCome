@@ -11,6 +11,8 @@ import {
 
 import { evaluateMockInterview } from "./agent";
 import { analyzeMockInterviewJob } from "./job-analysis-agent";
+import { enrichMockInterviewJob } from "./jd-enrichment-agent";
+import { needsJobDescriptionReview } from "./jd-sufficiency";
 import { generateMockInterviewPlan } from "./question-generation-agent";
 import { computeInterviewTotalScore, computeQuestionScore } from "./scoring";
 import {
@@ -82,7 +84,10 @@ type GenerationSnapshot = {
     round?: unknown;
     seedQuestionId?: unknown;
     seedInsightId?: unknown;
+    jdStrategy?: unknown;
   };
+  jdReviewCount?: unknown;
+  generationErrorContext?: unknown;
   [key: string]: unknown;
 };
 
@@ -177,6 +182,10 @@ export async function generateMockInterviewQuestions(
     typeof request.seedQuestionId === "string" ? request.seedQuestionId : null;
   const seedInsightId =
     typeof request.seedInsightId === "string" ? request.seedInsightId : null;
+  const jdStrategy =
+    request.jdStrategy === "enrich" || request.jdStrategy === "proceed"
+      ? request.jdStrategy
+      : null;
 
   try {
     const context = await buildMockInterviewContext({
@@ -199,6 +208,44 @@ export async function generateMockInterviewQuestions(
         generationId,
         jobTitle: session.interview.jobTitle,
         jobDescription: session.jdTextSnapshot,
+      });
+      snapshot.jobBlueprint = blueprint;
+      const saved = await prisma.mockInterviewSession.updateMany({
+        where: { id: sessionId, status: "generating" },
+        data: { contextSnapshotJson: JSON.stringify(snapshot) },
+      });
+      if (saved.count !== 1) return;
+    }
+
+    if (!jdStrategy && needsJobDescriptionReview(blueprint, session.questionCount)) {
+      snapshot.jdReviewCount =
+        (typeof snapshot.jdReviewCount === "number" ? snapshot.jdReviewCount : 0) + 1;
+      const paused = await prisma.mockInterviewSession.updateMany({
+        where: { id: sessionId, status: "generating" },
+        data: {
+          status: "awaiting_jd_review",
+          generationPhase: null,
+          contextSnapshotJson: JSON.stringify(snapshot),
+        },
+      });
+      if (paused.count !== 1) return;
+      return;
+    }
+
+    if (jdStrategy === "enrich") {
+      const enriching = await prisma.mockInterviewSession.updateMany({
+        where: {
+          id: sessionId,
+          status: "generating",
+          generationPhase: { in: ["questions", "job_enrichment"] },
+        },
+        data: { generationPhase: "job_enrichment" },
+      });
+      if (enriching.count !== 1) return;
+      blueprint = await enrichMockInterviewJob({
+        jobTitle: session.interview.jobTitle,
+        jobDescription: session.jdTextSnapshot,
+        blueprint,
       });
       snapshot.jobBlueprint = blueprint;
       const saved = await prisma.mockInterviewSession.updateMany({
@@ -281,9 +328,15 @@ export async function generateMockInterviewQuestions(
           generationPhase: "persisting",
         },
         data: {
-          contextSnapshotJson: serializeMockInterviewContext(context, {
-            blueprint: generated.blueprint,
-            personalization: generated.personalization,
+          contextSnapshotJson: JSON.stringify({
+            ...parseGenerationSnapshot(
+              serializeMockInterviewContext(context, {
+                blueprint: generated.blueprint,
+                personalization: generated.personalization,
+              }),
+            ),
+            generationRequest: snapshot.generationRequest,
+            jdReviewCount: snapshot.jdReviewCount,
           }),
           status: "in_progress",
           generationPhase: null,
@@ -304,7 +357,12 @@ export async function generateMockInterviewQuestions(
       ? error.code
       : "model_unavailable";
     const message =
-      error instanceof Error ? error.message.slice(0, 1_000) : "生成面试题失败。";
+      error instanceof Error
+        ? error.message.slice(0, 1_000)
+        : "面试题生成没有完成。生成服务没有返回可用结果。你可以重新分析岗位描述，或减少题目数量。";
+    snapshot.generationErrorContext = isMockInterviewGenerationError(error)
+      ? error.context
+      : null;
     await prisma.mockInterviewSession.updateMany({
       where: { id: sessionId, status: "generating" },
       data: {
@@ -312,6 +370,7 @@ export async function generateMockInterviewQuestions(
         generationPhase: null,
         generationErrorCode: code,
         generationError: message,
+        contextSnapshotJson: JSON.stringify(snapshot),
       },
     });
   }
@@ -319,12 +378,87 @@ export async function generateMockInterviewQuestions(
 
 export async function claimMockInterviewGenerationRetry(
   sessionId: string,
+  questionCount?: number,
+  strategy?: "enrich",
 ): Promise<boolean> {
+  const normalizedQuestionCount =
+    typeof questionCount === "number" ? Math.trunc(questionCount) : null;
+  if (
+    normalizedQuestionCount !== null &&
+    (normalizedQuestionCount < 3 || normalizedQuestionCount > 12)
+  ) {
+    return false;
+  }
+  const session = await prisma.mockInterviewSession.findUnique({
+    where: { id: sessionId },
+    select: { status: true, contextSnapshotJson: true },
+  });
+  if (!session || session.status !== "generation_failed") return false;
+  const snapshot = parseGenerationSnapshot(session.contextSnapshotJson);
+  snapshot.generationRequest ??= {};
+  snapshot.generationRequest.jdStrategy = strategy;
+  snapshot.generationErrorContext = null;
   const result = await prisma.mockInterviewSession.updateMany({
     where: { id: sessionId, status: "generation_failed" },
     data: {
       status: "generating",
       generationPhase: "job_blueprint",
+      generationErrorCode: null,
+      generationError: null,
+      contextSnapshotJson: JSON.stringify(snapshot),
+      ...(normalizedQuestionCount === null
+        ? {}
+        : { questionCount: normalizedQuestionCount }),
+    },
+  });
+  return result.count === 1;
+}
+
+export type JobDescriptionStrategy = "supplement" | "enrich" | "proceed";
+
+export async function applyJobDescriptionStrategy(input: {
+  sessionId: string;
+  strategy: JobDescriptionStrategy;
+  additionalText?: string;
+}): Promise<boolean> {
+  const session = await prisma.mockInterviewSession.findUnique({
+    where: { id: input.sessionId },
+    select: {
+      status: true,
+      jdTextSnapshot: true,
+      contextSnapshotJson: true,
+    },
+  });
+  if (!session || session.status !== "awaiting_jd_review") return false;
+  const snapshot = parseGenerationSnapshot(session.contextSnapshotJson);
+  const reviewCount =
+    typeof snapshot.jdReviewCount === "number" ? snapshot.jdReviewCount : 1;
+  const additionalText = input.additionalText?.trim() ?? "";
+  const supplementedJobDescription = `${session.jdTextSnapshot.trim()}\n\n${additionalText}`;
+  if (
+    input.strategy === "supplement" &&
+    (reviewCount >= 2 ||
+      !additionalText ||
+      additionalText.length > 30_000 ||
+      supplementedJobDescription.length > 100_000)
+  ) {
+    return false;
+  }
+  snapshot.generationRequest ??= {};
+  snapshot.generationRequest.jdStrategy =
+    input.strategy === "supplement" ? undefined : input.strategy;
+  if (input.strategy === "supplement") snapshot.jobBlueprint = undefined;
+  const result = await prisma.mockInterviewSession.updateMany({
+    where: { id: input.sessionId, status: "awaiting_jd_review" },
+    data: {
+      status: "generating",
+      generationPhase:
+        input.strategy === "supplement" ? "job_blueprint" : "questions",
+      jdTextSnapshot:
+        input.strategy === "supplement"
+          ? supplementedJobDescription
+          : session.jdTextSnapshot,
+      contextSnapshotJson: JSON.stringify(snapshot),
       generationErrorCode: null,
       generationError: null,
     },

@@ -20,6 +20,8 @@ const blueprint: MockInterviewJobBlueprint = {
       description: "搭建移动端 Agent 运行、工具和验证基础设施",
       priority: "core",
       jdEvidence: "搭建稳定、高效 Agent Harness",
+      origin: "jd",
+      sourceUrl: null,
     },
     {
       id: "trace_reliability",
@@ -27,6 +29,8 @@ const blueprint: MockInterviewJobBlueprint = {
       description: "使用 Trace 优化长程执行和定位稳定性问题",
       priority: "core",
       jdEvidence: "基于 Trace 优化长程执行",
+      origin: "jd",
+      sourceUrl: null,
     },
   ],
 };
