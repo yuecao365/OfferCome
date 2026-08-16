@@ -132,3 +132,4 @@ export const PROFILE_ASSESSMENT_VERSION = "ability-assessment-v2";
 export const PROFILE_AGGREGATION_VERSION = "candidate-profile-scoring-v3-real-priority";
 export const PROFILE_PROMPT_VERSION = "candidate-profile-v2";
 export const PROFILE_DEBOUNCE_MS = 60_000;
+export const PROFILE_AGENT_TIMEOUT_MS = 60_000;

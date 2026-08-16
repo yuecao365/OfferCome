@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/db";
+import { bossBrowserLock } from "@/lib/boss/browser-lock";
 import {
-  createBossSyncLock,
   runBossSync,
   toBossSyncPublicResult,
   type BossSyncPublicResult,
@@ -10,17 +10,6 @@ import {
 import { isLocalBossRequest } from "@/lib/boss/local-request";
 
 export const runtime = "nodejs";
-
-const globalForBossSync = globalThis as unknown as {
-  bossSyncLock?: ReturnType<typeof createBossSyncLock>;
-};
-
-const bossSyncLock =
-  globalForBossSync.bossSyncLock ?? createBossSyncLock();
-
-if (process.env.NODE_ENV !== "production") {
-  globalForBossSync.bossSyncLock = bossSyncLock;
-}
 
 export async function POST(request: Request) {
   if (!isLocalBossRequest(request)) {
@@ -34,7 +23,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const result = await bossSyncLock.run(async () => {
+  const result = await bossBrowserLock.run(async () => {
     const syncResult = await runBossSync({
       db: prisma,
       onMessage: (message) => console.log(`[boss:sync] ${message}`),

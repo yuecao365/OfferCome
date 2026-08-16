@@ -64,8 +64,10 @@ export async function evaluatePersistedMockInterviewQuestion(
       output.dimensions,
     );
     const completedAt = new Date();
-    await prisma.interviewQuestionEvaluation.update({
-      where: { id: evaluation.id },
+    // 只允许仍持有 running 认领的调用写终态：交卷路径会把超时的评分强制置
+    // failed 并重跑，旧调用迟到的结果必须被丢弃，不能覆盖重跑的结果。
+    const completed = await prisma.interviewQuestionEvaluation.updateMany({
+      where: { id: evaluation.id, evaluationStatus: "running" },
       data: {
         evaluationStatus: "completed",
         evaluationError: null,
@@ -77,7 +79,7 @@ export async function evaluatePersistedMockInterviewQuestion(
         evaluatedAt: completedAt,
       },
     });
-    return true;
+    return completed.count === 1;
   } catch (error) {
     await prisma.interviewQuestionEvaluation.updateMany({
       where: { interviewQuestionId, evaluationStatus: "running" },

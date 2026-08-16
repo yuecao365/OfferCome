@@ -18,7 +18,6 @@ import {
   type BossContactWriteClient,
   type BossSyncSummary,
 } from "./store";
-import { createTaskLock } from "./task-lock";
 import {
   DEFAULT_MAX_SYNC_PAGES,
   type BossSyncStopReason,
@@ -162,13 +161,17 @@ export async function runBossSync(
     );
     const dismissedNote =
       dismissedCount > 0 ? `，跳过 ${dismissedCount} 条已删除的岗位` : "";
+    const truncationNote =
+      stopReason === "response-timeout"
+        ? "等待 Boss 响应超时，仅同步了部分页面，稍后可重新同步补齐。"
+        : "";
 
     return {
       success: summary.failed === 0,
       status: summary.failed === 0 ? "success" : "failed",
       message:
         summary.failed === 0
-          ? `同步完成：检查 ${contacts.length} 条，新增 ${summary.inserted} 条，来源变化或状态更新 ${summary.updated} 条，自动标记拒绝 ${summary.autoRejected} 条${dismissedNote}。`
+          ? `同步完成：检查 ${contacts.length} 条，新增 ${summary.inserted} 条，来源变化或状态更新 ${summary.updated} 条，自动标记拒绝 ${summary.autoRejected} 条${dismissedNote}。${truncationNote}`
           : `同步完成但有 ${summary.failed} 条写入失败。`,
       found: contacts.length,
       inserted: summary.inserted,
@@ -208,7 +211,9 @@ export function toBossSyncPublicResult(
     unchangedCount: result.unchanged,
     autoRejectedCount: result.autoRejected,
     totalCount: result.found,
-    completedAllPages: result.stopReason !== "max-pages",
+    // 只有确认翻到末页才算完整；页数上限或响应超时都可能有记录没读到。
+    completedAllPages: result.stopReason === "no-more-pages",
+    stopReason: result.stopReason,
     highlights: result.highlights,
   };
 }
@@ -234,10 +239,3 @@ export function printBossSyncContacts(contacts: NormalizedBossContact[]): void {
   }
 }
 
-export function createBossSyncLock() {
-  return createTaskLock<BossSyncPublicResult>(() => ({
-    success: false,
-    status: "failed",
-    message: "Boss 同步正在进行中，请稍后再试。",
-  }));
-}

@@ -1,4 +1,9 @@
-import type { NormalizedBossContact } from "./parse";
+import {
+  BOSS_SOURCE,
+  hasStableBossSourceId,
+  toBossSourceKey,
+  type NormalizedBossContact,
+} from "./parse";
 import type {
   BossSyncChangedField,
   BossSyncHighlight,
@@ -62,10 +67,10 @@ export type BossContactWriteClient = BossContactReadClient & {
     create(args: {
       data: NormalizedBossContact & {
         appliedAt: Date;
-        autoRejectedAt: null;
+        autoRejectedAt: Date | null;
         firstSeenAt: Date;
         lastSeenAt: Date;
-        stage: "applied";
+        stage: "applied" | "rejected";
         unchangedSince: Date;
       };
     }): Promise<unknown>;
@@ -74,9 +79,12 @@ export type BossContactWriteClient = BossContactReadClient & {
       data: BossContactUpdateData;
     }): Promise<unknown>;
     deleteMany(args: {
-      where: Pick<NormalizedBossContact, "source" | "companyName" | "jobTitle"> & {
-        sourceKey: { not: string };
-      };
+      where:
+        | (Pick<
+            NormalizedBossContact,
+            "source" | "companyName" | "jobTitle"
+          > & { sourceKey: { not: string } })
+        | { sourceKey: string };
     }): Promise<unknown>;
   };
 };
@@ -126,6 +134,21 @@ function getSourceChanges(
   return changes;
 }
 
+/** 距最后一次互动是否已超过 30 天。 */
+export function isStaleSinceLastActivity(
+  lastActivityAt: Date,
+  now: Date,
+): boolean {
+  return (
+    now.getTime() - lastActivityAt.getTime() >=
+    STALE_APPLICATION_DAYS * DAY_MS
+  );
+}
+
+/**
+ * 已有记录是否该自动标记拒绝。只有仍停留在“已投递”且没被自动拒过的记录
+ * 才参与判定，用户手动改过的阶段不会被覆盖。
+ */
 function shouldAutoReject(
   existing: BossStoredContact,
   sourceActivityAt: Date | null,
@@ -135,12 +158,10 @@ function shouldAutoReject(
     return false;
   }
 
-  const appliedAt = existing.appliedAt ?? existing.firstSeenAt;
-  const rejectionDueAt = appliedAt.getTime() + STALE_APPLICATION_DAYS * DAY_MS;
-  const hasActivityAfterApplication =
-    sourceActivityAt !== null && sourceActivityAt.getTime() > appliedAt.getTime();
-
-  return now.getTime() >= rejectionDueAt && !hasActivityAfterApplication;
+  return isStaleSinceLastActivity(
+    sourceActivityAt ?? existing.appliedAt ?? existing.firstSeenAt,
+    now,
+  );
 }
 
 export async function countNewBossContacts(
@@ -165,14 +186,16 @@ export async function countNewBossContacts(
       continue;
     }
 
-    const existingByIdentity = await db.bossContact.findFirst({
-      where: {
-        source: contact.source,
-        companyName: contact.companyName,
-        jobTitle: contact.jobTitle,
-      },
-      orderBy: { firstSeenAt: "asc" },
-    });
+    const existingByIdentity = canMatchByIdentity(contact)
+      ? await db.bossContact.findFirst({
+          where: {
+            source: contact.source,
+            companyName: contact.companyName,
+            jobTitle: contact.jobTitle,
+          },
+          orderBy: { firstSeenAt: "asc" },
+        })
+      : null;
 
     seenSourceKeys.add(contact.sourceKey);
     if (existingByIdentity) {
@@ -185,10 +208,39 @@ export async function countNewBossContacts(
   return summary;
 }
 
+/**
+ * 同一家公司会用完全相同的标题重复发帖，它们的岗位 ID 不同，是不同的帖子。
+ * 因此只有在拿不到岗位 ID（sourceKey 为哈希）时，才用公司名+岗位名认身份，
+ * 否则会把两个不同的帖子合并、并用旧帖覆盖新帖的互动时间。
+ */
+function canMatchByIdentity(contact: NormalizedBossContact): boolean {
+  return !hasStableBossSourceId(contact.sourceKey);
+}
+
+/**
+ * 旧版采集器只有详情页链接，sourceKey 是 `:url:` 形式；现在同一岗位按
+ * 岗位 ID 生成 `:job:` 键。用链接反推旧键，才能认出老库里的同一条记录，
+ * 否则升级后首次同步会整批重复插入并触发错误的自动拒绝。
+ */
+function legacyBossUrlKey(contact: NormalizedBossContact): string | null {
+  if (!contact.jobUrl) return null;
+  const urlKey = toBossSourceKey({
+    companyName: contact.companyName,
+    jobTitle: contact.jobTitle,
+    href: contact.jobUrl,
+  });
+  return urlKey !== contact.sourceKey &&
+    urlKey.startsWith(`${BOSS_SOURCE}:url:`)
+    ? urlKey
+    : null;
+}
+
 async function removeIdentityDuplicates(
   db: BossContactWriteClient,
   contact: NormalizedBossContact,
 ): Promise<void> {
+  if (!canMatchByIdentity(contact)) return;
+
   await db.bossContact.deleteMany({
     where: {
       source: contact.source,
@@ -220,33 +272,58 @@ export async function upsertBossContacts(
       const bySourceKey = await db.bossContact.findUnique({
         where: { sourceKey: contact.sourceKey },
       });
+      const legacyKey = legacyBossUrlKey(contact);
+      const byLegacyUrl =
+        legacyKey && !bySourceKey
+          ? await db.bossContact.findUnique({
+              where: { sourceKey: legacyKey },
+            })
+          : null;
       const existing =
         bySourceKey ??
-        (await db.bossContact.findFirst({
-          where: {
-            source: contact.source,
-            companyName: contact.companyName,
-            jobTitle: contact.jobTitle,
-          },
-          orderBy: { firstSeenAt: "asc" },
-        }));
+        byLegacyUrl ??
+        (canMatchByIdentity(contact)
+          ? await db.bossContact.findFirst({
+              where: {
+                source: contact.source,
+                companyName: contact.companyName,
+                jobTitle: contact.jobTitle,
+              },
+              orderBy: { firstSeenAt: "asc" },
+            })
+          : null);
+      // 主键命中时，同一岗位可能还残留一条旧 `:url:` 键的重复行，顺手清掉。
+      if (bySourceKey && legacyKey) {
+        await db.bossContact.deleteMany({ where: { sourceKey: legacyKey } });
+      }
 
       if (!existing) {
+        // 投递时间用 Boss 的最后互动时间，这样首次同步导入的历史岗位不会
+        // 全部挤在“今天投递”。拿不到互动时间才退回同步时刻。
+        const appliedAt = contact.sourceActivityAt ?? now;
+        const autoRejected = isStaleSinceLastActivity(appliedAt, now);
         await db.bossContact.create({
           data: {
             ...contact,
-            appliedAt: now,
-            autoRejectedAt: null,
+            appliedAt,
+            autoRejectedAt: autoRejected ? now : null,
             firstSeenAt: now,
             lastSeenAt: now,
-            stage: "applied",
-            unchangedSince: now,
+            stage: autoRejected ? "rejected" : "applied",
+            unchangedSince: appliedAt,
           },
         });
         await removeIdentityDuplicates(db, contact);
-        summary.inserted += 1;
+        // 导入即过期的记录只计入“自动拒绝”，不再同时计入“新增”，
+        // 否则弹窗里“新增投递”的数字和新增列表会对不上。
+        if (autoRejected) {
+          summary.autoRejected += 1;
+        } else {
+          summary.inserted += 1;
+        }
         summary.highlights.push({
-          kind: "new",
+          kind: autoRejected ? "auto_rejected" : "new",
+          sourceKey: contact.sourceKey,
           companyName: contact.companyName,
           jobTitle: contact.jobTitle,
           changedFields: [],
@@ -285,6 +362,7 @@ export async function upsertBossContacts(
         summary.updated += 1;
         summary.highlights.push({
           kind: "source_changed",
+          sourceKey: contact.sourceKey,
           companyName: contact.companyName,
           jobTitle: contact.jobTitle,
           changedFields,
@@ -299,6 +377,7 @@ export async function upsertBossContacts(
         summary.autoRejected += 1;
         summary.highlights.push({
           kind: "auto_rejected",
+          sourceKey: contact.sourceKey,
           companyName: contact.companyName,
           jobTitle: contact.jobTitle,
           changedFields: [],

@@ -1,7 +1,4 @@
-import { existsSync } from "node:fs";
-import { createServer } from "node:net";
-
-import type { BrowserContext, Locator, Page, Response } from "playwright";
+import { mkdir } from "node:fs/promises";
 
 import {
   getBossApiCode,
@@ -13,16 +10,18 @@ import { extractBossContactCandidatesFromApiPayload } from "./api-parse";
 import {
   buildBrowserLaunchArgs,
   findBrowserExecutable,
-} from "./browser-launch";
-import {
-  connectOverCdp,
   launchBrowserProcess,
   stopBrowserProcess,
-} from "./browser-session";
+} from "./browser-launch";
 import {
-  buildBossContactExtractionExpression,
-  type BossDomExtractionResult,
-} from "./dom-extract";
+  CdpClient,
+  closeBrowserGracefully,
+  ensureBossBrowserClosed,
+  getBossCdpPort,
+  isBrowserAlive,
+  listPageTargets,
+  waitForBrowserAlive,
+} from "./cdp";
 import {
   normalizeBossContacts,
   type BossContactCandidate,
@@ -32,20 +31,15 @@ import { getBossLocalPaths } from "./paths";
 import type { BossSyncStopReason } from "./sync-policy";
 
 const BOSS_RECOMMEND_URL = "https://www.zhipin.com/web/geek/recommend";
+const BOSS_BROWSER_BOOTSTRAP_URL = "about:blank";
 const BOSS_JOB_RESPONSE_PATH = "/wapi/zprelation/interaction/geekGetJob";
-const DEFAULT_PAGE_SETTLE_MS = 2_000;
-const DEFAULT_LOGIN_TIMEOUT_MS = 10 * 60 * 1_000;
-const RESPONSE_TIMEOUT_MS = 12_000;
-
-const NEXT_PAGE_SELECTORS = [
-  "button:has-text('下一页')",
-  "a:has-text('下一页')",
-  "[aria-label*='下一页']",
-  ".pagination-next",
-  ".btn-next",
-  "[class*='pagination'] [class*='next']",
-  ".options-pages a:last-child",
-] as const;
+// 推荐页顶部「沟通过」标签页对应 tag=5；tag=2 是右侧「谁看过我」，
+// 那些岗位并非本人沟通过的，不能混进投递记录。
+const BOSS_COMMUNICATED_TAG = "5";
+const NEXT_PAGE_SELECTOR = ".options-pages a:last-child";
+const RESPONSE_TIMEOUT_MS = 15_000;
+const DEFAULT_PAGE_SETTLE_MS = 1_200;
+const POLL_INTERVAL_MS = 300;
 
 export type BossBrowserPageDiagnostics = {
   page: number;
@@ -64,7 +58,6 @@ export type CollectBossContactsOptions = {
   cwd?: string;
   maxPages: number;
   pageSettleMs?: number;
-  loginTimeoutMs?: number;
   onMessage?: (message: string) => void;
 };
 
@@ -82,47 +75,43 @@ export class BossBrowserClosedError extends Error {
   }
 }
 
-type ManualLoginWaitInput = {
-  timeoutMs: number;
-  isClosed: () => boolean;
-  isLoginRequired: () => Promise<boolean>;
-  delay?: (durationMs: number) => Promise<void>;
-  now?: () => number;
-  onMessage?: (message: string) => void;
-};
-
-export async function waitForManualBossLogin(
-  input: ManualLoginWaitInput,
-): Promise<void> {
-  const now = input.now ?? Date.now;
-  const delay =
-    input.delay ??
-    ((durationMs: number) =>
-      new Promise<void>((resolve) => setTimeout(resolve, durationMs)));
-  const deadline = now() + input.timeoutMs;
-
-  input.onMessage?.(
-    "Boss 需要登录或安全验证。请在已打开的窗口中手动完成，完成后不要关闭窗口，同步会自动继续。",
-  );
-
-  while (now() < deadline) {
-    if (input.isClosed()) throw new BossBrowserClosedError();
-    if (!(await input.isLoginRequired())) return;
-    await delay(500);
+function parseUrl(url: string): URL | null {
+  try {
+    return new URL(url);
+  } catch {
+    return null;
   }
+}
 
-  throw new BossBrowserLoginRequiredError(
-    "等待 Boss 登录或安全验证超时，请重新同步后再试。",
+export function isBossLoginUrl(url: string): boolean {
+  const parsed = parseUrl(url);
+  return (
+    parsed !== null &&
+    /(?:^|\.)zhipin\.com$/i.test(parsed.hostname) &&
+    /^\/web\/user(?:\/|$)/i.test(parsed.pathname)
   );
 }
 
-function isTargetClosedError(error: unknown): boolean {
+/** 只认「沟通过」列表的岗位接口响应。 */
+export function isCommunicatedJobUrl(url: string): boolean {
+  const parsed = parseUrl(url);
   return (
-    error instanceof Error &&
-    /target page, context or browser has been closed|page has been closed|browser has been closed/i.test(
-      error.message,
-    )
+    parsed !== null &&
+    parsed.pathname === BOSS_JOB_RESPONSE_PATH &&
+    parsed.searchParams.get("tag") === BOSS_COMMUNICATED_TAG
   );
+}
+
+export function isDisabledControl(attributes: Record<string, string>): boolean {
+  return (
+    attributes.disabled !== undefined ||
+    attributes["aria-disabled"] === "true" ||
+    /(?:^|\s)(?:disabled|is-disabled)(?:\s|$)/i.test(attributes.class ?? "")
+  );
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function assertBossAccessAvailable(
@@ -134,7 +123,7 @@ function assertBossAccessAvailable(
     throw new BossBrowserLoginRequiredError(
       duringSync
         ? "Boss 在同步过程中要求重新登录或安全校验，已停止继续读取。"
-        : "Boss 要求重新登录或安全校验，请按浏览器页面提示手动处理。",
+        : "Boss 要求登录或安全校验，请先完成登录后再同步。",
     );
   }
 
@@ -143,255 +132,243 @@ function assertBossAccessAvailable(
   );
 }
 
-function isBossJobResponse(response: Response): boolean {
-  return response.url().includes(BOSS_JOB_RESPONSE_PATH);
+async function getPageUrl(port: number, targetId: string): Promise<string | null> {
+  try {
+    const targets = await listPageTargets(port);
+    return targets.find((target) => target.id === targetId)?.url ?? null;
+  } catch {
+    return null;
+  }
 }
 
-async function getAvailablePort(): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const server = createServer();
-    server.unref();
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", () => {
-      const address = server.address();
-      if (!address || typeof address === "string") {
-        server.close();
-        reject(new Error("无法分配浏览器调试端口。"));
-        return;
-      }
-      server.close((error) => {
-        if (error) reject(error);
-        else resolve(address.port);
-      });
-    });
+type CollectorState = {
+  candidates: BossContactCandidate[];
+  hasMore: boolean | null;
+  responseCount: number;
+  accessIssue: { code: number | null; message: string } | null;
+  bodyTasks: Set<Promise<void>>;
+};
+
+function handleJobPayload(state: CollectorState, payload: unknown): void {
+  const code = getBossApiCode(payload);
+  const message = getBossApiMessage(payload);
+  // 没有顶层数字 code 的载荷（如 {message:"ok", zpData:{...}}）视为成功，
+  // 只有明确的非 0 code 才算异常，否则正常数据会被整批丢弃并误报未登录。
+  if (code !== null && code !== 0) {
+    state.accessIssue = { code, message };
+    return;
+  }
+
+  state.accessIssue = null;
+  state.responseCount += 1;
+  state.candidates.push(...extractBossContactCandidatesFromApiPayload(payload));
+  state.hasMore = getBossHasMore(payload);
+}
+
+/** 订阅「沟通过」列表的岗位响应。 */
+function watchJobResponses(client: CdpClient, state: CollectorState): void {
+  const urlById = new Map<string, string>();
+
+  client.on("Network.responseReceived", (params) => {
+    const event = params as { requestId?: string; response?: { url?: string } };
+    const url = event.response?.url ?? "";
+    if (event.requestId && isCommunicatedJobUrl(url)) {
+      urlById.set(event.requestId, url);
+    }
+  });
+  client.on("Network.loadingFailed", (params) => {
+    const { requestId } = params as { requestId?: string };
+    if (requestId) urlById.delete(requestId);
+  });
+  client.on("Network.loadingFinished", (params) => {
+    const { requestId } = params as { requestId?: string };
+    if (!requestId || !urlById.delete(requestId)) return;
+
+    // 响应体要等 loadingFinished 之后取，太早会拿到空内容。
+    const task: Promise<void> = client
+      .send("Network.getResponseBody", { requestId })
+      .then((result) => {
+        const { body, base64Encoded } = result as {
+          body?: string;
+          base64Encoded?: boolean;
+        };
+        const text = base64Encoded
+          ? Buffer.from(body ?? "", "base64").toString("utf8")
+          : (body ?? "");
+        handleJobPayload(state, JSON.parse(text) as unknown);
+      })
+      .catch(() => undefined)
+      .finally(() => state.bodyTasks.delete(task));
+    state.bodyTasks.add(task);
   });
 }
 
-async function extractDomCandidates(page: Page): Promise<BossContactCandidate[]> {
-  const result = (await page.evaluate(
-    buildBossContactExtractionExpression(),
-  )) as BossDomExtractionResult;
-  return result.candidates;
-}
-
-async function findNextPageControl(page: Page): Promise<Locator | null> {
-  for (const selector of NEXT_PAGE_SELECTORS) {
-    const controls = page.locator(selector);
-    const count = await controls.count();
-    if (count === 0) continue;
-
-    const control = controls.nth(count - 1);
-    if (!(await control.isVisible().catch(() => false))) continue;
-
-    const [disabled, ariaDisabled, className] = await Promise.all([
-      control.isDisabled().catch(() => false),
-      control.getAttribute("aria-disabled"),
-      control.getAttribute("class"),
-    ]);
-    if (
-      disabled ||
-      ariaDisabled === "true" ||
-      /(?:^|\s)(?:disabled|is-disabled)(?:\s|$)/i.test(className ?? "")
-    ) {
-      return null;
-    }
-
-    return control;
+/** 等岗位响应数量增加，返回是否等到。 */
+async function waitForNextResponse(
+  state: CollectorState,
+  previousCount: number,
+  isClosed: () => boolean,
+): Promise<boolean> {
+  const deadline = Date.now() + RESPONSE_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    if (state.responseCount > previousCount) return true;
+    if (isClosed()) throw new BossBrowserClosedError();
+    await sleep(POLL_INTERVAL_MS);
   }
-
-  return null;
+  return false;
 }
 
-async function looksLikeLoginPage(page: Page): Promise<boolean> {
-  if (/\/(?:login|web\/user)(?:\/|\?|$)/i.test(page.url())) return true;
-
-  return page
-    .getByText(/扫码登录|手机号登录|验证码登录/, { exact: false })
-    .first()
-    .isVisible()
-    .catch(() => false);
+async function settleBodies(state: CollectorState): Promise<void> {
+  while (state.bodyTasks.size > 0) {
+    await Promise.all([...state.bodyTasks]);
+  }
 }
 
-async function getBossAuthSignature(context: BrowserContext): Promise<string> {
-  const cookies = await context.cookies("https://www.zhipin.com/");
-  return cookies
-    .filter((cookie) => cookie.name === "wt2" || cookie.name === "zp_at")
-    .map((cookie) => `${cookie.name}:${cookie.value}`)
-    .sort()
-    .join("|");
+/** 点击列表底部的「下一页」。返回 false 表示已经到最后一页。 */
+async function goToNextPage(client: CdpClient): Promise<boolean> {
+  const nodeId = await client.querySelector(NEXT_PAGE_SELECTOR);
+  if (!nodeId) return false;
+  if (isDisabledControl(await client.getAttributes(nodeId))) return false;
+  return client.clickElement(nodeId);
 }
 
 export async function collectBossContactsFromBrowser(
   options: CollectBossContactsOptions,
 ): Promise<BossBrowserCollectionResult> {
   const paths = getBossLocalPaths(options.cwd);
-  if (!existsSync(paths.browserProfileDir)) {
-    throw new BossBrowserLoginRequiredError(
-      "尚未创建 Boss 浏览器登录状态，请先完成手动登录。",
-    );
-  }
+  await mkdir(paths.browserProfileDir, { recursive: true });
 
   const browserPath = await findBrowserExecutable();
   if (!browserPath) {
-    throw new Error("未找到 Chrome 或 Edge，无法启动 Boss 浏览器同步。" );
+    throw new Error("未找到 Chrome 或 Edge，无法启动 Boss 浏览器同步。");
   }
 
-  const cdpPort = await getAvailablePort();
+  const port = getBossCdpPort();
+  await ensureBossBrowserClosed(port);
   const browserProcess = launchBrowserProcess(
     browserPath,
     buildBrowserLaunchArgs({
       userDataDir: paths.browserProfileDir,
-      remoteDebuggingPort: cdpPort,
-      url: BOSS_RECOMMEND_URL,
+      remoteDebuggingPort: port,
+      url: BOSS_BROWSER_BOOTSTRAP_URL,
+      offScreen: true,
     }),
   );
-  let browser = null as Awaited<ReturnType<typeof connectOverCdp>> | null;
-  let page: Page | null = null;
+
+  let client: CdpClient | null = null;
+  let browserGone = false;
+  const isClosed = () => browserGone;
 
   try {
-    browser = await connectOverCdp(cdpPort);
-    const context = browser.contexts()[0];
-    if (!context) throw new Error("Boss 同步浏览器没有可用上下文。" );
-
-    page =
-      context.pages().find((candidate) => candidate.url() !== "about:blank") ??
-      context.pages()[0] ??
-      (await context.newPage());
-    const candidates: BossContactCandidate[] = [];
-    const responseTasks: Promise<void>[] = [];
-    let hasMore: boolean | null = null;
-    const accessIssue: {
-      current: { code: number | null; message: string } | null;
-    } = { current: null };
-
-    page.on("response", (response) => {
-      if (!isBossJobResponse(response)) return;
-
-      const task = response
-        .json()
-        .then((payload: unknown) => {
-          const code = getBossApiCode(payload);
-          const message = getBossApiMessage(payload);
-          if (code !== null && code !== 0) {
-            accessIssue.current = { code, message };
-            return;
-          }
-
-          accessIssue.current = null;
-          candidates.push(...extractBossContactCandidatesFromApiPayload(payload));
-          hasMore = getBossHasMore(payload);
-        })
-        .catch(() => undefined);
-      responseTasks.push(task);
-    });
-
-    options.onMessage?.("已打开 Boss 岗位页面，正在通过浏览器读取投递记录。" );
-    const initialResponse = page
-      .waitForResponse(isBossJobResponse, { timeout: RESPONSE_TIMEOUT_MS })
-      .catch(() => null);
-    if (page.url() !== BOSS_RECOMMEND_URL) {
-      await page.goto(BOSS_RECOMMEND_URL, {
-        waitUntil: "domcontentloaded",
-        timeout: 30_000,
-      });
+    await waitForBrowserAlive(port, 20_000, "Boss 同步浏览器启动失败。");
+    const target = (await listPageTargets(port)).find(
+      (candidate) => candidate.webSocketDebuggerUrl,
+    );
+    if (!target?.webSocketDebuggerUrl) {
+      throw new Error("Boss 同步浏览器没有可用页面。");
     }
-    await initialResponse;
-    await Promise.all(responseTasks);
 
-    const initialAccessIssue = accessIssue.current;
-    const needsManualLogin =
-      (await looksLikeLoginPage(page)) ||
-      Boolean(
-        initialAccessIssue &&
-          isBossLoginRequiredResponse(
-            initialAccessIssue.code,
-            initialAccessIssue.message,
-          ),
+    client = await CdpClient.connect(target.webSocketDebuggerUrl);
+    client.onClose = () => {
+      browserGone = true;
+    };
+
+    const state: CollectorState = {
+      candidates: [],
+      hasMore: null,
+      responseCount: 0,
+      accessIssue: null,
+      bodyTasks: new Set(),
+    };
+    watchJobResponses(client, state);
+
+    await client.send("Network.enable");
+    await client.send("DOM.enable");
+    options.onMessage?.("正在后台读取 Boss 沟通过的岗位。");
+    await client.send("Page.navigate", { url: BOSS_RECOMMEND_URL });
+
+    // 等首页岗位数据；跳到登录页或超时都视为未登录。
+    const deadline = Date.now() + RESPONSE_TIMEOUT_MS;
+    while (Date.now() < deadline && state.responseCount === 0 && !browserGone) {
+      const url = await getPageUrl(port, target.id);
+      if (url !== null && isBossLoginUrl(url)) break;
+      await sleep(POLL_INTERVAL_MS);
+    }
+    await settleBodies(state);
+    if (browserGone || !(await isBrowserAlive(port))) {
+      throw new BossBrowserClosedError();
+    }
+
+    if (
+      state.accessIssue &&
+      !isBossLoginRequiredResponse(
+        state.accessIssue.code,
+        state.accessIssue.message,
+      )
+    ) {
+      assertBossAccessAvailable(state.accessIssue);
+    }
+    if (state.responseCount === 0) {
+      // 只有确认跳到了登录页才判未登录；单纯没等到响应是网络或页面问题，
+      // 误判成未登录会把已登录用户拖进无意义的重新登录流程。
+      const currentUrl = await getPageUrl(port, target.id);
+      if (currentUrl !== null && isBossLoginUrl(currentUrl)) {
+        throw new BossBrowserLoginRequiredError(
+          "Boss 当前未登录，请在登录窗口中完成登录。",
+        );
+      }
+      assertBossAccessAvailable(state.accessIssue);
+      throw new Error(
+        "等待 Boss 岗位数据超时，没有收到岗位列表响应。请检查网络后重新同步。",
       );
-    if (needsManualLogin) {
-      const initialAuthSignature = await getBossAuthSignature(context);
-      await waitForManualBossLogin({
-        timeoutMs: options.loginTimeoutMs ?? DEFAULT_LOGIN_TIMEOUT_MS,
-        isClosed: () => page?.isClosed() ?? true,
-        isLoginRequired: async () => {
-          const pageStillRequiresLogin = await looksLikeLoginPage(page!);
-          if (pageStillRequiresLogin) return true;
-          const issue = accessIssue.current;
-          if (!issue || !isBossLoginRequiredResponse(issue.code, issue.message)) {
-            return false;
-          }
-          return (await getBossAuthSignature(context)) === initialAuthSignature;
-        },
-        onMessage: options.onMessage,
-      });
-      accessIssue.current = null;
-      const retryResponse = page
-        .waitForResponse(isBossJobResponse, { timeout: RESPONSE_TIMEOUT_MS })
-        .catch(() => null);
-      await page.goto(BOSS_RECOMMEND_URL, {
-        waitUntil: "domcontentloaded",
-        timeout: 30_000,
-      });
-      await retryResponse;
-      await Promise.all(responseTasks);
     }
-    candidates.push(...(await extractDomCandidates(page)));
-    assertBossAccessAvailable(accessIssue.current);
 
     const diagnostics: BossBrowserPageDiagnostics[] = [];
     let stopReason: BossSyncStopReason | null = null;
-    let knownCount = normalizeBossContacts(candidates).length;
+    let knownCount = normalizeBossContacts(state.candidates).length;
     diagnostics.push({
       page: 1,
-      url: page.url(),
+      url: BOSS_RECOMMEND_URL,
       candidateCount: knownCount,
       collectionSource: "browser",
     });
-
     for (let pageNumber = 2; pageNumber <= options.maxPages; pageNumber += 1) {
-      if (hasMore === false) {
+      if (state.hasMore === false) {
         stopReason = "no-more-pages";
         break;
       }
 
-      const nextControl = await findNextPageControl(page);
-      const naturalResponse = page
-        .waitForResponse(isBossJobResponse, { timeout: RESPONSE_TIMEOUT_MS })
-        .catch(() => null);
-
-      if (nextControl) {
-        await nextControl.click();
-      } else {
-        await page.evaluate("window.scrollTo(0, document.body.scrollHeight)");
+      const previousCount = state.responseCount;
+      if (!(await goToNextPage(client))) {
+        stopReason = "no-more-pages";
+        break;
+      }
+      if (!(await waitForNextResponse(state, previousCount, isClosed))) {
+        // 点击成功但响应超时不等于到了末页：必须如实上报截断，
+        // 否则丢页会被当成“已全部同步”。
+        stopReason = "response-timeout";
+        break;
       }
 
-      await naturalResponse;
-      await new Promise((resolve) =>
-        setTimeout(resolve, options.pageSettleMs ?? DEFAULT_PAGE_SETTLE_MS),
-      );
-      if (page.isClosed()) throw new BossBrowserClosedError();
-      await Promise.all(responseTasks);
-      candidates.push(...(await extractDomCandidates(page)));
+      await sleep(options.pageSettleMs ?? DEFAULT_PAGE_SETTLE_MS);
+      await settleBodies(state);
+      if (browserGone) throw new BossBrowserClosedError();
 
-      if (await looksLikeLoginPage(page)) {
+      const url = await getPageUrl(port, target.id);
+      if (url !== null && isBossLoginUrl(url)) {
         throw new BossBrowserLoginRequiredError(
           "Boss 在同步过程中要求重新登录或安全校验，已停止继续读取。",
         );
       }
-      assertBossAccessAvailable(accessIssue.current, true);
+      assertBossAccessAvailable(state.accessIssue, true);
 
-      const nextCount = normalizeBossContacts(candidates).length;
+      const nextCount = normalizeBossContacts(state.candidates).length;
       diagnostics.push({
         page: pageNumber,
-        url: page.url(),
+        url: url ?? BOSS_RECOMMEND_URL,
         candidateCount: Math.max(0, nextCount - knownCount),
         collectionSource: "browser",
       });
-
-      if (nextCount === knownCount) {
-        stopReason = "no-more-pages";
-        break;
-      }
       knownCount = nextCount;
 
       if (pageNumber >= options.maxPages) {
@@ -399,8 +376,11 @@ export async function collectBossContactsFromBrowser(
       }
     }
 
+    // maxPages<=1 时翻页循环不会执行，此处兜底，避免 null 被当成“已到末页”。
+    stopReason ??= state.hasMore === false ? "no-more-pages" : "max-pages";
+
     return {
-      contacts: normalizeBossContacts(candidates),
+      contacts: normalizeBossContacts(state.candidates),
       diagnostics,
       stopReason,
     };
@@ -411,12 +391,16 @@ export async function collectBossContactsFromBrowser(
     ) {
       throw error;
     }
-    if (page?.isClosed() || isTargetClosedError(error)) {
+    if (client && (browserGone || !(await isBrowserAlive(port)))) {
       throw new BossBrowserClosedError();
     }
     throw error;
   } finally {
-    await browser?.close().catch(() => undefined);
-    stopBrowserProcess(browserProcess);
+    client?.close();
+    // 优雅关闭失败时必须兜底杀进程：离屏窗口用户看不见也无法手动关闭，
+    // 留下来会挡住之后的每一次同步。
+    if (!(await closeBrowserGracefully(port))) {
+      stopBrowserProcess(browserProcess);
+    }
   }
 }

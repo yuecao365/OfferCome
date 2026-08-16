@@ -62,12 +62,6 @@ export const navigationGroups: Array<{
         active: "interviews",
         children: [
           {
-            href: "/interviews/mock",
-            label: "AI 模拟面试",
-            icon: Sparkles,
-            active: "interviews-mock",
-          },
-          {
             href: "/interviews/history",
             label: "历史面试",
             icon: History,
@@ -78,6 +72,12 @@ export const navigationGroups: Array<{
             label: "面试复盘",
             icon: ClipboardCheck,
             active: "interviews-review",
+          },
+          {
+            href: "/interviews/mock",
+            label: "AI 模拟面试",
+            icon: Sparkles,
+            active: "interviews-mock",
           },
           {
             href: "/interviews/profile",

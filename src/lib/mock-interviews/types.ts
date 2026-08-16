@@ -193,6 +193,8 @@ export type MockInterviewView = {
 
 export const MOCK_INTERVIEW_PROMPT_VERSION = "mock-interview-v3";
 
+export const MOCK_INTERVIEW_GENERATION_TIMEOUT_MS = 60_000;
+
 export type MockInterviewGenerationErrorContext = {
   competencyCount?: number;
   requiredCount?: number;

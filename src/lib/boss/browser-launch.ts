@@ -1,4 +1,4 @@
-import { execFile } from "node:child_process";
+import { execFile, spawn, type ChildProcess } from "node:child_process";
 import { existsSync } from "node:fs";
 import os from "node:os";
 import { promisify } from "node:util";
@@ -9,11 +9,9 @@ export type BrowserLaunchArgsOptions = {
   userDataDir: string;
   remoteDebuggingPort: number;
   url: string;
-};
-
-export type ManualBrowserLaunchArgsOptions = {
-  userDataDir: string;
-  url: string;
+  // 屏幕外窗口用于后台同步，避免打扰用户；不用 headless 是因为 Boss 风控
+  // 能识别 HeadlessChrome，普通窗口才和手动浏览完全一致。
+  offScreen?: boolean;
 };
 
 export type PickExistingPathDeps = {
@@ -24,6 +22,7 @@ export function buildBrowserLaunchArgs({
   userDataDir,
   remoteDebuggingPort,
   url,
+  offScreen = false,
 }: BrowserLaunchArgsOptions): string[] {
   return [
     `--remote-debugging-port=${remoteDebuggingPort}`,
@@ -31,23 +30,42 @@ export function buildBrowserLaunchArgs({
     "--no-first-run",
     "--no-default-browser-check",
     "--disable-background-mode",
+    ...(offScreen
+      ? [
+          "--window-position=-32000,-32000",
+          "--window-size=1400,900",
+          // 屏幕外窗口会被判定为被遮挡，需关掉渲染降频，滚动加载才正常。
+          "--disable-backgrounding-occluded-windows",
+          "--disable-renderer-backgrounding",
+        ]
+      : []),
     "--new-window",
     url,
   ];
 }
 
-export function buildManualBrowserLaunchArgs({
-  userDataDir,
-  url,
-}: ManualBrowserLaunchArgsOptions): string[] {
-  return [
-    `--user-data-dir=${userDataDir}`,
-    "--no-first-run",
-    "--no-default-browser-check",
-    "--disable-background-mode",
-    "--new-window",
-    url,
-  ];
+export function launchBrowserProcess(
+  browserPath: string,
+  args: string[],
+): ChildProcess {
+  return spawn(browserPath, args, {
+    detached: false,
+    stdio: "ignore",
+    windowsHide: false,
+  });
+}
+
+/**
+ * 优雅关闭（Browser.close）失败后的兜底。杀 spawn 句柄在浏览器复用已有
+ * 进程时可能落空，但离屏窗口用户无法手动关闭，能杀掉一种情况就少一次
+ * “请手动关闭 Boss 窗口”的死胡同。
+ */
+export function stopBrowserProcess(child: ChildProcess): void {
+  try {
+    child.kill();
+  } catch {
+    // 进程已退出。
+  }
 }
 
 export function pickExistingPath(

@@ -10,6 +10,5 @@ export function getBossLocalPaths(cwd = process.cwd()) {
   return {
     localDir,
     browserProfileDir: path.join(localDir, "browser-profile"),
-    storageStatePath: path.join(localDir, "storageState.json"),
   };
 }

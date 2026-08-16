@@ -1,8 +1,7 @@
-import { generateText, Output } from "ai";
 import { z } from "zod";
 
-import { createTextModel } from "@/lib/ai/providers";
-import { getAiTaskConfig } from "@/lib/settings/ai";
+import { isAgentRunError, runAgent } from "@/lib/ai/run-agent";
+import { getAiTaskConfig, isAiTaskConfigured } from "@/lib/settings/ai";
 
 import {
   INTERVIEW_QUESTION_CATEGORIES,
@@ -310,28 +309,43 @@ export function reconstructGeneratedDraft(
   };
 }
 
+const INTERVIEW_DRAFT_PROMPT_VERSION = "interview-draft-v1";
+
 async function structureWithConfiguredModel(
   text: string,
   projects: InterviewDraftProject[],
 ): Promise<InterviewDraft> {
   const config = await getAiTaskConfig("text");
-  if (config.requiresApiKey && !config.apiKey) {
+  if (!isAiTaskConfigured(config)) {
     return structureInterviewTextHeuristically(text, projects);
   }
 
-  const { output } = await generateText({
-    model: createTextModel(config),
-    output: Output.object({
-      name: "InterviewQuestionBoundaries",
-      description: "面试问题、回答原文边界、分类及关联项目",
+  try {
+    const { output } = await runAgent({
+      agent: "interview_draft_structuring",
+      config,
+      feature: "面试草稿识别",
+      promptVersion: INTERVIEW_DRAFT_PROMPT_VERSION,
       schema: generatedDraftSchema,
-    }),
-    system:
-      "你是面试问答边界识别助手，不是摘要助手。找出文本中真实出现的每一个面试问题，包括没有回答的问题。question 必须从输入中连续逐字复制，不得改写、纠错、缩写或补写。不要根据候选人的回答反推输入中不存在的问题。对于有回答的问题，只返回回答开头和结尾各 20～60 个字符的连续原文引用，禁止返回或概括完整回答；两个引用必须能在输入中原样找到，并排除面试官的过渡语。没有回答时两个引用都返回 null。根据语义将问题分类为 resume_project、technical 或 general。只有明确匹配候选项目时才填写关联项目 ID。confidence 表示边界和分类的可信度。",
-    prompt: `候选实习/项目：\n${JSON.stringify(projects)}\n\n面试文本：\n${text}`,
-  });
-
-  return reconstructGeneratedDraft(text, output, projects);
+      schemaName: "InterviewQuestionBoundaries",
+      schemaDescription: "面试问题、回答原文边界、分类及关联项目",
+      timeoutMs: 60_000,
+      system:
+        "你是面试问答边界识别助手，不是摘要助手。找出文本中真实出现的每一个面试问题，包括没有回答的问题。question 必须从输入中连续逐字复制，不得改写、纠错、缩写或补写。不要根据候选人的回答反推输入中不存在的问题。对于有回答的问题，只返回回答开头和结尾各 20～60 个字符的连续原文引用，禁止返回或概括完整回答；两个引用必须能在输入中原样找到，并排除面试官的过渡语。没有回答时两个引用都返回 null。根据语义将问题分类为 resume_project、technical 或 general。只有明确匹配候选项目时才填写关联项目 ID。confidence 表示边界和分类的可信度。",
+      payload: { candidateProjects: projects, interviewText: text },
+    });
+    return reconstructGeneratedDraft(text, output, projects);
+  } catch (error) {
+    if (isAgentRunError(error)) {
+      throw new Error(
+        error.kind === "timeout"
+          ? "面试文本识别超时。模型服务响应较慢，请稍后重试或缩短文本。"
+          : "面试文本识别失败。模型没有返回可用的结构化结果，请重试。",
+        { cause: error },
+      );
+    }
+    throw error;
+  }
 }
 
 export async function structureInterviewText(

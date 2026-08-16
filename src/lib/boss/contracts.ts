@@ -14,6 +14,8 @@ export type BossSyncChangedField =
 
 export type BossSyncHighlight = {
   kind: "auto_rejected" | "new" | "source_changed";
+  /** 记录的唯一键，供同步结果弹窗直接改状态。 */
+  sourceKey: string;
   companyName: string;
   jobTitle: string;
   changedFields: BossSyncChangedField[];
@@ -29,5 +31,6 @@ export type BossSyncPublicResult = {
   autoRejectedCount?: number;
   totalCount?: number;
   completedAllPages?: boolean;
+  stopReason?: import("./sync-policy").BossSyncStopReason | null;
   highlights?: BossSyncHighlight[];
 };

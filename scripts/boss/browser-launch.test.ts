@@ -4,11 +4,10 @@ import test from "node:test";
 
 import {
   buildBrowserLaunchArgs,
-  buildManualBrowserLaunchArgs,
   pickExistingPath,
 } from "../../src/lib/boss/browser-launch";
 
-test("builds a real-browser CDP launch command for Boss login", () => {
+test("builds a visible CDP launch command for Boss login", () => {
   const args = buildBrowserLaunchArgs({
     userDataDir: path.resolve("C:/tmp/boss-profile"),
     remoteDebuggingPort: 9333,
@@ -26,20 +25,16 @@ test("builds a real-browser CDP launch command for Boss login", () => {
   ]);
 });
 
-test("builds a manual browser launch command without CDP for login", () => {
-  const args = buildManualBrowserLaunchArgs({
+test("moves the sync window off-screen when requested", () => {
+  const args = buildBrowserLaunchArgs({
     userDataDir: path.resolve("C:/tmp/boss-profile"),
-    url: "https://www.zhipin.com/",
+    remoteDebuggingPort: 9333,
+    url: "about:blank",
+    offScreen: true,
   });
 
-  assert.deepEqual(args, [
-    `--user-data-dir=${path.resolve("C:/tmp/boss-profile")}`,
-    "--no-first-run",
-    "--no-default-browser-check",
-    "--disable-background-mode",
-    "--new-window",
-    "https://www.zhipin.com/",
-  ]);
+  assert.ok(args.includes("--window-position=-32000,-32000"));
+  assert.ok(args.includes("--disable-renderer-backgrounding"));
 });
 
 test("picks the first existing browser path", () => {

@@ -27,7 +27,7 @@ import {
   mockInterviewJobBlueprintSchema,
 } from "./types";
 import { getAiTaskConfig } from "@/lib/settings/ai";
-import { assertMockInterviewAiConfigured } from "./agent-runtime";
+import { assertAiConfigured } from "@/lib/ai/run-agent";
 import { isMockInterviewGenerationError } from "./errors";
 import { generateMockInterviewFollowUp } from "./follow-up-agent";
 import { canRequestFollowUp } from "./follow-up-policy";
@@ -152,7 +152,7 @@ export async function createMockInterview(input: CreateMockInterviewInput) {
     getAiTaskConfig("text"),
     linkApplication(input.applicationId, validated.jobDescription),
   ]);
-  assertMockInterviewAiConfigured(config);
+  assertAiConfigured(config, "AI 模拟面试");
   const now = new Date();
   const snapshot = parseGenerationSnapshot(serializeMockInterviewContext(context));
   snapshot.generationRequest = {
@@ -267,11 +267,13 @@ export async function generateMockInterviewQuestions(
     }
 
     if (jdStrategy === "enrich") {
+      // 失败重试会把 phase 重置回 job_blueprint，JD 审查路径则停在 questions；
+      // 两条入口都必须能认领，否则重试会静默丢失、会话永远停在 generating。
       const enriching = await prisma.mockInterviewSession.updateMany({
         where: {
           id: sessionId,
           status: "generating",
-          generationPhase: { in: ["questions", "job_enrichment"] },
+          generationPhase: { in: ["job_blueprint", "questions", "job_enrichment"] },
         },
         data: { generationPhase: "job_enrichment" },
       });

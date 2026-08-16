@@ -6,11 +6,8 @@ import {
   BossBrowserLoginRequiredError,
   type BossBrowserCollectionResult,
 } from "./browser-collector";
-import {
-  createBossSyncLock,
-  runBossSync,
-  type BossSyncRunnerDb,
-} from "./sync";
+import { bossBrowserLock } from "./browser-lock";
+import { runBossSync, type BossSyncRunnerDb } from "./sync";
 
 const noopDb = {} as BossSyncRunnerDb;
 
@@ -101,21 +98,21 @@ test("skips contacts the user previously deleted in the app", async () => {
   assert.match(result.message, /跳过 1 条已删除的岗位/);
 });
 
-test("serializes sync runs with an in-memory lock", async () => {
-  const lock = createBossSyncLock();
+test("serializes sync and login runs with the shared browser lock", async () => {
   let releaseFirstRun: (() => void) | undefined;
 
-  const first = lock.run(() => {
+  const first = bossBrowserLock.run(() => {
     return new Promise((resolve) => {
       releaseFirstRun = () => resolve("first");
     });
   });
-  const second = await lock.run(async () => "second");
+  // 同步与登录共用一个浏览器端口，第二个任务必须被同一把锁挡下。
+  const second = await bossBrowserLock.run(async () => "second");
 
   assert.deepEqual(second, {
     success: false,
     status: "failed",
-    message: "Boss 同步正在进行中，请稍后再试。",
+    message: "Boss 浏览器正在被同步或登录任务使用，请等它完成后再试。",
   });
 
   releaseFirstRun?.();

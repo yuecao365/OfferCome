@@ -1,30 +1,11 @@
 import { NextResponse } from "next/server";
 
+import { bossBrowserLock } from "@/lib/boss/browser-lock";
 import type { BossLoginResult } from "@/lib/boss/contracts";
 import { runBossLogin } from "@/lib/boss/login";
 import { isLocalBossRequest } from "@/lib/boss/local-request";
-import { createTaskLock } from "@/lib/boss/task-lock";
 
 export const runtime = "nodejs";
-
-const globalForBossLogin = globalThis as unknown as {
-  bossLoginLock?: ReturnType<typeof createBossLoginLock>;
-};
-
-function createBossLoginLock() {
-  return createTaskLock<BossLoginResult>(() => ({
-    success: false,
-    status: "failed",
-    message: "Boss 登录窗口已经打开，请先在该窗口完成登录。",
-  }));
-}
-
-const bossLoginLock =
-  globalForBossLogin.bossLoginLock ?? createBossLoginLock();
-
-if (process.env.NODE_ENV !== "production") {
-  globalForBossLogin.bossLoginLock = bossLoginLock;
-}
 
 export async function POST(request: Request) {
   if (!isLocalBossRequest(request)) {
@@ -38,9 +19,8 @@ export async function POST(request: Request) {
     );
   }
 
-  const result = await bossLoginLock.run(() =>
+  const result = await bossBrowserLock.run<BossLoginResult>(() =>
     runBossLogin({
-      completion: "browser-close",
       onMessage: (message) => console.log(`[boss:login] ${message}`),
     }),
   );

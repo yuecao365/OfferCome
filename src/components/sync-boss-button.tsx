@@ -1,13 +1,19 @@
 "use client";
 
-import { LogIn, RefreshCw, RotateCcw, X } from "lucide-react";
+import { Check, LogIn, RefreshCw, RotateCcw, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/form-controls";
 import { Modal } from "@/components/modal";
+import { updateApplicationStage } from "@/lib/applications/actions";
+import {
+  APPLICATION_STAGES,
+  APPLICATION_STAGE_LABELS,
+} from "@/lib/applications/types";
 import type {
   BossLoginResult,
   BossSyncChangedField,
@@ -15,7 +21,7 @@ import type {
   BossSyncPublicResult,
 } from "@/lib/boss/contracts";
 
-type SyncPhase = "idle" | "login" | "syncing" | "success" | "failed";
+type SyncPhase = "idle" | "syncing" | "login" | "success" | "failed";
 
 const CHANGED_FIELD_LABELS: Record<BossSyncChangedField, string> = {
   activity: "有新活动",
@@ -24,7 +30,7 @@ const CHANGED_FIELD_LABELS: Record<BossSyncChangedField, string> = {
   source_status: "Boss 岗位状态变化",
 };
 
-async function postJson<T>(url: string): Promise<T> {
+async function requestJson<T>(url: string): Promise<T> {
   const response = await fetch(url, {
     method: "POST",
     headers: { Accept: "application/json" },
@@ -44,7 +50,55 @@ function highlightLabel(highlight: BossSyncHighlight): string {
   return highlight.changedFields.map((field) => CHANGED_FIELD_LABELS[field]).join("、");
 }
 
-function HighlightList({ highlights }: { highlights: BossSyncHighlight[] }) {
+/** 让用户在同步结果里就地把有新互动的岗位改成一面、Offer 等状态。 */
+function StagePicker({ sourceKey }: { sourceKey: string }) {
+  const [stage, setStage] = useState("");
+  const [state, setState] = useState<"idle" | "saving" | "saved" | "error">(
+    "idle",
+  );
+
+  async function handleChange(nextStage: string) {
+    setStage(nextStage);
+    if (!nextStage) return;
+
+    setState("saving");
+    const result = await updateApplicationStage(sourceKey, nextStage);
+    setState(result.ok ? "saved" : "error");
+  }
+
+  return (
+    <span className="flex items-center gap-2">
+      <Select
+        aria-label="更新投递状态"
+        className="h-8 w-32 px-2 text-xs"
+        disabled={state === "saving"}
+        onChange={(event) => void handleChange(event.target.value)}
+        value={stage}
+      >
+        <option value="">更新状态…</option>
+        {APPLICATION_STAGES.map((option) => (
+          <option key={option} value={option}>
+            {APPLICATION_STAGE_LABELS[option]}
+          </option>
+        ))}
+      </Select>
+      {state === "saved" ? (
+        <Check aria-label="已保存" className="size-4 text-success" />
+      ) : null}
+      {state === "error" ? (
+        <span className="text-xs text-danger">保存失败</span>
+      ) : null}
+    </span>
+  );
+}
+
+function HighlightList({
+  highlights,
+  withStagePicker = false,
+}: {
+  highlights: BossSyncHighlight[];
+  withStagePicker?: boolean;
+}) {
   if (highlights.length === 0) {
     return null;
   }
@@ -53,8 +107,8 @@ function HighlightList({ highlights }: { highlights: BossSyncHighlight[] }) {
     <ul className="divide-y divide-border">
       {highlights.map((highlight, index) => (
         <li
-          className="grid gap-1.5 px-1 py-3 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-start sm:gap-3"
-          key={`${highlight.kind}-${highlight.companyName}-${highlight.jobTitle}-${index}`}
+          className="grid gap-1.5 px-1 py-3 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center sm:gap-3"
+          key={`${highlight.kind}-${highlight.sourceKey}-${index}`}
         >
           <Badge tone={highlight.kind === "auto_rejected" ? "danger" : "brand"}>
             {highlightLabel(highlight)}
@@ -62,6 +116,9 @@ function HighlightList({ highlights }: { highlights: BossSyncHighlight[] }) {
           <span className="min-w-0 break-words text-sm text-foreground">
             {highlight.companyName} · {highlight.jobTitle}
           </span>
+          {withStagePicker ? (
+            <StagePicker sourceKey={highlight.sourceKey} />
+          ) : null}
         </li>
       ))}
     </ul>
@@ -72,10 +129,12 @@ function ResultSection({
   defaultOpen,
   highlights,
   title,
+  withStagePicker,
 }: {
   defaultOpen?: boolean;
   highlights: BossSyncHighlight[];
   title: string;
+  withStagePicker?: boolean;
 }) {
   if (highlights.length === 0) {
     return null;
@@ -90,7 +149,10 @@ function ResultSection({
         {title}（{highlights.length}）
       </summary>
       <div className="max-h-80 overflow-y-auto px-3">
-        <HighlightList highlights={highlights} />
+        <HighlightList
+          highlights={highlights}
+          withStagePicker={withStagePicker}
+        />
       </div>
     </details>
   );
@@ -149,7 +211,9 @@ function SyncResultModal({
 
           {result.completedAllPages === false ? (
             <Alert tone="info">
-              本次同步达到安全页数上限，可能仍有更早的岗位未检查。
+              {result.stopReason === "response-timeout"
+                ? "同步中途等待 Boss 响应超时，仅同步了部分页面，可稍后重新同步补齐。"
+                : "本次同步达到安全页数上限，可能仍有更早的岗位未检查。"}
             </Alert>
           ) : null}
 
@@ -160,13 +224,14 @@ function SyncResultModal({
                   需要关注
                 </h3>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  来源变化不会自动修改面试或 Offer 状态，请按实际进度编辑。
+                  同步不会自动推进面试或 Offer 状态。可在下方直接选择实际进度。
                 </p>
               </div>
               <ResultSection
                 defaultOpen
                 highlights={needsAttention}
                 title="状态或来源发生变化"
+                withStagePicker
               />
             </section>
           ) : (
@@ -243,29 +308,26 @@ export function SyncBossButton() {
     null,
   );
 
-  async function requestSync(): Promise<BossSyncPublicResult> {
-    return postJson<BossSyncPublicResult>("/api/boss/sync");
-  }
-
   async function handleClick() {
     if (phase === "syncing" || phase === "login") {
       return;
     }
 
     setPhase("syncing");
-    setMessage(
-      "正在打开 Boss 同步窗口。若页面要求登录或安全验证，请手动完成并保持窗口打开，同步会自动继续。",
-    );
+    setMessage("正在后台同步 Boss 投递记录...");
     setSyncResult(null);
 
     try {
-      let result = await requestSync();
+      let result = await requestJson<BossSyncPublicResult>("/api/boss/sync");
 
       if (result.status === "login_required") {
         setPhase("login");
-        setMessage("Boss 需要重新登录或安全校验，浏览器已打开。请按页面提示手动处理并关闭该窗口，随后会自动继续同步。");
+        setMessage(
+          "Boss 需要登录。已打开登录窗口，请完成登录，看到推荐岗位页面后关闭整个浏览器窗口，同步会自动继续。",
+        );
 
-        const loginResult = await postJson<BossLoginResult>("/api/boss/login");
+        const loginResult =
+          await requestJson<BossLoginResult>("/api/boss/login");
         if (!loginResult.success) {
           setPhase("failed");
           setMessage(loginResult.message);
@@ -273,8 +335,8 @@ export function SyncBossButton() {
         }
 
         setPhase("syncing");
-        setMessage("登录态已刷新，正在继续同步全部岗位...");
-        result = await requestSync();
+        setMessage("登录完成，正在后台同步 Boss 投递记录...");
+        result = await requestJson<BossSyncPublicResult>("/api/boss/sync");
       }
 
       if (result.status !== "success") {
@@ -289,7 +351,7 @@ export function SyncBossButton() {
       router.refresh();
     } catch {
       setPhase("failed");
-      setMessage("Boss 同步失败，请稍后重试。登录窗口若仍打开，请先关闭后再重试。");
+      setMessage("Boss 同步失败，请稍后重试。");
     }
   }
 

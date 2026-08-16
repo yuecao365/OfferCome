@@ -3,7 +3,8 @@ export const DEFAULT_MAX_SYNC_PAGES = 200;
 export type BossSyncStopReason =
   | "empty-page"
   | "max-pages"
-  | "no-more-pages";
+  | "no-more-pages"
+  | "response-timeout";
 
 export type BossSyncStopDecision = {
   shouldStop: boolean;

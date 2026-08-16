@@ -111,8 +111,12 @@ export function toInterviewListItem(row: InterviewRow): InterviewListItem {
     jobTitle: row.jobTitle,
     interviewedAt: row.interviewedAt ?? row.scheduledAt,
     round: normalizeInterviewRound(row.round),
+    // 已取消的真实面试沿用“已完成”展示；其余状态（含真实面试的 scheduled）
+    // 一律以持久化状态为准，不能按 kind 写死。
     status:
-      row.kind === "mock" ? normalizeInterviewStatus(row.status) : "completed",
+      row.status === "canceled" || row.status === "cancelled"
+        ? "completed"
+        : normalizeInterviewStatus(row.status),
     note: row.note ?? "",
     questionCount: row._count.questions,
     updatedAt: row.updatedAt,

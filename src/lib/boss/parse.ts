@@ -35,6 +35,14 @@ function normalizeBossHref(href: string): string {
   }
 }
 
+/**
+ * sourceKey 是否来自 Boss 的稳定标识（岗位 ID 或详情页链接）。
+ * 只有回退到公司名+岗位名哈希时才为 false。
+ */
+export function hasStableBossSourceId(sourceKey: string): boolean {
+  return !sourceKey.startsWith(`${BOSS_SOURCE}:hash:`);
+}
+
 export function toBossSourceKey(candidate: BossContactCandidate): string {
   const sourceId = cleanText(candidate.sourceId);
 
