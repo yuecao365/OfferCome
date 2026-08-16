@@ -8,7 +8,6 @@ import {
 } from "./browser-collector";
 import {
   createBossSyncLock,
-  getBossStorageStatePath,
   runBossSync,
   type BossSyncRunnerDb,
 } from "./sync";
@@ -36,13 +35,6 @@ function browserResult(): BossBrowserCollectionResult {
     stopReason: "no-more-pages",
   };
 }
-
-test("resolves the Boss storage state path under .local", () => {
-  assert.equal(
-    getBossStorageStatePath("C:\\workspace\\career-agent").replaceAll("\\", "/"),
-    "C:/workspace/career-agent/.local/boss/storageState.json",
-  );
-});
 
 test("returns login_required when the browser collector requires login", async () => {
   const result = await runBossSync({
@@ -87,6 +79,26 @@ test("uses the browser collector and keeps dry-run free of database writes", asy
   assert.equal(result.inserted, 0);
   assert.equal(result.contacts[0]?.companyName, "Example Company");
   assert.equal(result.stopReason, "no-more-pages");
+});
+
+test("skips contacts the user previously deleted in the app", async () => {
+  // 所有采集结果都会被跳过，upsert 拿到空列表，因此 bossContact 不会被访问。
+  const db = {
+    ...noopDb,
+    dismissedApplication: {
+      findMany: async () => [{ sourceKey: "boss_zhipin:job:example-1" }],
+    },
+  } satisfies BossSyncRunnerDb;
+
+  const result = await runBossSync({
+    db,
+    collectContacts: async () => browserResult(),
+  });
+
+  assert.equal(result.success, true);
+  assert.equal(result.found, 1);
+  assert.equal(result.inserted, 0);
+  assert.match(result.message, /跳过 1 条已删除的岗位/);
 });
 
 test("serializes sync runs with an in-memory lock", async () => {

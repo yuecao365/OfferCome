@@ -127,9 +127,27 @@ export async function deleteApplication(formData: FormData): Promise<void> {
     return;
   }
 
-  await prisma.bossContact.deleteMany({
+  const application = await prisma.bossContact.findUnique({
     where: { id },
+    select: { sourceKey: true, companyName: true, jobTitle: true },
   });
+  if (!application) {
+    return;
+  }
+
+  // 记住被删除的岗位：之后的渠道同步会按 sourceKey 跳过它们，不再重新添加。
+  await prisma.$transaction([
+    prisma.dismissedApplication.upsert({
+      where: { sourceKey: application.sourceKey },
+      create: {
+        sourceKey: application.sourceKey,
+        companyName: application.companyName,
+        jobTitle: application.jobTitle,
+      },
+      update: { dismissedAt: new Date() },
+    }),
+    prisma.bossContact.deleteMany({ where: { id } }),
+  ]);
 
   revalidateApplicationRoutes();
 }

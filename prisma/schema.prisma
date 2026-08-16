@@ -50,6 +50,15 @@ model BossContact {
   @@index([autoRejectedAt])
 }
 
+/// Applications the user deleted in the app. Sync channels skip these
+/// source keys so removed jobs are not re-added on the next sync.
+model DismissedApplication {
+  sourceKey   String   @id
+  companyName String
+  jobTitle    String
+  dismissedAt DateTime @default(now())
+}
+
 model Resume {
   id             String                 @id @default(cuid())
   originalName   String
