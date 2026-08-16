@@ -12,6 +12,7 @@ import { InterviewHistorySummary } from "@/components/interviews/interview-histo
 import { NewInterviewModal } from "@/components/interviews/interview-modals";
 import { InterviewStageFlow } from "@/components/interviews/interview-stage-flow";
 import { InterviewWorkspaceLinks } from "@/components/interviews/interview-workspace-links";
+import { UpcomingInterviewsCard } from "@/components/interviews/upcoming-interviews-card";
 import { MetricCard } from "@/components/metric-card";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +31,7 @@ import {
   getInterviewWorkspaceData,
   getResumeProjectOptions,
 } from "@/lib/interviews/queries";
+import { getUpcomingInterviews } from "@/lib/interviews/upcoming";
 import { roundLabel, statusLabel } from "@/lib/interviews/types";
 import { getAiTaskConfig, isAiTaskConfigured } from "@/lib/settings/ai";
 
@@ -39,12 +41,20 @@ function formatDate(date: Date): string {
 
 export default async function InterviewsPage() {
   await connection();
-  const [resumeProjects, workspace, applicationSnapshot, profile, transcriptionConfig] = await Promise.all([
+  const [
+    resumeProjects,
+    workspace,
+    applicationSnapshot,
+    profile,
+    transcriptionConfig,
+    upcomingInterviews,
+  ] = await Promise.all([
     getResumeProjectOptions(),
     getInterviewWorkspaceData(),
     getApplicationStageSnapshot(),
     getCandidateProfileContext(),
     getAiTaskConfig("transcription"),
+    getUpcomingInterviews(),
   ]);
   const flow = buildCareerFlowSnapshot(applicationSnapshot.stageCounts);
   const applicationProgress = buildInterviewStageProgress(flow);
@@ -72,6 +82,8 @@ export default async function InterviewsPage() {
         eyebrow="面试训练"
         title="面试工作台"
       />
+
+      <UpcomingInterviewsCard interviews={upcomingInterviews} />
 
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.7fr)]">
         <Card className="overflow-hidden border-brand/25 bg-accent/40">

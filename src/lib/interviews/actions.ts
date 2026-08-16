@@ -15,7 +15,7 @@ import {
 } from "./voice-metrics";
 
 import {
-  REAL_INTERVIEW_STATUS,
+  deriveRealInterviewStatus,
   type InterviewActionState,
   type InterviewQuestionInput,
   type InterviewRound,
@@ -146,7 +146,8 @@ export async function createInterview(
         interviewedAt: parsed.value.interviewedAt,
         scheduledAt: parsed.value.interviewedAt,
         round: parsed.value.round,
-        status: REAL_INTERVIEW_STATUS,
+        // 面试时间在未来就先存成待面试，用户面完回来补录问答时会自动转为已完成。
+        status: deriveRealInterviewStatus(parsed.value.interviewedAt),
         note: parsed.value.note || null,
         questions: { create: questionCreateData(parsed.value.questions) },
       },
@@ -215,7 +216,8 @@ export async function updateInterview(
         interviewedAt: parsed.value.interviewedAt,
         scheduledAt: parsed.value.interviewedAt,
         round: parsed.value.round,
-        status: REAL_INTERVIEW_STATUS,
+        // 同上：补录问答时面试时间已过，记录会自动从待面试转为已完成。
+        status: deriveRealInterviewStatus(parsed.value.interviewedAt),
         note: parsed.value.note || null,
       },
     });

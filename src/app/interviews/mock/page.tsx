@@ -59,6 +59,18 @@ export default async function MockInterviewsPage({
           })
         : null,
     ]);
+  const companyName = firstParam(params.companyName);
+  const jobTitle = firstParam(params.jobTitle);
+  const jobPrefill =
+    companyName || jobTitle
+      ? {
+          id: null,
+          companyName: companyName ?? "",
+          jobTitle: jobTitle ?? "",
+          jobUrl: "",
+          jobDescription: "",
+        }
+      : null;
 
   return (
     <AppShell active="interviews" subActive="interviews-mock">
@@ -79,7 +91,8 @@ export default async function MockInterviewsPage({
                   jobUrl: application.jobUrl ?? "",
                   jobDescription: application.jobDescription ?? "",
                 }
-              : null
+              : // 没有投递关联时（例如从备战页发起）也尽量带上岗位信息。
+                jobPrefill
           }
           textConfigured={isAiTaskConfigured(textConfig)}
           transcriptionConfigured={isAiTaskConfigured(transcriptionConfig)}

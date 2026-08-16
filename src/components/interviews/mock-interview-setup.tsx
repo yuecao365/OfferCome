@@ -27,9 +27,12 @@ import {
 
 type ResumeOption = { id: string; name: string; isDefault: boolean };
 
-/** 从投递记录带入的岗位信息。 */
+/**
+ * 带入的岗位信息。id 为 null 表示只带了公司与岗位名（例如从备战页发起），
+ * 没有可关联的投递记录。
+ */
 export type MockInterviewApplication = {
-  id: string;
+  id: string | null;
   companyName: string;
   jobTitle: string;
   jobUrl: string;
@@ -84,24 +87,27 @@ export function MockInterviewSetup({
     <form className="grid gap-4" onSubmit={submit}>
       {application ? (
         <Alert tone="info">
-          <input name="applicationId" type="hidden" value={application.id} />
-          {application.jobDescription ? (
-            <span>已从投递记录带入「{application.companyName} · {application.jobTitle}」的岗位信息。</span>
-          ) : (
-            <span>
-              已带入「{application.companyName} · {application.jobTitle}」，这条投递还没有保存岗位描述，请在下方粘贴后开始。
-              {application.jobUrl ? (
-                <a
-                  className="ml-1 font-semibold underline"
-                  href={application.jobUrl}
-                  rel="noreferrer"
-                  target="_blank"
-                >
-                  打开岗位页面复制
-                </a>
-              ) : null}
-            </span>
-          )}
+          {application.id ? (
+            <input name="applicationId" type="hidden" value={application.id} />
+          ) : null}
+          <span>
+            已带入「{application.companyName} · {application.jobTitle}」
+            {application.jobDescription
+              ? "的岗位信息。"
+              : application.id
+                ? "，这条投递还没有保存岗位描述，请在下方粘贴后开始。"
+                : "，请在下方补充岗位描述后开始。"}
+            {!application.jobDescription && application.jobUrl ? (
+              <a
+                className="ml-1 font-semibold underline"
+                href={application.jobUrl}
+                rel="noreferrer"
+                target="_blank"
+              >
+                打开岗位页面复制
+              </a>
+            ) : null}
+          </span>
         </Alert>
       ) : null}
       {seed ? (

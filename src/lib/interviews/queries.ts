@@ -258,10 +258,8 @@ export async function getInterviewWorkspaceData() {
       kind: interview.kind === "mock" ? ("mock" as const) : ("real" as const),
       companyName: interview.companyName,
       jobTitle: interview.jobTitle,
-      status:
-        interview.kind === "mock"
-          ? normalizeInterviewStatus(interview.status)
-          : "completed",
+      // 真实面试现在也可能是待面试，不能再一律当成已完成。
+      status: normalizeInterviewStatus(interview.status),
       round: normalizeInterviewRound(interview.round),
       occurredAt:
         interview.interviewedAt ?? interview.scheduledAt ?? interview.updatedAt,

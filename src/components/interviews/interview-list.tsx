@@ -77,6 +77,11 @@ export function InterviewList({ interviews, resumeProjects }: InterviewListProps
                 </td>
                 <td className="px-4 py-3.5">
                   <div className="flex items-center justify-end gap-1">
+                    {interview.status === "scheduled" ? (
+                      <ButtonLink href={`/interviews/prepare/${interview.id}`} size="sm" variant="outline">
+                        去准备
+                      </ButtonLink>
+                    ) : null}
                     <InterviewDetailsModal interview={interview} />
                     {interview.kind === "real" ? (
                       <EditInterviewModal interview={interview} resumeProjects={resumeProjects} />

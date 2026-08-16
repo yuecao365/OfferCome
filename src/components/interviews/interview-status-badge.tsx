@@ -2,7 +2,8 @@ import { Badge } from "@/components/ui/badge";
 import type { InterviewStatus } from "@/lib/interviews/types";
 import { statusLabel } from "@/lib/interviews/types";
 
-const tones: Record<InterviewStatus, "info" | "success"> = {
+const tones: Record<InterviewStatus, "brand" | "info" | "success"> = {
+  scheduled: "brand",
   in_progress: "info",
   completed: "success",
 };

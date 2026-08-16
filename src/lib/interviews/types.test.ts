@@ -2,11 +2,27 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  deriveRealInterviewStatus,
   normalizeQuestionCategory,
   parseInterviewFilters,
   parseInterviewFormData,
   statusLabel,
 } from "./types";
+
+test("derives real interview status from the interview time", () => {
+  const now = new Date("2026-08-16T12:00:00.000Z");
+
+  assert.equal(
+    deriveRealInterviewStatus(new Date("2026-08-18T15:00:00.000Z"), now),
+    "scheduled",
+  );
+  assert.equal(
+    deriveRealInterviewStatus(new Date("2026-08-14T15:00:00.000Z"), now),
+    "completed",
+  );
+  // 正好到点视为已开始，避免边界上停在待面试。
+  assert.equal(deriveRealInterviewStatus(now, now), "completed");
+});
 
 test("parses interview form data with ordered question answers", () => {
   const formData = new FormData();

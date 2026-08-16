@@ -119,6 +119,13 @@ export function InterviewForm(props: InterviewFormProps) {
   const [state, formAction] = useActionState(action, initialInterviewActionState);
   const initial = props.mode === "edit" ? props.initial : null;
   const prefill = props.mode === "create" ? props.prefill ?? null : null;
+  const [interviewedAt, setInterviewedAt] = useState(
+    toDatetimeLocal(initial?.interviewedAt ?? null),
+  );
+  // 只用于提示文案，打开表单时取一次即可。
+  const [referenceNow] = useState(() => Date.now());
+  const isScheduled =
+    Boolean(interviewedAt) && new Date(interviewedAt).getTime() > referenceNow;
 
   useEffect(() => {
     if (state.status !== "success") {
@@ -170,10 +177,11 @@ export function InterviewForm(props: InterviewFormProps) {
           <FieldLabel>
             面试时间
             <Input
-              defaultValue={toDatetimeLocal(initial?.interviewedAt ?? null)}
               name="interviewedAt"
+              onChange={(event) => setInterviewedAt(event.target.value)}
               required
               type="datetime-local"
+              value={interviewedAt}
             />
           </FieldLabel>
         </div>
@@ -201,6 +209,12 @@ export function InterviewForm(props: InterviewFormProps) {
           name="note"
         />
       </FieldLabel>
+
+      {isScheduled ? (
+        <Alert tone="info">
+          面试时间在未来，将保存为待面试。面试结束后回来补充问答，这场面试就会计入复盘和能力画像。
+        </Alert>
+      ) : null}
 
       <InterviewQuestionsEditor
         onChange={setQuestions}

@@ -1,4 +1,8 @@
-export const INTERVIEW_STATUSES = ["in_progress", "completed"] as const;
+export const INTERVIEW_STATUSES = [
+  "scheduled",
+  "in_progress",
+  "completed",
+] as const;
 export const INTERVIEW_ROUNDS = [
   "first_interview",
   "second_interview",
@@ -14,8 +18,19 @@ export const INTERVIEW_QUESTION_CATEGORIES = [
 export const INTERVIEW_SORTS = ["newest", "oldest"] as const;
 
 export type InterviewStatus = (typeof INTERVIEW_STATUSES)[number];
-export const REAL_INTERVIEW_STATUS: InterviewStatus = "completed";
 export const ACTIVE_MOCK_INTERVIEW_STATUS: InterviewStatus = "in_progress";
+
+/**
+ * 真实面试的状态由面试时间推导：时间还没到就是待面试，
+ * 到了（或用户回来补录问答）就是已完成。只有已完成的面试会进入
+ * 复盘、能力画像和模拟面试的历史上下文。
+ */
+export function deriveRealInterviewStatus(
+  interviewedAt: Date,
+  now: Date = new Date(),
+): InterviewStatus {
+  return interviewedAt.getTime() > now.getTime() ? "scheduled" : "completed";
+}
 export type InterviewRound = (typeof INTERVIEW_ROUNDS)[number];
 export type InterviewQuestionCategory =
   (typeof INTERVIEW_QUESTION_CATEGORIES)[number];
@@ -115,6 +130,7 @@ export const initialInterviewActionState: InterviewActionState = {
 };
 
 export const INTERVIEW_STATUS_LABELS: Record<InterviewStatus, string> = {
+  scheduled: "待面试",
   in_progress: "进行中",
   completed: "已完成",
 };
@@ -169,7 +185,8 @@ function parseDateTime(value: string): Date | null {
 export function normalizeInterviewStatus(
   value: string | null | undefined,
 ): InterviewStatus {
-  return value === "completed" ? "completed" : "in_progress";
+  if (value === "completed") return "completed";
+  return value === "scheduled" ? "scheduled" : "in_progress";
 }
 
 export function normalizeInterviewRound(

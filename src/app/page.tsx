@@ -33,7 +33,9 @@ import { getApplicationStats } from "@/lib/applications/queries";
 import type { ApplicationTrendRange } from "@/lib/applications/types";
 import { cn } from "@/lib/cn";
 import { getInterviewStats } from "@/lib/interviews/queries";
+import { getUpcomingInterviews } from "@/lib/interviews/upcoming";
 import { isDemoMode } from "@/lib/runtime-mode";
+import { UpcomingInterviewsCard } from "@/components/interviews/upcoming-interviews-card";
 
 function formatDateTime(date: Date | null): string {
   if (!date) return "尚未同步";
@@ -56,9 +58,10 @@ export default async function Home({
   const trendRange = parseApplicationTrendRange((await searchParams).trend);
   const homeHref = isDemoMode() ? "/homepage" : "/";
   const trendOption = getApplicationTrendRangeOption(trendRange);
-  const [stats, interviewStats] = await Promise.all([
+  const [stats, interviewStats, upcomingInterviews] = await Promise.all([
     getApplicationStats({ trendRange }),
     getInterviewStats(),
+    getUpcomingInterviews(),
   ]);
   const stageChartData = buildApplicationStageChartData(stats.stageCounts);
 
@@ -100,6 +103,8 @@ export default async function Home({
           value={stats.stageCounts.offer}
         />
       </section>
+
+      <UpcomingInterviewsCard interviews={upcomingInterviews} />
 
       {stats.total === 0 ? (
         <EmptyState
