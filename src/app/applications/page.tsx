@@ -12,6 +12,8 @@ import {
   getApplications,
 } from "@/lib/applications/queries";
 import { parseApplicationFilters } from "@/lib/applications/types";
+import { getResumeProjectOptions } from "@/lib/interviews/queries";
+import { getAiTaskConfig, isAiTaskConfigured } from "@/lib/settings/ai";
 
 export default async function ApplicationsPage({
   searchParams,
@@ -21,10 +23,13 @@ export default async function ApplicationsPage({
   await connection();
 
   const filters = parseApplicationFilters(await searchParams);
-  const [options, applications] = await Promise.all([
-    getApplicationFilterOptions(),
-    getApplications(filters),
-  ]);
+  const [options, applications, resumeProjects, transcriptionConfig] =
+    await Promise.all([
+      getApplicationFilterOptions(),
+      getApplications(filters),
+      getResumeProjectOptions(),
+      getAiTaskConfig("transcription"),
+    ]);
 
   return (
     <AppShell active="applications">
@@ -40,7 +45,13 @@ export default async function ApplicationsPage({
         title="投递岗位"
       />
       <ApplicationFilters filters={filters} sources={options.sources} />
-      <ApplicationsTable applications={applications.items} />
+      <ApplicationsTable
+        applications={applications.items}
+        interviewContext={{
+          resumeProjects,
+          transcriptionConfigured: isAiTaskConfigured(transcriptionConfig),
+        }}
+      />
       <Pagination
         filters={filters}
         page={applications.page}

@@ -43,6 +43,7 @@ test("builds stable order clauses for supported sorts", () => {
     [{ appliedAt: "asc" }, { firstSeenAt: "asc" }, { createdAt: "asc" }],
   );
   assert.deepEqual(buildApplicationOrderBy(baseFilters), [
+    { sourceActivityAt: "desc" },
     { unchangedSince: "desc" },
     { appliedAt: "desc" },
     { firstSeenAt: "desc" },
@@ -57,10 +58,12 @@ test("maps nullable application fields to display-safe list items", () => {
     jobTitle: "Frontend Engineer",
     source: "boss_zhipin",
     jobUrl: null,
+    jobDescription: null,
     stage: null,
     appliedAt: null,
     firstSeenAt,
     lastSeenAt: new Date("2026-07-02T01:00:00.000Z"),
+    sourceActivityAt: null,
     unchangedSince: new Date("2026-07-02T02:00:00.000Z"),
     updatedAt: new Date("2026-07-03T01:00:00.000Z"),
     autoRejectedAt: null,
@@ -74,5 +77,30 @@ test("maps nullable application fields to display-safe list items", () => {
   assert.equal(
     item.statusUpdatedAt.toISOString(),
     "2026-07-02T02:00:00.000Z",
+  );
+});
+
+test("shows the Boss interaction time as the status update time", () => {
+  const item = toApplicationListItem({
+    id: "contact-2",
+    companyName: "Example Co",
+    jobTitle: "Frontend Engineer",
+    source: "boss_zhipin",
+    jobUrl: null,
+    jobDescription: null,
+    stage: "applied",
+    appliedAt: new Date("2026-07-01T00:00:00.000Z"),
+    firstSeenAt: new Date("2026-07-01T00:00:00.000Z"),
+    lastSeenAt: new Date("2026-08-13T00:00:00.000Z"),
+    sourceActivityAt: new Date("2026-08-10T09:30:00.000Z"),
+    unchangedSince: new Date("2026-07-02T02:00:00.000Z"),
+    updatedAt: new Date("2026-08-13T00:00:00.000Z"),
+    autoRejectedAt: null,
+    note: null,
+  });
+
+  assert.equal(
+    item.statusUpdatedAt.toISOString(),
+    "2026-08-10T09:30:00.000Z",
   );
 });

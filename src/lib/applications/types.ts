@@ -1,3 +1,5 @@
+export const MAX_JOB_DESCRIPTION_LENGTH = 30_000;
+
 export const APPLICATION_STAGES = [
   "applied",
   "assessment",
@@ -38,6 +40,7 @@ export type ApplicationListItem = {
   jobTitle: string;
   source: string;
   jobUrl: string;
+  jobDescription: string;
   stage: ApplicationStage;
   appliedAt: Date;
   lastSeenAt: Date;

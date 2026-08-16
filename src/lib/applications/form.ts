@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import {
   isApplicationStage,
+  MAX_JOB_DESCRIPTION_LENGTH,
   type ApplicationStage,
 } from "./types";
 
@@ -15,6 +16,7 @@ export type ParsedApplicationForm =
         stage: ApplicationStage;
         source: string;
         jobUrl: string | null;
+        jobDescription: string | null;
         sourceKey: string;
         note: string | null;
       };
@@ -86,6 +88,14 @@ export function parseApplicationFormData(
   const source = formString(formData, "source") || "manual";
   const jobUrl = formString(formData, "jobUrl") || null;
 
+  const jobDescription = formString(formData, "jobDescription");
+  if (jobDescription.length > MAX_JOB_DESCRIPTION_LENGTH) {
+    return {
+      ok: false,
+      message: `岗位描述不能超过 ${MAX_JOB_DESCRIPTION_LENGTH} 字符。`,
+    };
+  }
+
   return {
     ok: true,
     value: {
@@ -95,6 +105,7 @@ export function parseApplicationFormData(
       stage: rawStage,
       source,
       jobUrl,
+      jobDescription: jobDescription || null,
       sourceKey: buildManualSourceKey({
         companyName,
         jobTitle,

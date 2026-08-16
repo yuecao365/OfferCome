@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 
 import { prisma } from "@/lib/db";
 import { enqueueCandidateProfileRefresh } from "@/lib/candidate-profile/background";
+import { advancedStage } from "@/lib/applications/stage-advance";
+import { normalizeApplicationStage } from "@/lib/applications/types";
 import { z } from "zod";
 
 import {
@@ -16,6 +18,7 @@ import {
   REAL_INTERVIEW_STATUS,
   type InterviewActionState,
   type InterviewQuestionInput,
+  type InterviewRound,
   parseInterviewFormData,
 } from "./types";
 import { diffInterviewQuestions } from "./question-diff";
@@ -40,6 +43,57 @@ function revalidateInterviewRoutes() {
   revalidatePath("/interviews/history");
   revalidatePath("/interviews/review");
   revalidatePath("/interviews/profile");
+}
+
+/** 表单传来的投递关联，必须真实存在才写入；不存在时静默忽略。 */
+async function resolveApplicationId(
+  formData: FormData,
+): Promise<string | null> {
+  const value = formData.get("applicationId");
+  if (typeof value !== "string" || !value.trim()) {
+    return null;
+  }
+
+  const application = await prisma.bossContact.findUnique({
+    where: { id: value.trim() },
+    select: { id: true },
+  });
+  return application?.id ?? null;
+}
+
+/**
+ * 记录真实面试后把关联投递推进到对应阶段（只升不降）。
+ * 模拟面试不调用这里——练习不代表流程有进展。
+ */
+async function advanceApplicationStage(
+  applicationId: string | null,
+  round: InterviewRound | null,
+): Promise<void> {
+  if (!applicationId) return;
+
+  const application = await prisma.bossContact.findUnique({
+    where: { id: applicationId },
+    select: { stage: true },
+  });
+  if (!application) return;
+
+  const nextStage = advancedStage(
+    normalizeApplicationStage(application.stage),
+    round,
+  );
+  if (!nextStage) return;
+
+  await prisma.bossContact.update({
+    where: { id: applicationId },
+    data: {
+      stage: nextStage,
+      // 与手动改状态语义一致：用户有了新进展就不该再被自动拒绝逻辑改写。
+      autoRejectedAt: null,
+      unchangedSince: new Date(),
+    },
+  });
+  revalidatePath("/applications");
+  revalidatePath("/");
 }
 
 export async function createInterview(
@@ -80,6 +134,7 @@ export async function createInterview(
   const voiceMetrics = artifact && sourceType === "real_audio"
     ? deriveVoiceMetrics(segments, candidateSpeaker)
     : null;
+  const applicationId = await resolveApplicationId(formData);
 
   await prisma.$transaction(async (tx) => {
     const interview = await tx.interview.create({
@@ -87,6 +142,7 @@ export async function createInterview(
         sourceType,
         companyName: parsed.value.companyName,
         jobTitle: parsed.value.jobTitle,
+        applicationId,
         interviewedAt: parsed.value.interviewedAt,
         scheduledAt: parsed.value.interviewedAt,
         round: parsed.value.round,
@@ -109,6 +165,7 @@ export async function createInterview(
   });
 
   await enqueueCandidateProfileRefresh();
+  await advanceApplicationStage(applicationId, parsed.value.round);
 
   revalidateInterviewRoutes();
   return { status: "success", message: "面试记录已创建。" };
@@ -121,7 +178,11 @@ export async function updateInterview(
 ): Promise<InterviewActionState> {
   const existing = await prisma.interview.findUnique({
     where: { id },
-    select: { kind: true, questions: { select: { id: true } } },
+    select: {
+      kind: true,
+      applicationId: true,
+      questions: { select: { id: true } },
+    },
   });
   if (!existing || existing.kind === "mock") {
     return { status: "error", message: "AI 模拟面试不能通过历史记录表单编辑。" };
@@ -182,6 +243,8 @@ export async function updateInterview(
   });
 
   await enqueueCandidateProfileRefresh();
+  // 编辑表单不改关联，沿用记录上已有的投递。
+  await advanceApplicationStage(existing.applicationId, parsed.value.round);
 
   revalidateInterviewRoutes();
   return { status: "success", message: "面试记录已更新。" };

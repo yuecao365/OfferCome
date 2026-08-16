@@ -4,6 +4,7 @@ import {
   FileText,
   Keyboard,
   LoaderCircle,
+  MessageCircleQuestion,
   Mic,
   Settings2,
   Sparkles,
@@ -26,21 +27,34 @@ import {
 
 type ResumeOption = { id: string; name: string; isDefault: boolean };
 
+/** 从投递记录带入的岗位信息。 */
+export type MockInterviewApplication = {
+  id: string;
+  companyName: string;
+  jobTitle: string;
+  jobUrl: string;
+  jobDescription: string;
+};
+
 export function MockInterviewSetup({
   resumes,
   textConfigured,
   transcriptionConfigured,
   seed,
+  application,
 }: {
   resumes: ResumeOption[];
   textConfigured: boolean;
   transcriptionConfigured: boolean;
   seed?: { id: string; kind: "question" | "insight"; title: string } | null;
+  application?: MockInterviewApplication | null;
 }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
-  const [jobDescriptionText, setJobDescriptionText] = useState("");
+  const [jobDescriptionText, setJobDescriptionText] = useState(
+    application?.jobDescription ?? "",
+  );
   const jdKeywords = /职责|要求|负责|熟悉|掌握|精通|经验|任职|岗位描述|工作内容|技能/;
   const showJobDescriptionHint =
     jobDescriptionText.trim().length > 0 &&
@@ -68,6 +82,28 @@ export function MockInterviewSetup({
 
   return (
     <form className="grid gap-4" onSubmit={submit}>
+      {application ? (
+        <Alert tone="info">
+          <input name="applicationId" type="hidden" value={application.id} />
+          {application.jobDescription ? (
+            <span>已从投递记录带入「{application.companyName} · {application.jobTitle}」的岗位信息。</span>
+          ) : (
+            <span>
+              已带入「{application.companyName} · {application.jobTitle}」，这条投递还没有保存岗位描述，请在下方粘贴后开始。
+              {application.jobUrl ? (
+                <a
+                  className="ml-1 font-semibold underline"
+                  href={application.jobUrl}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  打开岗位页面复制
+                </a>
+              ) : null}
+            </span>
+          )}
+        </Alert>
+      ) : null}
       {seed ? (
         <Alert tone="info">
           <span>本场将围绕「{seed.title}」重点出题。</span>
@@ -101,11 +137,21 @@ export function MockInterviewSetup({
         <div className="grid gap-4 md:grid-cols-2">
           <FieldLabel>
             公司名称 *
-            <Input name="companyName" placeholder="例如：目标公司" required />
+            <Input
+              defaultValue={application?.companyName ?? ""}
+              name="companyName"
+              placeholder="例如：目标公司"
+              required
+            />
           </FieldLabel>
           <FieldLabel>
             岗位名称 *
-            <Input name="jobTitle" placeholder="例如：前端工程师" required />
+            <Input
+              defaultValue={application?.jobTitle ?? ""}
+              name="jobTitle"
+              placeholder="例如：前端工程师"
+              required
+            />
           </FieldLabel>
         </div>
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
@@ -219,10 +265,31 @@ export function MockInterviewSetup({
             })}
           </div>
         </fieldset>
-        <FieldLabel className="mt-5 flex-row items-center gap-2">
-          <input defaultChecked name="followUpsEnabled" type="checkbox" />
-          允许 AI 追问
-        </FieldLabel>
+        <label className="mt-5 flex cursor-pointer items-center justify-between gap-4 rounded-lg border border-border-strong bg-surface px-4 py-3 transition-colors hover:border-brand/40 hover:bg-surface-subtle">
+          <span className="flex min-w-0 items-center gap-3">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent text-brand">
+              <MessageCircleQuestion aria-hidden="true" className="size-4" />
+            </span>
+            <span>
+              <strong className="block text-sm font-semibold text-foreground">
+                允许 AI 追问
+              </strong>
+              <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">
+                根据你的回答继续追问关键细节，让模拟过程更接近真实面试。
+              </span>
+            </span>
+          </span>
+          <span className="relative inline-flex shrink-0">
+            <input
+              aria-label="允许 AI 追问"
+              className="peer sr-only"
+              defaultChecked
+              name="followUpsEnabled"
+              type="checkbox"
+            />
+            <span className="relative h-6 w-11 rounded-full bg-border-strong transition-colors after:absolute after:left-1 after:top-1 after:size-4 after:rounded-full after:bg-white after:shadow-sm after:transition-transform peer-checked:bg-brand peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-ring" />
+          </span>
+        </label>
       </Card>
 
       {pending ? (

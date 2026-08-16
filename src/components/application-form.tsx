@@ -21,6 +21,7 @@ import {
 } from "@/lib/applications/action-state";
 import {
   APPLICATION_STAGES,
+  MAX_JOB_DESCRIPTION_LENGTH,
   stageLabel,
   type ApplicationListItem,
 } from "@/lib/applications/types";
@@ -147,6 +148,17 @@ export function ApplicationForm(props: ApplicationFormProps) {
           />
         </FieldLabel>
       </div>
+      <FieldLabel>
+        岗位描述
+        <Textarea
+          className="min-h-28"
+          defaultValue={initial?.jobDescription ?? ""}
+          maxLength={MAX_JOB_DESCRIPTION_LENGTH}
+          name="jobDescription"
+          placeholder="粘贴岗位职责与任职要求，之后发起模拟面试时会自动带入。"
+          rows={5}
+        />
+      </FieldLabel>
       <FieldLabel>
         备注
         <Textarea

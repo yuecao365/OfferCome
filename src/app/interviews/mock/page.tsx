@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { prisma } from "@/lib/db";
 import { getRecentMockInterviews } from "@/lib/mock-interviews/queries";
 import { mockInterviewDeleteConfirmMessage } from "@/lib/mock-interviews/types";
 import { getResumes } from "@/lib/resumes/queries";
@@ -34,17 +35,30 @@ export default async function MockInterviewsPage({
 }) {
   await connection();
   const params = await searchParams;
-  const seedPromise = resolveMockInterviewSeed({
-    seedQuestionId: firstParam(params.seedQuestionId),
-    seedInsightId: firstParam(params.seedInsightId),
-  });
-  const [resumes, recent, textConfig, transcriptionConfig, seed] = await Promise.all([
-    getResumes(),
-    getRecentMockInterviews(),
-    getAiTaskConfig("text"),
-    getAiTaskConfig("transcription"),
-    seedPromise,
-  ]);
+  const applicationId = firstParam(params.applicationId);
+  const [resumes, recent, textConfig, transcriptionConfig, seed, application] =
+    await Promise.all([
+      getResumes(),
+      getRecentMockInterviews(),
+      getAiTaskConfig("text"),
+      getAiTaskConfig("transcription"),
+      resolveMockInterviewSeed({
+        seedQuestionId: firstParam(params.seedQuestionId),
+        seedInsightId: firstParam(params.seedInsightId),
+      }),
+      applicationId
+        ? prisma.bossContact.findUnique({
+            where: { id: applicationId },
+            select: {
+              id: true,
+              companyName: true,
+              jobTitle: true,
+              jobUrl: true,
+              jobDescription: true,
+            },
+          })
+        : null,
+    ]);
 
   return (
     <AppShell active="interviews" subActive="interviews-mock">
@@ -56,6 +70,17 @@ export default async function MockInterviewsPage({
 
       {resumes.length > 0 ? (
         <MockInterviewSetup
+          application={
+            application
+              ? {
+                  id: application.id,
+                  companyName: application.companyName,
+                  jobTitle: application.jobTitle,
+                  jobUrl: application.jobUrl ?? "",
+                  jobDescription: application.jobDescription ?? "",
+                }
+              : null
+          }
           textConfigured={isAiTaskConfigured(textConfig)}
           transcriptionConfigured={isAiTaskConfigured(transcriptionConfig)}
           resumes={resumes.map((resume) => ({

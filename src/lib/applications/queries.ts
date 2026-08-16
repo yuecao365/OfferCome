@@ -20,10 +20,12 @@ type BossContactRow = {
   jobTitle: string;
   source: string;
   jobUrl: string | null;
+  jobDescription: string | null;
   stage: string | null;
   appliedAt: Date | null;
   firstSeenAt: Date;
   lastSeenAt: Date;
+  sourceActivityAt: Date | null;
   unchangedSince: Date | null;
   updatedAt: Date;
   autoRejectedAt: Date | null;
@@ -48,10 +50,12 @@ const APPLICATION_SELECT = {
   jobTitle: true,
   source: true,
   jobUrl: true,
+  jobDescription: true,
   stage: true,
   appliedAt: true,
   firstSeenAt: true,
   lastSeenAt: true,
+  sourceActivityAt: true,
   unchangedSince: true,
   updatedAt: true,
   autoRejectedAt: true,
@@ -65,11 +69,16 @@ export function toApplicationListItem(row: BossContactRow): ApplicationListItem 
     jobTitle: row.jobTitle,
     source: row.source,
     jobUrl: row.jobUrl ?? "",
+    jobDescription: row.jobDescription ?? "",
     stage: normalizeApplicationStage(row.stage),
     appliedAt: row.appliedAt ?? row.firstSeenAt,
     lastSeenAt: row.lastSeenAt,
+    // “状态更新”展示 Boss 的最后互动时间，没有互动记录时退回本地时间线。
     statusUpdatedAt:
-      row.unchangedSince ?? row.appliedAt ?? row.firstSeenAt,
+      row.sourceActivityAt ??
+      row.unchangedSince ??
+      row.appliedAt ??
+      row.firstSeenAt,
     updatedAt: row.updatedAt,
     autoRejectedAt: row.autoRejectedAt,
     note: row.note ?? "",
@@ -145,7 +154,9 @@ export function buildApplicationOrderBy(
     ];
   }
 
+  // 与列表展示的“状态更新”保持一致：优先按 Boss 最后互动时间排序。
   return [
+    { sourceActivityAt: filters.sortDir },
     { unchangedSince: filters.sortDir },
     { appliedAt: filters.sortDir },
     { firstSeenAt: filters.sortDir },

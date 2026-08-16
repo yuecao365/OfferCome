@@ -3,12 +3,17 @@ import { ExternalLink } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { ApplicationListItem } from "@/lib/applications/types";
 
+import {
+  ApplicationInterviewActions,
+  type ApplicationInterviewContext,
+} from "./application-interview-actions";
 import { EditApplicationModal } from "./application-modals";
 import { ApplicationDeleteButton } from "./application-delete-button";
 import { StageBadge } from "./stage-badge";
 
 type ApplicationsTableProps = {
   applications: ApplicationListItem[];
+  interviewContext: ApplicationInterviewContext;
 };
 
 function formatDateTime(date: Date): string {
@@ -50,7 +55,10 @@ function ApplicationStage({ application }: { application: ApplicationListItem })
   );
 }
 
-function ApplicationCards({ applications }: ApplicationsTableProps) {
+function ApplicationCards({
+  applications,
+  interviewContext,
+}: ApplicationsTableProps) {
   return (
     <div className="grid gap-3 md:hidden">
       {applications.map((application) => (
@@ -81,7 +89,11 @@ function ApplicationCards({ applications }: ApplicationsTableProps) {
               {application.note}
             </p>
           ) : null}
-          <div className="mt-4 flex justify-end gap-1 border-t border-border pt-3">
+          <div className="mt-4 flex flex-wrap justify-end gap-1 border-t border-border pt-3">
+            <ApplicationInterviewActions
+              application={application}
+              context={interviewContext}
+            />
             <EditApplicationModal application={application} />
             <ApplicationDeleteButton id={application.id} />
           </div>
@@ -91,7 +103,10 @@ function ApplicationCards({ applications }: ApplicationsTableProps) {
   );
 }
 
-export function ApplicationsTable({ applications }: ApplicationsTableProps) {
+export function ApplicationsTable({
+  applications,
+  interviewContext,
+}: ApplicationsTableProps) {
   if (applications.length === 0) {
     return (
       <EmptyState
@@ -103,7 +118,10 @@ export function ApplicationsTable({ applications }: ApplicationsTableProps) {
 
   return (
     <>
-      <ApplicationCards applications={applications} />
+      <ApplicationCards
+        applications={applications}
+        interviewContext={interviewContext}
+      />
       <div className="hidden overflow-hidden rounded-xl border border-border bg-surface shadow-card md:block">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[960px] border-collapse text-left text-sm">
@@ -147,7 +165,11 @@ export function ApplicationsTable({ applications }: ApplicationsTableProps) {
                     </span>
                   </td>
                   <td className="px-4 py-3.5 text-right">
-                    <div className="flex justify-end gap-1">
+                    <div className="flex flex-wrap items-center justify-end gap-1">
+                      <ApplicationInterviewActions
+                        application={application}
+                        context={interviewContext}
+                      />
                       <EditApplicationModal application={application} />
                       <ApplicationDeleteButton id={application.id} />
                     </div>

@@ -24,6 +24,13 @@ import {
 import { InterviewDraftImporter } from "./interview-draft-importer";
 import { InterviewQuestionsEditor } from "./interview-questions-editor";
 
+/** 从投递记录发起时带入的岗位信息，避免用户重复输入。 */
+export type InterviewPrefill = {
+  companyName: string;
+  jobTitle: string;
+  applicationId: string | null;
+};
+
 type InterviewFormProps =
   | {
       mode: "create";
@@ -32,6 +39,7 @@ type InterviewFormProps =
       resumeProjects: ResumeProjectOption[];
       onSaved?: () => void;
       transcriptionConfigured: boolean;
+      prefill?: InterviewPrefill | null;
     }
   | {
       mode: "edit";
@@ -40,6 +48,7 @@ type InterviewFormProps =
       resumeProjects: ResumeProjectOption[];
       onSaved?: () => void;
       transcriptionConfigured?: boolean;
+      prefill?: never;
     };
 
 type InterviewServerAction = (
@@ -109,6 +118,7 @@ export function InterviewForm(props: InterviewFormProps) {
   }, [editInterviewId]);
   const [state, formAction] = useActionState(action, initialInterviewActionState);
   const initial = props.mode === "edit" ? props.initial : null;
+  const prefill = props.mode === "create" ? props.prefill ?? null : null;
 
   useEffect(() => {
     if (state.status !== "success") {
@@ -126,6 +136,9 @@ export function InterviewForm(props: InterviewFormProps) {
         type="hidden"
         value={JSON.stringify(questions)}
       />
+      {prefill?.applicationId ? (
+        <input name="applicationId" type="hidden" value={prefill.applicationId} />
+      ) : null}
       {props.mode === "create" ? (
         <InterviewDraftImporter
           onDraft={(draftQuestions) => setQuestions(draftQuestions)}
@@ -137,7 +150,7 @@ export function InterviewForm(props: InterviewFormProps) {
           <FieldLabel>
             公司名称
             <Input
-              defaultValue={initial?.companyName ?? ""}
+              defaultValue={initial?.companyName ?? prefill?.companyName ?? ""}
               name="companyName"
               required
             />
@@ -147,7 +160,7 @@ export function InterviewForm(props: InterviewFormProps) {
           <FieldLabel>
             工作岗位
             <Input
-              defaultValue={initial?.jobTitle ?? ""}
+              defaultValue={initial?.jobTitle ?? prefill?.jobTitle ?? ""}
               name="jobTitle"
               required
             />

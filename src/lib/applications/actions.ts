@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 
 import type { ApplicationActionState } from "./action-state";
 import { parseApplicationFormData } from "./form";
+import { isApplicationStage, type ApplicationStage } from "./types";
 
 function revalidateApplicationRoutes() {
   revalidatePath("/");
@@ -30,6 +31,7 @@ export async function createApplication(
         source: parsed.value.source,
         sourceKey: parsed.value.sourceKey,
         jobUrl: parsed.value.jobUrl,
+        jobDescription: parsed.value.jobDescription,
         appliedAt: parsed.value.appliedAt,
         stage: parsed.value.stage,
         note: parsed.value.note,
@@ -70,6 +72,7 @@ export async function updateApplication(
         jobTitle: parsed.value.jobTitle,
         source: parsed.value.source,
         jobUrl: parsed.value.jobUrl,
+        jobDescription: parsed.value.jobDescription,
         appliedAt: parsed.value.appliedAt,
         stage: parsed.value.stage,
         note: parsed.value.note,
@@ -83,6 +86,39 @@ export async function updateApplication(
 
   revalidateApplicationRoutes();
   return { status: "success", message: "投递记录已更新。" };
+}
+
+/**
+ * 只改阶段，用于同步结果弹窗里对有新互动的岗位快速定状态。
+ * 用 sourceKey 定位，因为同步结果里带的是它而不是数据库 id。
+ */
+export async function updateApplicationStage(
+  sourceKey: string,
+  stage: string,
+): Promise<{ ok: boolean; message?: string }> {
+  if (!isApplicationStage(stage)) {
+    return { ok: false, message: "无效的投递状态。" };
+  }
+
+  try {
+    const updated = await prisma.bossContact.updateMany({
+      where: { sourceKey },
+      data: {
+        stage: stage satisfies ApplicationStage,
+        // 用户手动定过状态后，不该再被自动拒绝逻辑改写。
+        autoRejectedAt: null,
+        unchangedSince: new Date(),
+      },
+    });
+    if (updated.count === 0) {
+      return { ok: false, message: "没有找到这条投递记录。" };
+    }
+  } catch {
+    return { ok: false, message: "更新失败，请稍后重试。" };
+  }
+
+  revalidateApplicationRoutes();
+  return { ok: true };
 }
 
 export async function deleteApplication(formData: FormData): Promise<void> {

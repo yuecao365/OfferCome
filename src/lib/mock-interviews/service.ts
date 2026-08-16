@@ -52,7 +52,33 @@ export type CreateMockInterviewInput = {
   followUpsEnabled?: boolean;
   seedQuestionId?: string | null;
   seedInsightId?: string | null;
+  applicationId?: string | null;
 };
+
+/**
+ * 校验投递关联是否真实存在；顺便把本次的岗位描述回填到还没有描述的投递上，
+ * 这样用户粘贴一次之后，下次从同一条投递发起就能直接带出。
+ */
+async function linkApplication(
+  applicationId: string | null | undefined,
+  jobDescription: string,
+): Promise<string | null> {
+  if (!applicationId) return null;
+
+  const application = await prisma.bossContact.findUnique({
+    where: { id: applicationId },
+    select: { id: true, jobDescription: true },
+  });
+  if (!application) return null;
+
+  if (!application.jobDescription?.trim()) {
+    await prisma.bossContact.update({
+      where: { id: application.id },
+      data: { jobDescription },
+    });
+  }
+  return application.id;
+}
 
 function validateCreateInput(input: CreateMockInterviewInput) {
   const companyName = input.companyName.trim();
@@ -115,7 +141,7 @@ export async function createMockInterview(input: CreateMockInterviewInput) {
   }
   const seedQuestionId = seed?.kind === "question" ? seed.id : null;
   const seedInsightId = seed?.kind === "insight" ? seed.id : null;
-  const [context, config] = await Promise.all([
+  const [context, config, applicationId] = await Promise.all([
     buildMockInterviewContext({
       resumeId: input.resumeId,
       jobTitle: validated.jobTitle,
@@ -124,6 +150,7 @@ export async function createMockInterview(input: CreateMockInterviewInput) {
       seedInsightId,
     }),
     getAiTaskConfig("text"),
+    linkApplication(input.applicationId, validated.jobDescription),
   ]);
   assertMockInterviewAiConfigured(config);
   const now = new Date();
@@ -140,6 +167,8 @@ export async function createMockInterview(input: CreateMockInterviewInput) {
       kind: "mock",
       companyName: validated.companyName,
       jobTitle: validated.jobTitle,
+      // 关联便于回溯这场练习针对哪个岗位；模拟面试不推进投递阶段。
+      applicationId,
       scheduledAt: now,
       round: normalizeInterviewRound(input.round),
       status: "generating",

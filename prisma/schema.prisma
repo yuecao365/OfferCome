@@ -19,24 +19,28 @@ model AppSetting {
   updatedAt DateTime @updatedAt
 }
 
+/// Historical name; stores every application regardless of channel
+/// (manual entry for company-site applications as well as synced ones).
 model BossContact {
-  id               String    @id @default(cuid())
+  id               String      @id @default(cuid())
   companyName      String
   jobTitle         String
-  source           String    @default("boss_zhipin")
-  sourceKey        String    @unique
+  source           String      @default("boss_zhipin")
+  sourceKey        String      @unique
   jobUrl           String?
+  jobDescription   String?
   appliedAt        DateTime?
-  stage            String    @default("applied")
+  stage            String      @default("applied")
   note             String?
   sourceActivityAt DateTime?
   sourceStatusCode Int?
   unchangedSince   DateTime?
   autoRejectedAt   DateTime?
-  firstSeenAt      DateTime  @default(now())
-  lastSeenAt       DateTime  @default(now())
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  interviews       Interview[]
+  firstSeenAt      DateTime    @default(now())
+  lastSeenAt       DateTime    @default(now())
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
 
   @@index([source])
   @@index([stage])
@@ -112,6 +116,8 @@ model Interview {
   jobTitle        String
   roleKey         String?
   roleContext     RoleContext?               @relation(fields: [roleKey], references: [key], onDelete: SetNull)
+  applicationId   String?
+  application     BossContact?               @relation(fields: [applicationId], references: [id], onDelete: SetNull)
   interviewedAt   DateTime?
   scheduledAt     DateTime?
   round           String?
@@ -130,6 +136,7 @@ model Interview {
   @@index([kind])
   @@index([sourceType])
   @@index([roleKey])
+  @@index([applicationId])
   @@index([scheduledAt])
   @@index([status])
   @@index([round])

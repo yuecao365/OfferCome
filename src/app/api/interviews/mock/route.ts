@@ -69,6 +69,7 @@ export async function POST(request: Request) {
       followUpsEnabled: formData.get("followUpsEnabled") === "on",
       seedQuestionId: stringValue(formData, "seedQuestionId") || null,
       seedInsightId: stringValue(formData, "seedInsightId") || null,
+      applicationId: stringValue(formData, "applicationId") || null,
     });
     if (!result.mockSession) throw new Error("模拟面试会话创建失败。");
     scheduleMockInterviewGeneration(result.mockSession.id);
