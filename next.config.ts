@@ -7,7 +7,8 @@ const root = path.dirname(fileURLToPath(import.meta.url));
 const nextConfig: NextConfig = {
   serverExternalPackages: ["@ffmpeg-installer/ffmpeg"],
   outputFileTracingIncludes: {
-    "/*": ["./prisma/demo.db"],
+    // 技能包是运行时用 fs 读取的 SKILL.md，构建裁剪时必须显式带上。
+    "/*": ["./prisma/demo.db", "./src/lib/mock-interviews/skills/**/SKILL.md"],
     "/api/interviews/draft": [
       "./node_modules/@ffmpeg-installer/*/ffmpeg*",
     ],

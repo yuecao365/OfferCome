@@ -156,7 +156,7 @@ export function selectValidQuestions(input: {
     );
     const score =
       relevance +
-      (verbatim ? 0.15 : 0) -
+      (verbatim ? 0.05 : 0) -
       // 主要用户是技术岗位候选人：同分时通用行为题让位于技术/项目题。
       (candidate.category === "general" ? 0.08 : 0) -
       (paraphrased ? 0.1 : 0) -

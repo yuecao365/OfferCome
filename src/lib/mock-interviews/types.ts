@@ -200,7 +200,7 @@ export type MockInterviewView = {
   }[];
 };
 
-export const MOCK_INTERVIEW_PROMPT_VERSION = "mock-interview-v4-soft-gates";
+export const MOCK_INTERVIEW_PROMPT_VERSION = "mock-interview-v5-skills";
 
 export const MOCK_INTERVIEW_GENERATION_TIMEOUT_MS = 60_000;
 
