@@ -92,12 +92,21 @@ export const mockInterviewQuestionDraftSchema = z.object({
   expectedSignals: z.array(z.string().min(1).max(240)).min(1).max(5),
 });
 
+/** 低于这个数就不值得开场了；其余场景宁可少几题也要交付。 */
+export const MIN_MOCK_INTERVIEW_QUESTIONS = 3;
+
+export function minAcceptedQuestionCount(requested: number): number {
+  return Math.max(MIN_MOCK_INTERVIEW_QUESTIONS, Math.ceil(requested * 0.6));
+}
+
 export function createMockInterviewQuestionBatchSchema(questionCount: number) {
+  // 恰好 N 道对小模型过脆：允许区间，宁可少几题也不要整批作废。
   return z.object({
     questions: z
       .array(mockInterviewQuestionDraftSchema)
-      .length(questionCount)
-      .describe(`必须恰好包含 ${questionCount} 道不重复的问题`),
+      .min(MIN_MOCK_INTERVIEW_QUESTIONS)
+      .max(questionCount)
+      .describe(`目标 ${questionCount} 道不重复的问题，最少 ${MIN_MOCK_INTERVIEW_QUESTIONS} 道`),
   });
 }
 
@@ -191,7 +200,7 @@ export type MockInterviewView = {
   }[];
 };
 
-export const MOCK_INTERVIEW_PROMPT_VERSION = "mock-interview-v3";
+export const MOCK_INTERVIEW_PROMPT_VERSION = "mock-interview-v4-soft-gates";
 
 export const MOCK_INTERVIEW_GENERATION_TIMEOUT_MS = 60_000;
 

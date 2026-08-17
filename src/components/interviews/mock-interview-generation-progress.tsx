@@ -109,14 +109,18 @@ export function MockInterviewGenerationProgress({
             <Button disabled={retrying} onClick={() => retry()} type="button">
               {retrying ? "正在重新分析…" : "重新分析岗位描述"}
             </Button>
-            <Button
-              disabled={retrying}
-              onClick={() => retry(undefined, "enrich")}
-              type="button"
-              variant="outline"
-            >
-              让 AI 按“{state.jobTitle}”的常见要求补全
-            </Button>
+            {/* “AI 补全”只在缺题类失败时才真正有用：补全发生在出题之前，
+                其他阶段的失败它救不了，展示出来只会造成无效的重复点击。 */}
+            {state.errorCode === "question_validation_failed" ? (
+              <Button
+                disabled={retrying}
+                onClick={() => retry(undefined, "enrich")}
+                type="button"
+                variant="outline"
+              >
+                让 AI 按“{state.jobTitle}”的常见要求补全
+              </Button>
+            ) : null}
             <Button
               disabled={retrying}
               onClick={() => retry(Math.max(3, Math.min(5, state.questionCount - 1)))}

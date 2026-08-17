@@ -51,6 +51,37 @@ export const PROFILE_INSIGHT_KIND_LABELS: Record<ProfileInsightKind, string> = {
   training_focus: "训练建议",
 };
 
+/**
+ * 页面按三组呈现，8 维保留为底层观察信号（历史数据零迁移）。
+ * reflection_growth 不在任何组里：它在逐题层面几乎不可观察，
+ * 只作为洞察合成阶段的跨场信号存在。
+ */
+export const PROFILE_DIMENSION_GROUPS = [
+  {
+    key: "content",
+    label: "内容力",
+    description: "知识、分析与方案能力",
+    dimensions: ["knowledge_accuracy", "reasoning_depth", "problem_solving"],
+  },
+  {
+    key: "evidence",
+    label: "证据力",
+    description: "扣题程度与经历支撑",
+    dimensions: ["answer_relevance", "experience_evidence"],
+  },
+  {
+    key: "delivery",
+    label: "表达力",
+    description: "结构、清晰度与口语节奏",
+    dimensions: ["communication_clarity", "delivery_fluency"],
+  },
+] as const satisfies ReadonlyArray<{
+  key: string;
+  label: string;
+  description: string;
+  dimensions: readonly ProfileDimension[];
+}>;
+
 export const PROFILE_SOURCE_LABELS: Record<ProfileSourceType, string> = {
   real_audio: "真实录音转写",
   real_transcript: "真实逐字文本",
@@ -128,8 +159,8 @@ export type ProfileRefreshStatus = {
 };
 
 export const PROFILE_STATE_ID = "default";
-export const PROFILE_ASSESSMENT_VERSION = "ability-assessment-v2";
+export const PROFILE_ASSESSMENT_VERSION = "ability-assessment-v3";
 export const PROFILE_AGGREGATION_VERSION = "candidate-profile-scoring-v3-real-priority";
-export const PROFILE_PROMPT_VERSION = "candidate-profile-v2";
+export const PROFILE_PROMPT_VERSION = "candidate-profile-v3-coach";
 export const PROFILE_DEBOUNCE_MS = 60_000;
 export const PROFILE_AGENT_TIMEOUT_MS = 60_000;

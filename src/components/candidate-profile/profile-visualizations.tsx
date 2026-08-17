@@ -14,6 +14,7 @@ import {
 import { EmptyState } from "@/components/ui/empty-state";
 import {
   PROFILE_DIMENSIONS,
+  PROFILE_DIMENSION_GROUPS,
   PROFILE_DIMENSION_LABELS,
   type ProfileDimension,
 } from "@/lib/candidate-profile/types";
@@ -55,6 +56,11 @@ function confidenceClass(confidence: number): string {
   return "opacity-100";
 }
 
+/**
+ * 数据稀疏时 8 维平铺只会得到一排空表盘，因此按"内容力/证据力/表达力"
+ * 三组呈现；组内没有数据的稀疏信号（如无录音时的口语维度）不再占位。
+ * 面试少于 3 场的等级标注"初步"，给结论但留有余地。
+ */
 export function ProfileAbilityBars({
   metrics,
   onSelect,
@@ -63,44 +69,65 @@ export function ProfileAbilityBars({
   onSelect: (dimension: ProfileDimension) => void;
 }) {
   return (
-    <div aria-label="八维能力等级与证据置信度" className="grid gap-3 sm:grid-cols-2">
-      {PROFILE_DIMENSIONS.map((dimension) => {
-        const metric = metrics.find((item) => item.dimension === dimension);
-        const hasData = metric?.level !== null && metric?.level !== undefined;
-        const width = hasData ? Math.max(0, Math.min(100, (metric.level! / 5) * 100)) : 0;
+    <div aria-label="能力分组等级与证据置信度" className="grid gap-5">
+      {PROFILE_DIMENSION_GROUPS.map((group) => {
+        const groupMetrics = group.dimensions.map((dimension) => ({
+          dimension,
+          metric: metrics.find((item) => item.dimension === dimension),
+        }));
+        const withData = groupMetrics.filter(
+          ({ metric }) => metric?.level !== null && metric?.level !== undefined,
+        );
         return (
-          <button
-            aria-label={`${PROFILE_DIMENSION_LABELS[dimension]}，${metric?.levelLabel ?? "待积累"}，证据${metric?.confidenceLabel ?? "待积累"}`}
-            className={`rounded-xl border bg-surface p-4 text-left transition-colors hover:border-brand/40 ${
-              hasData
-                ? confidenceClass(metric?.evidenceConfidence ?? 0)
-                : "border-dashed border-border-strong bg-surface-subtle"
-            }`}
-            key={dimension}
-            onClick={() => onSelect(dimension)}
-            type="button"
-          >
-            <span className="flex items-center justify-between gap-3">
-              <span className="text-sm font-semibold text-foreground">
-                {PROFILE_DIMENSION_LABELS[dimension]}
-              </span>
-              <span className={hasData ? "text-sm font-semibold text-brand" : "text-sm text-muted-foreground"}>
-                {metric?.levelLabel ?? "待积累"}
-              </span>
-            </span>
-            <span className="mt-3 block h-2.5 overflow-hidden rounded-full bg-muted">
-              {hasData ? (
-                <span
-                  className="block h-full rounded-full bg-brand"
-                  style={{ width: `${width}%` }}
-                />
-              ) : null}
-            </span>
-            <span className="mt-2 flex items-center justify-between gap-3 text-xs text-muted-foreground">
-              <span>{hasData ? `${metric?.interviewCount ?? 0} 场证据` : "尚无有效数据"}</span>
-              <span>置信度：{metric?.confidenceLabel ?? "待积累"}</span>
-            </span>
-          </button>
+          <section className="grid gap-3" key={group.key}>
+            <div className="flex items-baseline justify-between gap-3">
+              <h3 className="text-sm font-semibold text-foreground">{group.label}</h3>
+              <span className="text-xs text-muted-foreground">{group.description}</span>
+            </div>
+            {withData.length === 0 ? (
+              <p className="rounded-lg border border-dashed border-border-strong bg-surface-subtle p-3 text-sm text-muted-foreground">
+                这一组还没有可用证据，完成一场面试或模拟面试后出现。
+              </p>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {withData.map(({ dimension, metric }) => {
+                  const width = Math.max(0, Math.min(100, ((metric!.level ?? 0) / 5) * 100));
+                  const tentative = (metric!.interviewCount ?? 0) < 3;
+                  return (
+                    <button
+                      aria-label={`${PROFILE_DIMENSION_LABELS[dimension]}，${metric!.levelLabel}，证据${metric!.confidenceLabel}`}
+                      className={`rounded-xl border bg-surface p-4 text-left transition-colors hover:border-brand/40 ${confidenceClass(metric!.evidenceConfidence)}`}
+                      key={dimension}
+                      onClick={() => onSelect(dimension)}
+                      type="button"
+                    >
+                      <span className="flex items-center justify-between gap-3">
+                        <span className="text-sm font-semibold text-foreground">
+                          {PROFILE_DIMENSION_LABELS[dimension]}
+                        </span>
+                        <span className="text-sm font-semibold text-brand">
+                          {metric!.levelLabel}
+                          {tentative ? (
+                            <span className="ml-1 font-normal text-muted-foreground">初步</span>
+                          ) : null}
+                        </span>
+                      </span>
+                      <span className="mt-3 block h-2.5 overflow-hidden rounded-full bg-muted">
+                        <span
+                          className="block h-full rounded-full bg-brand"
+                          style={{ width: `${width}%` }}
+                        />
+                      </span>
+                      <span className="mt-2 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                        <span>{metric!.interviewCount} 场证据</span>
+                        <span>置信度：{metric!.confidenceLabel}</span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </section>
         );
       })}
     </div>

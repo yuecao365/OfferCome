@@ -13,9 +13,11 @@ import {
   type ProfileDimension,
 } from "./types";
 
+// delivery_fluency 由语音指标代码推导；reflection_growth 逐题几乎观察不到
+// （候选人很少在单题回答里展示复盘），降级为合成阶段的跨场洞察信号，不再逐题打分。
 const TEXT_ASSESSMENT_DIMENSIONS = PROFILE_DIMENSIONS.filter(
-  (dimension) => dimension !== "delivery_fluency",
-) as Exclude<ProfileDimension, "delivery_fluency">[];
+  (dimension) => dimension !== "delivery_fluency" && dimension !== "reflection_growth",
+) as Exclude<ProfileDimension, "delivery_fluency" | "reflection_growth">[];
 
 const observationSchema = z.object({
   observations: z.array(

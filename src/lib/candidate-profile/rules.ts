@@ -59,11 +59,20 @@ export function timeDecayWeight(date: Date, now: Date): number {
   return 0.5 ** (ageDays / PROFILE_HALF_LIFE_DAYS);
 }
 
+/** 面试少于此数的结论一律标注"初步印象"，而不是干脆不给。 */
+export const PROFILE_TENTATIVE_INTERVIEW_COUNT = 3;
+
+export function isTentativeProfileMetric(interviewCount: number): boolean {
+  return interviewCount < PROFILE_TENTATIVE_INTERVIEW_COUNT;
+}
+
+// 门槛下放：有一场面试就给出等级（配合 tentative 标注），
+// 冷启动时宁可给"初步印象"，也不给一排"待积累"空表盘。
 export function profileLevelLabel(
   score: number | null,
   interviewCount: number,
 ): ProfileLevelLabel {
-  if (score === null || interviewCount < 2) return "待积累";
+  if (score === null || interviewCount < 1) return "待积累";
   if (score < 2) return "基础";
   if (score < 3) return "稳定";
   if (score < 4) return "熟练";
@@ -74,16 +83,21 @@ export function evidenceConfidenceLabel(
   confidence: number,
   interviewCount: number,
 ): EvidenceConfidenceLabel {
-  if (interviewCount < 2) return "待积累";
+  if (interviewCount < 1) return "待积累";
   if (confidence < 0.45) return "较低";
   if (confidence < 0.72) return "中等";
   return "较高";
 }
 
+/** 用户在本地时区面试，按 UTC 分天会把凌晨的面试算进前一天。 */
+function localDayKey(date: Date): string {
+  return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+}
+
 function deriveTrend(
   points: Array<{ date: Date; score: number }>,
 ): ProfileTrend {
-  const dates = new Set(points.map((point) => point.date.toISOString().slice(0, 10)));
+  const dates = new Set(points.map((point) => localDayKey(point.date)));
   if (dates.size < 3) return "insufficient";
 
   const ordered = [...points].sort((a, b) => a.date.getTime() - b.date.getTime());

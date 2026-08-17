@@ -149,11 +149,10 @@ test("accepts inferred competencies only as general role questions", () => {
   assert.equal(result.accepted.length, 1);
 });
 
-test("rejects invalid JD evidence and duplicate questions", () => {
+test("keeps paraphrased-evidence questions instead of dropping them", () => {
   const result = selectValidQuestions({
     candidates: [
       question(),
-      question({ question: "请设计 Agent Harness 的规模化验证方案和流程。" }),
       question({
         question: "如何使用 Trace 分析长程执行失败？",
         jobCompetencyId: "trace",
@@ -166,11 +165,41 @@ test("rejects invalid JD evidence and duplicate questions", () => {
     personalization,
   });
 
-  assert.equal(result.accepted.length, 1);
-  assert.deepEqual(
-    result.rejected.map((item) => item.reason),
-    ["duplicate", "invalid_jd_evidence"],
-  );
+  // 意译证据降权但保留；没有任何硬拒。
+  assert.equal(result.accepted.length, 2);
+  assert.deepEqual(result.rejected, []);
+});
+
+test("defers near-duplicates and only uses them as fillers when short", () => {
+  const nearDuplicate = "请设计 Agent Harness 的规模化验证方案和流程。";
+  const scarce = selectValidQuestions({
+    candidates: [question(), question({ question: nearDuplicate })],
+    questionCount: 5,
+    context,
+    blueprint,
+    personalization,
+  });
+  // 缺题时允许一道相近的题回填（仍挡掉几乎逐字重复）。
+  assert.equal(scarce.accepted.length >= 1, true);
+
+  const abundant = selectValidQuestions({
+    candidates: [
+      question(),
+      question({ question: nearDuplicate }),
+      question({
+        question: "如何使用 Trace 分析长程执行失败？",
+        jobCompetencyId: "trace",
+        jdEvidence: "基于 Trace 提升长程执行稳定性",
+      }),
+    ],
+    questionCount: 2,
+    context,
+    blueprint,
+    personalization,
+  });
+  // 够题时优先选互不重复的两道，而不是把相近题排进来。
+  assert.equal(abundant.accepted.length, 2);
+  assert.notEqual(abundant.accepted[1]?.question, nearDuplicate);
 });
 
 test("requires a valid resume project for resume-sourced questions", () => {
@@ -200,21 +229,40 @@ test("requires a valid resume project for resume-sourced questions", () => {
   assert.equal(result.rejected[0]?.reason, "invalid_resume_project");
 });
 
-test("rejects a broad model-training question with no mapped competency overlap", () => {
+test("ranks weakly related questions below on-target ones", () => {
+  const offTarget = "请解释混合精度训练对模型显存和吞吐的影响。";
   const result = selectValidQuestions({
     candidates: [
       question({
-        question: "请解释混合精度训练对模型显存和吞吐的影响。",
+        question: offTarget,
         jobCompetencyId: "harness",
         jdEvidence: "Agent Harness 的规模化验证",
       }),
+      question(),
     ],
-    questionCount: 5,
+    questionCount: 1,
     context,
     blueprint,
     personalization,
   });
 
-  assert.equal(result.accepted.length, 0);
-  assert.equal(result.rejected[0]?.reason, "weak_job_relevance");
+  // 相关性弱不再硬拒，但在名额有限时必须输给贴合岗位的题。
+  assert.equal(result.accepted.length, 1);
+  assert.notEqual(result.accepted[0]?.question, offTarget);
+
+  const lastResort = selectValidQuestions({
+    candidates: [
+      question({
+        question: offTarget,
+        jobCompetencyId: "harness",
+        jdEvidence: "Agent Harness 的规模化验证",
+      }),
+    ],
+    questionCount: 3,
+    context,
+    blueprint,
+    personalization,
+  });
+  // 只有它可用时宁可收下，也不空手。
+  assert.equal(lastResort.accepted.length, 1);
 });

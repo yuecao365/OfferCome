@@ -14,6 +14,8 @@ import type {
 } from "./types";
 
 const DUPLICATE_THRESHOLD = 0.72;
+/** 第二轮补位的底线：接近逐字重复的题即使缺题也不放两道。 */
+const NEAR_EXACT_DUPLICATE_THRESHOLD = 0.9;
 const HISTORY_COPY_THRESHOLD = 0.3;
 
 export type QuestionSourceAllocation = {
@@ -54,17 +56,15 @@ export function getQuestionSourceAllocation(
   };
 }
 
+/**
+ * 硬拒只留"伪造引用"一类：引用了不存在的能力、项目或个性化来源。
+ * 其余问题（重复、配额、相关性弱、证据意译）一律降权排序，不再丢弃。
+ */
 type RejectionReason =
-  | "duplicate"
-  | "history_copy"
   | "invalid_competency"
-  | "weak_job_relevance"
-  | "invalid_jd_evidence"
   | "invalid_resume_project"
   | "invalid_personalization_source"
-  | "invalid_source_metadata"
-  | "secondary_competency_quota_exceeded"
-  | "source_quota_exceeded";
+  | "invalid_source_metadata";
 
 export type QuestionSelectionResult = {
   accepted: MockInterviewQuestionDraft[];
@@ -98,68 +98,24 @@ export function selectValidQuestions(input: {
     input.blueprint,
   );
 
-  const countSource = (sourceKind: MockInterviewQuestionDraft["sourceKind"]) =>
-    accepted.filter((item) => item.sourceKind === sourceKind).length;
-  const countPersonalization = () =>
-    countSource("history") + countSource("profile");
-
+  // —— 第一步：硬拒伪造引用（引用真实性是硬门，其余全部软化）。
+  const scorable: { candidate: MockInterviewQuestionDraft; score: number }[] = [];
   for (const candidate of input.candidates) {
-    if (accepted.length >= input.questionCount) break;
-    let reason: RejectionReason | null = null;
-
     const competency = competencyById.get(candidate.jobCompetencyId);
     if (!competency) {
-      reason = "invalid_competency";
-    } else if (jobCompetencyRelevance(candidate.question, competency) < 0.08) {
-      reason = "weak_job_relevance";
-    } else if (
-      competency.origin === "inferred" &&
-      (
-        candidate.sourceKind !== "general_role" ||
-        countSource("general_role") >= allocation.generalRoleMax
-      )
-    ) {
-      reason = "source_quota_exceeded";
-    } else if (
-      (competency.origin === "jd" &&
-        candidate.sourceKind === "general_role") ||
-      (competency.origin === "jd" &&
-        !isJobDescriptionEvidence(input.context.jobDescription, candidate.jdEvidence))
-    ) {
-      reason = "invalid_jd_evidence";
-    } else if (
-      accepted.some(
-        (item) => questionSimilarity(item.question, candidate.question) >= DUPLICATE_THRESHOLD,
-      )
-    ) {
-      reason = "duplicate";
-    } else if (
-      input.context.history.some(
-        (item) =>
-          questionSimilarity(item.question, candidate.question) >=
-          HISTORY_COPY_THRESHOLD,
-      )
-    ) {
-      reason = "history_copy";
-    } else if (
-      competency.priority === "secondary" &&
-      accepted.filter(
-        (item) => competencyById.get(item.jobCompetencyId)?.priority === "secondary",
-      ).length >= allocation.secondaryCompetencyMax
-    ) {
-      reason = "secondary_competency_quota_exceeded";
-    } else if (candidate.sourceKind === "resume") {
+      rejected.push({ question: candidate.question, reason: "invalid_competency" });
+      continue;
+    }
+    if (candidate.sourceKind === "resume") {
       if (!candidate.resumeProjectId || !projectIds.has(candidate.resumeProjectId)) {
-        reason = "invalid_resume_project";
-      } else if (candidate.personalizationSourceId !== null) {
-        reason = "invalid_source_metadata";
-      } else if (countSource("resume") >= allocation.resumeMax) {
-        reason = "source_quota_exceeded";
+        rejected.push({ question: candidate.question, reason: "invalid_resume_project" });
+        continue;
       }
-    } else if (
-      candidate.sourceKind === "history" ||
-      candidate.sourceKind === "profile"
-    ) {
+      if (candidate.personalizationSourceId !== null) {
+        rejected.push({ question: candidate.question, reason: "invalid_source_metadata" });
+        continue;
+      }
+    } else if (candidate.sourceKind === "history" || candidate.sourceKind === "profile") {
       const source = candidate.personalizationSourceId;
       const relevantSource =
         candidate.sourceKind === "history"
@@ -170,22 +126,82 @@ export function selectValidQuestions(input: {
         relevantSource.jobCompetencyId !== candidate.jobCompetencyId ||
         candidate.resumeProjectId !== null
       ) {
-        reason = "invalid_personalization_source";
-      } else if (countPersonalization() >= allocation.personalizationMax) {
-        reason = "source_quota_exceeded";
+        rejected.push({
+          question: candidate.question,
+          reason: "invalid_personalization_source",
+        });
+        continue;
       }
     } else if (
       candidate.resumeProjectId !== null ||
       candidate.personalizationSourceId !== null
     ) {
-      reason = "invalid_source_metadata";
+      rejected.push({ question: candidate.question, reason: "invalid_source_metadata" });
+      continue;
     }
 
-    if (reason) {
-      rejected.push({ question: candidate.question, reason });
+    // —— 第二步：打分。岗位相关性为底，证据质量与历史抄袭做加减分。
+    const relevance = jobCompetencyRelevance(candidate.question, competency);
+    const verbatim =
+      competency.origin === "jd" &&
+      isJobDescriptionEvidence(input.context.jobDescription, candidate.jdEvidence);
+    const paraphrased = competency.origin === "jd" && !verbatim;
+    const generalMismatch =
+      competency.origin === "jd" && candidate.sourceKind === "general_role";
+    const inferredMismatch =
+      competency.origin === "inferred" && candidate.sourceKind !== "general_role";
+    const historyCopy = input.context.history.some(
+      (item) =>
+        questionSimilarity(item.question, candidate.question) >= HISTORY_COPY_THRESHOLD,
+    );
+    const score =
+      relevance +
+      (verbatim ? 0.15 : 0) -
+      (paraphrased ? 0.1 : 0) -
+      (generalMismatch ? 0.25 : 0) -
+      (inferredMismatch ? 0.25 : 0) -
+      (historyCopy ? 0.35 : 0) -
+      (relevance < 0.08 ? 0.2 : 0);
+    scorable.push({ candidate, score });
+  }
+  scorable.sort((left, right) => right.score - left.score);
+
+  // —— 第三步：两轮贪心。第一轮尊重配额与去重；不够数时第二轮放宽配额补位，
+  // 只保留"几乎逐字重复"这一条底线。宁可有一道略超配额的题，也不空手。
+  const secondaryCount = () =>
+    accepted.filter(
+      (item) => competencyById.get(item.jobCompetencyId)?.priority === "secondary",
+    ).length;
+  const countSource = (sourceKind: MockInterviewQuestionDraft["sourceKind"]) =>
+    accepted.filter((item) => item.sourceKind === sourceKind).length;
+  const isDuplicate = (candidate: MockInterviewQuestionDraft, threshold: number) =>
+    accepted.some(
+      (item) => questionSimilarity(item.question, candidate.question) >= threshold,
+    );
+
+  const deferred: { candidate: MockInterviewQuestionDraft; score: number }[] = [];
+  for (const entry of scorable) {
+    if (accepted.length >= input.questionCount) break;
+    const { candidate } = entry;
+    const competency = competencyById.get(candidate.jobCompetencyId)!;
+    const overQuota =
+      (candidate.sourceKind === "resume" && countSource("resume") >= allocation.resumeMax) ||
+      ((candidate.sourceKind === "history" || candidate.sourceKind === "profile") &&
+        countSource("history") + countSource("profile") >= allocation.personalizationMax) ||
+      (candidate.sourceKind === "general_role" &&
+        countSource("general_role") >= Math.max(1, allocation.generalRoleMax)) ||
+      (competency.priority === "secondary" &&
+        secondaryCount() >= allocation.secondaryCompetencyMax);
+    if (overQuota || isDuplicate(candidate, DUPLICATE_THRESHOLD)) {
+      deferred.push(entry);
       continue;
     }
     accepted.push(candidate);
+  }
+  for (const entry of deferred) {
+    if (accepted.length >= input.questionCount) break;
+    if (isDuplicate(entry.candidate, NEAR_EXACT_DUPLICATE_THRESHOLD)) continue;
+    accepted.push(entry.candidate);
   }
 
   return { accepted, rejected };

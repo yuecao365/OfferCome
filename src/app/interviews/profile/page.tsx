@@ -8,7 +8,11 @@ import {
   normalizeProfileSourceType,
   type ProfileInsightKind,
 } from "@/lib/candidate-profile/types";
-import { getCandidateProfilePageData } from "@/lib/candidate-profile/queries";
+import {
+  getCandidateProfilePageData,
+  getRecentQualitativeFeedback,
+} from "@/lib/candidate-profile/queries";
+import { RecentFeedbackCard } from "@/components/candidate-profile/recent-feedback-card";
 
 function isKind(value: string): value is ProfileInsightKind {
   return (PROFILE_INSIGHT_KINDS as readonly string[]).includes(value);
@@ -16,7 +20,10 @@ function isKind(value: string): value is ProfileInsightKind {
 
 export default async function CandidateProfilePage() {
   await connection();
-  const data = await getCandidateProfilePageData();
+  const [data, recentFeedback] = await Promise.all([
+    getCandidateProfilePageData(),
+    getRecentQualitativeFeedback(),
+  ]);
   const insights = data.insights.flatMap((insight) => {
     const dimension = normalizeProfileDimension(insight.dimension);
     if (!dimension || !isKind(insight.kind)) return [];
@@ -97,6 +104,11 @@ export default async function CandidateProfilePage() {
   return (
     <AppShell active="interviews" immersive subActive="interviews-profile">
       <CandidateProfileDashboard
+        coldStartCard={
+          recentFeedback.length > 0 ? (
+            <RecentFeedbackCard items={recentFeedback} />
+          ) : null
+        }
         insights={insights}
         metrics={metrics}
         profileStatus={{

@@ -56,6 +56,8 @@ type DashboardProps = {
   insights: ProfileGraphInsight[];
   metrics: ProfileMetricValue[];
   snapshots: ProfileSnapshotValue[];
+  /** 冷启动时替代空表盘的"近期定性反馈"卡（服务端渲染后传入）。 */
+  coldStartCard?: React.ReactNode;
   roles: Array<{ key: string; displayName: string }>;
   profileStatus: {
     status: string;
@@ -94,6 +96,7 @@ export function CandidateProfileDashboard({
   insights,
   metrics,
   snapshots,
+  coldStartCard,
   roles,
   profileStatus,
 }: DashboardProps) {
@@ -253,7 +256,7 @@ export function CandidateProfileDashboard({
   const views: Array<{ id: ProfileView; label: string; icon: typeof Network }> = [
     { id: "graph", label: "图谱", icon: Network },
     { id: "insights", label: "文字洞察", icon: ListTree },
-    { id: "dimensions", label: "八维能力", icon: Activity },
+    { id: "dimensions", label: "能力分组", icon: Activity },
     { id: "timeline", label: "成长记录", icon: Clock3 },
   ];
 
@@ -409,7 +412,7 @@ export function CandidateProfileDashboard({
               }}
             />
           ) : view === "insights" && filteredInsights.length === 0 ? (
-            <EmptyState description="至少积累两场有效面试后，系统才会输出确定优势或短板。" title="洞察仍在积累" />
+            <EmptyState description="完成一场面试或模拟面试后，这里会先出现标注「初步」的洞察，随场次增加逐步转正。" title="洞察仍在积累" />
           ) : view === "insights" ? (
             <div className="grid gap-5">
               {PROFILE_INSIGHT_KINDS.map((kind) => {
@@ -430,11 +433,16 @@ export function CandidateProfileDashboard({
         </section>
       ) : null}
 
-      {isEmptyProfile && view === "graph" ? (
+      {/* 冷启动：有逐题反馈就先展示定性反馈卡，而不是空表盘提示。 */}
+      {coldStartCard && view === "graph" && insights.length === 0 ? (
+        <div className="absolute left-1/2 top-1/2 z-20 max-h-[calc(100%-8rem)] w-[min(640px,calc(100%-2rem))] -translate-x-1/2 -translate-y-1/2 overflow-y-auto">
+          {coldStartCard}
+        </div>
+      ) : isEmptyProfile && view === "graph" ? (
         <Card className="absolute left-1/2 top-1/2 z-20 w-[min(520px,calc(100%-2rem))] -translate-x-1/2 -translate-y-1/2 p-6 text-center">
-          <h2 className="text-lg font-semibold text-foreground">画像需要至少两场有效面试</h2>
+          <h2 className="text-lg font-semibold text-foreground">画像从第一场面试就开始积累</h2>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            完成训练或导入真实面试后，系统会逐步形成可解释的能力洞察。
+            完成一场模拟面试或导入一场真实面试，这里就会出现初步的能力反馈。
           </p>
           <div className="mt-4 flex flex-wrap justify-center gap-3">
             <ButtonLink href="/interviews/mock">先做一场 AI 模拟面试</ButtonLink>

@@ -44,6 +44,84 @@ export async function getCandidateProfileContext(): Promise<CandidateProfileCont
   };
 }
 
+export type RecentFeedbackItem = {
+  questionId: string;
+  question: string;
+  companyName: string;
+  jobTitle: string;
+  score: number | null;
+  strengths: string[];
+  improvements: string[];
+};
+
+/**
+ * 冷启动叙事卡的数据源：直接聚合最近几场面试的逐题反馈（评分 agent 已产出，
+ * 零额外模型调用）。画像门槛不足时页面靠它保持"有东西可看"。
+ */
+export async function getRecentQualitativeFeedback(
+  limit = 3,
+): Promise<RecentFeedbackItem[]> {
+  const interviews = await prisma.interview.findMany({
+    where: {
+      status: "completed",
+      questions: { some: { evaluation: { evaluationStatus: "completed" } } },
+    },
+    orderBy: [{ interviewedAt: "desc" }, { updatedAt: "desc" }],
+    take: limit,
+    select: {
+      companyName: true,
+      jobTitle: true,
+      questions: {
+        orderBy: { sortOrder: "asc" },
+        select: {
+          id: true,
+          question: true,
+          evaluation: {
+            select: {
+              evaluationStatus: true,
+              score: true,
+              strengthsJson: true,
+              improvementsJson: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  const parseList = (json: string | null): string[] => {
+    if (!json) return [];
+    try {
+      const parsed = JSON.parse(json) as unknown;
+      return Array.isArray(parsed)
+        ? parsed.filter((item): item is string => typeof item === "string")
+        : [];
+    } catch {
+      return [];
+    }
+  };
+
+  return interviews.flatMap((interview) =>
+    interview.questions.flatMap((question) => {
+      if (question.evaluation?.evaluationStatus !== "completed") return [];
+      const strengths = parseList(question.evaluation.strengthsJson);
+      const improvements = parseList(question.evaluation.improvementsJson);
+      if (strengths.length === 0 && improvements.length === 0) return [];
+      return [
+        {
+          questionId: question.id,
+          question: question.question,
+          companyName: interview.companyName,
+          jobTitle: interview.jobTitle,
+          score: question.evaluation.score,
+          strengths,
+          improvements,
+        },
+      ];
+    }),
+  );
+}
+
 export async function getCandidateProfilePageData() {
   const [state, insights, metrics, snapshots, roleContexts, recentRuns] = await Promise.all([
     ensureCandidateProfileState(),

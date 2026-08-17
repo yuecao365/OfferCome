@@ -8,7 +8,11 @@ import { deriveDeliveryObservation } from "@/lib/interviews/voice-metrics";
 import { synthesizeCandidateInsights, type ProfileSynthesis } from "./agent";
 import { assessInterviewQuestions } from "./assessment-agent";
 import { detectInsightConflict } from "./conflict";
-import { aggregateProfileDimension, profileSourceWeight } from "./rules";
+import {
+  aggregateProfileDimension,
+  isTentativeProfileMetric,
+  profileSourceWeight,
+} from "./rules";
 import { normalizeRoleTitle, roleContextKey } from "./role-context";
 import { acquireProfileRefreshLease, ensureCandidateProfileState } from "./state";
 import {
@@ -418,9 +422,11 @@ function validateSynthesis(
 ) {
   const byId = new Map(observations.map((item) => [item.id, item]));
   return synthesis.insights.flatMap((insight) => {
+    // 引用真实性是硬门：observationId 必须真实存在。
+    // 维度一致性放宽：跨维度引用是合法的——"稳定模式"类洞察天然横跨多个维度。
     const evidence = insight.evidence.flatMap((reference) => {
       const observation = byId.get(reference.observationId);
-      return observation?.dimension === insight.dimension
+      return observation
         ? [{ observation, polarity: reference.polarity }]
         : [];
     });
@@ -477,7 +483,12 @@ async function persistProfileViews(
       const seenKeys = new Set(preservedKeys.map((item) => item.normalizedKey));
       for (const insight of valid) {
         const metric = metricByDimension.get(insight.dimension);
-        if (!metric || metric.interviewCount < 2) continue;
+        // 1 场即可产出洞察；数据少时不是不给，而是标注为"初步印象"（tentative）。
+        // tentative 洞察只做展示，不进入模拟面试的出题上下文（那边只取 active）。
+        if (!metric || metric.interviewCount < 1) continue;
+        const insightStatus = isTentativeProfileMetric(metric.interviewCount)
+          ? "tentative"
+          : "active";
         const normalizedKey = normalizedInsightKey(insight.dimension, insight.kind, insight.title);
         if (seenKeys.has(normalizedKey)) continue;
         seenKeys.add(normalizedKey);
@@ -501,7 +512,7 @@ async function persistProfileViews(
             levelLabel: metric.levelLabel,
             trend: metric.trend,
             confidenceLabel: metric.confidenceLabel,
-            status: "active",
+            status: insightStatus,
             hasConflict,
           },
         });
@@ -637,7 +648,9 @@ export async function refreshCandidateProfile({
     let provider: string | null = null;
     let model: string | null = null;
     for (const view of views) {
-      const eligibleMetrics = view.metrics.filter((metric) => metric.interviewCount >= 2);
+      // 门槛下放：1 场面试即可合成"初步印象"（tentative 由合成器按 interviewCount 标注），
+      // 冷启动阶段也要有可看的洞察，而不是整页留白。
+      const eligibleMetrics = view.metrics.filter((metric) => metric.interviewCount >= 1);
       if (eligibleMetrics.length === 0) continue;
       const eligibleDimensions = new Set(eligibleMetrics.map((metric) => metric.dimension));
       const lockedInsights = await prisma.candidateInsight.findMany({

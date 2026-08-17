@@ -11,7 +11,10 @@ import {
 
 import { analyzeMockInterviewJob } from "./job-analysis-agent";
 import { enrichMockInterviewJob } from "./jd-enrichment-agent";
-import { needsJobDescriptionReview } from "./jd-sufficiency";
+import {
+  MIN_JD_CHARS_FOR_AUTO_ENRICH,
+  needsJobDescriptionReview,
+} from "./jd-sufficiency";
 import { generateMockInterviewPlan } from "./question-generation-agent";
 import { computeInterviewTotalScore } from "./scoring";
 import {
@@ -251,7 +254,11 @@ export async function generateMockInterviewQuestions(
       if (saved.count !== 1) return;
     }
 
-    if (!jdStrategy && needsJobDescriptionReview(blueprint, session.questionCount)) {
+    // JD 偏薄不再打断用户：只有 JD 几乎为空（连补全都没有素材）才暂停询问；
+    // 一般偏薄直接自动补全通用要求继续，补全内容带 origin=inferred 标注可回溯。
+    const needsReview =
+      !jdStrategy && needsJobDescriptionReview(blueprint, session.questionCount);
+    if (needsReview && session.jdTextSnapshot.trim().length < MIN_JD_CHARS_FOR_AUTO_ENRICH) {
       snapshot.jdReviewCount =
         (typeof snapshot.jdReviewCount === "number" ? snapshot.jdReviewCount : 0) + 1;
       const paused = await prisma.mockInterviewSession.updateMany({
@@ -266,7 +273,7 @@ export async function generateMockInterviewQuestions(
       return;
     }
 
-    if (jdStrategy === "enrich") {
+    if (jdStrategy === "enrich" || needsReview) {
       // 失败重试会把 phase 重置回 job_blueprint，JD 审查路径则停在 questions；
       // 两条入口都必须能认领，否则重试会静默丢失、会话永远停在 generating。
       const enriching = await prisma.mockInterviewSession.updateMany({
@@ -278,17 +285,25 @@ export async function generateMockInterviewQuestions(
         data: { generationPhase: "job_enrichment" },
       });
       if (enriching.count !== 1) return;
-      blueprint = await enrichMockInterviewJob({
-        jobTitle: session.interview.jobTitle,
-        jobDescription: session.jdTextSnapshot,
-        blueprint,
-      });
-      snapshot.jobBlueprint = blueprint;
-      const saved = await prisma.mockInterviewSession.updateMany({
-        where: { id: sessionId, status: "generating" },
-        data: { contextSnapshotJson: JSON.stringify(snapshot) },
-      });
-      if (saved.count !== 1) return;
+      try {
+        blueprint = await enrichMockInterviewJob({
+          jobTitle: session.interview.jobTitle,
+          jobDescription: session.jdTextSnapshot,
+          blueprint,
+        });
+        snapshot.jobBlueprint = blueprint;
+        const saved = await prisma.mockInterviewSession.updateMany({
+          where: { id: sessionId, status: "generating" },
+          data: { contextSnapshotJson: JSON.stringify(snapshot) },
+        });
+        if (saved.count !== 1) return;
+      } catch (error) {
+        // 补全是锦上添花：失败就带着现有蓝图继续出题，不作为终态错误。
+        console.warn(
+          "[mock-interviews] enrich failed, continuing with existing blueprint:",
+          error instanceof Error ? error.message : "unknown error",
+        );
+      }
     }
 
     const advanced = await prisma.mockInterviewSession.updateMany({
@@ -296,7 +311,7 @@ export async function generateMockInterviewQuestions(
       data: { generationPhase: "questions" },
     });
     if (advanced.count !== 1) return;
-    const generated = await generateMockInterviewPlan({
+    const planInput = {
       generationId,
       context,
       blueprint,
@@ -306,7 +321,18 @@ export async function generateMockInterviewQuestions(
       round,
       seedQuestionId,
       seedInsightId,
-    });
+    };
+    let generated;
+    try {
+      generated = await generateMockInterviewPlan(planInput);
+    } catch (firstError) {
+      // 出题偶发失败先静默重试一次，重试再失败才打扰用户。
+      console.warn(
+        "[mock-interviews] question generation failed, retrying once:",
+        firstError instanceof Error ? firstError.message : "unknown error",
+      );
+      generated = await generateMockInterviewPlan(planInput);
+    }
     const projectIds = new Set(context.projects.map((project) => project.id));
 
     await prisma.$transaction(async (tx) => {
@@ -378,6 +404,9 @@ export async function generateMockInterviewQuestions(
           generationPhase: null,
           generationErrorCode: null,
           generationError: null,
+          // 数量软化后实际题数可能少于请求数，按实际数落库，
+          // 房间进度和交卷判定都以此为准。
+          questionCount: generated.plan.questions.length,
         },
       });
       if (completed.count !== 1) {

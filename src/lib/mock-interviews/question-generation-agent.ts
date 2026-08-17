@@ -25,6 +25,7 @@ import {
 } from "./relevance";
 import {
   looseMockInterviewQuestionBatchSchema,
+  MIN_MOCK_INTERVIEW_QUESTIONS,
   MOCK_INTERVIEW_GENERATION_TIMEOUT_MS,
   MOCK_INTERVIEW_PROMPT_VERSION,
   type MockInterviewJobBlueprint,
@@ -127,11 +128,9 @@ async function requestQuestionBatch(input: {
 
 简历用于验证候选人能否把已有经历迁移到岗位职责。历史和画像只用于调整已相关问题的训练角度，不能独立引入 JD 没有支持的主题；history/profile 必须使用输入中已映射到同一 jobCompetencyId 的来源 ID。不要复述或近似改写历史原题。
 
-整场 ${input.totalQuestionCount} 题至少 ${allocation.directJobDescriptionMin} 题以 job_description 为 sourceKind；resume 最多 ${allocation.resumeMax} 题；history 与 profile 合计最多 ${allocation.personalizationMax} 题。所有题仍必须通过 JD 关联门槛。resume 题必须引用有效 resumeProjectId，其他题的 resumeProjectId 为 null。history/profile 之外的 personalizationSourceId 必须为 null。
-通用岗位题最多 ${allocation.generalRoleMax} 题，只能绑定 origin=inferred 的能力；绑定 origin=jd 的题绝不能使用 general_role。
-${input.seedSourceId ? `必须至少生成一题以 ${input.seedSourceId} 为 personalizationSourceId，围绕该内容进行针对性训练。` : ""}
-
-映射到 secondary 岗位能力的问题整场最多 ${allocation.secondaryCompetencyMax} 题，不能挤占核心岗位职责。
+出题倾向（服务端会按此排序取优，不必精确凑数）：优先直接考察 JD 职责（约 ${allocation.directJobDescriptionMin} 题以 job_description 为 sourceKind）；resume 题占少数（约 ${allocation.resumeMax} 题以内）；history/profile 合计不超过 ${allocation.personalizationMax} 题；secondary 能力的题不要挤占核心职责。resume 题必须引用有效 resumeProjectId，其他题的 resumeProjectId 为 null；history/profile 之外的 personalizationSourceId 必须为 null。通用岗位题只能绑定 origin=inferred 的能力。
+${input.seedSourceId ? `尽量生成一题以 ${input.seedSourceId} 为 personalizationSourceId，围绕该内容进行针对性训练。` : ""}
+目标 ${input.questionCount} 道；如果岗位信息不足以支撑，宁可少出几道，也不要编造与岗位无关的题。
 
 只生成精简题目计划和期望信号，不生成评分 Rubric。不要向候选人泄露出题理由或期望要点。提示词版本：${MOCK_INTERVIEW_PROMPT_VERSION}`,
       payload: {
@@ -292,18 +291,15 @@ export async function generateMockInterviewPlan(input: {
     });
   }
 
-  const includesSeed =
-    !seedSourceId ||
-    accepted.some((question) => question.personalizationSourceId === seedSourceId);
-  if (accepted.length !== input.questionCount || !includesSeed) {
+  // 数量软化：达到下限就开场，差额由房间如实说明；只有连底线都凑不齐才失败。
+  // seed 没被覆盖不再作废整场——已生成的题仍然贴合岗位，照常交付。
+  if (accepted.length < MIN_MOCK_INTERVIEW_QUESTIONS) {
     throw new MockInterviewGenerationError({
       code: "question_validation_failed",
-      message: !includesSeed
-        ? "没能围绕所选内容生成题目。所选训练内容与岗位要求的关联不足。你可以返回创建页更换内容或补充岗位描述。"
-        : `没能生成足够的题目。通过岗位相关性与去重检查的题目少于 ${input.questionCount} 道。你可以补充岗位职责、让 AI 补全常见要求，或减少题目数量。`,
+      message: `没能生成足够的题目。通过检查的题目少于 ${MIN_MOCK_INTERVIEW_QUESTIONS} 道。你可以补充岗位职责、让 AI 补全常见要求，或减少题目数量。`,
       context: {
         competencyCount: input.blueprint.competencies.length,
-        requiredCount: Math.ceil(input.questionCount / 2),
+        requiredCount: MIN_MOCK_INTERVIEW_QUESTIONS,
         jobTitle: input.jobTitle,
         questionCount: input.questionCount,
       },

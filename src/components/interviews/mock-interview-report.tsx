@@ -22,6 +22,13 @@ const SOURCE_LABELS: Record<string, string> = {
 export function MockInterviewReport({ session }: { session: MockInterviewView }) {
   const report = session.report;
   if (!report) return null;
+  // 生成来源透明卡：让用户知道多少题直连 JD、多少题是按岗位常见要求补全的。
+  const sourced = session.questions.filter(
+    (question) => !question.isFollowUp && question.teaching,
+  );
+  const generalRoleCount = sourced.filter(
+    (question) => question.teaching?.sourceKind === "general_role",
+  ).length;
 
   return (
     <div className="grid gap-6">
@@ -35,6 +42,12 @@ export function MockInterviewReport({ session }: { session: MockInterviewView })
           <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
             {report.summary}
           </p>
+          {sourced.length > 0 ? (
+            <p className="mt-2 text-xs text-muted-foreground">
+              本场 {sourced.length} 题：{sourced.length - generalRoleCount} 题来自岗位描述与你的材料
+              {generalRoleCount > 0 ? `，${generalRoleCount} 题按岗位常见要求补全` : ""}。
+            </p>
+          ) : null}
         </div>
       </Card>
 

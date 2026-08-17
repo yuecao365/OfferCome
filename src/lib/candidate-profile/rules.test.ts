@@ -66,7 +66,8 @@ test("caps each interview to one aggregate point and keeps N/A out of the score"
   const metric = aggregateProfileDimension("answer_relevance", repeated, now);
   assert.equal(metric.interviewCount, 1);
   assert.equal(metric.evidenceCount, 10);
-  assert.equal(metric.levelLabel, "待积累");
+  // 门槛下放：1 场面试即给出等级（展示层按 interviewCount 标注"初步"）。
+  assert.equal(metric.levelLabel, "熟练");
   const notApplicable = aggregateProfileDimension("knowledge_accuracy", repeated, now);
   assert.equal(notApplicable.level, null);
   assert.equal(notApplicable.evidenceCount, 0);
