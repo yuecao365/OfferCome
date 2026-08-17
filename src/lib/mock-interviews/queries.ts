@@ -196,6 +196,13 @@ export async function getMockInterviewView(id: string): Promise<MockInterviewVie
   };
 }
 
+export async function hasCompletedMockInterview(): Promise<boolean> {
+  const count = await prisma.mockInterviewSession.count({
+    where: { status: "completed" },
+  });
+  return count > 0;
+}
+
 export async function getRecentMockInterviews() {
   return prisma.mockInterviewSession.findMany({
     include: {

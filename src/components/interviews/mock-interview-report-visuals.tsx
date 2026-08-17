@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import {
   PolarAngleAxis,
   PolarGrid,
@@ -12,6 +11,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
+import { useCountUp } from "@/lib/use-count-up";
 import { useReducedMotion } from "@/lib/use-reduced-motion";
 
 type QuestionDimension = {
@@ -22,23 +22,7 @@ type QuestionDimension = {
 
 export function InterviewScoreRing({ score }: { score: number }) {
   const reducedMotion = useReducedMotion();
-  const [animatedScore, setAnimatedScore] = useState(0);
-
-  useEffect(() => {
-    if (reducedMotion) return;
-    let frame = 0;
-    const startedAt = performance.now();
-    const tick = (now: number) => {
-      const progress = Math.min(1, (now - startedAt) / 800);
-      const eased = 1 - (1 - progress) ** 3;
-      setAnimatedScore(Math.round(score * eased));
-      if (progress < 1) frame = window.requestAnimationFrame(tick);
-    };
-    frame = window.requestAnimationFrame(tick);
-    return () => window.cancelAnimationFrame(frame);
-  }, [reducedMotion, score]);
-
-  const displayScore = reducedMotion ? score : animatedScore;
+  const displayScore = useCountUp(score);
 
   return (
     <div
@@ -70,7 +54,7 @@ export function InterviewScoreRing({ score }: { score: number }) {
         </RadialBarChart>
       </ResponsiveContainer>
       <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-        <strong className="text-3xl font-semibold tracking-tight text-foreground">
+        <strong className="text-3xl font-semibold tracking-tight tabular-nums text-foreground">
           {displayScore}
         </strong>
         <span className="text-xs text-muted-foreground">满分 100</span>

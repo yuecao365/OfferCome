@@ -34,7 +34,7 @@ export function InterviewWorkspaceLinks() {
         const Icon = entry.icon;
         return (
           <Link
-            className="group rounded-xl border border-border bg-surface p-5 shadow-card transition-[border-color,background-color,transform] duration-200 hover:-translate-y-0.5 hover:border-brand/30 hover:bg-surface-subtle"
+            className="group rounded-xl border border-border bg-surface p-5 shadow-card transition-[border-color,background-color,transform,box-shadow] duration-200 ease-app hover:-translate-y-0.5 hover:border-brand/30 hover:bg-surface-subtle hover:shadow-raised"
             href={entry.href}
             key={entry.href}
           >

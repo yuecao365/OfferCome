@@ -8,7 +8,7 @@ type ButtonSize = "sm" | "md" | "icon";
 
 const variants: Record<ButtonVariant, string> = {
   primary:
-    "border-brand bg-brand text-brand-foreground hover:border-brand-hover hover:bg-brand-hover",
+    "border-brand bg-brand text-brand-foreground shadow-[inset_0_1px_0_rgb(255_255_255/0.16)] hover:border-brand-hover hover:bg-brand-hover",
   secondary:
     "border-accent bg-accent text-accent-foreground hover:border-brand/20 hover:bg-accent-strong",
   outline:
@@ -35,7 +35,7 @@ export function buttonClassName({
   className?: string;
 } = {}): string {
   return cn(
-    "inline-flex shrink-0 items-center justify-center rounded-lg border font-semibold transition-[background-color,border-color,color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 motion-safe:active:translate-y-px",
+    "inline-flex shrink-0 items-center justify-center rounded-lg border font-semibold transition-[background-color,border-color,color,box-shadow,transform] duration-200 ease-app focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 motion-safe:active:scale-[0.98]",
     variants[variant],
     sizes[size],
     className,

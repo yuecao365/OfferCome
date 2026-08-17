@@ -1,5 +1,5 @@
 import { RouteLoading } from "@/components/route-loading";
 
 export default function Loading() {
-  return <RouteLoading active="resumes" title="简历中心" />;
+  return <RouteLoading active="resumes" title="简历中心" variant="split" />;
 }

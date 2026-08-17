@@ -1,5 +1,6 @@
 import { ExternalLink } from "lucide-react";
 
+import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { ApplicationListItem } from "@/lib/applications/types";
 
@@ -110,6 +111,11 @@ export function ApplicationsTable({
   if (applications.length === 0) {
     return (
       <EmptyState
+        action={
+          <ButtonLink href="/applications" variant="outline">
+            清空全部筛选
+          </ButtonLink>
+        }
         description="尝试清空筛选条件，或同步最新的 Boss 直聘记录。"
         title="没有匹配的岗位"
       />

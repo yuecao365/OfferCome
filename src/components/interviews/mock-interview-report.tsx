@@ -11,6 +11,12 @@ import {
   QuestionDimensionScores,
 } from "./mock-interview-report-visuals";
 
+function scoreTone(score: number): "success" | "brand" | "warning" {
+  if (score >= 80) return "success";
+  if (score >= 50) return "brand";
+  return "warning";
+}
+
 const SOURCE_LABELS: Record<string, string> = {
   job_description: "岗位描述",
   resume: "简历经历",
@@ -137,7 +143,9 @@ export function MockInterviewReport({ session }: { session: MockInterviewView })
               {question.skipped ? (
                 <Badge tone="warning">已跳过</Badge>
               ) : (
-                <Badge tone="brand">{question.evaluation?.score ?? 0} 分</Badge>
+                <Badge tone={scoreTone(question.evaluation?.score ?? 0)}>
+                  {question.evaluation?.score ?? 0} 分
+                </Badge>
               )}
             </div>
             {!question.skipped ? (
@@ -221,7 +229,13 @@ export function MockInterviewReport({ session }: { session: MockInterviewView })
                       <Badge tone="brand">追问</Badge>
                       <h5 className="text-sm font-semibold text-foreground">{followUp.question}</h5>
                     </div>
-                    {followUp.skipped ? <Badge tone="warning">已跳过</Badge> : <Badge>{followUp.evaluation?.score ?? 0} 分</Badge>}
+                    {followUp.skipped ? (
+                      <Badge tone="warning">已跳过</Badge>
+                    ) : (
+                      <Badge tone={scoreTone(followUp.evaluation?.score ?? 0)}>
+                        {followUp.evaluation?.score ?? 0} 分
+                      </Badge>
+                    )}
                   </div>
                   {!followUp.skipped ? (
                     <>

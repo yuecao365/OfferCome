@@ -1,6 +1,6 @@
 "use client";
 
-import { Keyboard, Mic } from "lucide-react";
+import { Keyboard, Loader2, Mic } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
@@ -197,7 +197,12 @@ export function MockInterviewRoom({ initial }: { initial: MockInterviewView }) {
           onClick={complete}
           type="button"
         >
-          {pending || status === "evaluating" ? "正在汇总…" : "生成面试报告"}
+          {pending || status === "evaluating" ? (
+            <>
+              <Loader2 aria-hidden="true" className="size-4 animate-spin" />
+              正在汇总…
+            </>
+          ) : "生成面试报告"}
         </Button>
         {error ? <Alert className="mt-3" tone="danger">{error}</Alert> : null}
       </Card>
@@ -288,8 +293,10 @@ export function MockInterviewRoom({ initial }: { initial: MockInterviewView }) {
       >
       <form className="grid gap-4" onSubmit={submitAnswer}>
         <div>
-          <Badge>{categoryLabel(currentQuestion.category)}</Badge>
-          {currentQuestion.isFollowUp ? <Badge tone="brand">追问</Badge> : null}
+          <div className="flex flex-wrap gap-2">
+            <Badge>{categoryLabel(currentQuestion.category)}</Badge>
+            {currentQuestion.isFollowUp ? <Badge tone="brand">追问</Badge> : null}
+          </div>
           <h3 className="mt-3 text-lg font-semibold leading-7 text-foreground">{currentQuestion.question}</h3>
         </div>
         {mode === "voice" ? (
@@ -329,7 +336,12 @@ export function MockInterviewRoom({ initial }: { initial: MockInterviewView }) {
             disabled={pending || voiceBusy || !answer.trim()}
             type="submit"
           >
-            {pending ? "正在保存…" : currentIndex + 1 === questionCount ? "提交最后一题" : "提交并进入下一题"}
+            {pending ? (
+              <>
+                <Loader2 aria-hidden="true" className="size-4 animate-spin" />
+                正在保存…
+              </>
+            ) : currentIndex + 1 === questionCount ? "提交最后一题" : "提交并进入下一题"}
           </Button>
           <Button
             disabled={pending || voiceBusy}

@@ -1,4 +1,5 @@
 import {
+  ArrowUpRight,
   BriefcaseBusiness,
   CalendarClock,
   CheckCircle2,
@@ -9,10 +10,11 @@ import { connection } from "next/server";
 
 import { AppShell } from "@/components/app-shell";
 import { ApplicationStageChart } from "@/components/dashboard/application-stage-chart";
+import { GettingStartedCard } from "@/components/dashboard/getting-started-card";
 import { ApplicationTrendChart } from "@/components/dashboard/application-trend-chart";
 import { NextActionCard } from "@/components/dashboard/next-action-card";
-import { MetricCard } from "@/components/metric-card";
 import { PageHeader } from "@/components/page-header";
+import { StatHero } from "@/components/stat-hero";
 import { StageBadge } from "@/components/stage-badge";
 import { ButtonLink } from "@/components/ui/button";
 import {
@@ -79,30 +81,31 @@ export default async function Home({
         title="数据概览"
       />
 
-      <section aria-label="关键指标" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard
-          emphasis
-          icon={<BriefcaseBusiness aria-hidden="true" className="size-4" />}
-          label="投递岗位"
-          value={stats.total}
-        />
-        <MetricCard
-          helper="按投递或首次发现时间统计"
-          icon={<CalendarClock aria-hidden="true" className="size-4" />}
-          label="最近 7 天新增"
-          value={stats.recent7Days}
-        />
-        <MetricCard
-          icon={<MessagesSquare aria-hidden="true" className="size-4" />}
-          label="真实面试记录"
-          value={interviewStats.total}
-        />
-        <MetricCard
-          icon={<CheckCircle2 aria-hidden="true" className="size-4" />}
-          label="Offer"
-          value={stats.stageCounts.offer}
-        />
-      </section>
+      {isDemoMode() ? null : <GettingStartedCard hasApplications={stats.total > 0} />}
+
+      <StatHero
+        badge={
+          stats.recent7Days > 0 ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-accent px-2.5 py-1 text-xs font-semibold text-accent-foreground">
+              <ArrowUpRight aria-hidden="true" className="size-3.5" />
+              最近 7 天 +{stats.recent7Days}
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">
+              最近 7 天暂无新增
+            </span>
+          )
+        }
+        eyebrow="求职进行中"
+        label="投递岗位"
+        note="按投递或首次发现时间统计"
+        tiles={[
+          { icon: CalendarClock, label: "7 天新增", value: stats.recent7Days },
+          { icon: MessagesSquare, label: "真实面试", value: interviewStats.total },
+          { icon: CheckCircle2, label: "Offer", value: stats.stageCounts.offer },
+        ]}
+        value={stats.total}
+      />
 
       <UpcomingInterviewsCard interviews={upcomingInterviews} />
 
@@ -183,8 +186,16 @@ export default async function Home({
               <CardContent className="py-1">
                 <div className="divide-y divide-border">
                   {stats.recentApplications.map((application) => (
-                    <div className="flex items-center justify-between gap-4 py-4" key={application.id}>
-                      <div className="min-w-0">
+                    <Link
+                      className="group relative -mx-2 flex items-center justify-between gap-4 rounded-lg px-2 py-4 transition-colors duration-200 ease-app hover:bg-surface-subtle"
+                      href="/applications"
+                      key={application.id}
+                    >
+                      <span
+                        aria-hidden="true"
+                        className="absolute inset-y-3 left-0 w-0.5 rounded-full bg-brand opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+                      />
+                      <div className="min-w-0 pl-2">
                         <p className="truncate text-sm font-semibold text-foreground">
                           {application.companyName}
                         </p>
@@ -193,7 +204,7 @@ export default async function Home({
                         </p>
                       </div>
                       <StageBadge stage={application.stage} />
-                    </div>
+                    </Link>
                   ))}
                 </div>
                 <div className="flex flex-wrap gap-x-4 gap-y-1 border-t border-border py-3 text-xs text-muted-foreground">

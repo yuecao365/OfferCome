@@ -1,6 +1,7 @@
 import {
   ArrowRight,
-  MessagesSquare,
+  CheckCircle2,
+  Gauge,
   Sparkles,
 } from "lucide-react";
 import Link from "next/link";
@@ -13,8 +14,8 @@ import { NewInterviewModal } from "@/components/interviews/interview-modals";
 import { InterviewStageFlow } from "@/components/interviews/interview-stage-flow";
 import { InterviewWorkspaceLinks } from "@/components/interviews/interview-workspace-links";
 import { UpcomingInterviewsCard } from "@/components/interviews/upcoming-interviews-card";
-import { MetricCard } from "@/components/metric-card";
 import { PageHeader } from "@/components/page-header";
+import { StatHero } from "@/components/stat-hero";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -85,37 +86,28 @@ export default async function InterviewsPage() {
 
       <UpcomingInterviewsCard interviews={upcomingInterviews} />
 
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.7fr)]">
-        <Card className="overflow-hidden border-brand/25 bg-accent/40">
-          <CardContent className="grid min-h-72 content-between gap-8 p-6 sm:p-8">
-            <div>
-              <span className="flex size-11 items-center justify-center rounded-xl bg-brand text-brand-foreground">
-                <Sparkles aria-hidden="true" className="size-5" />
-              </span>
-              <p className="mt-6 text-xs font-semibold uppercase tracking-[0.12em] text-brand">主要训练入口</p>
-              <h2 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">开始 AI 模拟面试</h2>
-              <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground">
-                使用真实岗位描述、已保存简历、历史面试和已确认画像生成针对性问题。
-              </p>
-            </div>
-            <ButtonLink className="w-fit" href="/interviews/mock">
-              配置模拟面试
-              <ArrowRight aria-hidden="true" className="size-4" />
-            </ButtonLink>
-          </CardContent>
-        </Card>
-
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-          <MetricCard
-            emphasis
-            icon={<MessagesSquare aria-hidden="true" className="size-4" />}
-            label="真实面试记录"
-            value={workspace.realInterviewCounts.total}
-          />
-          <MetricCard label="已完成模拟训练" value={workspace.completedMockCount} />
-          <MetricCard label="当前 Offer" value={progress.offer} />
-        </div>
-      </section>
+      <StatHero
+        action={
+          <ButtonLink href="/interviews/mock">
+            开始 AI 模拟面试
+            <ArrowRight aria-hidden="true" className="size-4" />
+          </ButtonLink>
+        }
+        eyebrow="主要训练入口"
+        label="真实面试记录"
+        note="使用真实岗位描述、已保存简历、历史面试和已确认画像生成针对性问题。"
+        tiles={[
+          { icon: Sparkles, label: "模拟训练", value: workspace.completedMockCount },
+          { icon: CheckCircle2, label: "当前 Offer", value: progress.offer },
+          {
+            icon: Gauge,
+            label: "模拟均分",
+            suffix: "分",
+            value: Math.round(workspace.averageMockScore ?? 0),
+          },
+        ]}
+        value={workspace.realInterviewCounts.total}
+      />
 
       <Card>
         <CardHeader>
@@ -163,11 +155,15 @@ export default async function InterviewsPage() {
             <div className="divide-y divide-border">
               {workspace.recent.map((interview) => (
                 <Link
-                  className="flex flex-col gap-3 py-4 transition-colors hover:bg-surface-subtle sm:flex-row sm:items-center sm:justify-between sm:px-2"
+                  className="group relative -mx-2 flex flex-col gap-3 rounded-lg px-2 py-4 transition-colors duration-200 ease-app hover:bg-surface-subtle sm:flex-row sm:items-center sm:justify-between"
                   href={interview.mockSessionId ? `/interviews/mock/${interview.mockSessionId}` : "/interviews/history"}
                   key={interview.id}
                 >
-                  <div className="min-w-0">
+                  <span
+                    aria-hidden="true"
+                    className="absolute inset-y-3 left-0 w-0.5 rounded-full bg-brand opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+                  />
+                  <div className="min-w-0 pl-2">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="truncate text-sm font-semibold text-foreground">
                         {interview.companyName} · {interview.jobTitle}

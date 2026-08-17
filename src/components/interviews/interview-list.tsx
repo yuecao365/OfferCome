@@ -30,6 +30,7 @@ export function InterviewList({ interviews, resumeProjects }: InterviewListProps
   if (interviews.length === 0) {
     return (
       <EmptyState
+        action={<ButtonLink href="/interviews/mock">开始 AI 模拟面试</ButtonLink>}
         description="创建第一条真实面试，或从 AI 模拟面试开始训练。"
         icon={<Sparkles aria-hidden="true" className="size-5" />}
         title="还没有匹配的面试记录"

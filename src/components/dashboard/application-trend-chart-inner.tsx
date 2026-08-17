@@ -64,6 +64,7 @@ export default function ApplicationTrendChartInner({
           />
           <Area
             animationDuration={500}
+            style={{ filter: "drop-shadow(0 3px 8px color-mix(in srgb, var(--brand) 45%, transparent))" }}
             dataKey="count"
             dot={data.length <= 14 ? { fill: "var(--brand)", r: 2.5, strokeWidth: 0 } : false}
             fill="url(#applicationTrend)"
