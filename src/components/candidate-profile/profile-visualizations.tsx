@@ -155,7 +155,13 @@ export function ProfileTimelineChart({ snapshots }: { snapshots: ProfileSnapshot
       [...snapshots]
         .reverse()
         .map((snapshot) => ({
-          date: snapshot.createdAt.slice(0, 10),
+          // 同一天可能有多次刷新：横轴键必须唯一到分钟，
+          // 否则重复的日期类目会让悬停提示对不上节点。
+          date: (() => {
+            const stamp = new Date(snapshot.createdAt);
+            const pad = (value: number) => String(value).padStart(2, "0");
+            return `${stamp.getMonth() + 1}/${stamp.getDate()} ${pad(stamp.getHours())}:${pad(stamp.getMinutes())}`;
+          })(),
           ...Object.fromEntries(
             snapshot.metrics.flatMap((metric) =>
               metric.level === null ? [] : [[metric.dimension, metric.level]],

@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/page-header";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { FieldLabel, Input, Select } from "@/components/ui/form-controls";
+import { PageNumbers } from "@/components/ui/page-numbers";
 import {
   getInterviews,
   getResumeProjectOptions,
@@ -30,11 +31,23 @@ export default async function InterviewHistoryPage({
   await connection();
 
   const filters = parseInterviewFilters(await searchParams);
-  const [interviews, resumeProjects, transcriptionConfig] = await Promise.all([
+  const [interviewPage, resumeProjects, transcriptionConfig] = await Promise.all([
     getInterviews(filters),
     getResumeProjectOptions(),
     getAiTaskConfig("transcription"),
   ]);
+  const interviews = interviewPage.interviews;
+  const historyHref = (page: number): string => {
+    const params = new URLSearchParams();
+    if (filters.q) params.set("q", filters.q);
+    if (filters.status !== "all") params.set("status", filters.status);
+    if (filters.round !== "all") params.set("round", filters.round);
+    if (filters.category !== "all") params.set("category", filters.category);
+    if (filters.sort !== "newest") params.set("sort", filters.sort);
+    if (page > 1) params.set("page", String(page));
+    const query = params.toString();
+    return query ? `/interviews/history?${query}` : "/interviews/history";
+  };
 
   return (
     <AppShell active="interviews" subActive="interviews-history">
@@ -123,6 +136,23 @@ export default async function InterviewHistoryPage({
       </Card>
 
       <InterviewList interviews={interviews} resumeProjects={resumeProjects} />
+
+      {interviewPage.totalPages > 1 ? (
+        <nav
+          aria-label="历史面试分页"
+          className="flex flex-col gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-sm text-muted-foreground shadow-card sm:flex-row sm:items-center sm:justify-between"
+        >
+          <span>
+            共 {interviewPage.total} 场 · 第 {interviewPage.page} / {interviewPage.totalPages} 页
+          </span>
+          <PageNumbers
+            ariaLabel="历史面试页码"
+            hrefForPage={historyHref}
+            page={interviewPage.page}
+            totalPages={interviewPage.totalPages}
+          />
+        </nav>
+      ) : null}
     </AppShell>
   );
 }

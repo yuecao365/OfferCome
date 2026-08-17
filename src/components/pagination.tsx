@@ -1,6 +1,4 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
-
-import { ButtonLink } from "@/components/ui/button";
+import { PageNumbers } from "@/components/ui/page-numbers";
 import type { ApplicationFilters } from "@/lib/applications/types";
 
 type PaginationProps = {
@@ -34,28 +32,12 @@ export function Pagination({ filters, page, totalPages, total }: PaginationProps
       <span>
         共 {total} 条 · 第 {page} / {totalPages} 页
       </span>
-      <div className="flex gap-2">
-        <ButtonLink
-          aria-disabled={page <= 1}
-          className={page <= 1 ? "pointer-events-none opacity-40" : undefined}
-          href={pageHref(filters, Math.max(1, page - 1))}
-          size="sm"
-          variant="outline"
-        >
-          <ChevronLeft aria-hidden="true" className="size-4" />
-          上一页
-        </ButtonLink>
-        <ButtonLink
-          aria-disabled={page >= totalPages}
-          className={page >= totalPages ? "pointer-events-none opacity-40" : undefined}
-          href={pageHref(filters, Math.min(totalPages, page + 1))}
-          size="sm"
-          variant="outline"
-        >
-          下一页
-          <ChevronRight aria-hidden="true" className="size-4" />
-        </ButtonLink>
-      </div>
+      <PageNumbers
+        ariaLabel="岗位列表页码"
+        hrefForPage={(target) => pageHref(filters, target)}
+        page={page}
+        totalPages={totalPages}
+      />
     </nav>
   );
 }

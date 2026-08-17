@@ -14,6 +14,7 @@ import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { PageNumbers } from "@/components/ui/page-numbers";
 import { cn } from "@/lib/cn";
 import {
   getLatestAnsweredQuestionId,
@@ -274,26 +275,12 @@ export function ReviewPagination({
       <p className="text-muted-foreground">
         第 {page.page} / {page.totalPages} 页，共 {page.total} 个问题
       </p>
-      <div className="flex gap-2">
-        <ButtonLink
-          aria-disabled={page.page <= 1}
-          className={cn(page.page <= 1 && "pointer-events-none opacity-50")}
-          href={hrefForPage(page.page - 1)}
-          size="sm"
-          variant="outline"
-        >
-          上一页
-        </ButtonLink>
-        <ButtonLink
-          aria-disabled={page.page >= page.totalPages}
-          className={cn(page.page >= page.totalPages && "pointer-events-none opacity-50")}
-          href={hrefForPage(page.page + 1)}
-          size="sm"
-          variant="outline"
-        >
-          下一页
-        </ButtonLink>
-      </div>
+      <PageNumbers
+        ariaLabel="复盘问题页码"
+        hrefForPage={hrefForPage}
+        page={page.page}
+        totalPages={page.totalPages}
+      />
     </nav>
   );
 }

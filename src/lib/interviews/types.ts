@@ -124,12 +124,15 @@ export type RealInterviewRoundCounts = {
   other: number;
 };
 
+export const INTERVIEW_HISTORY_PAGE_SIZE = 20;
+
 export type InterviewFilters = {
   q: string;
   status: InterviewStatus | "all";
   round: InterviewRound | "all";
   category: InterviewQuestionCategory | "all";
   sort: InterviewSort;
+  page: number;
 };
 
 export const initialInterviewActionState: InterviewActionState = {
@@ -336,11 +339,14 @@ export function parseInterviewFilters(
   const category = getQueryValue(params, "category");
   const sort = getQueryValue(params, "sort");
 
+  const page = Number.parseInt(getQueryValue(params, "page"), 10);
+
   return {
     q: getQueryValue(params, "q").slice(0, 100),
     status: isInterviewStatus(status) ? status : "all",
     round: isInterviewRound(round) ? round : "all",
     category: isQuestionCategory(category) ? category : "all",
     sort: isInterviewSort(sort) ? sort : "newest",
+    page: Number.isFinite(page) && page > 0 ? page : 1,
   };
 }

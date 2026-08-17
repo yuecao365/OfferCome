@@ -103,5 +103,6 @@ test("parses interview history filters from URL query values", () => {
     round: "first_interview",
     category: "technical",
     sort: "oldest",
+    page: 1,
   });
 });

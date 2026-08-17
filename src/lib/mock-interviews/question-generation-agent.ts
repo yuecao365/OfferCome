@@ -128,7 +128,7 @@ async function requestQuestionBatch(input: {
 
 简历用于验证候选人能否把已有经历迁移到岗位职责。历史和画像只用于调整已相关问题的训练角度，不能独立引入 JD 没有支持的主题；history/profile 必须使用输入中已映射到同一 jobCompetencyId 的来源 ID。不要复述或近似改写历史原题。
 
-出题倾向（服务端会按此排序取优，不必精确凑数）：优先直接考察 JD 职责（约 ${allocation.directJobDescriptionMin} 题以 job_description 为 sourceKind）；resume 题占少数（约 ${allocation.resumeMax} 题以内）；history/profile 合计不超过 ${allocation.personalizationMax} 题；secondary 能力的题不要挤占核心职责。resume 题必须引用有效 resumeProjectId，其他题的 resumeProjectId 为 null；history/profile 之外的 personalizationSourceId 必须为 null。通用岗位题只能绑定 origin=inferred 的能力。
+出题倾向（服务端会按此排序取优，不必精确凑数）：候选人多为计算机/技术背景，题目类别优先 technical（技术八股，按 JD 技术栈深入原理与取舍）和 resume_project（项目深挖，追问职责、决策与结果），general 通用行为题整场最多 1–2 道。优先直接考察 JD 职责（约 ${allocation.directJobDescriptionMin} 题以 job_description 为 sourceKind）；resume 题占少数（约 ${allocation.resumeMax} 题以内）；history/profile 合计不超过 ${allocation.personalizationMax} 题；secondary 能力的题不要挤占核心职责。resume 题必须引用有效 resumeProjectId，其他题的 resumeProjectId 为 null；history/profile 之外的 personalizationSourceId 必须为 null。通用岗位题只能绑定 origin=inferred 的能力。
 ${input.seedSourceId ? `尽量生成一题以 ${input.seedSourceId} 为 personalizationSourceId，围绕该内容进行针对性训练。` : ""}
 目标 ${input.questionCount} 道；如果岗位信息不足以支撑，宁可少出几道，也不要编造与岗位无关的题。
 

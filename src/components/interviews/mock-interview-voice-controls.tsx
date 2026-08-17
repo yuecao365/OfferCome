@@ -11,7 +11,7 @@ import {
 
 type RecordingPhase = "idle" | "requesting" | "recording" | "transcribing";
 
-const MAX_RECORDING_MS = 5 * 60_000;
+const MAX_RECORDING_MS = 10 * 60_000;
 
 type MockInterviewVoiceControlsProps = {
   disabled: boolean;

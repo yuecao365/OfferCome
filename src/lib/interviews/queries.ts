@@ -2,6 +2,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
 
 import {
+  INTERVIEW_HISTORY_PAGE_SIZE,
   type InterviewFilters,
   type InterviewListItem,
   type InterviewStats,
@@ -165,10 +166,20 @@ export async function getInterviews(
     round: "all",
     category: "all",
     sort: "newest",
+    page: 1,
   },
-): Promise<InterviewListItem[]> {
+): Promise<{
+  interviews: InterviewListItem[];
+  total: number;
+  totalPages: number;
+  page: number;
+}> {
+  const where = buildInterviewWhere(filters);
+  const total = await prisma.interview.count({ where });
+  const totalPages = Math.max(1, Math.ceil(total / INTERVIEW_HISTORY_PAGE_SIZE));
+  const page = Math.min(Math.max(1, filters.page), totalPages);
   const rows = await prisma.interview.findMany({
-    where: buildInterviewWhere(filters),
+    where,
     include: INTERVIEW_INCLUDE,
     orderBy:
       filters.sort === "oldest"
@@ -178,9 +189,11 @@ export async function getInterviews(
             { scheduledAt: "desc" },
             { updatedAt: "desc" },
           ],
+    skip: (page - 1) * INTERVIEW_HISTORY_PAGE_SIZE,
+    take: INTERVIEW_HISTORY_PAGE_SIZE,
   });
 
-  return rows.map(toInterviewListItem);
+  return { interviews: rows.map(toInterviewListItem), total, totalPages, page };
 }
 
 export async function getResumeProjectOptions(): Promise<ResumeProjectOption[]> {
