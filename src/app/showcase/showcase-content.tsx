@@ -50,7 +50,7 @@ const copy = {
     heroEyebrow: "本地优先的求职工作台",
     heroTitle: ["把每一次投递和面试，", "沉淀成下一次更好的准备。"],
     heroDescription:
-      "OfferLai 将投递、简历、真实面试、AI 模拟训练、复盘与能力画像连接成一个持续演进的求职工作台。",
+      "投递记录留在招聘平台，简历躺在文件夹里，面试经历只存在脑子里。OfferLai 把它们连成一个闭环：投递、简历、真实面试、AI 模拟训练、复盘，最后汇成一份持续更新的能力画像。",
     experienceProduct: "在线体验真实产品",
     localDeploy: "本地部署",
     trustPoints: ["数据默认留在本机", "公开体验只读", "敏感自动化仅本地运行"],
@@ -59,32 +59,32 @@ const copy = {
     highlightsEyebrow: "产品亮点",
     highlightsTitle: ["不只是记录，", "而是积累可复用的求职经验。"],
     highlightsDescription:
-      "从导入已有投递，到用历史经历生成下一场模拟面试，再到能力画像长期更新，OfferLai 让分散的求职信息形成连续反馈。",
+      "从导入已有投递，到用技能包和你的经历生成下一场模拟面试，再到能力画像长期更新，每个环节的产出都会成为下一个环节的输入。",
     highlights: [
       {
-        title: "Boss 投递，一键进入工作台",
+        title: "投递记录，一键进入工作台",
         description:
-          "通过本机有头浏览器导入本人已有投递，自动去重并突出新增与来源变化；登录校验仍由用户手动完成。",
+          "驱动本机浏览器导入 Boss 直聘上已有的投递，自动去重并突出新增与状态变化；久无回音的岗位会在同步时被标记。登录与验证码始终由你本人完成，系统只读不投。",
       },
       {
         title: "技能包出题，问到点子上",
         description:
-          "面试经验沉淀为分层技能包，涵盖高频主题、深度阶梯与项目追问链；AI 按岗位与你的简历自行取用，出的是有场景的题，而不是空泛的概念题。",
+          "面试经验沉淀为分层技能包，涵盖高频主题、深度阶梯与项目追问链。AI 按岗位和你的简历自行取用，出的是带场景的题，而不是「谈谈你对 X 的理解」。",
       },
       {
         title: "模拟面试，带着你的经历开始",
         description:
-          "结合所选简历、历史面试问答和最新能力画像生成问题，而不是每次从通用问题重新开始。",
+          "结合所选简历、项目、历史面试问答与当前能力画像生成题目，逐题按出题时就定好的标准评分，报告给到证据、优势、改进方向和行动计划。",
       },
       {
-        title: "文字与语音，自由切换",
+        title: "面试记录，投进来就行",
         description:
-          "支持朗读问题、麦克风回答、语音转写和提交前修改，在接近真实面试的节奏中完成逐题训练。",
+          "录音、逐字稿、复盘总结、PDF 或 Word 直接投入，材料类型、录音里谁是你、公司岗位轮次全部自动识别，生成可编辑的问答草稿。",
       },
       {
         title: "能力画像，像教练一样反馈",
         description:
-          "第一场面试后就给出「继续保持」与「值得再练」，并把能力归为内容力、证据力与表达力三组，弱项可一键生成针对性训练。",
+          "第一场面试后就给出「继续保持」与「值得再练」，能力归为内容力、证据力与表达力三组，每条洞察都由你回答中的原文支撑，弱项可一键生成针对性训练。",
       },
     ],
     privacy: [
@@ -114,7 +114,7 @@ const copy = {
       "into better preparation for the next one.",
     ],
     heroDescription:
-      "OfferLai connects applications, resumes, real interviews, AI mock practice, review, and capability growth in one evolving career workspace.",
+      "Applications live in one platform, resumes in a folder, interview memories in your head. OfferLai closes the loop: applications, resumes, real interviews, AI mock practice, review, and a capability profile that keeps growing.",
     experienceProduct: "Explore the real product",
     localDeploy: "Run locally",
     trustPoints: ["Data stays on your device", "Public demo is read-only", "Sensitive automation runs locally"],
@@ -123,32 +123,32 @@ const copy = {
     highlightsEyebrow: "Product highlights",
     highlightsTitle: ["More than a tracker.", "A reusable record of your career growth."],
     highlightsDescription:
-      "From importing existing applications to generating the next mock interview from your own history and updating a long-term capability profile, OfferLai turns scattered job-search data into a continuous feedback loop.",
+      "From importing existing applications to generating the next mock interview from skill packs and your own history, every stage produces evidence that makes the next one sharper.",
     highlights: [
       {
-        title: "Import Boss Zhipin applications in one click",
+        title: "Bring your applications in with one click",
         description:
-          "Use a local headed browser to import your existing records, deduplicate stable job identities, and highlight new or changed activity while keeping login checks manual.",
+          "Drive a local browser to import your existing Boss Zhipin records, deduplicate them, and surface what is new or changed. Applications idle too long get flagged during a sync. Login and CAPTCHAs stay with you; OfferLai reads, never applies.",
       },
       {
         title: "Skill packs that ask the right questions",
         description:
-          "Interview know-how is captured in layered skill packs covering high-frequency topics, depth ladders, and project follow-up chains. The AI loads what fits the role and your resume, so questions stay concrete instead of generic.",
+          "Interview know-how is captured in layered skill packs covering high-frequency topics, depth ladders, and project follow-up chains. The AI loads what fits the role and your resume, so questions stay concrete instead of asking you to “talk about your understanding of X”.",
       },
       {
         title: "Start mock interviews with your own memory",
         description:
-          "Use your selected resume, relevant historical answers, and current capability insights instead of restarting from generic questions every time.",
+          "Questions come from your selected resume, projects, past answers, and current profile insights. Each one is scored against a rubric written when the question was, and the report gives evidence, strengths, gaps, and an action plan.",
       },
       {
-        title: "Switch freely between text and voice",
+        title: "Just drop your interview in",
         description:
-          "Hear each question, answer through the microphone, transcribe speech, and edit the transcript before submitting in a more realistic interview rhythm.",
+          "Audio, transcripts, review notes, PDF or Word — OfferLai works out the material type, which voice is yours, and the company, role and round, then hands you an editable draft.",
       },
       {
         title: "A capability profile that coaches you",
         description:
-          "From your very first interview you get what to keep doing and what to practise, grouped into content, evidence, and delivery — with one click to turn a weak spot into targeted practice.",
+          "From your very first interview you get what to keep doing and what to practise, grouped into content, evidence, and delivery. Every insight is backed by your own words, and any weak spot turns into targeted practice with one click.",
       },
     ],
     privacy: [
