@@ -10,7 +10,7 @@ import { normalizeApplicationStage } from "@/lib/applications/types";
 import { z } from "zod";
 
 import {
-  deriveVoiceMetrics,
+  deriveCandidateVoiceMetrics,
   transcriptionSegmentSchema,
 } from "./voice-metrics";
 
@@ -106,7 +106,6 @@ export async function createInterview(
   }
 
   const artifactId = formData.get("importArtifactId");
-  const requestedSpeaker = formData.get("candidateSpeaker");
   const artifact =
     typeof artifactId === "string" && artifactId
       ? await prisma.interviewImportArtifact.findFirst({
@@ -116,24 +115,16 @@ export async function createInterview(
   if (typeof artifactId === "string" && artifactId && !artifact) {
     return { status: "error", message: "导入草稿已过期或已被使用，请重新导入。" };
   }
-  const sourceDeclaration = formData.get("sourceType");
-  const sourceType = artifact?.sourceType ??
-    (sourceDeclaration === "real_transcript" ? "real_transcript" : "real_summary");
+  const sourceType = artifact?.sourceType ?? "real_summary";
   const segmentsResult = artifact
     ? z.array(transcriptionSegmentSchema).safeParse(JSON.parse(artifact.segmentsJson))
     : null;
   const segments = segmentsResult?.success ? segmentsResult.data : [];
-  const speakers = [...new Set(segments.flatMap((segment) => segment.speaker ? [segment.speaker] : []))];
-  const candidateSpeaker =
-    typeof requestedSpeaker === "string" && speakers.includes(requestedSpeaker)
-      ? requestedSpeaker
-      : null;
-  if (speakers.length > 0 && !candidateSpeaker) {
-    return { status: "error", message: "请先在转写预览中指定哪位说话人是你。" };
-  }
+  // 哪位说话人是候选人由对话结构推断；推断不出就没有语音指标，不打断保存。
   const voiceMetrics = artifact && sourceType === "real_audio"
-    ? deriveVoiceMetrics(segments, candidateSpeaker)
+    ? deriveCandidateVoiceMetrics(segments)
     : null;
+  const candidateSpeaker = voiceMetrics?.candidateSpeaker ?? null;
   const applicationId = await resolveApplicationId(formData);
 
   await prisma.$transaction(async (tx) => {

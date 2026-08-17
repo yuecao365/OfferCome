@@ -188,16 +188,25 @@ export function MockInterviewSetup({
         </div>
       </Card>
 
+      {/* 所有设置都有合理默认值，收进折叠区：默认路径填完岗位信息就能开始。
+          折叠时表单控件仍在 DOM 中，默认值照常随表单提交。 */}
       <Card className="p-5">
-        <div className="mb-5 flex items-start gap-3 border-b border-border pb-4">
-          <span className="flex size-9 items-center justify-center rounded-lg bg-accent text-accent-foreground">
-            <Settings2 aria-hidden="true" className="size-4" />
-          </span>
-          <div>
-            <h2 className="text-sm font-semibold text-foreground">面试设置</h2>
-            <p className="mt-1 text-sm text-muted-foreground">选择用于生成问题的简历、轮次、难度、题目数量和作答方式。</p>
-          </div>
-        </div>
+        <details className="group">
+          <summary className="flex cursor-pointer select-none items-start gap-3 [&::-webkit-details-marker]:hidden">
+            <span className="flex size-9 items-center justify-center rounded-lg bg-accent text-accent-foreground">
+              <Settings2 aria-hidden="true" className="size-4" />
+            </span>
+            <div>
+              <h2 className="text-sm font-semibold text-foreground">
+                面试设置
+                <span className="ml-2 text-xs font-normal text-muted-foreground group-open:hidden">
+                  默认：{resumes.find((resume) => resume.isDefault)?.name ?? resumes[0]?.name} · 第一轮 · 标准难度 · 8 题 · 文字作答 · 允许追问，点击调整
+                </span>
+              </h2>
+              <p className="mt-1 hidden text-sm text-muted-foreground group-open:block">选择用于生成问题的简历、轮次、难度、题目数量和作答方式。</p>
+            </div>
+          </summary>
+          <div className="mt-5 border-t border-border pt-4">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <FieldLabel>
             使用简历 *
@@ -296,6 +305,8 @@ export function MockInterviewSetup({
             <span className="relative h-6 w-11 rounded-full bg-border-strong transition-colors after:absolute after:left-1 after:top-1 after:size-4 after:rounded-full after:bg-white after:shadow-sm after:transition-transform peer-checked:bg-brand peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-ring" />
           </span>
         </label>
+          </div>
+        </details>
       </Card>
 
       {pending ? (

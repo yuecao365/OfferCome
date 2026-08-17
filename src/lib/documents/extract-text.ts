@@ -34,7 +34,25 @@ function isPdfTextItem(item: unknown): item is PdfTextItem {
   );
 }
 
-function pdfTextItemsToLines(items: PdfTextItem[]): string[] {
+const CJK_BOUNDARY_PATTERN =
+  /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}　-〿＀-￯]/u;
+
+/**
+ * PDF 的一行文字会被拆成多个片段。中文之间本来没有空格，无条件用空格拼接
+ * 会往原文里插入并不存在的空格，后续按原文逐字定位问答边界时就会全部落空。
+ */
+function joinPdfFragments(fragments: string[]): string {
+  return fragments.reduce((line, fragment) => {
+    if (!line) return fragment;
+    const left = line.at(-1) ?? "";
+    const right = fragment.at(0) ?? "";
+    const needsSpace =
+      !CJK_BOUNDARY_PATTERN.test(left) && !CJK_BOUNDARY_PATTERN.test(right);
+    return needsSpace ? `${line} ${fragment}` : line + fragment;
+  }, "");
+}
+
+export function pdfTextItemsToLines(items: PdfTextItem[]): string[] {
   const rows: { y: number; items: { x: number; text: string }[] }[] = [];
 
   for (const item of items) {
@@ -53,10 +71,9 @@ function pdfTextItemsToLines(items: PdfTextItem[]): string[] {
   return rows
     .sort((left, right) => right.y - left.y)
     .map((row) =>
-      row.items
-        .sort((left, right) => left.x - right.x)
-        .map((item) => item.text)
-        .join(" ")
+      joinPdfFragments(
+        row.items.sort((left, right) => left.x - right.x).map((item) => item.text),
+      )
         .replace(/\s+/g, " ")
         .trim(),
     )

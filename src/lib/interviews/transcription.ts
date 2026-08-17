@@ -45,7 +45,18 @@ const AUDIO_LIMIT_ERROR_PATTERNS = [
   /file.*too large/i,
   /maximum file size/i,
   /audio.*too (?:large|long)/i,
+  // 大文件经本地代理上传时会被 HTTP/2 掐流（实测 22MB 必现），切小后能走通。
+  /NGHTTP2_ENHANCE_YOUR_CALM/i,
+  /stream closed with error code/i,
+  /cannot connect to api/i,
+  /socket hang up|ECONNRESET|EPIPE|ETIMEDOUT/i,
 ];
+
+/**
+ * 超过这个体积就先切分再上传。整段直传大文件要么被服务端拒绝，要么被本地
+ * 代理掐断，而且每次失败前都要白传一遍，等待以分钟计。
+ */
+const MAX_SINGLE_UPLOAD_BYTES = 8 * 1024 * 1024;
 
 async function transcribeWithConfiguredProvider({
   bytes,
@@ -109,6 +120,16 @@ async function splitWithFfmpeg(
   return splitAudioIntoChunks(input, chunkDurationSeconds);
 }
 
+/**
+ * AI SDK 把服务端返回的状态码和响应体埋在 cause 链里，只看 error.message 会
+ * 得到没有信息量的 "AI_APICallError"。诊断转写失败必须看这些细节。
+ */
+export function describeTranscriptionError(error: unknown): string {
+  const details = errorDetails(error);
+  const status = APICallError.isInstance(error) ? ` status=${error.statusCode}` : "";
+  return `${error instanceof Error ? error.name : "UnknownError"}${status}: ${details.slice(0, 800)}`;
+}
+
 function errorDetails(error: unknown): string {
   const details: string[] = [];
   let current: unknown = error;
@@ -136,6 +157,49 @@ export function isAudioLimitError(error: unknown): boolean {
   );
 }
 
+async function splitAndTranscribe(
+  input: AudioTranscriptionInput,
+  transcriber: AudioTranscriber,
+  chunker: AudioChunker,
+  chunkDurationSeconds: number,
+  depth: number,
+  cause?: unknown,
+): Promise<string> {
+  const chunks = await chunker(input, chunkDurationSeconds);
+  if (chunks.length > MAX_AUDIO_CHUNKS) {
+    throw new Error(
+      `录音需要切分为 ${chunks.length} 段，超过单次最多 ${MAX_AUDIO_CHUNKS} 段的限制。`,
+      { cause },
+    );
+  }
+
+  const nextDurationSeconds = Math.max(
+    MIN_CHUNK_DURATION_SECONDS,
+    Math.floor(chunkDurationSeconds / 2),
+  );
+  const transcripts: string[] = [];
+  for (const chunk of chunks) {
+    const transcript = await transcribeWithAdaptiveChunking(
+      chunk,
+      transcriber,
+      chunker,
+      nextDurationSeconds,
+      depth + 1,
+    );
+    if (transcript) transcripts.push(transcript);
+  }
+  return transcripts.join("\n");
+}
+
+export function needsPreemptiveSplit(
+  input: AudioTranscriptionInput,
+  depth = 0,
+): boolean {
+  return (
+    input.bytes.byteLength > MAX_SINGLE_UPLOAD_BYTES && depth < MAX_CHUNKING_DEPTH
+  );
+}
+
 async function transcribeWithAdaptiveChunking(
   input: AudioTranscriptionInput,
   transcriber: AudioTranscriber,
@@ -143,6 +207,11 @@ async function transcribeWithAdaptiveChunking(
   chunkDurationSeconds: number,
   depth: number,
 ): Promise<string> {
+  // 体积过大的整段上传注定失败，直接切分，省掉一轮白传。
+  if (needsPreemptiveSplit(input, depth)) {
+    return splitAndTranscribe(input, transcriber, chunker, chunkDurationSeconds, depth);
+  }
+
   try {
     return (await transcriber(input)).trim();
   } catch (error) {
@@ -152,30 +221,14 @@ async function transcribeWithAdaptiveChunking(
     const shouldSplit = hasNoTranscript || isAudioLimitError(error);
     if (!shouldSplit || depth >= MAX_CHUNKING_DEPTH) throw error;
 
-    const chunks = await chunker(input, chunkDurationSeconds);
-    if (chunks.length > MAX_AUDIO_CHUNKS) {
-      throw new Error(
-        `录音需要切分为 ${chunks.length} 段，超过单次最多 ${MAX_AUDIO_CHUNKS} 段的限制。`,
-        { cause: error },
-      );
-    }
-
-    const nextDurationSeconds = Math.max(
-      MIN_CHUNK_DURATION_SECONDS,
-      Math.floor(chunkDurationSeconds / 2),
+    return splitAndTranscribe(
+      input,
+      transcriber,
+      chunker,
+      chunkDurationSeconds,
+      depth,
+      error,
     );
-    const transcripts: string[] = [];
-    for (const chunk of chunks) {
-      const transcript = await transcribeWithAdaptiveChunking(
-        chunk,
-        transcriber,
-        chunker,
-        nextDurationSeconds,
-        depth + 1,
-      );
-      if (transcript) transcripts.push(transcript);
-    }
-    return transcripts.join("\n");
   }
 }
 
@@ -243,28 +296,35 @@ export async function transcribeAudio(
   return transcript;
 }
 
+/** 切分转写只能拿到拼接后的文本，时间戳和语音指标都会缺失。 */
+function textOnlyArtifact(text: string): TranscriptionArtifact {
+  return {
+    text,
+    segments: [],
+    durationSeconds: null,
+    speakers: [],
+    capabilities: {
+      hasTimestamps: false,
+      hasSpeakers: false,
+      hasVoiceMetrics: false,
+    },
+  };
+}
+
 export async function transcribeAudioArtifact(
   input: AudioTranscriptionInput,
 ): Promise<TranscriptionArtifact> {
-  try {
-    const artifact = await transcribeArtifactWithConfiguredProvider(input);
-    if (!artifact.text) throw new Error("没有从录音中识别到文本。");
-    return artifact;
-  } catch (error) {
-    if (!isAudioLimitError(error) && !NoTranscriptGeneratedError.isInstance(error)) {
-      throw error;
+  // 大文件跳过整段直传，直接进入切分流程。
+  if (!needsPreemptiveSplit(input)) {
+    try {
+      const artifact = await transcribeArtifactWithConfiguredProvider(input);
+      if (!artifact.text) throw new Error("没有从录音中识别到文本。");
+      return artifact;
+    } catch (error) {
+      if (!isAudioLimitError(error) && !NoTranscriptGeneratedError.isInstance(error)) {
+        throw error;
+      }
     }
-    const text = await transcribeAudio(input);
-    return {
-      text,
-      segments: [],
-      durationSeconds: null,
-      speakers: [],
-      capabilities: {
-        hasTimestamps: false,
-        hasSpeakers: false,
-        hasVoiceMetrics: false,
-      },
-    };
   }
+  return textOnlyArtifact(await transcribeAudio(input));
 }

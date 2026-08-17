@@ -11,6 +11,7 @@ import {
   createInterview,
   updateInterview,
 } from "@/lib/interviews/actions";
+import type { InterviewDraftHeader } from "@/lib/interviews/draft";
 import {
   INTERVIEW_ROUND_LABELS,
   INTERVIEW_ROUNDS,
@@ -119,9 +120,30 @@ export function InterviewForm(props: InterviewFormProps) {
   const [state, formAction] = useActionState(action, initialInterviewActionState);
   const initial = props.mode === "edit" ? props.initial : null;
   const prefill = props.mode === "create" ? props.prefill ?? null : null;
+  const [companyName, setCompanyName] = useState(
+    initial?.companyName ?? prefill?.companyName ?? "",
+  );
+  const [jobTitle, setJobTitle] = useState(
+    initial?.jobTitle ?? prefill?.jobTitle ?? "",
+  );
+  const [round, setRound] = useState(initial?.round ?? "");
   const [interviewedAt, setInterviewedAt] = useState(
     toDatetimeLocal(initial?.interviewedAt ?? null),
   );
+
+  // 草稿识别顺带提取的头部信息只补空缺，绝不覆盖用户已经填写的内容。
+  const applyDraftHeader = (header: InterviewDraftHeader | null) => {
+    if (!header) return;
+    if (header.companyName) setCompanyName((value) => value || header.companyName!);
+    if (header.jobTitle) setJobTitle((value) => value || header.jobTitle!);
+    if (header.round) setRound((value) => value || header.round!);
+    if (header.interviewedAt) {
+      const withTime = header.interviewedAt.includes(" ")
+        ? header.interviewedAt.replace(" ", "T")
+        : `${header.interviewedAt}T00:00`;
+      setInterviewedAt((value) => value || withTime);
+    }
+  };
   // 只用于提示文案，打开表单时取一次即可。
   const [referenceNow] = useState(() => Date.now());
   const isScheduled =
@@ -148,7 +170,10 @@ export function InterviewForm(props: InterviewFormProps) {
       ) : null}
       {props.mode === "create" ? (
         <InterviewDraftImporter
-          onDraft={(draftQuestions) => setQuestions(draftQuestions)}
+          onDraft={(draftQuestions, header) => {
+            setQuestions(draftQuestions);
+            applyDraftHeader(header);
+          }}
           transcriptionConfigured={props.transcriptionConfigured}
         />
       ) : null}
@@ -157,9 +182,10 @@ export function InterviewForm(props: InterviewFormProps) {
           <FieldLabel>
             公司名称
             <Input
-              defaultValue={initial?.companyName ?? prefill?.companyName ?? ""}
               name="companyName"
+              onChange={(event) => setCompanyName(event.target.value)}
               required
+              value={companyName}
             />
           </FieldLabel>
         </div>
@@ -167,9 +193,10 @@ export function InterviewForm(props: InterviewFormProps) {
           <FieldLabel>
             工作岗位
             <Input
-              defaultValue={initial?.jobTitle ?? prefill?.jobTitle ?? ""}
               name="jobTitle"
+              onChange={(event) => setJobTitle(event.target.value)}
               required
+              value={jobTitle}
             />
           </FieldLabel>
         </div>
@@ -188,8 +215,9 @@ export function InterviewForm(props: InterviewFormProps) {
         <FieldLabel>
           轮次/类型
           <Select
-            defaultValue={initial?.round ?? ""}
             name="round"
+            onChange={(event) => setRound(event.target.value)}
+            value={round}
           >
             <option value="">未设置</option>
             {INTERVIEW_ROUNDS.map((round) => (

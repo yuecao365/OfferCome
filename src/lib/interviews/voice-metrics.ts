@@ -132,6 +132,74 @@ export function deriveVoiceMetrics(
   };
 }
 
+/** 候选人应当明显比面试官说得多，接近就说明分不清。 */
+const CANDIDATE_TALK_TIME_DOMINANCE = 1.5;
+
+type SpeakerStats = { seconds: number; questions: number; segments: number };
+
+function questionRatio(stats: SpeakerStats): number {
+  return stats.segments ? stats.questions / stats.segments : 0;
+}
+
+/**
+ * 说话人分离只给出匿名编号，这里从对话结构反推哪一位是候选人：面试里候选人的
+ * 说话时间通常远多于面试官，而提问几乎都来自面试官。两个信号一致才返回结果；
+ * 判不准时返回 null，宁可不产出语音指标，也不能把面试官的语速和停顿算到候选人头上。
+ */
+export function inferCandidateSpeaker(
+  segments: TranscriptionSegment[],
+): string | null {
+  const stats = new Map<string, SpeakerStats>();
+  for (const segment of segments) {
+    if (!segment.speaker) continue;
+    const entry = stats.get(segment.speaker) ?? {
+      seconds: 0,
+      questions: 0,
+      segments: 0,
+    };
+    if (segment.start !== null && segment.end !== null && segment.end > segment.start) {
+      entry.seconds += segment.end - segment.start;
+    }
+    if (/[?？]$/.test(segment.text.trim())) entry.questions += 1;
+    entry.segments += 1;
+    stats.set(segment.speaker, entry);
+  }
+
+  const ranked = [...stats.entries()].sort(
+    (left, right) => right[1].seconds - left[1].seconds,
+  );
+  if (ranked.length === 0) return null;
+  if (ranked.length === 1) return ranked[0]![0];
+
+  const [topSpeaker, top] = ranked[0]!;
+  const [, runnerUp] = ranked[1]!;
+  if (top.seconds <= 0) return null;
+  if (top.seconds < runnerUp.seconds * CANDIDATE_TALK_TIME_DOMINANCE) return null;
+  // 说得最多的人反而提问比例最高，多半是话痨面试官，判不准。
+  const rivalQuestionRatio = Math.max(
+    ...ranked.slice(1).map(([, entry]) => questionRatio(entry)),
+  );
+  if (questionRatio(top) > rivalQuestionRatio) return null;
+  return topSpeaker;
+}
+
+/**
+ * 自动挑出候选人的声音并计算语音指标。单说话人（或没有分离信息）时整段都算
+ * 候选人；多说话人且分不清时返回 null。
+ */
+export function deriveCandidateVoiceMetrics(
+  segments: TranscriptionSegment[],
+): VoiceMetrics | null {
+  const speakers = [
+    ...new Set(segments.flatMap((segment) => (segment.speaker ? [segment.speaker] : []))),
+  ];
+  if (speakers.length <= 1) {
+    return deriveVoiceMetrics(segments, speakers[0] ?? null);
+  }
+  const candidateSpeaker = inferCandidateSpeaker(segments);
+  return candidateSpeaker ? deriveVoiceMetrics(segments, candidateSpeaker) : null;
+}
+
 export function deriveDeliveryObservation(metricsJson: string): {
   score: number;
   confidence: number;

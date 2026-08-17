@@ -4,11 +4,14 @@ import { useRef, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { FieldLabel, Input, Select, Textarea } from "@/components/ui/form-controls";
+import { FieldLabel, Input, Textarea } from "@/components/ui/form-controls";
 
-import type {
-  InterviewQuestionCategory,
-  InterviewQuestionInput,
+import type { InterviewDraftHeader } from "@/lib/interviews/draft";
+import {
+  MAX_INTERVIEW_AUDIO_BYTES,
+  MAX_INTERVIEW_DOCUMENT_BYTES,
+  type InterviewQuestionCategory,
+  type InterviewQuestionInput,
 } from "@/lib/interviews/types";
 
 type DraftQuestionResponse = {
@@ -21,6 +24,8 @@ type DraftQuestionResponse = {
 
 type DraftResponse = {
   questions?: DraftQuestionResponse[];
+  header?: InterviewDraftHeader;
+  unmatchedQuestionCount?: number;
   source?: "audio" | "document" | "pasted";
   transcript?: string;
   artifactId?: string;
@@ -41,9 +46,20 @@ type DraftResponse = {
 };
 
 type InterviewDraftImporterProps = {
-  onDraft: (questions: InterviewQuestionInput[]) => void;
+  onDraft: (
+    questions: InterviewQuestionInput[],
+    header: InterviewDraftHeader | null,
+  ) => void;
   transcriptionConfigured: boolean;
 };
+
+const AUDIO_FILE_PATTERN = /\.(?:mp3|wav|m4a|webm|ogg)$/i;
+
+function isAudioFile(file: File | null): boolean {
+  return Boolean(
+    file && (file.type.startsWith("audio/") || AUDIO_FILE_PATTERN.test(file.name)),
+  );
+}
 
 export function InterviewDraftImporter({
   onDraft,
@@ -55,30 +71,33 @@ export function InterviewDraftImporter({
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
-  const [importMode, setImportMode] = useState<
-    "full_recording" | "candidate_recording" | "transcript" | "summary"
-  >("summary");
   const [artifactId, setArtifactId] = useState("");
   const [sourceType, setSourceType] = useState<
     "real_audio" | "real_transcript" | "real_summary"
   >("real_summary");
   const [speakers, setSpeakers] = useState<string[]>([]);
-  const [segments, setSegments] = useState<NonNullable<DraftResponse["segments"]>>([]);
-  const [candidateSpeaker, setCandidateSpeaker] = useState("");
   const [hasVoiceMetrics, setHasVoiceMetrics] = useState(false);
-  const isAudioMode =
-    importMode === "full_recording" || importMode === "candidate_recording";
+  // 录音先转写再识别，中间留一步让用户核对转写稿；文本材料一步到位。
+  const isAudioMode = isAudioFile(file) || (Boolean(artifactId) && sourceType === "real_audio");
 
   const runImportStep = async () => {
-    const shouldTranscribe = isAudioMode && !artifactId;
-    if (shouldTranscribe && !file) {
-      setIsError(true);
-      setMessage("请先选择录音文件。");
-      return;
-    }
+    const shouldTranscribe = isAudioFile(file) && !artifactId;
     if (!shouldTranscribe && !artifactId && !file && !text.trim()) {
       setIsError(true);
       setMessage("请先选择文件或粘贴面试文本。");
+      return;
+    }
+    // 超限的文件在浏览器端就拦下，省掉一次注定失败的长时间上传。
+    const sizeLimit = isAudioFile(file)
+      ? MAX_INTERVIEW_AUDIO_BYTES
+      : MAX_INTERVIEW_DOCUMENT_BYTES;
+    if (file && file.size > sizeLimit) {
+      setIsError(true);
+      setMessage(
+        isAudioFile(file)
+          ? "录音文件不能超过 25MB，请先压缩或截取需要的片段。"
+          : "文本文件不能超过 10MB。",
+      );
       return;
     }
 
@@ -87,40 +106,46 @@ export function InterviewDraftImporter({
     setIsError(false);
 
     try {
-      const formData = new FormData();
+      const postDraft = async (body: FormData): Promise<DraftResponse> => {
+        const response = await fetch("/api/interviews/draft", {
+          method: "POST",
+          body,
+        });
+        const result = (await response.json()) as DraftResponse;
+        if (!response.ok) {
+          throw new Error(result.error ?? "生成面试草稿失败。");
+        }
+        return result;
+      };
+
+      // 录音先转写。转写成功后不再停下等用户，直接继续识别问题；
+      // 转写稿仍会展示，识别失败时停留在已转写状态，可单独重试识别。
+      let structureArtifactId = artifactId;
       if (shouldTranscribe && file) {
-        formData.set("file", file);
-        formData.set("action", "transcribe");
-      } else if (isAudioMode && artifactId) {
-        formData.set("artifactId", artifactId);
+        const transcribeData = new FormData();
+        transcribeData.set("file", file);
+        transcribeData.set("action", "transcribe");
+        const transcribed = await postDraft(transcribeData);
+        if (!transcribed.artifactId || !transcribed.transcript) {
+          throw new Error("录音转写失败。");
+        }
+        setText(transcribed.transcript);
+        setArtifactId(transcribed.artifactId);
+        setSourceType(transcribed.sourceType ?? "real_audio");
+        setSpeakers(transcribed.speakers ?? []);
+        setHasVoiceMetrics(Boolean(transcribed.capabilities?.hasVoiceMetrics));
+        setMessage("录音已转写，正在识别面试问题…");
+        structureArtifactId = transcribed.artifactId;
+      }
+
+      const formData = new FormData();
+      if (structureArtifactId) {
+        formData.set("artifactId", structureArtifactId);
         formData.set("action", "structure");
       } else if (file) formData.set("file", file);
       else formData.set("text", text);
-      formData.set("importMode", importMode);
 
-      const response = await fetch("/api/interviews/draft", {
-        method: "POST",
-        body: formData,
-      });
-      const result = (await response.json()) as DraftResponse;
-      if (!response.ok) {
-        throw new Error(result.error ?? "生成面试草稿失败。");
-      }
-
-      if (shouldTranscribe) {
-        if (!result.artifactId || !result.transcript) {
-          throw new Error("录音转写失败。");
-        }
-        setText(result.transcript);
-        setArtifactId(result.artifactId);
-        setSourceType(result.sourceType ?? "real_audio");
-        setSpeakers(result.speakers ?? []);
-        setSegments(result.segments ?? []);
-        setCandidateSpeaker("");
-        setHasVoiceMetrics(Boolean(result.capabilities?.hasVoiceMetrics));
-        setMessage("录音已转写。请检查转写稿和说话人，再识别面试问题。");
-        return;
-      }
+      const result = await postDraft(formData);
       if (!result.questions) throw new Error("生成面试草稿失败。");
 
       onDraft(
@@ -135,17 +160,22 @@ export function InterviewDraftImporter({
           sortOrder: index,
           confidence: question.confidence,
         })),
+        result.header ?? null,
       );
       setText(result.transcript ?? text);
       setArtifactId(result.artifactId ?? "");
       setSourceType(result.sourceType ?? "real_summary");
       setSpeakers(result.speakers ?? []);
-      setSegments(result.segments ?? []);
-      setCandidateSpeaker("");
       setHasVoiceMetrics(Boolean(result.capabilities?.hasVoiceMetrics));
       setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
-      setMessage(`已识别出 ${result.questions.length} 个问题，请确认内容后保存。`);
+      const skipped = result.unmatchedQuestionCount ?? 0;
+      setMessage(
+        `已识别出 ${result.questions.length} 个问题，请确认内容后保存。` +
+          (skipped > 0
+            ? `另有 ${skipped} 个问题无法在原文中定位，未填入，可手动补充。`
+            : ""),
+      );
     } catch (error) {
       setIsError(true);
       setMessage(error instanceof Error ? error.message : "生成面试草稿失败。");
@@ -156,9 +186,8 @@ export function InterviewDraftImporter({
 
   return (
     <Card className="p-3">
+      {/* 说话人和材料类型都由服务端从转写结果推断，这里只回传导入产物 ID。 */}
       <input name="importArtifactId" type="hidden" value={artifactId} />
-      <input name="candidateSpeaker" type="hidden" value={candidateSpeaker} />
-      <input name="sourceType" type="hidden" value={sourceType} />
       <div>
         <h3 className="text-sm font-medium text-zinc-900">从文件或文本导入面试内容</h3>
         <p className="mt-1 text-xs leading-5 text-zinc-600">
@@ -167,39 +196,17 @@ export function InterviewDraftImporter({
       </div>
 
       <div className="mt-3 grid gap-3 md:grid-cols-2">
-        <FieldLabel className="md:col-span-2">
-          导入内容类型（保存前确认）
-          <Select
-            onChange={(event) => {
-              const mode = event.target.value as typeof importMode;
-              setImportMode(mode);
-              setArtifactId("");
-              setSpeakers([]);
-              setSegments([]);
-              setCandidateSpeaker("");
-              setSourceType(
-                mode === "full_recording" || mode === "candidate_recording"
-                  ? "real_audio"
-                  : mode === "transcript"
-                    ? "real_transcript"
-                    : "real_summary",
-              );
-              setText("");
-            }}
-            value={importMode}
-          >
-            <option disabled={!transcriptionConfigured} value="full_recording">完整录音（面试官 + 本人）</option>
-            <option disabled={!transcriptionConfigured} value="candidate_recording">仅本人录音</option>
-            <option value="transcript">逐字转写文本</option>
-            <option value="summary">复盘总结</option>
-          </Select>
-        </FieldLabel>
         <FieldLabel>
           录音或文本文件
           <Input
             accept="audio/*,.mp3,.wav,.m4a,.webm,.ogg,.txt,.md,.docx,.pdf"
             className="h-auto py-1.5"
-            onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+            onChange={(event) => {
+              setFile(event.target.files?.[0] ?? null);
+              setArtifactId("");
+              setSpeakers([]);
+              setHasVoiceMetrics(false);
+            }}
             ref={fileInputRef}
             type="file"
           />
@@ -226,51 +233,33 @@ export function InterviewDraftImporter({
         <Alert className="mt-2" tone="info">录音导入需先在设置页配置语音转写；文本和文档导入仍可使用。</Alert>
       ) : null}
 
-      {speakers.length > 0 ? (
-        <div className="mt-3 rounded border border-zinc-200 bg-white p-3">
-          <FieldLabel>
-            哪位说话人是你？
-            <Select
-              onChange={(event) => setCandidateSpeaker(event.target.value)}
-              required
-              value={candidateSpeaker}
-            >
-              <option value="">请选择</option>
-              {speakers.map((speaker) => (
-                <option key={speaker} value={speaker}>{speaker}</option>
-              ))}
-            </Select>
-          </FieldLabel>
-          <div className="mt-3 max-h-44 space-y-2 overflow-y-auto text-xs text-zinc-700">
-            {segments.slice(0, 24).map((segment, index) => (
-              <p key={`${segment.speaker}-${segment.start}-${index}`}>
-                <strong>{segment.speaker ?? "未知"}</strong>
-                {segment.start !== null ? ` ${segment.start.toFixed(1)}s` : ""}：{segment.text}
-              </p>
-            ))}
-          </div>
-        </div>
-      ) : artifactId && sourceType === "real_audio" && !hasVoiceMetrics ? (
-        <Alert className="mt-3" tone="info">
-          本次转写服务没有返回可用的说话人或时间戳，将继续按文本分析，不生成口语流畅度结论。
-        </Alert>
+      {artifactId && sourceType === "real_audio" ? (
+        hasVoiceMetrics ? (
+          <p className="mt-3 text-xs text-zinc-600">
+            已识别为真实录音
+            {speakers.length > 1 ? ` · ${speakers.length} 位说话人，已自动定位你的发言` : ""}
+            ，将生成口语流畅度结论。
+          </p>
+        ) : (
+          <Alert className="mt-3" tone="info">
+            这段录音无法可靠区分出你的发言（缺少说话人或时间戳信息），将只按文本分析，不生成口语流畅度结论。
+          </Alert>
+        )
       ) : null}
 
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <Button
-          disabled={pending || (isAudioMode && Boolean(artifactId) && speakers.length > 0 && !candidateSpeaker)}
+          disabled={pending}
           onClick={runImportStep}
           type="button"
           variant="outline"
         >
           {pending
-            ? isAudioMode && !artifactId
-              ? "转写中..."
-              : "识别中..."
+            ? "识别中..."
             : isAudioMode && !artifactId
-              ? "转写录音"
+              ? "转写并识别"
               : isAudioMode
-                ? "识别面试问题"
+                ? "重新识别问题"
                 : "生成表单草稿"}
         </Button>
         {message ? (

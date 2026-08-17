@@ -2,30 +2,49 @@ import path from "node:path";
 
 import { prisma } from "@/lib/db";
 import { extractDocumentText } from "@/lib/documents/extract-text";
-import { structureInterviewText } from "@/lib/interviews/draft";
+import {
+  looksLikeVerbatimTranscript,
+  structureInterviewText,
+} from "@/lib/interviews/draft";
 import { transcribeOpenAiDiarized } from "@/lib/interviews/openai-diarization";
 import { getInterviewDraftProjectOptions } from "@/lib/interviews/queries";
-import { resolveAudioMediaType, transcribeAudioArtifact } from "@/lib/interviews/transcription";
-import { deriveVoiceMetrics, type TranscriptionArtifact } from "@/lib/interviews/voice-metrics";
+import {
+  describeTranscriptionError,
+  needsPreemptiveSplit,
+  resolveAudioMediaType,
+  transcribeAudioArtifact,
+} from "@/lib/interviews/transcription";
+import {
+  MAX_INTERVIEW_AUDIO_BYTES,
+  MAX_INTERVIEW_DOCUMENT_BYTES,
+} from "@/lib/interviews/types";
+import {
+  deriveCandidateVoiceMetrics,
+  type TranscriptionArtifact,
+} from "@/lib/interviews/voice-metrics";
 
-const MAX_AUDIO_BYTES = 25 * 1024 * 1024;
-const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
 const MAX_PASTED_TEXT_LENGTH = 100_000;
 const DOCUMENT_EXTENSIONS = new Set([".txt", ".md", ".docx", ".pdf"]);
-
-type ImportMode = "full_recording" | "candidate_recording" | "transcript" | "summary";
 
 function errorResponse(message: string, status = 400) {
   return Response.json({ error: message }, { status });
 }
 
-function parseImportMode(value: FormDataEntryValue | null): ImportMode {
-  return value === "full_recording" ||
-    value === "candidate_recording" ||
-    value === "transcript" ||
-    value === "summary"
-    ? value
-    : "summary";
+/**
+ * 转写服务返回的错误名（AI_APICallError 之类）对用户没有意义，这里换成
+ * 能照着做的提示；自己抛出的中文错误原样透出。
+ */
+function userFacingMessage(error: unknown): string {
+  if (!(error instanceof Error)) return "生成面试草稿失败。";
+  if (/^AI_|APICallError|Failed after \d+ attempts/i.test(error.message)) {
+    return "语音转写服务调用失败，请检查设置页的转写模型、API Key 和网络代理后重试。较长的录音可以先截取需要的片段。";
+  }
+  return error.message;
+}
+
+/** 文本材料的类型由内容结构判定，不再让用户声明。 */
+function textSourceType(text: string): "real_transcript" | "real_summary" {
+  return looksLikeVerbatimTranscript(text) ? "real_transcript" : "real_summary";
 }
 
 function emptyTextArtifact(text: string): TranscriptionArtifact {
@@ -42,9 +61,7 @@ async function sourceFromRequest(formData: FormData): Promise<{
   artifact: TranscriptionArtifact;
   source: "audio" | "document" | "pasted";
   sourceType: "real_audio" | "real_transcript" | "real_summary";
-  importMode: ImportMode;
 }> {
-  const importMode = parseImportMode(formData.get("importMode"));
   const pastedText = formData.get("text");
   const file = formData.get("file");
 
@@ -52,42 +69,42 @@ async function sourceFromRequest(formData: FormData): Promise<{
     const extension = path.extname(file.name).toLowerCase();
     const audioMediaType = resolveAudioMediaType(file.name, file.type);
     if (audioMediaType) {
-      if (importMode !== "full_recording" && importMode !== "candidate_recording") {
-        throw new Error("录音导入需要声明是完整访谈录音还是仅本人录音。");
+      if (file.size > MAX_INTERVIEW_AUDIO_BYTES) {
+        throw new Error("录音文件不能超过 25MB。");
       }
-      if (file.size > MAX_AUDIO_BYTES) throw new Error("录音文件不能超过 25MB。");
       const input = {
         bytes: new Uint8Array(await file.arrayBuffer()),
         mediaType: audioMediaType,
       };
-      let artifact: TranscriptionArtifact;
-      if (importMode === "full_recording") {
+      // 一律尝试说话人分离：录音里有没有面试官由转写结果判断，不必问用户。
+      // 但分离接口只能整段直传，大文件必然被掐流，这种情况直接走切分转写。
+      let artifact: TranscriptionArtifact | null = null;
+      if (!needsPreemptiveSplit(input)) {
         try {
           artifact = await transcribeOpenAiDiarized(input);
         } catch (error) {
           console.warn(
             "[interviews] diarization unavailable, falling back to text transcription:",
-            error instanceof Error ? error.message : "unknown error",
+            describeTranscriptionError(error),
           );
-          artifact = await transcribeAudioArtifact(input);
-          artifact.capabilities.hasSpeakers = false;
-          artifact.capabilities.hasVoiceMetrics = false;
         }
-      } else {
+      }
+      if (!artifact) {
         artifact = await transcribeAudioArtifact(input);
-        const metrics = deriveVoiceMetrics(artifact.segments, null);
-        artifact.capabilities.hasVoiceMetrics = Boolean(metrics);
+        artifact.capabilities.hasSpeakers = false;
       }
       if (!artifact.text.trim()) throw new Error("没有从录音中识别到文本。");
-      return { artifact, source: "audio", sourceType: "real_audio", importMode };
+      artifact.capabilities.hasVoiceMetrics = Boolean(
+        deriveCandidateVoiceMetrics(artifact.segments),
+      );
+      return { artifact, source: "audio", sourceType: "real_audio" };
     }
 
     if (!DOCUMENT_EXTENSIONS.has(extension)) {
       throw new Error("只支持音频、TXT、MD、DOCX 或 PDF 文件。");
     }
-    if (file.size > MAX_DOCUMENT_BYTES) throw new Error("文本文件不能超过 10MB。");
-    if (importMode !== "transcript" && importMode !== "summary") {
-      throw new Error("文本文件需要声明是逐字转写还是复盘总结。");
+    if (file.size > MAX_INTERVIEW_DOCUMENT_BYTES) {
+      throw new Error("文本文件不能超过 10MB。");
     }
     const text = await extractDocumentText({
       bytes: Buffer.from(await file.arrayBuffer()),
@@ -98,8 +115,7 @@ async function sourceFromRequest(formData: FormData): Promise<{
     return {
       artifact: emptyTextArtifact(text),
       source: "document",
-      sourceType: importMode === "transcript" ? "real_transcript" : "real_summary",
-      importMode,
+      sourceType: textSourceType(text),
     };
   }
 
@@ -109,20 +125,22 @@ async function sourceFromRequest(formData: FormData): Promise<{
   if (pastedText.length > MAX_PASTED_TEXT_LENGTH) {
     throw new Error("粘贴文本不能超过 10 万字符。");
   }
-  if (importMode !== "transcript" && importMode !== "summary") {
-    throw new Error("粘贴文本需要声明是逐字转写还是复盘总结。");
-  }
   return {
     artifact: emptyTextArtifact(pastedText),
     source: "pasted",
-    sourceType: importMode === "transcript" ? "real_transcript" : "real_summary",
-    importMode,
+    sourceType: textSourceType(pastedText),
   };
 }
 
 export async function POST(request: Request) {
   try {
-    const formData = await request.formData();
+    // 请求体超过 proxy 的缓冲上限时会被截断，formData() 只会抛出难懂的解析错误，
+    // 这里换成用户能照做的提示。
+    const formData = await request.formData().catch(() => {
+      throw new Error(
+        "上传内容无法读取，通常是文件太大被截断。录音请控制在 25MB 以内，文本文件在 10MB 以内。",
+      );
+    });
     await prisma.interviewImportArtifact.deleteMany({
       where: { expiresAt: { lt: new Date() }, consumedAt: null },
     });
@@ -150,20 +168,17 @@ export async function POST(request: Request) {
       });
     }
 
-    const { artifact, source, sourceType, importMode } =
-      await sourceFromRequest(formData);
-    const immediateMetrics =
-      importMode === "candidate_recording"
-        ? deriveVoiceMetrics(artifact.segments, null)
-        : null;
+    const { artifact, source, sourceType } = await sourceFromRequest(formData);
+    // 候选人是哪位说话人由对话结构推断；推断不出就不产出语音指标。
+    const voiceMetrics = deriveCandidateVoiceMetrics(artifact.segments);
     const stored = await prisma.interviewImportArtifact.create({
       data: {
         sourceType,
         transcriptText: artifact.text.slice(0, MAX_PASTED_TEXT_LENGTH),
         segmentsJson: JSON.stringify(artifact.segments),
         durationSeconds: artifact.durationSeconds,
-        candidateSpeaker: importMode === "candidate_recording" ? null : undefined,
-        voiceMetricsJson: immediateMetrics ? JSON.stringify(immediateMetrics) : null,
+        candidateSpeaker: voiceMetrics?.candidateSpeaker ?? null,
+        voiceMetricsJson: voiceMetrics ? JSON.stringify(voiceMetrics) : null,
         capabilitiesJson: JSON.stringify(artifact.capabilities),
         expiresAt: new Date(Date.now() + 24 * 60 * 60_000),
       },
@@ -190,9 +205,9 @@ export async function POST(request: Request) {
 
     return Response.json({
       ...draft,
+      unmatchedQuestionCount: draft.unmatchedQuestions.length,
       source,
       sourceType,
-      importMode,
       artifactId: stored.id,
       transcript: artifact.text.slice(0, MAX_PASTED_TEXT_LENGTH),
       segments: artifact.segments.slice(0, 300),
@@ -202,8 +217,8 @@ export async function POST(request: Request) {
   } catch (error) {
     console.warn(
       "[interviews] draft generation failed:",
-      error instanceof Error ? error.message : "unknown error",
+      describeTranscriptionError(error),
     );
-    return errorResponse(error instanceof Error ? error.message : "生成面试草稿失败。");
+    return errorResponse(userFacingMessage(error));
   }
 }

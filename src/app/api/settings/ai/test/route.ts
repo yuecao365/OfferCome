@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { testAiConnection } from "@/lib/ai/providers";
 import { validateAiTaskConfig, type AiTaskConfigInput } from "@/lib/ai/config";
+import { describeTranscriptionError } from "@/lib/interviews/transcription";
 import { getAiTaskConfig } from "@/lib/settings/ai";
 
 const PRIVATE_RESPONSE_HEADERS = { "Cache-Control": "no-store, private" };
@@ -34,7 +35,10 @@ export async function POST(request: Request) {
       { success: true, message: "连接成功，模型配置可用。" },
       { headers: PRIVATE_RESPONSE_HEADERS },
     );
-  } catch {
+  } catch (error) {
+    // 响应里不回传服务商原文（可能含账号信息），但服务端必须能看到真实原因，
+    // 否则“连接测试失败”对排查毫无帮助。
+    console.warn("[settings] AI connection test failed:", describeTranscriptionError(error));
     return NextResponse.json(
       { error: "连接测试失败，请检查服务地址、模型名称和 API Key。" },
       { status: 502, headers: PRIVATE_RESPONSE_HEADERS },

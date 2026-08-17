@@ -17,6 +17,14 @@ export const INTERVIEW_QUESTION_CATEGORIES = [
 ] as const;
 export const INTERVIEW_SORTS = ["newest", "oldest"] as const;
 
+/**
+ * 导入面试材料的体积上限，前后端共用一份。改这里时要同步抬高
+ * next.config.ts 的 experimental.proxyClientMaxBodySize，
+ * 否则请求体会先被 proxy 截断，报错变成难懂的 FormData 解析失败。
+ */
+export const MAX_INTERVIEW_AUDIO_BYTES = 25 * 1024 * 1024;
+export const MAX_INTERVIEW_DOCUMENT_BYTES = 10 * 1024 * 1024;
+
 export type InterviewStatus = (typeof INTERVIEW_STATUSES)[number];
 export const ACTIVE_MOCK_INTERVIEW_STATUS: InterviewStatus = "in_progress";
 

@@ -61,6 +61,7 @@ export default async function MockInterviewsPage({
     ]);
   const companyName = firstParam(params.companyName);
   const jobTitle = firstParam(params.jobTitle);
+  // 岗位信息优先级：URL 显式带的公司/岗位 > seed 来源面试的岗位。
   const jobPrefill =
     companyName || jobTitle
       ? {
@@ -70,7 +71,15 @@ export default async function MockInterviewsPage({
           jobUrl: "",
           jobDescription: "",
         }
-      : null;
+      : seed?.job
+        ? {
+            id: seed.job.applicationId,
+            companyName: seed.job.companyName,
+            jobTitle: seed.job.jobTitle,
+            jobUrl: seed.job.jobUrl,
+            jobDescription: seed.job.jobDescription,
+          }
+        : null;
 
   return (
     <AppShell active="interviews" subActive="interviews-mock">
