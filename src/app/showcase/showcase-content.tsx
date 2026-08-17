@@ -2,6 +2,7 @@
 
 import {
   ArrowRight,
+  BookOpenCheck,
   BriefcaseBusiness,
   Database,
   ExternalLink,
@@ -66,9 +67,14 @@ const copy = {
           "通过本机有头浏览器导入本人已有投递，自动去重并突出新增与来源变化；登录校验仍由用户手动完成。",
       },
       {
+        title: "技能包出题，问到点子上",
+        description:
+          "面试经验沉淀为分层技能包，涵盖高频主题、深度阶梯与项目追问链；AI 按岗位与你的简历自行取用，出的是有场景的题，而不是空泛的概念题。",
+      },
+      {
         title: "模拟面试，带着你的经历开始",
         description:
-          "结合目标岗位描述、所选简历、历史面试问答和最新能力画像生成问题，而不是每次从通用问题重新开始。",
+          "结合所选简历、历史面试问答和最新能力画像生成问题，而不是每次从通用问题重新开始。",
       },
       {
         title: "文字与语音，自由切换",
@@ -76,9 +82,9 @@ const copy = {
           "支持朗读问题、麦克风回答、语音转写和提交前修改，在接近真实面试的节奏中完成逐题训练。",
       },
       {
-        title: "能力画像，随面试持续更新",
+        title: "能力画像，像教练一样反馈",
         description:
-          "真实与模拟面试完成后持续更新能力记录，呈现不同岗位下的优势短板和下一步训练重点。",
+          "第一场面试后就给出「继续保持」与「值得再练」，并把能力归为内容力、证据力与表达力三组，弱项可一键生成针对性训练。",
       },
     ],
     privacy: [
@@ -125,9 +131,14 @@ const copy = {
           "Use a local headed browser to import your existing records, deduplicate stable job identities, and highlight new or changed activity while keeping login checks manual.",
       },
       {
+        title: "Skill packs that ask the right questions",
+        description:
+          "Interview know-how is captured in layered skill packs covering high-frequency topics, depth ladders, and project follow-up chains. The AI loads what fits the role and your resume, so questions stay concrete instead of generic.",
+      },
+      {
         title: "Start mock interviews with your own memory",
         description:
-          "Use the target job description, selected resume, relevant historical answers, and current capability insights instead of restarting from generic questions every time.",
+          "Use your selected resume, relevant historical answers, and current capability insights instead of restarting from generic questions every time.",
       },
       {
         title: "Switch freely between text and voice",
@@ -135,9 +146,9 @@ const copy = {
           "Hear each question, answer through the microphone, transcribe speech, and edit the transcript before submitting in a more realistic interview rhythm.",
       },
       {
-        title: "Keep a capability profile that evolves",
+        title: "A capability profile that coaches you",
         description:
-          "Completed real and mock interviews keep your capability record current across role contexts, strengths, gaps, and the next training priorities.",
+          "From your very first interview you get what to keep doing and what to practise, grouped into content, evidence, and delivery — with one click to turn a weak spot into targeted practice.",
       },
     ],
     privacy: [
@@ -160,7 +171,13 @@ const copy = {
   },
 } satisfies Record<Language, ShowcaseCopy>;
 
-const highlightIcons = [BriefcaseBusiness, Sparkles, Mic, RefreshCw] as const;
+const highlightIcons = [
+  BriefcaseBusiness,
+  BookOpenCheck,
+  Sparkles,
+  Mic,
+  RefreshCw,
+] as const;
 
 export function ShowcaseContent() {
   const [language, setLanguage] = useState<Language>("zh");
