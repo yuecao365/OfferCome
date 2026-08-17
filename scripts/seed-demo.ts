@@ -4,6 +4,10 @@ import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import path from "node:path";
 
 import { PrismaClient } from "../src/generated/prisma/client";
+import {
+  PROFILE_AGGREGATION_VERSION,
+  PROFILE_ASSESSMENT_VERSION,
+} from "../src/lib/candidate-profile/types";
 import { resolvePrismaSqliteUrl } from "../src/lib/sqlite-url";
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -322,7 +326,7 @@ async function seed() {
       id: "demo-assessment",
       interviewId: realInterview.id,
       sourceHash: "demo-source-hash",
-      assessmentVersion: "ability-assessment-v2",
+      assessmentVersion: PROFILE_ASSESSMENT_VERSION,
       promptVersion: "candidate-profile-v2",
       status: "completed",
       completedAt: daysAgo(2, 16),
@@ -424,7 +428,7 @@ async function seed() {
         })),
       ),
       insightIdsJson: JSON.stringify(insightSpecs.map((_, index) => `demo-insight-${index + 1}`)),
-      assessmentVersion: "ability-assessment-v2",
+      assessmentVersion: PROFILE_ASSESSMENT_VERSION,
       createdAt: daysAgo(1),
     },
   });
@@ -435,7 +439,7 @@ async function seed() {
       revision: 1,
       lastRefreshedAt: daysAgo(1),
       lastProcessedAt: daysAgo(1),
-      assessmentVersion: "candidate-profile-scoring-v3-real-priority",
+      assessmentVersion: PROFILE_AGGREGATION_VERSION,
       completedCount: 3,
       totalCount: 3,
     },

@@ -307,7 +307,7 @@ export function ShowcaseContent() {
             <Image
               alt={language === "zh" ? "OfferLai 实际产品的数据概览主页" : "OfferLai product dashboard"}
               className="h-auto w-full"
-              height={960}
+              height={950}
               priority
               sizes="(max-width: 1280px) 100vw, 1280px"
               src="/showcase/product-dashboard.png"
