@@ -1,4 +1,13 @@
+import { Noto_Sans_SC } from "next/font/google";
+
 import { ShowcaseContent } from "./showcase-content";
+
+const displayFont = Noto_Sans_SC({
+  weight: ["700", "900"],
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-sc-display",
+});
 
 export const metadata = {
   title: "OfferLai - Local-first career workspace",
@@ -7,5 +16,5 @@ export const metadata = {
 };
 
 export default function ShowcasePage() {
-  return <ShowcaseContent />;
+  return <ShowcaseContent displayFontVariable={displayFont.variable} />;
 }
