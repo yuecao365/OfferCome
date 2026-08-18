@@ -15,6 +15,8 @@
 
 [Introduction](#introduction) · [Preview](#project-preview) · [How It Works](#how-it-works) · [Features](#features) · [Under the Hood](#under-the-hood) · [Quick Start](#quick-start)
 
+[![OfferLai — every interview counts](docs/images/hero.png)](https://offer-lai.vercel.app/showcase)
+
 </div>
 
 ## Introduction
