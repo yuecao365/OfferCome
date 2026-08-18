@@ -15,7 +15,7 @@
 
 [项目简介](#项目简介) · [项目预览](#项目预览) · [核心闭环](#核心闭环) · [功能介绍](#功能介绍) · [设计与实现](#设计与实现) · [快速开始](#快速开始)
 
-<a href="https://offer-lai.vercel.app/showcase"><img src="docs/images/hero.png" alt="OfferLai — 每一场面试，都算数" width="720"></a>
+<a href="https://offer-lai.vercel.app/showcase"><img src="docs/images/hero.png" alt="OfferLai — 每一场面试，都算数" width="820"></a>
 
 </div>
 

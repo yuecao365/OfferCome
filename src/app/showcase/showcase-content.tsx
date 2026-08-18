@@ -178,9 +178,9 @@ const copy = {
       graphNodeA: "Fundamentals",
       graphNodeB: "Storytelling",
       insight: "↑ Solid fundamentals · 3 interviews / 4 pieces of evidence",
-      scoreTitle: "AI MOCK INTERVIEW · REPORT",
+      scoreTitle: "MOCK INTERVIEW · REPORT",
       scoreVerdict: "Strong performance",
-      scoreDetail: ["Evidence-based scoring", "Merged into your profile"],
+      scoreDetail: ["Scored per question", "Merged into your profile"],
     },
     highlightsEyebrow: "One loop, five stages",
     highlightsTitle: [
@@ -379,8 +379,8 @@ function HeroCollage({ content }: { content: ShowcaseCopy["collage"] }) {
       </div>
 
       {/* 浮卡：模拟面试评分环 */}
-      <div className="sc-pop sc-float absolute bottom-6 left-2 w-[260px] rounded-2xl border border-border bg-surface p-5 shadow-raised [--sc-rot:1.6deg] [animation-delay:850ms,2.6s]">
-        <p className="text-xs font-bold tracking-[0.1em] text-muted-foreground">
+      <div className="sc-pop sc-float absolute bottom-6 left-2 w-[300px] rounded-2xl border border-border bg-surface p-5 shadow-raised [--sc-rot:1.6deg] [animation-delay:850ms,2.6s]">
+        <p className="whitespace-nowrap text-xs font-bold tracking-[0.1em] text-muted-foreground">
           {content.scoreTitle}
         </p>
         <div className="mt-3.5 flex items-center gap-4">
@@ -391,7 +391,7 @@ function HeroCollage({ content }: { content: ShowcaseCopy["collage"] }) {
             </b>
           </div>
           <div>
-            <p className="text-sm font-bold">{content.scoreVerdict}</p>
+            <p className="whitespace-nowrap text-sm font-bold">{content.scoreVerdict}</p>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">
               {content.scoreDetail[0]}
               <br />
