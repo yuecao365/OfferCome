@@ -1,26 +1,34 @@
 "use client";
 
 import { FileUp } from "lucide-react";
-import { useActionState, useMemo, useState, useTransition } from "react";
+import { useActionState, useMemo, useRef, useState, useTransition } from "react";
 import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
+import { FieldLabel, Select } from "@/components/ui/form-controls";
 import {
   confirmResumeExperiences,
   discardResumePreview,
   parseResumePreview,
 } from "@/lib/resumes/actions";
+import { createPendingResumeExperience } from "@/lib/resumes/confirmation";
 import type {
   ExistingResumeProjectOption,
   PendingResumeExperienceConfirmation,
   ResumeExperienceConfirmationInput,
 } from "@/lib/resumes/confirmation";
+
 import {
   initialResumeActionState,
   type ResumeActionState,
   type ResumeExperienceConfirmState,
 } from "@/lib/resumes/types";
+
+import {
+  ResumeExperienceFields,
+  type ResumeExperienceFieldsValue,
+} from "./resume-experience-fields";
 
 const RESUME_ACCEPT =
   ".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/png,image/webp";
@@ -75,18 +83,41 @@ function ResumeExperienceConfirmationPanel({
   const [confirmState, setConfirmState] =
     useState<ResumeExperienceConfirmState>(initialConfirmState);
   const [isPending, startTransition] = useTransition();
+  const nextManualId = useRef(0);
+  const hasBlankName = items.some((item) => !item.finalName.trim());
 
-  function updateItem(
-    clientId: string,
-    updates: Partial<
-      Pick<DraftItem, "finalName" | "selectedExistingItemId" | "type">
-    >,
-  ) {
+  function updateItem(clientId: string, updates: Partial<DraftItem>) {
     setItems((current) =>
       current.map((item) =>
         item.clientId === clientId ? { ...item, ...updates } : item,
       ),
     );
+  }
+
+  function updateFields(
+    clientId: string,
+    patch: Partial<ResumeExperienceFieldsValue>,
+  ) {
+    const { name, ...rest } = patch;
+    updateItem(clientId, {
+      ...rest,
+      ...(name === undefined ? {} : { finalName: name }),
+    });
+  }
+
+  function removeItem(clientId: string) {
+    setItems((current) => current.filter((item) => item.clientId !== clientId));
+  }
+
+  function addItem() {
+    setItems((current) => [
+      ...current,
+      createPendingResumeExperience({
+        clientId: `manual-experience-${nextManualId.current++}`,
+        sortOrder:
+          current.reduce((max, item) => Math.max(max, item.sortOrder), -1) + 1,
+      }),
+    ]);
   }
 
   function toConfirmationInput(
@@ -140,65 +171,66 @@ function ResumeExperienceConfirmationPanel({
 
   return (
     <section className="grid gap-4">
-      <div className="grid gap-1">
-        <h3 className="text-sm font-semibold text-zinc-950">
-          已识别到简历中的实习/项目，请确认后保存。
-        </h3>
-        <p className="text-xs text-zinc-600">
-          来源简历：{fileName}。取消或关闭弹窗不会创建正式简历记录。
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="grid gap-1">
+          <h3 className="text-sm font-semibold text-foreground">
+            确认简历中的实习/项目，可修改、删除或手动补充。
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            来源简历：{fileName}。取消或关闭弹窗不会创建正式简历记录。
+          </p>
+        </div>
+        <Button
+          disabled={isPending}
+          onClick={addItem}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          添加实习/项目
+        </Button>
       </div>
 
       {items.length === 0 ? (
-        <div className="rounded border border-dashed border-zinc-300 bg-white p-4 text-sm text-zinc-600">
-          未识别到实习或项目。你仍然可以确认保存简历，或取消本次上传。
+        <div className="rounded-lg border border-dashed border-border-strong bg-surface-subtle p-4 text-sm text-muted-foreground">
+          未识别到实习或项目。可以点击「添加实习/项目」手动补充，也可以直接确认只保存简历文件。
         </div>
       ) : (
         <div className="grid gap-3">
-          {items.map((item) => (
+          {items.map((item, index) => (
             <div
-              className="grid gap-3 rounded border border-zinc-200 bg-white p-3"
+              className="grid gap-3 rounded-lg border border-border bg-surface p-3"
               key={item.clientId}
             >
-              <div className="grid gap-3 md:grid-cols-[140px_minmax(0,1fr)]">
-                <label className="grid gap-1 text-sm">
-                  <span className="font-medium text-zinc-800">类型</span>
-                  <select
-                    className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm"
-                    onChange={(event) =>
-                      updateItem(item.clientId, {
-                        type:
-                          event.target.value === "internship"
-                            ? "internship"
-                            : "project",
-                      })
-                    }
-                    value={item.type}
-                  >
-                    <option value="internship">实习</option>
-                    <option value="project">项目</option>
-                  </select>
-                </label>
-                <label className="grid gap-1 text-sm">
-                  <span className="font-medium text-zinc-800">名称</span>
-                  <input
-                    className="rounded border border-zinc-300 px-3 py-2 text-sm"
-                    onChange={(event) =>
-                      updateItem(item.clientId, {
-                        finalName: event.target.value,
-                      })
-                    }
-                    required
-                    value={item.finalName}
-                  />
-                </label>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-medium text-foreground">
+                  {item.extractedName ? `识别项 ${index + 1}` : `手动添加 ${index + 1}`}
+                </p>
+                <Button
+                  disabled={isPending}
+                  onClick={() => removeItem(item.clientId)}
+                  size="sm"
+                  type="button"
+                  variant="ghost"
+                >
+                  删除
+                </Button>
               </div>
-              <label className="grid gap-1 text-sm">
-                <span className="font-medium text-zinc-800">
-                  关联已有实习/项目
-                </span>
-                <select
-                  className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm"
+              <ResumeExperienceFields
+                disabled={isPending}
+                label={`实习/项目 ${index + 1}`}
+                onChange={(patch) => updateFields(item.clientId, patch)}
+                value={{
+                  type: item.type,
+                  name: item.finalName,
+                  organization: item.organization,
+                  description: item.description,
+                }}
+              />
+              <FieldLabel>
+                关联已有实习/项目
+                <Select
+                  disabled={isPending}
                   onChange={(event) =>
                     updateItem(item.clientId, {
                       selectedExistingItemId: event.target.value || null,
@@ -212,22 +244,16 @@ function ResumeExperienceConfirmationPanel({
                       {optionLabel(option)}
                     </option>
                   ))}
-                </select>
-              </label>
-              <dl className="grid gap-1 text-xs text-zinc-500">
-                <div>
-                  <dt className="inline font-medium">原始识别名称：</dt>
-                  <dd className="inline">{item.extractedName}</dd>
-                </div>
-                {item.recommendedExistingItemId ? (
-                  <div>
-                    <dt className="inline font-medium">系统预选：</dt>
-                    <dd className="inline">
-                      已根据名称相似度预选已有记录
-                    </dd>
-                  </div>
-                ) : null}
-              </dl>
+                </Select>
+              </FieldLabel>
+              {item.extractedName ? (
+                <p className="text-xs text-muted-foreground">
+                  原始识别名称：{item.extractedName}
+                  {item.recommendedExistingItemId
+                    ? " · 已根据名称相似度预选已有记录"
+                    : ""}
+                </p>
+              ) : null}
             </div>
           ))}
         </div>
@@ -238,30 +264,27 @@ function ResumeExperienceConfirmationPanel({
           aria-live="polite"
           className={[
             "text-sm",
-            confirmState.status === "error" ? "text-red-700" : "text-zinc-700",
+            confirmState.status === "error"
+              ? "text-danger"
+              : "text-muted-foreground",
           ].join(" ")}
         >
           {confirmState.message}
         </p>
       ) : null}
 
-      <div className="flex justify-end gap-2">
-        <button
-          className="rounded border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:text-zinc-400"
-          disabled={isPending}
-          onClick={handleCancel}
-          type="button"
-        >
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {hasBlankName ? (
+          <p className="mr-auto text-xs text-danger">
+            请为每条实习/项目填写名称，或删除多余的条目。
+          </p>
+        ) : null}
+        <Button disabled={isPending} onClick={handleCancel} variant="outline">
           取消
-        </button>
-        <button
-          className="rounded bg-brand px-4 py-2 text-sm font-medium text-brand-foreground hover:bg-brand-hover disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
-          disabled={isPending}
-          onClick={handleConfirm}
-          type="button"
-        >
+        </Button>
+        <Button disabled={isPending || hasBlankName} onClick={handleConfirm}>
           {isPending ? "保存中..." : "确认保存"}
-        </button>
+        </Button>
       </div>
     </section>
   );

@@ -4,8 +4,9 @@ import { AppShell } from "@/components/app-shell";
 import { PageHeader } from "@/components/page-header";
 import { ResumeList } from "@/components/resumes/resume-list";
 import { ResumePreview } from "@/components/resumes/resume-preview";
+import { ResumeProjectsPanel } from "@/components/resumes/resume-projects-panel";
 import { ResumeUploadModal } from "@/components/resumes/resume-upload-modal";
-import { getResumes } from "@/lib/resumes/queries";
+import { getResumeProjects, getResumes } from "@/lib/resumes/queries";
 import { formatFileSize, resumeTypeLabel } from "@/lib/resumes/types";
 
 export default async function ResumesPage({
@@ -15,7 +16,11 @@ export default async function ResumesPage({
 }) {
   await connection();
 
-  const [params, resumes] = await Promise.all([searchParams, getResumes()]);
+  const [params, resumes, resumeProjects] = await Promise.all([
+    searchParams,
+    getResumes(),
+    getResumeProjects(),
+  ]);
   const previewParam = Array.isArray(params.preview)
     ? params.preview[0]
     : params.preview;
@@ -46,6 +51,8 @@ export default async function ResumesPage({
           />
         ) : null}
       </section>
+
+      <ResumeProjectsPanel projects={resumeProjects} />
     </AppShell>
   );
 }

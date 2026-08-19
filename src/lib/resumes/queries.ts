@@ -1,10 +1,12 @@
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
 
+import { normalizeExperienceType } from "./confirmation";
 import {
   canPreviewResumeInline,
   resumePreviewKind,
   type ResumeListItem,
+  type ResumeProjectListItem,
 } from "./types";
 
 const RESUME_SELECT = {
@@ -39,4 +41,29 @@ export async function getResumes(): Promise<ResumeListItem[]> {
   });
 
   return rows.map(toResumeListItem);
+}
+
+const RESUME_PROJECT_SELECT = {
+  id: true,
+  name: true,
+  type: true,
+  organization: true,
+  description: true,
+  resume: { select: { originalName: true } },
+} satisfies Prisma.ResumeProjectSelect;
+
+export async function getResumeProjects(): Promise<ResumeProjectListItem[]> {
+  const rows = await prisma.resumeProject.findMany({
+    orderBy: [{ type: "asc" }, { sortOrder: "asc" }, { updatedAt: "desc" }],
+    select: RESUME_PROJECT_SELECT,
+  });
+
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    type: normalizeExperienceType(row.type),
+    organization: row.organization,
+    description: row.description,
+    sourceResumeName: row.resume?.originalName ?? null,
+  }));
 }

@@ -3,6 +3,8 @@ import test from "node:test";
 
 import {
   buildPendingResumeExperienceConfirmations,
+  createPendingResumeExperience,
+  normalizeResumeExperienceFields,
   resolveResumeExperienceConfirmations,
   resumeExperienceTypeLabel,
 } from "./confirmation";
@@ -192,5 +194,66 @@ test("rejects linking to a missing existing project", () => {
         existingProjects,
       ),
     /不存在/,
+  );
+});
+
+test("creates a blank draft for manually added experiences", () => {
+  const draft = createPendingResumeExperience({
+    clientId: "manual-experience-0",
+    sortOrder: 3,
+  });
+
+  assert.equal(draft.type, "project");
+  assert.equal(draft.finalName, "");
+  assert.equal(draft.extractedName, "");
+  assert.equal(draft.selectedExistingItemId, null);
+  assert.equal(draft.sortOrder, 3);
+});
+
+test("saves a manually added experience as a new project", () => {
+  const draft = createPendingResumeExperience({
+    clientId: "manual-experience-0",
+    sortOrder: 1,
+  });
+  const resolved = resolveResumeExperienceConfirmations(
+    [
+      {
+        ...draft,
+        finalName: "  Campus Recruiting Bot  ",
+        existingItemId: null,
+        organization: "  Self  ",
+        description: "  Built a bot.  ",
+      },
+    ],
+    existingProjects,
+  );
+
+  assert.equal(resolved.links.length, 0);
+  assert.equal(resolved.creates[0].name, "Campus Recruiting Bot");
+  // Manual items carry no extracted name, so the final name stands in.
+  assert.equal(resolved.creates[0].extractedName, "Campus Recruiting Bot");
+  assert.equal(resolved.creates[0].organization, "Self");
+  assert.equal(resolved.creates[0].description, "Built a bot.");
+});
+
+test("normalizes and validates editable experience fields", () => {
+  assert.deepEqual(
+    normalizeResumeExperienceFields({
+      name: "  Data Platform  ",
+      type: "unknown",
+      organization: "   ",
+      description: null,
+    }),
+    {
+      name: "Data Platform",
+      type: "project",
+      organization: null,
+      description: null,
+    },
+  );
+
+  assert.throws(
+    () => normalizeResumeExperienceFields({ name: "   ", type: "internship" }),
+    /名称不能为空/,
   );
 });

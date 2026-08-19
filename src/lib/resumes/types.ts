@@ -2,6 +2,7 @@ import type {
   ExistingResumeProjectOption,
   PendingResumeExperienceConfirmation,
 } from "./confirmation";
+import type { ResumeExperienceType } from "./extract";
 
 export type ResumePreviewKind = "pdf" | "image" | "none";
 
@@ -35,6 +36,15 @@ export const initialResumeActionState: ResumeActionState = {
   message: "",
   pendingExperiences: [],
   existingProjects: [],
+};
+
+export type ResumeProjectListItem = {
+  id: string;
+  name: string;
+  type: ResumeExperienceType;
+  organization: string | null;
+  description: string | null;
+  sourceResumeName: string | null;
 };
 
 export type ResumeExperienceConfirmState = {

@@ -68,8 +68,37 @@ export type ResolvedResumeExperienceConfirmations = {
 
 const MATCH_THRESHOLD = 0.65;
 
-function normalizeExperienceType(value: string | null | undefined): ResumeExperienceType {
+export function normalizeExperienceType(
+  value: string | null | undefined,
+): ResumeExperienceType {
   return value === "internship" || value === "project" ? value : "project";
+}
+
+export type ResumeExperienceFields = {
+  name: string;
+  type: ResumeExperienceType;
+  organization: string | null;
+  description: string | null;
+};
+
+/** Trims and validates the fields shared by the upload panel and the resume project editor. */
+export function normalizeResumeExperienceFields(input: {
+  name: string;
+  type?: string | null;
+  organization?: string | null;
+  description?: string | null;
+}): ResumeExperienceFields {
+  const name = input.name.trim();
+  if (!name) {
+    throw new Error("实习/项目名称不能为空。");
+  }
+
+  return {
+    name,
+    type: normalizeExperienceType(input.type),
+    organization: input.organization?.trim() || null,
+    description: input.description?.trim() || null,
+  };
 }
 
 export function resumeExperienceTypeLabel(
@@ -154,6 +183,28 @@ function findBestMatch(
   return best && best.score >= MATCH_THRESHOLD ? best : null;
 }
 
+/** Blank draft used both for extraction results and for experiences the user adds by hand. */
+export function createPendingResumeExperience(options: {
+  clientId: string;
+  sortOrder: number;
+}): PendingResumeExperienceConfirmation {
+  return {
+    clientId: options.clientId,
+    type: "project",
+    extractedName: "",
+    finalName: "",
+    selectedExistingItemId: null,
+    recommendedExistingItemId: null,
+    matchScore: 0,
+    organization: null,
+    description: null,
+    startDate: null,
+    endDate: null,
+    sourceText: "",
+    sortOrder: options.sortOrder,
+  };
+}
+
 export function buildPendingResumeExperienceConfirmations(
   experiences: ExtractedResumeExperience[],
   existingProjects: ExistingResumeProjectOption[],
@@ -162,7 +213,10 @@ export function buildPendingResumeExperienceConfirmations(
     const match = findBestMatch(experience, existingProjects);
 
     return {
-      clientId: `resume-experience-${index}`,
+      ...createPendingResumeExperience({
+        clientId: `resume-experience-${index}`,
+        sortOrder: experience.sortOrder,
+      }),
       type: experience.type,
       extractedName: experience.title,
       finalName: experience.title,
@@ -174,7 +228,6 @@ export function buildPendingResumeExperienceConfirmations(
       startDate: experience.startDate,
       endDate: experience.endDate,
       sourceText: experience.sourceText,
-      sortOrder: experience.sortOrder,
     };
   });
 }
@@ -204,24 +257,25 @@ export function resolveResumeExperienceConfirmations(
   const links: ResolvedResumeProjectLink[] = [];
 
   for (const input of inputs) {
-    const type = normalizeExperienceType(input.type);
-    const finalName = input.finalName.trim();
-    const extractedName = input.extractedName.trim() || finalName;
-
-    if (!finalName) {
-      throw new Error("实习/项目名称不能为空。");
-    }
+    const fields = normalizeResumeExperienceFields({
+      name: input.finalName,
+      type: input.type,
+      organization: input.organization,
+      description: input.description,
+    });
+    const finalName = fields.name;
+    const type = fields.type;
 
     const base = {
       clientId: input.clientId,
       type,
-      organization: input.organization?.trim() || null,
-      description: input.description?.trim() || null,
+      organization: fields.organization,
+      description: fields.description,
       startDate: input.startDate?.trim() || null,
       endDate: input.endDate?.trim() || null,
       sourceText: input.sourceText,
       sortOrder: input.sortOrder,
-      extractedName,
+      extractedName: input.extractedName.trim() || finalName,
       finalName,
     };
 

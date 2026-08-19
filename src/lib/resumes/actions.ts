@@ -1,7 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
 import { prisma } from "@/lib/db";
 
 import {
@@ -16,6 +14,7 @@ import {
   extractResumeTextFromFile,
   type ExtractedResumeExperience,
 } from "./extract";
+import { revalidateResumeDependents } from "./revalidate";
 import {
   deleteStoredResumeFile,
   discardTemporaryResumeFile,
@@ -202,9 +201,7 @@ export async function confirmResumeExperiences(input: {
       };
     });
 
-    revalidatePath("/resumes");
-    revalidatePath("/interviews/review");
-    revalidatePath("/interviews/history");
+    revalidateResumeDependents();
 
     return {
       status: "success",
@@ -269,9 +266,7 @@ export async function deleteResume(formData: FormData): Promise<void> {
     }
   }
 
-  revalidatePath("/resumes");
-  revalidatePath("/interviews/review");
-  revalidatePath("/interviews/history");
+  revalidateResumeDependents();
 }
 
 export async function setDefaultResume(formData: FormData): Promise<void> {
@@ -284,6 +279,5 @@ export async function setDefaultResume(formData: FormData): Promise<void> {
     prisma.resume.updateMany({ data: { isDefault: false } }),
     prisma.resume.update({ where: { id }, data: { isDefault: true } }),
   ]);
-  revalidatePath("/resumes");
-  revalidatePath("/interviews/review");
+  revalidateResumeDependents();
 }
