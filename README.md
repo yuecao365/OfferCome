@@ -71,7 +71,7 @@ Import your existing Boss Zhipin records with one click: OfferLai drives a local
 
 ### Resumes
 
-Upload a PDF, Word, or image resume and OfferLai extracts your internships and projects. A confirmation step lets you rename an entry or merge it into an existing one before anything is written, which keeps the review index free of near-duplicate projects. The parsed experiences become the material that mock interviews and project deep-dive questions draw on.
+Upload a PDF, Word, or image resume and OfferLai extracts your internships and projects. A confirmation step lets you correct, merge, or complete what the parser found before anything is written, which keeps the review index free of near-duplicate projects. Extraction is a starting point rather than a verdict: the index stays editable afterwards, so one bad parse never locks your project list into the wrong shape. The parsed experiences become the material that mock interviews and project deep-dive questions draw on.
 
 ### AI mock interviews
 
@@ -89,7 +89,7 @@ Interviews scheduled in the future become preparation targets: a dedicated page 
 
 ### Interview review
 
-Review questions through the lens of a single internship or project, or through the technical and general question banks. Repeated questions are merged — including near-duplicate phrasings — so you can see every answer you have given to the same question across companies, newest first, with the source interview attached. Filtering and pagination happen on the server, and you can practise any answered question again with one click.
+Review questions through the lens of a single internship or project, or through the technical and general question banks. Repeated questions are merged — including near-duplicate phrasings — so you can see every answer you have given to the same question across companies, newest first, with the source interview attached. Filtering and pagination happen on the server, and any question you answered in a real interview can be practised again with one click. The grouping itself is yours to correct: a question filed under the wrong project can be moved to the right one, or out into the general question bank, and the project index is editable from the review page.
 
 ### Capability profile
 
