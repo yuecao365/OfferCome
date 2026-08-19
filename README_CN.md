@@ -12,6 +12,7 @@
 ![Prisma](https://img.shields.io/badge/Prisma-7-2D3748?style=flat-square&logo=prisma)
 ![SQLite](https://img.shields.io/badge/SQLite-本地存储-003B57?style=flat-square&logo=sqlite)
 ![Agent Skills](https://img.shields.io/badge/Agent%20Skills-SKILL.md-8A63D2?style=flat-square)
+![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
 [项目简介](#项目简介) · [项目预览](#项目预览) · [核心闭环](#核心闭环) · [功能介绍](#功能介绍) · [设计与实现](#设计与实现) · [快速开始](#快速开始)
 
@@ -165,3 +166,7 @@ npm run boss:sync
 OfferLai 按本地优先方式设计。多项能力依赖长任务或本地资源：LLM 调用可能持续 60 秒以上；音频转写最长可运行 10 分钟；超长录音会分片并可能需要 ffmpeg 切分；模拟面试生成与画像刷新使用 Next.js `after()` 后台任务；Boss 同步通过 Chrome DevTools Protocol 驱动本机浏览器；简历文件与浏览器会话状态保存在本地文件系统。
 
 因此，若要把可读写的完整产品部署到 Vercel 等 serverless 平台，需要你自行解决函数超时、ffmpeg 运行环境、可靠的后台任务，以及数据库与文件的持久化存储。本仓库中的 Vercel 站点仅作为只读预览；完整产品请按上文使用 Docker Compose 在本地运行。
+
+## 开源协议
+
+本项目基于 [MIT License](LICENSE) 开源。© 2026 yuecao365。

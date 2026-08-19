@@ -2,6 +2,7 @@
   "name": "career-agent",
   "version": "0.2.0",
   "private": true,
+  "license": "MIT",
   "scripts": {
     "postinstall": "prisma generate",
     "dev": "next dev",

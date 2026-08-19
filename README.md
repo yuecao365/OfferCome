@@ -12,6 +12,7 @@
 ![Prisma](https://img.shields.io/badge/Prisma-7-2D3748?style=flat-square&logo=prisma)
 ![SQLite](https://img.shields.io/badge/SQLite-Local-003B57?style=flat-square&logo=sqlite)
 ![Agent Skills](https://img.shields.io/badge/Agent%20Skills-SKILL.md-8A63D2?style=flat-square)
+![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
 [Introduction](#introduction) · [Preview](#project-preview) · [How It Works](#how-it-works) · [Features](#features) · [Under the Hood](#under-the-hood) · [Quick Start](#quick-start)
 
@@ -165,3 +166,7 @@ npm run boss:sync
 OfferLai is designed as a local-first application. Several workflows depend on long-running tasks or local resources: LLM calls may run for 60 seconds or longer, audio transcription can run for up to 10 minutes, large recordings are chunked and may be split with ffmpeg, mock-interview generation and profile refreshes use Next.js `after()` background work, Boss synchronization drives a local browser over the Chrome DevTools Protocol, and resume files plus browser session state live on the local filesystem.
 
 Deploying the writable product to a serverless platform such as Vercel therefore requires your own answers for function timeouts, an ffmpeg runtime, durable background execution, and persistent file and database storage. The hosted Vercel site in this repository is a read-only preview; for the complete product, use the local Docker Compose deployment described above.
+
+## License
+
+Released under the [MIT License](LICENSE). © 2026 yuecao365.
