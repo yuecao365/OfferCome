@@ -15,6 +15,7 @@ import {
   groupQuestionReviewItems,
   paginateQuestionReviewItems,
   type InterviewReviewFilters,
+  type InterviewReviewProject,
   type QuestionReviewPage,
 } from "./review";
 import {
@@ -293,12 +294,6 @@ export async function getInterviewWorkspaceData() {
   };
 }
 
-type InterviewReviewProject = ResumeProjectOption & {
-  type: string;
-  organization: string;
-  questionCount: number;
-};
-
 type InterviewReviewPageData = {
   projects: InterviewReviewProject[];
   unlinkedProjectQuestionCount: number;
@@ -352,6 +347,7 @@ async function getInterviewReviewProjects(
         name: true,
         type: true,
         organization: true,
+        description: true,
       },
     }),
     prisma.interviewQuestion.groupBy({
@@ -376,6 +372,7 @@ async function getInterviewReviewProjects(
       name: project.name,
       type: project.type,
       organization: project.organization ?? "",
+      description: project.description,
       questionCount: countsByProjectId.get(project.id) ?? 0,
     })),
     unlinkedProjectQuestionCount: countsByProjectId.get("unlinked") ?? 0,

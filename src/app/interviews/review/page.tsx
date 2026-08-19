@@ -9,6 +9,7 @@ import {
   ReviewPagination,
   ReviewScopeCard,
 } from "@/components/interviews/interview-review-components";
+import { ReviewProjectIndex } from "@/components/interviews/review-project-index";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,8 +19,9 @@ import {
   INTERVIEW_REVIEW_SOURCE_LABELS,
   INTERVIEW_REVIEW_PAGE_SIZE,
   parseInterviewReviewFilters,
+  projectIndexLabel,
+  reviewHref,
   type InterviewReviewQuestionCategory,
-  type InterviewReviewSection,
   type InterviewReviewSourceFilter,
 } from "@/lib/interviews/review";
 
@@ -27,46 +29,6 @@ const QUESTION_CATEGORY_LABELS: Record<InterviewReviewQuestionCategory, string> 
   technical: "技术八股",
   general: "通用问题",
 };
-
-function reviewHref(options: {
-  section?: InterviewReviewSection;
-  projectId?: string | null;
-  category?: InterviewReviewQuestionCategory | null;
-  source?: InterviewReviewSourceFilter;
-  page?: number;
-}): string {
-  const params = new URLSearchParams();
-  const section = options.section ?? "overview";
-
-  if (section !== "overview") {
-    params.set("section", section);
-  }
-  if (options.projectId) {
-    params.set("projectId", options.projectId);
-  }
-  if (options.category) {
-    params.set("category", options.category);
-  }
-  if (options.source && options.source !== "all") {
-    params.set("source", options.source);
-  }
-  if (options.page && options.page > 1) {
-    params.set("page", String(options.page));
-  }
-
-  const query = params.toString();
-  return query ? `/interviews/review?${query}` : "/interviews/review";
-}
-
-function projectIndexLabel(project: {
-  name: string;
-  type: string;
-  organization: string;
-}): string {
-  return project.type === "internship" && project.organization
-    ? project.organization
-    : project.name;
-}
 
 export default async function InterviewReviewPage({
   searchParams,
@@ -77,6 +39,10 @@ export default async function InterviewReviewPage({
 
   const filters = parseInterviewReviewFilters(await searchParams);
   const data = await getInterviewReviewPageData(filters);
+  const projectOptions = data.projects.map((project) => ({
+    id: project.id,
+    label: projectIndexLabel(project),
+  }));
   const projectQuestionCount =
     data.projects.reduce((sum, project) => sum + project.questionCount, 0) +
     data.unlinkedProjectQuestionCount;
@@ -152,63 +118,12 @@ export default async function InterviewReviewPage({
 
       {filters.section === "projects" ? (
         <section className="grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
-          <Card className="min-w-0 overflow-hidden xl:sticky xl:top-20">
-            <CardHeader className="flex-row items-center justify-between gap-3">
-              <CardTitle>实习/项目索引</CardTitle>
-              <Link className="text-xs font-semibold text-brand hover:text-brand-hover" href={reviewHref({ section: "overview", source: filters.source })}>
-                返回概览
-              </Link>
-            </CardHeader>
-            <CardContent className="grid min-w-0 gap-2 overflow-hidden">
-              {data.projects.length === 0 ? (
-                <p className="rounded-lg bg-surface-subtle p-3 text-sm leading-6 text-muted-foreground">
-                  还没有从简历中识别到实习/项目。你仍然可以查看未关联问题。
-                </p>
-              ) : null}
-              {data.projects.map((project) => {
-                const isActive = filters.projectId === project.id;
-                const label = projectIndexLabel(project);
-                return (
-                  <Link
-                    aria-current={isActive ? "page" : undefined}
-                    className={cn(
-                      "flex w-full min-w-0 items-center justify-between gap-3 overflow-hidden rounded-lg border border-border px-3 py-2.5 text-sm transition-colors hover:border-brand/30 hover:bg-surface-subtle",
-                      isActive && "border-brand/35 bg-accent/60",
-                    )}
-                    href={reviewHref({
-                      section: "projects",
-                      projectId: project.id,
-                      source: filters.source,
-                    })}
-                    key={project.id}
-                    title={label}
-                  >
-                    <span className="block min-w-0 flex-1 truncate font-medium text-foreground">
-                      {label}
-                    </span>
-                    <Badge className="shrink-0" tone={project.questionCount > 0 ? "brand" : "neutral"}>{project.questionCount}</Badge>
-                  </Link>
-                );
-              })}
-              <Link
-                aria-current={filters.projectId === "unlinked" ? "page" : undefined}
-                className={cn(
-                  "flex w-full min-w-0 items-center justify-between gap-3 overflow-hidden rounded-lg border border-border px-3 py-2.5 text-sm transition-colors hover:border-brand/30 hover:bg-surface-subtle",
-                  filters.projectId === "unlinked" && "border-brand/35 bg-accent/60",
-                )}
-                href={reviewHref({
-                  section: "projects",
-                  projectId: "unlinked",
-                  source: filters.source,
-                })}
-              >
-                <span className="block min-w-0 flex-1 truncate font-medium text-foreground">未关联项目</span>
-                <Badge className="shrink-0" tone={data.unlinkedProjectQuestionCount > 0 ? "brand" : "neutral"}>
-                  {data.unlinkedProjectQuestionCount}
-                </Badge>
-              </Link>
-            </CardContent>
-          </Card>
+          <ReviewProjectIndex
+            activeProjectId={filters.projectId}
+            projects={data.projects}
+            source={filters.source}
+            unlinkedQuestionCount={data.unlinkedProjectQuestionCount}
+          />
 
           <div className="min-w-0 grid gap-3">
             {selectedProjectTitle ? (
@@ -227,6 +142,7 @@ export default async function InterviewReviewPage({
                 <QuestionReviewList
                   empty="这个实习/项目还没有记录过面试问题。"
                   items={data.questionsPage.items}
+                  reclassifyProjects={projectOptions}
                 />
                 <ReviewPagination
                   hrefForPage={(page) =>
@@ -303,6 +219,7 @@ export default async function InterviewReviewPage({
               <QuestionReviewList
                 empty="这个分类下还没有问题。"
                 items={data.questionsPage.items}
+                reclassifyProjects={projectOptions}
               />
               <ReviewPagination
                 hrefForPage={(page) =>

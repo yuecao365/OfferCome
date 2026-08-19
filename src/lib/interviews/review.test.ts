@@ -6,6 +6,10 @@ import {
   groupQuestionReviewItems,
   paginateQuestionReviewItems,
   parseInterviewReviewFilters,
+  parseQuestionClassificationValue,
+  projectIndexLabel,
+  questionClassificationValue,
+  reviewHref,
   type QuestionReviewItem,
 } from "./review";
 
@@ -218,4 +222,63 @@ test("selects the newest non-empty real answer for directed practice", () => {
     }),
     null,
   );
+});
+
+test("builds review links without redundant query parameters", () => {
+  assert.equal(reviewHref({}), "/interviews/review");
+  assert.equal(
+    reviewHref({ section: "projects", source: "all", page: 1 }),
+    "/interviews/review?section=projects",
+  );
+  assert.equal(
+    reviewHref({ section: "projects", projectId: "p1", source: "mock", page: 3 }),
+    "/interviews/review?section=projects&projectId=p1&source=mock&page=3",
+  );
+});
+
+test("labels internships by company and projects by name", () => {
+  assert.equal(
+    projectIndexLabel({ name: "后端实习", type: "internship", organization: "OpenAI" }),
+    "OpenAI",
+  );
+  assert.equal(
+    projectIndexLabel({ name: "后端实习", type: "internship", organization: "" }),
+    "后端实习",
+  );
+  assert.equal(
+    projectIndexLabel({ name: "Study Assistant", type: "project", organization: "Self" }),
+    "Study Assistant",
+  );
+});
+
+test("round-trips the question classification select value", () => {
+  const projectValue = questionClassificationValue({
+    category: "resume_project",
+    resumeProjectId: "p1",
+  });
+  assert.equal(projectValue, "project:p1");
+  assert.deepEqual(parseQuestionClassificationValue(projectValue), {
+    category: "resume_project",
+    resumeProjectId: "p1",
+  });
+
+  const unlinkedValue = questionClassificationValue({
+    category: "resume_project",
+    resumeProjectId: null,
+  });
+  assert.equal(unlinkedValue, "project:unlinked");
+  assert.deepEqual(parseQuestionClassificationValue(unlinkedValue), {
+    category: "resume_project",
+    resumeProjectId: null,
+  });
+
+  // 移进通用问题库时必须丢掉项目关联，否则复盘会出现既在项目下又在问题库的记录。
+  assert.deepEqual(parseQuestionClassificationValue("technical"), {
+    category: "technical",
+    resumeProjectId: null,
+  });
+  assert.deepEqual(parseQuestionClassificationValue("general"), {
+    category: "general",
+    resumeProjectId: null,
+  });
 });

@@ -24,6 +24,11 @@ import {
 } from "@/lib/interviews/review";
 import { roundLabel } from "@/lib/interviews/types";
 
+import {
+  ReviewQuestionReclassify,
+  type ReclassifyProjectOption,
+} from "./review-question-reclassify";
+
 function formatDateTime(date: Date | null): string {
   if (!date) return "未设置";
 
@@ -174,9 +179,12 @@ export function InterviewReviewOverview({
 export function QuestionReviewList({
   items,
   empty,
+  reclassifyProjects,
 }: {
   items: QuestionReviewItem[];
   empty: string;
+  /** 传入实习/项目选项时，每条记录可以直接改归类；只读场景省略即可。 */
+  reclassifyProjects?: ReclassifyProjectOption[];
 }) {
   if (items.length === 0) {
     return (
@@ -250,6 +258,14 @@ export function QuestionReviewList({
                 </div>
               </article>
             ))}
+            {reclassifyProjects ? (
+              <ReviewQuestionReclassify
+                category={item.category}
+                projects={reclassifyProjects}
+                questionIds={item.answers.map((answer) => answer.id)}
+                resumeProjectId={item.resumeProjectId}
+              />
+            ) : null}
           </div>
           </details>
         );

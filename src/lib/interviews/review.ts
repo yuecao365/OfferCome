@@ -41,6 +41,16 @@ export type InterviewReviewFilters = {
   page: number;
 };
 
+/** 复盘左侧索引里的实习/项目，带上当前来源筛选下的问题数。 */
+export type InterviewReviewProject = {
+  id: string;
+  name: string;
+  type: string;
+  organization: string;
+  description: string | null;
+  questionCount: number;
+};
+
 export type QuestionReviewSource = {
   id: string;
   question: string;
@@ -266,4 +276,88 @@ export function groupQuestionReviewItems(
     );
   }
   return merged;
+}
+
+/** 复盘页所有链接的唯一来源，页面和客户端组件共用，避免查询参数拼错。 */
+export function reviewHref(options: {
+  section?: InterviewReviewSection;
+  projectId?: string | null;
+  category?: InterviewReviewQuestionCategory | null;
+  source?: InterviewReviewSourceFilter;
+  page?: number;
+}): string {
+  const params = new URLSearchParams();
+  const section = options.section ?? "overview";
+
+  if (section !== "overview") {
+    params.set("section", section);
+  }
+  if (options.projectId) {
+    params.set("projectId", options.projectId);
+  }
+  if (options.category) {
+    params.set("category", options.category);
+  }
+  if (options.source && options.source !== "all") {
+    params.set("source", options.source);
+  }
+  if (options.page && options.page > 1) {
+    params.set("page", String(options.page));
+  }
+
+  const query = params.toString();
+  return query ? `/interviews/review?${query}` : "/interviews/review";
+}
+
+/** 实习优先显示公司名，项目显示项目名。 */
+export function projectIndexLabel(project: {
+  name: string;
+  type: string;
+  organization: string | null;
+}): string {
+  return project.type === "internship" && project.organization
+    ? project.organization
+    : project.name;
+}
+
+const PROJECT_VALUE_PREFIX = "project:";
+export const UNLINKED_PROJECT_VALUE = `${PROJECT_VALUE_PREFIX}unlinked`;
+
+export type QuestionClassification = {
+  category: InterviewQuestionCategory;
+  resumeProjectId: string | null;
+};
+
+/** 把「归类」下拉的选项和题目归类互相转换，实习/项目和通用问题库共用一个下拉。 */
+export function questionClassificationValue(
+  classification: QuestionClassification,
+): string {
+  if (classification.category !== "resume_project") {
+    return classification.category;
+  }
+
+  return classification.resumeProjectId
+    ? `${PROJECT_VALUE_PREFIX}${classification.resumeProjectId}`
+    : UNLINKED_PROJECT_VALUE;
+}
+
+export function projectClassificationValue(projectId: string): string {
+  return `${PROJECT_VALUE_PREFIX}${projectId}`;
+}
+
+export function parseQuestionClassificationValue(
+  value: string,
+): QuestionClassification {
+  if (!value.startsWith(PROJECT_VALUE_PREFIX)) {
+    return {
+      category: normalizeQuestionCategory(value),
+      resumeProjectId: null,
+    };
+  }
+
+  const projectId = value.slice(PROJECT_VALUE_PREFIX.length);
+  return {
+    category: "resume_project",
+    resumeProjectId: projectId === "unlinked" ? null : projectId,
+  };
 }

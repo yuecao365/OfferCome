@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { prisma } from "@/lib/db";
+import { toMutationError, type MutationState } from "@/lib/mutation-state";
 import { enqueueCandidateProfileRefresh } from "@/lib/candidate-profile/background";
 import { advancedStage } from "@/lib/applications/stage-advance";
 import { normalizeApplicationStage } from "@/lib/applications/types";
@@ -16,6 +17,7 @@ import {
 
 import {
   deriveRealInterviewStatus,
+  INTERVIEW_QUESTION_CATEGORIES,
   type InterviewActionState,
   type InterviewQuestionInput,
   type InterviewRound,
@@ -255,5 +257,50 @@ export async function deleteInterview(formData: FormData): Promise<void> {
 
   if (formData.get("redirectTo") === "/interviews/mock") {
     redirect("/interviews/mock");
+  }
+}
+
+const reclassifyQuestionsSchema = z.object({
+  questionIds: z.array(z.string().min(1)).min(1).max(200),
+  category: z.enum(INTERVIEW_QUESTION_CATEGORIES),
+  resumeProjectId: z.string().min(1).nullable(),
+});
+
+/**
+ * 复盘里改题目的归类：换一个实习/项目，或整体移到通用问题库。
+ * 复盘按题目聚合展示，所以一次操作会覆盖这一组的全部历史记录。
+ */
+export async function reclassifyInterviewQuestions(input: {
+  questionIds: string[];
+  category: string;
+  resumeProjectId: string | null;
+}): Promise<MutationState> {
+  try {
+    const parsed = reclassifyQuestionsSchema.parse(input);
+    const resumeProjectId =
+      parsed.category === "resume_project" ? parsed.resumeProjectId : null;
+
+    if (resumeProjectId) {
+      const project = await prisma.resumeProject.findUnique({
+        where: { id: resumeProjectId },
+        select: { id: true },
+      });
+      if (!project) {
+        return {
+          status: "error",
+          message: "选择的实习/项目不存在，请刷新后重试。",
+        };
+      }
+    }
+
+    const { count } = await prisma.interviewQuestion.updateMany({
+      where: { id: { in: parsed.questionIds } },
+      data: { category: parsed.category, resumeProjectId },
+    });
+
+    revalidateInterviewRoutes();
+    return { status: "success", message: `已重新归类 ${count} 条历史记录。` };
+  } catch (error) {
+    return toMutationError(error, "题目归类修改失败。");
   }
 }
