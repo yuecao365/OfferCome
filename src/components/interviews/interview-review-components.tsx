@@ -16,6 +16,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageNumbers } from "@/components/ui/page-numbers";
 import { cn } from "@/lib/cn";
+import { formatDateTime } from "@/lib/format/date";
 import {
   getLatestAnsweredQuestionId,
   QUESTION_REVIEW_ORIGIN_LABELS,
@@ -28,15 +29,6 @@ import {
   ReviewQuestionReclassify,
   type ReclassifyProjectOption,
 } from "./review-question-reclassify";
-
-function formatDateTime(date: Date | null): string {
-  if (!date) return "未设置";
-
-  return new Intl.DateTimeFormat("zh-CN", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
-}
 
 export function ReviewScopeCard({
   href,
@@ -220,7 +212,7 @@ export function QuestionReviewList({
                 {item.mockAskedCount > 0 ? (
                   <Badge tone="info">模拟 {item.mockAskedCount} 次</Badge>
                 ) : null}
-                <span className="text-xs text-muted-foreground">最近 {formatDateTime(item.lastAskedAt)}</span>
+                <span className="text-xs text-muted-foreground">最近 {formatDateTime(item.lastAskedAt, "未设置")}</span>
               </div>
               <h3 className="text-sm font-semibold leading-6 text-foreground">{item.question}</h3>
             </div>
@@ -253,7 +245,7 @@ export function QuestionReviewList({
                     {QUESTION_REVIEW_ORIGIN_LABELS[answer.origin]}
                   </Badge>
                   <span>
-                    {answer.companyName} · {answer.jobTitle} · {formatDateTime(answer.interviewedAt)} · {roundLabel(answer.round)}
+                    {answer.companyName} · {answer.jobTitle} · {formatDateTime(answer.interviewedAt, "未设置")} · {roundLabel(answer.round)}
                   </span>
                 </div>
               </article>

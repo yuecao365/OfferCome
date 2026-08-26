@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { toMutationError, type MutationState } from "@/lib/mutation-state";
 import { enqueueCandidateProfileRefresh } from "@/lib/candidate-profile/background";
+import { revalidateApplicationRoutes } from "@/lib/applications/revalidate";
 import { advancedStage } from "@/lib/applications/stage-advance";
 import { normalizeApplicationStage } from "@/lib/applications/types";
 import { z } from "zod";
@@ -94,8 +95,7 @@ async function advanceApplicationStage(
       unchangedSince: new Date(),
     },
   });
-  revalidatePath("/applications");
-  revalidatePath("/");
+  revalidateApplicationRoutes();
 }
 
 export async function createInterview(

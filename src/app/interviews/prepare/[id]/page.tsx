@@ -14,16 +14,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { formatDateTime } from "@/lib/format/date";
 import { getInterviewPrepareData } from "@/lib/interviews/prepare";
 import { describeInterviewTime } from "@/lib/interviews/relative-time";
 import { roundLabel } from "@/lib/interviews/types";
-
-function formatDateTime(date: Date): string {
-  return new Intl.DateTimeFormat("zh-CN", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
-}
 
 /** 备战页发起的模拟面试尽量带上完整岗位上下文。 */
 function mockHref(data: NonNullable<Awaited<ReturnType<typeof getInterviewPrepareData>>>): string {

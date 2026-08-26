@@ -1,13 +1,8 @@
+import { formatTimeOfDay } from "@/lib/format/date";
+
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;
 const DAY_MS = 24 * HOUR_MS;
-
-function timeOfDay(date: Date): string {
-  return new Intl.DateTimeFormat("zh-CN", {
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
-}
 
 /**
  * 面试日程用的口语化时间：临近时给到具体时刻，较远时只说还有几天。
@@ -36,8 +31,8 @@ export function describeInterviewTime(
     (interviewedAt.getTime() - startOfToday.getTime()) / DAY_MS,
   );
 
-  if (daysAhead === 0) return `今天 ${timeOfDay(interviewedAt)}`;
-  if (daysAhead === 1) return `明天 ${timeOfDay(interviewedAt)}`;
-  if (daysAhead === 2) return `后天 ${timeOfDay(interviewedAt)}`;
+  if (daysAhead === 0) return `今天 ${formatTimeOfDay(interviewedAt)}`;
+  if (daysAhead === 1) return `明天 ${formatTimeOfDay(interviewedAt)}`;
+  if (daysAhead === 2) return `后天 ${formatTimeOfDay(interviewedAt)}`;
   return `${daysAhead} 天后`;
 }

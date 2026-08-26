@@ -1,17 +1,11 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
 import { prisma } from "@/lib/db";
 
 import type { ApplicationActionState } from "./action-state";
 import { parseApplicationFormData } from "./form";
+import { revalidateApplicationRoutes } from "./revalidate";
 import { isApplicationStage, type ApplicationStage } from "./types";
-
-function revalidateApplicationRoutes() {
-  revalidatePath("/");
-  revalidatePath("/applications");
-}
 
 export async function createApplication(
   _prevState: ApplicationActionState,

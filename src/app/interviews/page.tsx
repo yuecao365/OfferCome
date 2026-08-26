@@ -22,6 +22,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { buildCareerFlowSnapshot } from "@/lib/applications/analytics";
 import { getApplicationStageSnapshot } from "@/lib/applications/queries";
 import { getCandidateProfileContext } from "@/lib/candidate-profile/queries";
+import { formatDate } from "@/lib/format/date";
 import {
   buildInterviewConversionMetrics,
   buildInterviewHistorySummary,
@@ -35,10 +36,6 @@ import {
 import { getUpcomingInterviews } from "@/lib/interviews/upcoming";
 import { roundLabel, statusLabel } from "@/lib/interviews/types";
 import { getAiTaskConfig, isAiTaskConfigured } from "@/lib/settings/ai";
-
-function formatDate(date: Date): string {
-  return new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium" }).format(date);
-}
 
 export default async function InterviewsPage() {
   await connection();

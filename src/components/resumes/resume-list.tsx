@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import type { ResumeListItem } from "@/lib/resumes/types";
 import { formatFileSize, resumeTypeLabel } from "@/lib/resumes/types";
 import { cn } from "@/lib/cn";
+import { formatDate } from "@/lib/format/date";
 
 import { ResumeActions } from "./resume-actions";
 
@@ -13,10 +14,6 @@ type ResumeListProps = {
   resumes: ResumeListItem[];
   selectedId: string | null;
 };
-
-function formatDate(date: Date): string {
-  return new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium" }).format(date);
-}
 
 export function ResumeList({ resumes, selectedId }: ResumeListProps) {
   if (resumes.length === 0) {

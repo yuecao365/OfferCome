@@ -3,6 +3,7 @@ import { Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { formatShortDateTime } from "@/lib/format/date";
 import type { InterviewListItem, ResumeProjectOption } from "@/lib/interviews/types";
 import { roundLabel } from "@/lib/interviews/types";
 
@@ -15,16 +16,6 @@ type InterviewListProps = {
   interviews: InterviewListItem[];
   resumeProjects: ResumeProjectOption[];
 };
-
-function formatDateTime(date: Date | null): string {
-  if (!date) return "未设置";
-  return new Intl.DateTimeFormat("zh-CN", {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
-}
 
 export function InterviewList({ interviews, resumeProjects }: InterviewListProps) {
   if (interviews.length === 0) {
@@ -64,7 +55,7 @@ export function InterviewList({ interviews, resumeProjects }: InterviewListProps
                   <p className="mt-1 truncate text-muted-foreground">{interview.jobTitle}</p>
                 </td>
                 <td className="whitespace-nowrap px-4 py-3.5 text-muted-foreground">
-                  {formatDateTime(interview.interviewedAt)}
+                  {formatShortDateTime(interview.interviewedAt, "未设置")}
                 </td>
                 <td className="whitespace-nowrap px-4 py-3.5 text-muted-foreground">
                   {roundLabel(interview.round)}
@@ -74,7 +65,7 @@ export function InterviewList({ interviews, resumeProjects }: InterviewListProps
                 </td>
                 <td className="px-4 py-3.5 text-muted-foreground">{interview.questionCount}</td>
                 <td className="whitespace-nowrap px-4 py-3.5 text-muted-foreground">
-                  {formatDateTime(interview.updatedAt)}
+                  {formatShortDateTime(interview.updatedAt, "未设置")}
                 </td>
                 <td className="px-4 py-3.5">
                   <div className="flex items-center justify-end gap-1">

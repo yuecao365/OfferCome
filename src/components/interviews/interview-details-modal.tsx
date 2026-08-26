@@ -2,16 +2,9 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/modal";
+import { formatDateTime } from "@/lib/format/date";
 import type { InterviewListItem } from "@/lib/interviews/types";
 import { questionCategoryLabel, roundLabel } from "@/lib/interviews/types";
-
-function formatDateTime(date: Date | null): string {
-  if (!date) return "未设置";
-  return new Intl.DateTimeFormat("zh-CN", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(date));
-}
 
 export function InterviewDetailsModal({ interview }: { interview: InterviewListItem }) {
   return (
@@ -19,7 +12,7 @@ export function InterviewDetailsModal({ interview }: { interview: InterviewListI
       {() => (
         <div className="grid gap-4">
           <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
-            <span>{formatDateTime(interview.interviewedAt)}</span>
+            <span>{formatDateTime(interview.interviewedAt, "未设置")}</span>
             <span>·</span>
             <span>{roundLabel(interview.round)}</span>
             <span>·</span>

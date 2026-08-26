@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { formatLongDateTime } from "@/lib/format/date";
 import {
   PROFILE_DIMENSIONS,
   PROFILE_DIMENSION_LABELS,
@@ -81,13 +82,7 @@ const TREND_LABELS: Record<string, string> = {
 function profileUpdatedAtLabel(value: string | null): string {
   if (!value) return "已是最新";
 
-  return `最近更新 ${new Intl.DateTimeFormat("zh-CN", {
-    month: "long",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(new Date(value))}`;
+  return `最近更新 ${formatLongDateTime(value)}`;
 }
 
 type ProfileView = "graph" | "insights" | "dimensions" | "timeline";

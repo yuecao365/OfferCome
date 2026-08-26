@@ -3,6 +3,7 @@ import { ExternalLink } from "lucide-react";
 import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { ApplicationListItem } from "@/lib/applications/types";
+import { formatShortDateTime } from "@/lib/format/date";
 
 import {
   ApplicationInterviewActions,
@@ -16,15 +17,6 @@ type ApplicationsTableProps = {
   applications: ApplicationListItem[];
   interviewContext: ApplicationInterviewContext;
 };
-
-function formatDateTime(date: Date): string {
-  return new Intl.DateTimeFormat("zh-CN", {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
-}
 
 function JobTitle({ application }: { application: ApplicationListItem }) {
   if (!application.jobUrl) {
@@ -78,7 +70,7 @@ function ApplicationCards({
           <dl className="mt-4 grid grid-cols-2 gap-3 text-xs">
             <div>
               <dt className="text-muted-foreground">投递时间</dt>
-              <dd className="mt-1 font-medium text-foreground">{formatDateTime(application.appliedAt)}</dd>
+              <dd className="mt-1 font-medium text-foreground">{formatShortDateTime(application.appliedAt)}</dd>
             </div>
             <div>
               <dt className="text-muted-foreground">来源</dt>
@@ -157,13 +149,13 @@ export function ApplicationsTable({
                     <ApplicationStage application={application} />
                   </td>
                   <td className="whitespace-nowrap px-4 py-3.5 text-muted-foreground">
-                    {formatDateTime(application.appliedAt)}
+                    {formatShortDateTime(application.appliedAt)}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3.5 text-muted-foreground">
                     {application.source}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3.5 text-muted-foreground">
-                    {formatDateTime(application.statusUpdatedAt)}
+                    {formatShortDateTime(application.statusUpdatedAt)}
                   </td>
                   <td className="max-w-56 px-4 py-3.5 text-muted-foreground">
                     <span className="line-clamp-2" title={application.note || undefined}>

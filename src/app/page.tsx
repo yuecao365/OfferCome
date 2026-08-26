@@ -34,18 +34,11 @@ import {
 import { getApplicationStats } from "@/lib/applications/queries";
 import type { ApplicationTrendRange } from "@/lib/applications/types";
 import { cn } from "@/lib/cn";
+import { formatDateTime } from "@/lib/format/date";
 import { getInterviewStats } from "@/lib/interviews/queries";
 import { getUpcomingInterviews } from "@/lib/interviews/upcoming";
 import { isDemoMode } from "@/lib/runtime-mode";
 import { UpcomingInterviewsCard } from "@/components/interviews/upcoming-interviews-card";
-
-function formatDateTime(date: Date | null): string {
-  if (!date) return "尚未同步";
-  return new Intl.DateTimeFormat("zh-CN", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
-}
 
 function trendHref(range: ApplicationTrendRange, homeHref: string): string {
   return range === "14d" ? homeHref : `${homeHref}?trend=${range}`;
@@ -208,7 +201,7 @@ export default async function Home({
                   ))}
                 </div>
                 <div className="flex flex-wrap gap-x-4 gap-y-1 border-t border-border py-3 text-xs text-muted-foreground">
-                  <span>最近同步：{formatDateTime(stats.latestSyncedAt)}</span>
+                  <span>最近同步：{formatDateTime(stats.latestSyncedAt, "尚未同步")}</span>
                   {stats.sourceCounts.slice(0, 2).map((source) => (
                     <span key={source.source}>{source.source} · {source.count}</span>
                   ))}
