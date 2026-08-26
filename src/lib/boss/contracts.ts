@@ -1,3 +1,5 @@
+import type { ApplicationStage } from "@/lib/applications/types";
+
 export type BossLoginResult = {
   success: boolean;
   status: "success" | "failed";
@@ -19,6 +21,10 @@ export type BossSyncHighlight = {
   companyName: string;
   jobTitle: string;
   changedFields: BossSyncChangedField[];
+  /** 本次同步写完之后的阶段，弹窗据此推荐下一步。 */
+  currentStage: ApplicationStage;
+  /** Boss 侧岗位是否已下架。与 changedFields 里的 source_status 配合判断"刚下架"。 */
+  sourceJobClosed: boolean;
 };
 
 export type BossSyncPublicResult = {

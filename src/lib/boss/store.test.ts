@@ -466,3 +466,149 @@ test("counts new contacts against source keys and company/job identity", async (
 
   assert.deepEqual(result, { newCount: 1, existingCount: 1 });
 });
+
+test("reports the stage the record ends up in, so the sync dialog can suggest a next step", async () => {
+  const oldActivity = new Date("2026-07-01T00:00:00.000Z");
+  const now = new Date("2026-07-10T00:00:00.000Z");
+  // 用户已经把这条投递推到一面；Boss 又有新互动。
+  const db = createFakeDb([
+    storedContact({
+      stage: "first_interview",
+      sourceActivityAt: oldActivity,
+      unchangedSince: oldActivity,
+    }),
+  ]);
+
+  const summary = await upsertBossContacts(
+    db,
+    [
+      {
+        companyName: "Example Co",
+        jobTitle: "Frontend Engineer",
+        source: BOSS_SOURCE,
+        sourceKey: "boss_zhipin:job:existing",
+        sourceActivityAt: now,
+      },
+    ],
+    now,
+  );
+
+  assert.equal(summary.highlights[0]?.kind, "source_changed");
+  // 同步绝不自己推进阶段，只如实报告当前停在哪一档。
+  assert.equal(summary.highlights[0]?.currentStage, "first_interview");
+  assert.equal(db.contacts.get("boss_zhipin:job:existing")?.stage, "first_interview");
+});
+
+test("reports the rejected stage once a record is auto rejected", async () => {
+  const appliedAt = new Date("2026-06-01T00:00:00.000Z");
+  const now = new Date("2026-07-20T00:00:00.000Z");
+  const db = createFakeDb([
+    storedContact({ appliedAt, sourceActivityAt: appliedAt }),
+  ]);
+
+  const summary = await upsertBossContacts(
+    db,
+    [
+      {
+        companyName: "Example Co",
+        jobTitle: "Frontend Engineer",
+        source: BOSS_SOURCE,
+        sourceKey: "boss_zhipin:job:existing",
+        sourceActivityAt: appliedAt,
+      },
+    ],
+    now,
+  );
+
+  const autoRejected = summary.highlights.find(
+    (item) => item.kind === "auto_rejected",
+  );
+  assert.equal(autoRejected?.currentStage, "rejected");
+});
+
+test("reports the applied stage for brand new records", async () => {
+  const now = new Date("2026-07-10T00:00:00.000Z");
+  const db = createFakeDb();
+
+  const summary = await upsertBossContacts(
+    db,
+    [
+      {
+        companyName: "New Co",
+        jobTitle: "Backend Engineer",
+        source: BOSS_SOURCE,
+        sourceKey: "boss_zhipin:job:new",
+        sourceActivityAt: now,
+      },
+    ],
+    now,
+  );
+
+  assert.equal(summary.highlights[0]?.kind, "new");
+  assert.equal(summary.highlights[0]?.currentStage, "applied");
+});
+
+test("flags a job that Boss now reports as taken down", async () => {
+  const activity = new Date("2026-08-20T00:00:00.000Z");
+  const now = new Date("2026-08-26T00:00:00.000Z");
+  const db = createFakeDb([
+    storedContact({
+      appliedAt: activity,
+      sourceActivityAt: activity,
+      sourceStatusCode: 1,
+    }),
+  ]);
+
+  const summary = await upsertBossContacts(
+    db,
+    [
+      {
+        companyName: "Example Co",
+        jobTitle: "Frontend Engineer",
+        source: BOSS_SOURCE,
+        sourceKey: "boss_zhipin:job:existing",
+        sourceActivityAt: activity,
+        sourceStatusCode: 2,
+      },
+    ],
+    now,
+  );
+
+  const highlight = summary.highlights[0];
+  assert.equal(highlight?.kind, "source_changed");
+  assert.deepEqual(highlight?.changedFields, ["source_status"]);
+  assert.equal(highlight?.sourceJobClosed, true);
+  // 同步只如实上报，绝不自己把阶段改成拒绝。
+  assert.equal(highlight?.currentStage, "applied");
+  assert.equal(db.contacts.get("boss_zhipin:job:existing")?.stage, "applied");
+});
+
+test("does not flag a job that is still open", async () => {
+  const activity = new Date("2026-08-20T00:00:00.000Z");
+  const now = new Date("2026-08-26T00:00:00.000Z");
+  const db = createFakeDb([
+    storedContact({
+      appliedAt: activity,
+      sourceActivityAt: activity,
+      sourceStatusCode: 1,
+    }),
+  ]);
+
+  const summary = await upsertBossContacts(
+    db,
+    [
+      {
+        companyName: "Example Co",
+        jobTitle: "Frontend Engineer",
+        source: BOSS_SOURCE,
+        sourceKey: "boss_zhipin:job:existing",
+        sourceActivityAt: now,
+        sourceStatusCode: 1,
+      },
+    ],
+    now,
+  );
+
+  assert.deepEqual(summary.highlights[0]?.changedFields, ["activity"]);
+  assert.equal(summary.highlights[0]?.sourceJobClosed, false);
+});

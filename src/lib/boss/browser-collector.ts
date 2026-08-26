@@ -93,7 +93,7 @@ export function isBossLoginUrl(url: string): boolean {
 }
 
 /** 只认「沟通过」列表的岗位接口响应。 */
-export function isCommunicatedJobUrl(url: string): boolean {
+function isCommunicatedJobUrl(url: string): boolean {
   const parsed = parseUrl(url);
   return (
     parsed !== null &&
@@ -102,7 +102,7 @@ export function isCommunicatedJobUrl(url: string): boolean {
   );
 }
 
-export function isDisabledControl(attributes: Record<string, string>): boolean {
+function isDisabledControl(attributes: Record<string, string>): boolean {
   return (
     attributes.disabled !== undefined ||
     attributes["aria-disabled"] === "true" ||
@@ -114,21 +114,64 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function assertBossAccessAvailable(
-  issue: { code: number | null; message: string } | null,
-  duringSync = false,
-): void {
+/** 把 Boss 的原话带进错误文案——只报 code 的话，下次排查还得靠猜。 */
+export function describeBossAccessIssue(issue: BossAccessIssue): string {
+  const parts = [
+    issue.code === null ? null : `code=${issue.code}`,
+    issue.message || null,
+  ].filter((part): part is string => part !== null);
+  return parts.length > 0 ? `（${parts.join("：")}）` : "";
+}
+
+/**
+ * 判断当前会话还能不能继续采集，不能则抛出对应的错误。
+ *
+ * 三级判定的顺序是有意的：
+ * 1. 停在登录页是确凿证据，比接口 code 可靠，所以先看 URL；
+ * 2. 已知的登录 code / 关键词次之；
+ * 3. 最后把「不认识的错误码 + 一条岗位数据都没拿到」也判成需要重新登录。
+ *
+ * 第 3 条是关键取舍：这种组合压倒性地是登录或安全校验问题，而 code 白名单
+ * 永远追不上 Boss 的变化。猜错只是让用户多扫一次码（可恢复），猜对则把
+ * 「请稍后重试」这个死胡同变成前端已有的一键重新登录流程。
+ */
+export function assertBossSessionUsable(input: {
+  /** 当前页面地址，取不到时传 null。 */
+  currentUrl: string | null;
+  /** 最近一次响应携带的异常，正常时为 null。 */
+  issue: BossAccessIssue | null;
+  /** 本次已经成功解析到的岗位响应数。 */
+  collectedResponses: number;
+  /** 首屏判定还是翻页途中判定，只影响文案。 */
+  duringSync: boolean;
+}): void {
+  if (input.currentUrl !== null && isBossLoginUrl(input.currentUrl)) {
+    throw new BossBrowserLoginRequiredError(
+      input.duringSync
+        ? "Boss 在同步过程中跳回了登录页，请重新登录后再同步。"
+        : "Boss 当前未登录，请在登录窗口中完成登录。",
+    );
+  }
+
+  const { issue } = input;
   if (!issue) return;
+
   if (isBossLoginRequiredResponse(issue.code, issue.message)) {
     throw new BossBrowserLoginRequiredError(
-      duringSync
+      input.duringSync
         ? "Boss 在同步过程中要求重新登录或安全校验，已停止继续读取。"
         : "Boss 要求登录或安全校验，请先完成登录后再同步。",
     );
   }
 
+  if (input.collectedResponses === 0) {
+    throw new BossBrowserLoginRequiredError(
+      `Boss 没有返回任何岗位数据${describeBossAccessIssue(issue)}。登录状态很可能已经失效，请重新登录后再同步。`,
+    );
+  }
+
   throw new Error(
-    `Boss 页面返回异常响应${issue.code === null ? "" : `（code=${issue.code}）`}，已停止同步。`,
+    `Boss 页面返回异常响应${describeBossAccessIssue(issue)}，已停止同步。`,
   );
 }
 
@@ -141,11 +184,13 @@ async function getPageUrl(port: number, targetId: string): Promise<string | null
   }
 }
 
+export type BossAccessIssue = { code: number | null; message: string };
+
 type CollectorState = {
   candidates: BossContactCandidate[];
   hasMore: boolean | null;
   responseCount: number;
-  accessIssue: { code: number | null; message: string } | null;
+  accessIssue: BossAccessIssue | null;
   bodyTasks: Set<Promise<void>>;
 };
 
@@ -290,6 +335,9 @@ export async function collectBossContactsFromBrowser(
     // 等首页岗位数据；跳到登录页或超时都视为未登录。
     const deadline = Date.now() + RESPONSE_TIMEOUT_MS;
     while (Date.now() < deadline && state.responseCount === 0 && !browserGone) {
+      // Boss 已经明确回了错（登录失效、安全校验等）就不必再等满超时，
+      // 立刻交给下面的会话体检给出可操作的提示。
+      if (state.accessIssue) break;
       const url = await getPageUrl(port, target.id);
       if (url !== null && isBossLoginUrl(url)) break;
       await sleep(POLL_INTERVAL_MS);
@@ -299,25 +347,16 @@ export async function collectBossContactsFromBrowser(
       throw new BossBrowserClosedError();
     }
 
-    if (
-      state.accessIssue &&
-      !isBossLoginRequiredResponse(
-        state.accessIssue.code,
-        state.accessIssue.message,
-      )
-    ) {
-      assertBossAccessAvailable(state.accessIssue);
-    }
-    if (state.responseCount === 0) {
-      // 只有确认跳到了登录页才判未登录；单纯没等到响应是网络或页面问题，
-      // 误判成未登录会把已登录用户拖进无意义的重新登录流程。
-      const currentUrl = await getPageUrl(port, target.id);
-      if (currentUrl !== null && isBossLoginUrl(currentUrl)) {
-        throw new BossBrowserLoginRequiredError(
-          "Boss 当前未登录，请在登录窗口中完成登录。",
-        );
-      }
-      assertBossAccessAvailable(state.accessIssue);
+    // 首屏就是登录态的体检：有异常响应、或压根没等到数据时才深查，
+    // 一切正常的情况下不多花一次 CDP 往返。
+    if (state.accessIssue || state.responseCount === 0) {
+      assertBossSessionUsable({
+        currentUrl: await getPageUrl(port, target.id),
+        issue: state.accessIssue,
+        collectedResponses: state.responseCount,
+        duringSync: false,
+      });
+      // 没抛错说明既没跳登录页也没有异常响应，那就是纯粹没等到。
       throw new Error(
         "等待 Boss 岗位数据超时，没有收到岗位列表响应。请检查网络后重新同步。",
       );
@@ -355,12 +394,12 @@ export async function collectBossContactsFromBrowser(
       if (browserGone) throw new BossBrowserClosedError();
 
       const url = await getPageUrl(port, target.id);
-      if (url !== null && isBossLoginUrl(url)) {
-        throw new BossBrowserLoginRequiredError(
-          "Boss 在同步过程中要求重新登录或安全校验，已停止继续读取。",
-        );
-      }
-      assertBossAccessAvailable(state.accessIssue, true);
+      assertBossSessionUsable({
+        currentUrl: url,
+        issue: state.accessIssue,
+        collectedResponses: knownCount,
+        duringSync: true,
+      });
 
       const nextCount = normalizeBossContacts(state.candidates).length;
       diagnostics.push({

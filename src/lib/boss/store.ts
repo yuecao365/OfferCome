@@ -1,15 +1,24 @@
 import {
   BOSS_SOURCE,
   hasStableBossSourceId,
+  isBossJobClosed,
   toBossSourceKey,
   type NormalizedBossContact,
 } from "./parse";
+import { normalizeApplicationStage } from "@/lib/applications/types";
+
 import type {
   BossSyncChangedField,
   BossSyncHighlight,
 } from "./contracts";
 
 export type { BossSyncHighlight } from "./contracts";
+
+/**
+ * 注意：这里写入的 bossContact 表存的是**所有渠道**的投递记录（手动录入的
+ * 公司官网投递也在里面），Boss 只是历史命名。本文件的类型跟着 prisma
+ * delegate 名走，改名反而会和数据库对不上——真要正名得连表一起迁移。
+ */
 
 const STALE_APPLICATION_DAYS = 30;
 const DAY_MS = 24 * 60 * 60 * 1_000;
@@ -135,7 +144,7 @@ function getSourceChanges(
 }
 
 /** 距最后一次互动是否已超过 30 天。 */
-export function isStaleSinceLastActivity(
+function isStaleSinceLastActivity(
   lastActivityAt: Date,
   now: Date,
 ): boolean {
@@ -327,6 +336,8 @@ export async function upsertBossContacts(
           companyName: contact.companyName,
           jobTitle: contact.jobTitle,
           changedFields: [],
+          currentStage: autoRejected ? "rejected" : "applied",
+          sourceJobClosed: isBossJobClosed(contact.sourceStatusCode),
         });
         continue;
       }
@@ -358,6 +369,11 @@ export async function upsertBossContacts(
       });
       await removeIdentityDuplicates(db, contact);
 
+      // 本次写入之后的阶段：自动拒绝会就地改写，其余保持用户设定的阶段。
+      const currentStage = autoRejected
+        ? "rejected"
+        : normalizeApplicationStage(existing.stage);
+
       if (changedFields.length > 0) {
         summary.updated += 1;
         summary.highlights.push({
@@ -366,6 +382,8 @@ export async function upsertBossContacts(
           companyName: contact.companyName,
           jobTitle: contact.jobTitle,
           changedFields,
+          currentStage,
+          sourceJobClosed: isBossJobClosed(contact.sourceStatusCode),
         });
       } else if (autoRejected) {
         summary.updated += 1;
@@ -381,6 +399,8 @@ export async function upsertBossContacts(
           companyName: contact.companyName,
           jobTitle: contact.jobTitle,
           changedFields: [],
+          currentStage: "rejected",
+          sourceJobClosed: isBossJobClosed(contact.sourceStatusCode),
         });
       }
     } catch (error) {

@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   BOSS_SOURCE,
+  isBossJobClosed,
   normalizeBossContacts,
   toBossSourceKey,
 } from "./parse";
@@ -76,4 +77,14 @@ test("deduplicates normalized contacts by source key", () => {
 
   assert.equal(contacts.length, 1);
   assert.equal(contacts[0]?.companyName, "Example Co");
+});
+
+test("only treats the observed closed status as taken down", () => {
+  // 2 = 已下架（据真实数据推断），其余一律按"不确定"处理，宁可不给建议也不猜。
+  assert.equal(isBossJobClosed(2), true);
+  assert.equal(isBossJobClosed(1), false);
+  assert.equal(isBossJobClosed(0), false);
+  assert.equal(isBossJobClosed(99), false);
+  assert.equal(isBossJobClosed(null), false);
+  assert.equal(isBossJobClosed(undefined), false);
 });

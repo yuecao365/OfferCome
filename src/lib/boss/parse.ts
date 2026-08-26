@@ -21,6 +21,22 @@ export type NormalizedBossContact = {
   sourceStatusCode?: number | null;
 };
 
+/**
+ * Boss 的 jobValidStatus。含义不是官方文档，是从真实同步数据推断的：
+ * 210 条记录里 code=2 共 125 条，近 30 天内**零条**有互动、也没有一条是新投递；
+ * code=1 则有互动到当天、且全部新投递都落在这里。据此判定 1=在招、2=已下架。
+ *
+ * 只把 2 当作"确定下架"，其余值（包括将来 Boss 新增的）一律按"不确定"处理，
+ * 宁可不给建议也不猜。
+ */
+const BOSS_JOB_STATUS_CLOSED = 2;
+
+export function isBossJobClosed(
+  sourceStatusCode: number | null | undefined,
+): boolean {
+  return sourceStatusCode === BOSS_JOB_STATUS_CLOSED;
+}
+
 function cleanText(value: string | null | undefined): string {
   return (value ?? "").replace(/\s+/g, " ").trim();
 }

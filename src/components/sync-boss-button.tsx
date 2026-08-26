@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, LogIn, RefreshCw, RotateCcw, X } from "lucide-react";
+import { ArrowRight, Check, LogIn, RefreshCw, RotateCcw, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -10,9 +10,11 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/form-controls";
 import { Modal } from "@/components/modal";
 import { updateApplicationStage } from "@/lib/applications/actions";
+import { suggestedStageForSourceChange } from "@/lib/applications/stage-advance";
 import {
   APPLICATION_STAGES,
   APPLICATION_STAGE_LABELS,
+  type ApplicationStage,
 } from "@/lib/applications/types";
 import type {
   BossLoginResult,
@@ -47,17 +49,53 @@ function highlightLabel(highlight: BossSyncHighlight): string {
     return "投递满 30 天且未检测到后续活动，已自动标记拒绝";
   }
 
-  return highlight.changedFields.map((field) => CHANGED_FIELD_LABELS[field]).join("、");
+  return highlight.changedFields
+    .map((field) =>
+      // 状态码变化在实际数据里几乎只有"下架"一种，能确定时就直说。
+      field === "source_status" && highlight.sourceJobClosed
+        ? "岗位已下架"
+        : CHANGED_FIELD_LABELS[field],
+    )
+    .join("、");
 }
 
-/** 让用户在同步结果里就地把有新互动的岗位改成一面、Offer 等状态。 */
-function StagePicker({ sourceKey }: { sourceKey: string }) {
+/**
+ * 建议规则本身在 suggestedStageForSourceChange 里，这里只负责把一条高亮
+ * 翻译成它认识的两个信号。两者都要求「本次同步真的变了」——已经下架很久的
+ * 岗位不该在一条改名提醒旁边冒出「拒绝」按钮。
+ */
+function suggestionFor(highlight: BossSyncHighlight): ApplicationStage | null {
+  const sourceChanged = highlight.kind === "source_changed";
+  return suggestedStageForSourceChange({
+    currentStage: highlight.currentStage,
+    hasNewActivity:
+      sourceChanged && highlight.changedFields.includes("activity"),
+    hasJobClosed:
+      sourceChanged &&
+      highlight.changedFields.includes("source_status") &&
+      highlight.sourceJobClosed,
+  });
+}
+
+/**
+ * 让用户在同步结果里就地把有新互动的岗位改成一面、Offer 等状态。
+ *
+ * 建议不预填进下拉框，而是单独给一个按钮：下拉框是 onChange 即保存的，
+ * 预填进去反而会让"认可这个建议"变得无法提交（选中同一个值不触发 change）。
+ */
+function StagePicker({
+  sourceKey,
+  suggestion,
+}: {
+  sourceKey: string;
+  suggestion: ApplicationStage | null;
+}) {
   const [stage, setStage] = useState("");
   const [state, setState] = useState<"idle" | "saving" | "saved" | "error">(
     "idle",
   );
 
-  async function handleChange(nextStage: string) {
+  async function save(nextStage: string) {
     setStage(nextStage);
     if (!nextStage) return;
 
@@ -67,12 +105,22 @@ function StagePicker({ sourceKey }: { sourceKey: string }) {
   }
 
   return (
-    <span className="flex items-center gap-2">
+    <span className="flex flex-wrap items-center gap-2">
+      {suggestion && state === "idle" ? (
+        <Button
+          onClick={() => void save(suggestion)}
+          size="sm"
+          variant="outline"
+        >
+          <ArrowRight aria-hidden="true" className="size-3.5" />
+          {APPLICATION_STAGE_LABELS[suggestion]}
+        </Button>
+      ) : null}
       <Select
         aria-label="更新投递状态"
         className="h-8 w-32 px-2 text-xs"
         disabled={state === "saving"}
-        onChange={(event) => void handleChange(event.target.value)}
+        onChange={(event) => void save(event.target.value)}
         value={stage}
       >
         <option value="">更新状态…</option>
@@ -117,7 +165,10 @@ function HighlightList({
             {highlight.companyName} · {highlight.jobTitle}
           </span>
           {withStagePicker ? (
-            <StagePicker sourceKey={highlight.sourceKey} />
+            <StagePicker
+              sourceKey={highlight.sourceKey}
+              suggestion={suggestionFor(highlight)}
+            />
           ) : null}
         </li>
       ))}
