@@ -9,7 +9,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx --test \"src/**/*.test.ts\"",
+    "test": "tsx --test --experimental-test-module-mocks \"src/**/*.test.ts\"",
     "db:push": "prisma db push",
     "demo:db": "tsx scripts/create-demo-db.ts",
     "demo:seed": "tsx scripts/seed-demo.ts",
@@ -19,7 +19,6 @@
   "dependencies": {
     "@ai-sdk/openai": "^4.0.7",
     "@ai-sdk/openai-compatible": "^3.0.5",
-    "@ai-sdk/react": "^4.0.16",
     "@antv/g6": "^5.1.1",
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "@prisma/adapter-better-sqlite3": "^7.8.0",
@@ -30,7 +29,7 @@
     "lucide-react": "^1.24.0",
     "mammoth": "^1.12.0",
     "next": "16.2.10",
-    "pdf-parse": "^2.4.5",
+    "pdfjs-dist": "^5.4.296",
     "prisma": "^7.8.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
@@ -46,6 +45,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
+    "server-only": "^0.0.1",
     "tailwindcss": "^4",
     "tsx": "^4.23.0",
     "typescript": "^5"
