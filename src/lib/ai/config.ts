@@ -1,7 +1,7 @@
 export const AI_TASKS = ["transcription", "text"] as const;
 export type AiTask = (typeof AI_TASKS)[number];
 
-export const AI_PROVIDERS = [
+const AI_PROVIDERS = [
   "openai",
   "anthropic",
   "qwen",

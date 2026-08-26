@@ -4,9 +4,7 @@ import path from "node:path";
 import { extractDocumentText } from "@/lib/documents/extract-text";
 import { assertPathInsideResumeDir } from "./storage";
 
-export const RESUME_EXPERIENCE_TYPES = ["internship", "project"] as const;
-
-export type ResumeExperienceType = (typeof RESUME_EXPERIENCE_TYPES)[number];
+export type ResumeExperienceType = "internship" | "project";
 
 export type ExtractedResumeExperience = {
   title: string;

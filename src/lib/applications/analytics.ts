@@ -213,7 +213,7 @@ export function buildApplicationTrend(
   return buildDailyTrend(dates, start, range === "14d" ? 14 : 30);
 }
 
-export function createEmptyStageCounts(): Record<ApplicationStage, number> {
+function createEmptyStageCounts(): Record<ApplicationStage, number> {
   return Object.fromEntries(
     APPLICATION_STAGES.map((stage) => [stage, 0]),
   ) as Record<ApplicationStage, number>;

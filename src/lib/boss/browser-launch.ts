@@ -83,7 +83,7 @@ function windowsPath(base: string | undefined, relativePath: string) {
   return base ? `${base}\\${relativePath}` : undefined;
 }
 
-export function getBrowserPathCandidates(
+function getBrowserPathCandidates(
   env: NodeJS.ProcessEnv = process.env,
 ): string[] {
   const candidates = [

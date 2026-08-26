@@ -41,12 +41,3 @@ export function CardDescription({ className, ...props }: HTMLAttributes<HTMLPara
 export function CardContent({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return <div className={cn("p-5", className)} {...props} />;
 }
-
-export function CardFooter({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div
-      className={cn("flex items-center gap-3 border-t border-border px-5 py-4", className)}
-      {...props}
-    />
-  );
-}

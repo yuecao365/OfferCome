@@ -120,7 +120,7 @@ function evidenceQuestionKey(evidence: ProfileGraphEvidence): string | null {
     : null;
 }
 
-export function profileEvidenceKey(evidence: ProfileGraphEvidence): string {
+function profileEvidenceKey(evidence: ProfileGraphEvidence): string {
   return evidence.observationId
     ? `observation:${evidence.observationId}`
     : evidenceQuestionKey(evidence) ?? `evidence:${evidence.id}`;

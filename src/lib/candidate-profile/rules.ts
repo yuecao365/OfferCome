@@ -6,15 +6,15 @@ import type {
   ProfileTrend,
 } from "./types";
 
-export const PROFILE_SOURCE_WEIGHTS: Record<ProfileSourceType, number> = {
+const PROFILE_SOURCE_WEIGHTS: Record<ProfileSourceType, number> = {
   real_audio: 1,
   real_transcript: 0.9,
   real_summary: 0.75,
   mock_text: 0.5,
 };
 
-export const PROFILE_HALF_LIFE_DAYS = 180;
-export const PROFILE_TREND_THRESHOLD = 0.25;
+const PROFILE_HALF_LIFE_DAYS = 180;
+const PROFILE_TREND_THRESHOLD = 0.25;
 
 export type AggregationObservation = {
   interviewId: string;
@@ -60,7 +60,7 @@ export function timeDecayWeight(date: Date, now: Date): number {
 }
 
 /** 面试少于此数的结论一律标注"初步印象"，而不是干脆不给。 */
-export const PROFILE_TENTATIVE_INTERVIEW_COUNT = 3;
+const PROFILE_TENTATIVE_INTERVIEW_COUNT = 3;
 
 export function isTentativeProfileMetric(interviewCount: number): boolean {
   return interviewCount < PROFILE_TENTATIVE_INTERVIEW_COUNT;
@@ -68,7 +68,7 @@ export function isTentativeProfileMetric(interviewCount: number): boolean {
 
 // 门槛下放：有一场面试就给出等级（配合 tentative 标注），
 // 冷启动时宁可给"初步印象"，也不给一排"待积累"空表盘。
-export function profileLevelLabel(
+function profileLevelLabel(
   score: number | null,
   interviewCount: number,
 ): ProfileLevelLabel {
@@ -79,7 +79,7 @@ export function profileLevelLabel(
   return "突出";
 }
 
-export function evidenceConfidenceLabel(
+function evidenceConfidenceLabel(
   confidence: number,
   interviewCount: number,
 ): EvidenceConfidenceLabel {

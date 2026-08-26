@@ -1,4 +1,4 @@
-export const MOCK_INTERVIEW_RECORDING_MEDIA_TYPES = [
+const MOCK_INTERVIEW_RECORDING_MEDIA_TYPES = [
   "audio/webm;codecs=opus",
   "audio/webm",
   "audio/mp4",

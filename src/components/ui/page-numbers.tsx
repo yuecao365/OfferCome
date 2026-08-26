@@ -7,7 +7,7 @@ import { cn } from "@/lib/cn";
 const ADJACENT_PAGES = 2;
 
 /** 计算要展示的页码序列，null 表示省略号。 */
-export function pageNumberItems(
+function pageNumberItems(
   page: number,
   totalPages: number,
 ): Array<number | null> {

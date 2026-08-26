@@ -107,7 +107,7 @@ export function resumeExperienceTypeLabel(
   return type === "internship" ? "实习" : "项目";
 }
 
-export function normalizeResumeProjectName(value: string): string {
+function normalizeResumeProjectName(value: string): string {
   return value
     .normalize("NFKC")
     .toLowerCase()

@@ -16,8 +16,6 @@ export const PROFILE_INSIGHT_KINDS = [
   "training_focus",
 ] as const;
 
-export const PROFILE_INSIGHT_STATUSES = ["tentative", "active", "hidden"] as const;
-
 export const PROFILE_SOURCE_TYPES = [
   "real_audio",
   "real_transcript",
@@ -27,7 +25,7 @@ export const PROFILE_SOURCE_TYPES = [
 
 export type ProfileDimension = (typeof PROFILE_DIMENSIONS)[number];
 export type ProfileInsightKind = (typeof PROFILE_INSIGHT_KINDS)[number];
-export type ProfileInsightStatus = (typeof PROFILE_INSIGHT_STATUSES)[number];
+export type ProfileInsightStatus = "tentative" | "active" | "hidden";
 export type ProfileSourceType = (typeof PROFILE_SOURCE_TYPES)[number];
 export type ProfileTrend = "up" | "down" | "stable" | "insufficient";
 export type ProfileLevelLabel = "待积累" | "基础" | "稳定" | "熟练" | "突出";

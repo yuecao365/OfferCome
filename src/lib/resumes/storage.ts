@@ -118,35 +118,6 @@ export function buildStoredResumeName(extension: string): string {
   return `${Date.now()}-${crypto.randomUUID()}${extension}`;
 }
 
-export async function saveResumeFile(file: File): Promise<StoredResumeFile> {
-  const validation = validateResumeUpload({
-    originalName: file.name,
-    mimeType: file.type,
-    fileSize: file.size,
-  });
-
-  if (!validation.ok) {
-    throw new Error(validation.message);
-  }
-
-  const storedName = buildStoredResumeName(validation.extension);
-  await fs.mkdir(RESUME_UPLOAD_DIR, { recursive: true });
-
-  const filePath = assertPathInsideResumeDir(
-    path.join(RESUME_UPLOAD_DIR, storedName),
-  );
-  const bytes = Buffer.from(await file.arrayBuffer());
-  await fs.writeFile(filePath, bytes, { flag: "wx" });
-
-  return {
-    originalName: file.name,
-    storedName,
-    filePath,
-    mimeType: validation.normalizedMimeType,
-    fileSize: file.size,
-  };
-}
-
 function metadataPathForTempUpload(tempUploadId: string): string {
   return assertPathInsideResumeTempDir(
     path.join(RESUME_TEMP_UPLOAD_DIR, `${tempUploadId}.json`),

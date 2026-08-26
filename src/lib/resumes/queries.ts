@@ -22,7 +22,7 @@ const RESUME_SELECT = {
 
 type ResumeRow = Prisma.ResumeGetPayload<{ select: typeof RESUME_SELECT }>;
 
-export function toResumeListItem(row: ResumeRow): ResumeListItem {
+function toResumeListItem(row: ResumeRow): ResumeListItem {
   const previewKind = resumePreviewKind(row.mimeType, row.originalName);
 
   return {

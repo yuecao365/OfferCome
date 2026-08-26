@@ -3,7 +3,7 @@
 // Page.navigate 和 Input 事件，绝不能启用 Runtime。
 // （DOM 域已实测安全：启用后页面仍能正常加载岗位数据。）
 
-export const DEFAULT_BOSS_CDP_PORT = 9333;
+const DEFAULT_BOSS_CDP_PORT = 9333;
 
 export function getBossCdpPort(env: NodeJS.ProcessEnv = process.env): number {
   const parsed = Number(env.BOSS_CDP_PORT);

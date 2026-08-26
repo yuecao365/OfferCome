@@ -104,7 +104,7 @@ export function toInterviewStats(rows: InterviewStatusCount[]): InterviewStats {
   return stats;
 }
 
-export function toInterviewListItem(row: InterviewRow): InterviewListItem {
+function toInterviewListItem(row: InterviewRow): InterviewListItem {
   return {
     id: row.id,
     kind: row.kind === "mock" ? "mock" : "real",

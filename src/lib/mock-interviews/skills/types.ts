@@ -4,7 +4,7 @@
  * name/description 恒在出题 agent 上下文，全文由 agent 通过 load_skill
  * 工具按需加载；弱模型不调工具时由选择器推荐包做确定性兜底注入。
  */
-export const SKILL_LAYERS = ["base", "domain", "stack"] as const;
+const SKILL_LAYERS = ["base", "domain", "stack"] as const;
 
 export type SkillLayer = (typeof SKILL_LAYERS)[number];
 

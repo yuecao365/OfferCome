@@ -8,7 +8,7 @@ import {
 
 import { cn } from "@/lib/cn";
 
-export const fieldControlClassName =
+const fieldControlClassName =
   "block h-10 w-full rounded-lg border border-border-strong bg-surface px-3 text-sm text-foreground shadow-card outline-none transition-[border-color,box-shadow] placeholder:text-muted-foreground focus:border-brand focus:ring-2 focus:ring-ring/20 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground";
 
 export function FieldLabel({
