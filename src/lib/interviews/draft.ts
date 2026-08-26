@@ -41,7 +41,7 @@ export type InterviewDraftHeader = {
   interviewedAt: string | null;
 };
 
-export const EMPTY_DRAFT_HEADER: InterviewDraftHeader = {
+const EMPTY_DRAFT_HEADER: InterviewDraftHeader = {
   companyName: null,
   jobTitle: null,
   round: null,
@@ -428,6 +428,7 @@ async function structureWithConfiguredModel(
       schemaName: "InterviewQuestionBoundaries",
       schemaDescription: "面试问题、回答原文边界、分类及关联项目",
       timeoutMs: 60_000,
+      untrustedInputs: "面试文本和候选项目名称",
       system:
         "你是面试问答边界识别助手，不是摘要助手。找出文本中真实出现的每一个面试问题，包括没有回答的问题。question 必须从输入中连续逐字复制，不得改写、纠错、缩写或补写。不要根据候选人的回答反推输入中不存在的问题。对于有回答的问题，只返回回答开头和结尾各 20～60 个字符的连续原文引用，禁止返回或概括完整回答；两个引用必须能在输入中原样找到，并排除面试官的过渡语。没有回答时两个引用都返回 null。根据语义将问题分类为 resume_project、technical 或 general。只有明确匹配候选项目时才填写关联项目 ID。confidence 表示边界和分类的可信度。header 中填写文本明确提到的公司名称、岗位名称、面试轮次和面试日期；文本没有明确提到的字段一律填 null，绝不根据行业或语气猜测。",
       payload: { candidateProjects: projects, interviewText: text },
