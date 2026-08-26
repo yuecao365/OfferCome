@@ -1,6 +1,7 @@
 import "server-only";
 
 import { prisma } from "@/lib/db";
+import { parseJsonStringArray } from "@/lib/json";
 
 import {
   PROFILE_INSIGHT_KINDS,
@@ -89,23 +90,13 @@ export async function getRecentQualitativeFeedback(
     },
   });
 
-  const parseList = (json: string | null): string[] => {
-    if (!json) return [];
-    try {
-      const parsed = JSON.parse(json) as unknown;
-      return Array.isArray(parsed)
-        ? parsed.filter((item): item is string => typeof item === "string")
-        : [];
-    } catch {
-      return [];
-    }
-  };
-
   return interviews.flatMap((interview) =>
     interview.questions.flatMap((question) => {
       if (question.evaluation?.evaluationStatus !== "completed") return [];
-      const strengths = parseList(question.evaluation.strengthsJson);
-      const improvements = parseList(question.evaluation.improvementsJson);
+      const strengths = parseJsonStringArray(question.evaluation.strengthsJson);
+      const improvements = parseJsonStringArray(
+        question.evaluation.improvementsJson,
+      );
       if (strengths.length === 0 && improvements.length === 0) return [];
       return [
         {
