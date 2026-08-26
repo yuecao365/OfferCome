@@ -1,6 +1,7 @@
 import "server-only";
 
 import { prisma } from "@/lib/db";
+import { parseJsonArray, parseJsonObject } from "@/lib/json";
 
 import {
   isMockInterviewMode,
@@ -75,24 +76,7 @@ async function getCompletedReportContext(
 }
 
 function parseArray<T>(value: string | null): T[] {
-  if (!value) return [];
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    return Array.isArray(parsed) ? (parsed as T[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function generationSnapshot(value: string): Record<string, unknown> {
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    return parsed && typeof parsed === "object"
-      ? (parsed as Record<string, unknown>)
-      : {};
-  } catch {
-    return {};
-  }
+  return parseJsonArray(value) as T[];
 }
 
 export async function getMockInterviewView(id: string): Promise<MockInterviewView | null> {
@@ -110,7 +94,7 @@ export async function getMockInterviewView(id: string): Promise<MockInterviewVie
     },
   });
   if (!session) return null;
-  const snapshot = generationSnapshot(session.contextSnapshotJson);
+  const snapshot = parseJsonObject(session.contextSnapshotJson);
   const blueprint = mockInterviewJobBlueprintSchema.safeParse(snapshot.jobBlueprint);
   const reviewCount =
     typeof snapshot.jdReviewCount === "number" ? snapshot.jdReviewCount : 0;

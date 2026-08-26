@@ -1,20 +1,13 @@
 import "server-only";
 
 import { prisma } from "@/lib/db";
+import { parseJsonValue } from "@/lib/json";
 
 import { evaluateMockInterviewQuestion } from "./question-evaluation-agent";
 import { computeQuestionScore } from "./scoring";
 
 const RUNNING_EVALUATION_WAIT_MS = 32_000;
 const RUNNING_EVALUATION_POLL_MS = 250;
-
-function parseJson(value: string): unknown {
-  try {
-    return JSON.parse(value) as unknown;
-  } catch {
-    return null;
-  }
-}
 
 export async function evaluatePersistedMockInterviewQuestion(
   interviewQuestionId: string,
@@ -50,12 +43,12 @@ export async function evaluatePersistedMockInterviewQuestion(
     if (!evaluation || !question || !session || !answer || question.skippedAt) {
       throw new Error("题目没有可评分的回答。");
     }
-    const rubric = parseJson(evaluation.rubricJson);
+    const rubric = parseJsonValue(evaluation.rubricJson);
     const output = await evaluateMockInterviewQuestion({
       question: question.question,
       answer,
       rubric,
-      expectedSignals: parseJson(evaluation.expectedSignalsJson),
+      expectedSignals: parseJsonValue(evaluation.expectedSignalsJson),
       jobTitle: question.interview.jobTitle,
       jobDescription: session.jdTextSnapshot,
     });

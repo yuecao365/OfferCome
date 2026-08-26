@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { parseJsonValue } from "@/lib/json";
+
 import type { MockInterviewQuestionTeaching } from "./types";
 
 const snapshotSchema = z.object({
@@ -26,14 +28,6 @@ const generationMetadataSchema = z.object({
 
 const expectedSignalsSchema = z.array(z.string());
 
-function parseJson(value: string): unknown {
-  try {
-    return JSON.parse(value) as unknown;
-  } catch {
-    return null;
-  }
-}
-
 export function buildQuestionTeaching(
   contextSnapshotJson: string,
   evaluation: {
@@ -43,12 +37,12 @@ export function buildQuestionTeaching(
     difficulty: string;
   },
 ): MockInterviewQuestionTeaching {
-  const snapshot = snapshotSchema.safeParse(parseJson(contextSnapshotJson));
+  const snapshot = snapshotSchema.safeParse(parseJsonValue(contextSnapshotJson));
   const metadata = generationMetadataSchema.safeParse(
-    parseJson(evaluation.generationMetadataJson),
+    parseJsonValue(evaluation.generationMetadataJson),
   );
   const expectedSignals = expectedSignalsSchema.safeParse(
-    parseJson(evaluation.expectedSignalsJson),
+    parseJsonValue(evaluation.expectedSignalsJson),
   );
   const competencyId = metadata.success
     ? metadata.data.jobCompetencyId

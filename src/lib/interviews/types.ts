@@ -15,7 +15,7 @@ export const INTERVIEW_QUESTION_CATEGORIES = [
   "technical",
   "general",
 ] as const;
-export const INTERVIEW_SORTS = ["newest", "oldest"] as const;
+const INTERVIEW_SORTS = ["newest", "oldest"] as const;
 
 /**
  * 导入面试材料的体积上限，前后端共用一份。改这里时要同步抬高
@@ -26,7 +26,6 @@ export const MAX_INTERVIEW_AUDIO_BYTES = 25 * 1024 * 1024;
 export const MAX_INTERVIEW_DOCUMENT_BYTES = 10 * 1024 * 1024;
 
 export type InterviewStatus = (typeof INTERVIEW_STATUSES)[number];
-export const ACTIVE_MOCK_INTERVIEW_STATUS: InterviewStatus = "in_progress";
 
 /**
  * 真实面试的状态由面试时间推导：时间还没到就是待面试，
@@ -224,7 +223,7 @@ export function questionCategoryLabel(category: InterviewQuestionCategory): stri
   return INTERVIEW_QUESTION_CATEGORY_LABELS[category];
 }
 
-export function parseInterviewQuestionsJson(value: string): InterviewQuestionInput[] {
+function parseInterviewQuestionsJson(value: string): InterviewQuestionInput[] {
   let rawQuestions: unknown;
   try {
     rawQuestions = JSON.parse(value || "[]");

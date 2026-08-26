@@ -1,6 +1,12 @@
 import { z } from "zod";
 
-import { INTERVIEW_QUESTION_CATEGORIES } from "@/lib/interviews/types";
+import {
+  INTERVIEW_QUESTION_CATEGORIES,
+  type InterviewStatus,
+} from "@/lib/interviews/types";
+
+/** 题目生成完成、房间可以开始作答时，关联的 Interview 记录进入这个状态。 */
+export const ACTIVE_MOCK_INTERVIEW_STATUS: InterviewStatus = "in_progress";
 
 export const MOCK_INTERVIEW_MODES = ["text", "voice"] as const;
 export type MockInterviewMode = (typeof MOCK_INTERVIEW_MODES)[number];
@@ -65,7 +71,7 @@ export const mockInterviewJobBlueprintSchema = z.object({
     .max(10),
 });
 
-export const mockInterviewQuestionDraftSchema = z.object({
+const mockInterviewQuestionDraftSchema = z.object({
   question: z.string().min(1).max(800),
   category: z.enum(INTERVIEW_QUESTION_CATEGORIES),
   difficulty: z.enum(MOCK_INTERVIEW_DIFFICULTIES),
@@ -94,10 +100,6 @@ export const mockInterviewQuestionDraftSchema = z.object({
 
 /** 低于这个数就不值得开场了；其余场景宁可少几题也要交付。 */
 export const MIN_MOCK_INTERVIEW_QUESTIONS = 3;
-
-export function minAcceptedQuestionCount(requested: number): number {
-  return Math.max(MIN_MOCK_INTERVIEW_QUESTIONS, Math.ceil(requested * 0.6));
-}
 
 export function createMockInterviewQuestionBatchSchema(questionCount: number) {
   // 恰好 N 道对小模型过脆：允许区间，宁可少几题也不要整批作废。
