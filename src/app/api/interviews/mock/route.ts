@@ -4,6 +4,10 @@ import { extractDocumentText } from "@/lib/documents/extract-text";
 import { isMockInterviewGenerationError } from "@/lib/mock-interviews/errors";
 import { createMockInterview } from "@/lib/mock-interviews/service";
 import { scheduleMockInterviewGeneration } from "@/lib/mock-interviews/generation-background";
+import { isTrialMode } from "@/lib/runtime-mode";
+
+/** 体验模式固定 3 题速览、文字作答——控制访客 Key 的花费，也降低弃坑率。 */
+const TRIAL_QUESTION_COUNT = 3;
 
 const MAX_JD_BYTES = 10 * 1024 * 1024;
 const MAX_JD_TEXT = 100_000;
@@ -64,8 +68,12 @@ export async function POST(request: Request) {
       jdOriginalName: jobDescription.originalName,
       round: stringValue(formData, "round") || null,
       difficulty: stringValue(formData, "difficulty") || "standard",
-      interactionMode: stringValue(formData, "interactionMode") || "text",
-      questionCount: Number(stringValue(formData, "questionCount") || 8),
+      interactionMode: isTrialMode()
+        ? "text"
+        : stringValue(formData, "interactionMode") || "text",
+      questionCount: isTrialMode()
+        ? TRIAL_QUESTION_COUNT
+        : Number(stringValue(formData, "questionCount") || 8),
       followUpsEnabled: formData.get("followUpsEnabled") === "on",
       seedQuestionId: stringValue(formData, "seedQuestionId") || null,
       seedInsightId: stringValue(formData, "seedInsightId") || null,
