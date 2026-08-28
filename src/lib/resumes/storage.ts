@@ -225,6 +225,10 @@ export async function discardTemporaryResumeFile(
 }
 
 export async function deleteStoredResumeFile(filePath: string): Promise<void> {
+  // 只存文本、不留文件的简历（体验模式）filePath 为空，没有文件要删。
+  // 不提前返回的话，空路径会被解析成工作目录并误判为"路径越界"。
+  if (!filePath.trim()) return;
+
   const safePath = assertPathInsideResumeDir(filePath);
   try {
     await fs.unlink(safePath);

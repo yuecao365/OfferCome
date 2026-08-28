@@ -1,0 +1,46 @@
+# OfferLai 在线体验站（APP_MODE=trial）。
+#
+# 只承载"快速体验"：访客自带 API Key，数据存在按会话隔离的临时 SQLite 里，
+# 2 小时后清除。完整产品仍以本地部署为准。
+#
+# 部署：
+#   fly launch --no-deploy --copy-config   # 首次，会问 app 名与区域
+#   fly deploy
+#   fly certs add www.offer-lai.com        # 按提示配 DNS，自动签 HTTPS
+#
+# 关键约束见下方 [http_service] 的注释：只能跑单实例。
+
+app = "offerlai-trial"
+primary_region = "nrt"      # 东京，国内访问延迟较低；改成你偏好的区域即可
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  APP_MODE = "trial"
+  NODE_ENV = "production"
+  PORT = "3000"
+  HOSTNAME = "0.0.0.0"
+
+[http_service]
+  internal_port = 3000
+  force_https = true          # 体验模式的 Secure cookie 依赖 HTTPS
+
+  # 会话数据（每访客一个临时 SQLite）在机器本地，跨机器不共享。
+  # 因此必须单实例：auto_stop 关掉，min/max 都锁 1。
+  # 要扩容的话得先做会话粘性，或把会话状态移出本地文件系统。
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 40
+    hard_limit = 80
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"              # Next 生产进程 + 若干并发会话库；512mb 偏紧
+
+# 体验模式不写业务数据到磁盘，会话库在 /tmp，随机器生命周期存在，
+# 所以不需要挂载卷。

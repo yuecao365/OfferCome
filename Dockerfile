@@ -43,4 +43,6 @@ COPY --from=builder --chown=node:node /app/prisma.config.ts ./prisma.config.ts
 USER node
 EXPOSE 3000
 
-CMD ["sh", "-c", "npx prisma db push && npm run start -- -H 0.0.0.0"]
+# 体验模式（APP_MODE=trial）不用主库：每个访客会话从 prisma/demo.db 复制一份
+# 临时库，用完即弃，所以跳过 db push。其余模式照常初始化 /data 里的主库。
+CMD ["sh", "-c", "if [ \"$APP_MODE\" != trial ]; then npx prisma db push; fi; exec npm run start -- -H 0.0.0.0"]

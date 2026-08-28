@@ -7,6 +7,9 @@ node_modules
 *.db-*
 *.sqlite
 *.sqlite-*
+# demo.db 是演示与体验模式的数据模板，必须进镜像：
+# 体验模式下每个访客会话都从它复制一份临时库。
+!prisma/demo.db
 .env
 .env.*
 !.env.example

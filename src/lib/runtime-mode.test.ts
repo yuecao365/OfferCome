@@ -37,7 +37,7 @@ test("recognizes trial mode from its own APP_MODE value", () => {
   assert.equal(isTrialMode({}), false);
 });
 
-test("only whitelists the mock interview flow for trial writes", () => {
+test("keeps the trial API surface on a strict whitelist", () => {
   assert.equal(isTrialWritablePath("/api/trial/resume"), true);
   assert.equal(isTrialWritablePath("/api/trial/ai-config"), true);
   assert.equal(isTrialWritablePath("/api/interviews/mock"), true);
@@ -45,9 +45,20 @@ test("only whitelists the mock interview flow for trial writes", () => {
   assert.equal(isTrialWritablePath("/api/interviews/mock/abc/complete"), true);
   assert.equal(isTrialWritablePath("/api/interviews/mock/abc/jd-strategy"), true);
   assert.equal(isTrialWritablePath("/api/interviews/mock/abc/retry-generation"), true);
-  // 语音转写、设置、Boss 同步等一律拒绝。
-  assert.equal(isTrialWritablePath("/api/interviews/mock/abc/transcribe"), false);
-  assert.equal(isTrialWritablePath("/api/settings/ai"), false);
-  assert.equal(isTrialWritablePath("/api/boss/sync"), false);
-  assert.equal(isTrialWritablePath("/api/interviews/draft"), false);
+
+  // 会把访客数据写出会话边界的一律拒绝。
+  assert.equal(isTrialWritablePath("/api/settings/ai"), false, "设置写入会把 Key 落库");
+  assert.equal(isTrialWritablePath("/api/boss/sync"), false, "服务器上没有访客的登录态");
+  assert.equal(isTrialWritablePath("/api/boss/login"), false);
+  assert.equal(isTrialWritablePath("/api/interviews/draft"), false, "录音导入要落文件");
+  assert.equal(isTrialWritablePath("/api/interviews/mock/abc/transcribe"), false, "语音转写二期再开");
+  assert.equal(isTrialWritablePath("/api/candidate-profile/refresh"), false);
+});
+
+test("lets server actions through so the workspace is actually usable", () => {
+  // Server Action 由 Next 发往页面路径而不是 /api，按路径分不出具体动作；
+  // 数据都落在访客自己的会话库，整体放行，个别危险动作在动作内部再挡。
+  for (const page of ["/applications", "/interviews", "/interviews/history", "/interviews/review", "/resumes", "/trial", "/"]) {
+    assert.equal(isTrialWritablePath(page), true, page + " 应放行 Server Action");
+  }
 });
