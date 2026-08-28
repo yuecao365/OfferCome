@@ -4,7 +4,7 @@
 
 **A local-first workspace that turns every application and interview into better preparation for the next one.**
 
-[简体中文](README_CN.md) · [Product Site](https://offer-lai.vercel.app) · [Live Preview](https://offer-lai.vercel.app/homepage)
+[简体中文](README_CN.md) · [Product Site](https://www.offer-lai.com) · [Live Preview](https://www.offer-lai.com/homepage)
 
 ![Next.js](https://img.shields.io/badge/Next.js-16-000000?style=flat-square&logo=nextdotjs)
 ![React](https://img.shields.io/badge/React-19-149ECA?style=flat-square&logo=react)
@@ -16,7 +16,7 @@
 
 [Introduction](#introduction) · [Preview](#project-preview) · [How It Works](#how-it-works) · [Features](#features) · [Under the Hood](#under-the-hood) · [Quick Start](#quick-start)
 
-<a href="https://offer-lai.vercel.app/showcase"><img src="docs/images/hero-en.png" alt="OfferLai — every interview counts" width="820"></a>
+<a href="https://www.offer-lai.com/showcase"><img src="docs/images/hero-en.png" alt="OfferLai — every interview counts" width="820"></a>
 
 </div>
 
@@ -28,7 +28,7 @@ Job hunting scatters your effort: applications live in one platform, resumes in 
 
 ## Project Preview
 
-The [live preview](https://offer-lai.vercel.app/homepage) runs on fictional data in read-only mode. It never accepts or stores resumes, interview records, API keys, or Boss Zhipin credentials. Run it locally for the complete, writable product.
+The [live preview](https://www.offer-lai.com/homepage) runs on fictional data in read-only mode. It never accepts or stores resumes, interview records, API keys, or Boss Zhipin credentials. Run it locally for the complete, writable product.
 
 <table>
   <tr>
@@ -117,7 +117,7 @@ Some design choices that shape how the product behaves:
 
 ### 1. Live preview
 
-Open the **[OfferLai live preview](https://offer-lai.vercel.app/homepage)**. Read-only; nothing you do there is saved.
+Open the **[OfferLai live preview](https://www.offer-lai.com/homepage)**. Read-only; nothing you do there is saved.
 
 ### 2. Local Docker deployment (recommended)
 

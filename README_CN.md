@@ -4,7 +4,7 @@
 
 **本地优先的求职工作台：让每一次投递和面试，都变成下一次更好的准备。**
 
-[English](README.md) · [产品介绍](https://offer-lai.vercel.app) · [在线体验](https://offer-lai.vercel.app/homepage)
+[English](README.md) · [产品介绍](https://www.offer-lai.com) · [在线体验](https://www.offer-lai.com/homepage)
 
 ![Next.js](https://img.shields.io/badge/Next.js-16-000000?style=flat-square&logo=nextdotjs)
 ![React](https://img.shields.io/badge/React-19-149ECA?style=flat-square&logo=react)
@@ -16,7 +16,7 @@
 
 [项目简介](#项目简介) · [项目预览](#项目预览) · [核心闭环](#核心闭环) · [功能介绍](#功能介绍) · [设计与实现](#设计与实现) · [快速开始](#快速开始)
 
-<a href="https://offer-lai.vercel.app/showcase"><img src="docs/images/hero.png" alt="OfferLai — 每一场面试，都算数" width="820"></a>
+<a href="https://www.offer-lai.com/showcase"><img src="docs/images/hero.png" alt="OfferLai — 每一场面试，都算数" width="820"></a>
 
 </div>
 
@@ -28,7 +28,7 @@
 
 ## 项目预览
 
-[在线体验](https://offer-lai.vercel.app/homepage)使用虚构数据、以只读模式运行，不接收也不保存简历、面试记录、API Key 或 Boss 登录信息。完整可读写的产品请在本地部署。
+[在线体验](https://www.offer-lai.com/homepage)使用虚构数据、以只读模式运行，不接收也不保存简历、面试记录、API Key 或 Boss 登录信息。完整可读写的产品请在本地部署。
 
 <table>
   <tr>
@@ -117,7 +117,7 @@ OfferLai 围绕一个闭环设计，每个环节的产出都会让下一个环�
 
 ### 1. 在线体验
 
-直接打开 **[OfferLai 在线体验](https://offer-lai.vercel.app/homepage)**。该环境只读，操作不会被保存。
+直接打开 **[OfferLai 在线体验](https://www.offer-lai.com/homepage)**。该环境只读，操作不会被保存。
 
 ### 2. Docker 本地部署（推荐）
 
