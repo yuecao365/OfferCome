@@ -1,8 +1,7 @@
 "use client";
 
 import { Check, Loader2, Sparkles } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -24,25 +23,14 @@ import {
   type AiProvider,
 } from "@/lib/ai/config";
 import { cn } from "@/lib/cn";
+import { writeAiToken } from "@/lib/trial/browser-store";
+import { connectAiConfig, parseResumeFile, parseResumeForm } from "@/lib/trial/client";
+import type { TrialJobInput, TrialResumeInput } from "@/lib/trial/interview";
 import type { TrialPresetJob } from "@/lib/trial/preset-jobs";
 
-/**
- * 体验模式的三步准备：AI 服务 → 简历 → 岗位 → 开始。
- * 全部状态都在这一个组件里，完成即跳转到正式的模拟面试房间。
- */
+/** 体验版的三步准备：连接模型 → 提供简历 → 选择岗位。 */
 
 type RequestState = "idle" | "busy" | "done" | "error";
-
-async function postJson<T>(url: string, body: unknown): Promise<T> {
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const data = (await response.json()) as T & { error?: string };
-  if (!response.ok) throw new Error(data.error ?? "请求失败，请重试。");
-  return data;
-}
 
 function StepBadge({ done, index }: { done: boolean; index: number }) {
   return (
@@ -57,75 +45,45 @@ function StepBadge({ done, index }: { done: boolean; index: number }) {
   );
 }
 
-function AiConfigSection({
-  configured,
-  onConfigured,
-}: {
-  configured: boolean;
-  onConfigured: () => void;
-}) {
+function AiSection({ ready }: { ready: boolean }) {
   const [provider, setProvider] = useState<AiProvider>("deepseek");
   const [model, setModel] = useState("deepseek-chat");
   const [baseURL, setBaseURL] = useState("");
   const [apiKey, setApiKey] = useState("");
-  const [state, setState] = useState<RequestState>(configured ? "done" : "idle");
+  const [state, setState] = useState<RequestState>("idle");
   const [message, setMessage] = useState("");
 
-  // Key cookie 只随 /api 请求发送，页面渲染看不到；
-  // 是否已连接要问接口才知道（刷新后恢复"已连接"状态靠这里）。
-  useEffect(() => {
-    let cancelled = false;
-    void fetch("/api/trial/ai-config")
-      .then((response) => response.json() as Promise<{ configured?: boolean }>)
-      .then((data) => {
-        if (!cancelled && data.configured) {
-          setState("done");
-          onConfigured();
-        }
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const knownModels = MODEL_OPTIONS.text[provider] ?? [];
   const needsBaseURL = isCustomProvider(provider);
+  const done = ready || state === "done";
 
-  function handleProviderChange(next: AiProvider) {
-    setProvider(next);
-    setModel(MODEL_OPTIONS.text[next]?.[0] ?? "");
-    setState("idle");
-  }
-
-  async function handleSave() {
+  async function handleConnect() {
     setState("busy");
     setMessage("");
     try {
-      await postJson("/api/trial/ai-config", {
+      const result = await connectAiConfig({
         provider,
         model,
         baseURL: needsBaseURL ? baseURL : getDefaultBaseURL("text", provider),
         apiKey,
       });
+      writeAiToken(result.token);
       setState("done");
-      onConfigured();
+      setApiKey("");
     } catch (error) {
       setState("error");
-      setMessage(error instanceof Error ? error.message : "保存失败。");
+      setMessage(error instanceof Error ? error.message : "连接失败。");
     }
   }
 
   return (
     <Card>
       <CardHeader className="flex-row items-center gap-3">
-        <StepBadge done={state === "done"} index={1} />
+        <StepBadge done={done} index={1} />
         <div>
           <CardTitle>连接你自己的模型服务</CardTitle>
           <CardDescription>
-            Key 只保存在你的浏览器里、随请求临时使用，服务器不存储。面试花费约
-            5–8 次模型调用。建议使用设置了额度上限的临时 Key，体验后可随时吊销。
+            Key 只保存在当前浏览器标签页，随请求临时使用，服务器不存储。一场面试约
+            5–8 次模型调用。建议用设了额度上限的临时 Key，体验后可随时吊销。
           </CardDescription>
         </div>
       </CardHeader>
@@ -134,7 +92,12 @@ function AiConfigSection({
           <FieldLabel>
             服务商
             <Select
-              onChange={(event) => handleProviderChange(event.target.value as AiProvider)}
+              onChange={(event) => {
+                const next = event.target.value as AiProvider;
+                setProvider(next);
+                setModel(MODEL_OPTIONS.text[next]?.[0] ?? "");
+                setState("idle");
+              }}
               value={provider}
             >
               {TASK_PROVIDERS.text.map((option) => (
@@ -147,13 +110,13 @@ function AiConfigSection({
           <FieldLabel>
             模型名称
             <Input
-              list="trial-model-options"
+              list="trial-models"
               onChange={(event) => setModel(event.target.value)}
               placeholder="例如 deepseek-chat"
               value={model}
             />
-            <datalist id="trial-model-options">
-              {knownModels.map((option) => (
+            <datalist id="trial-models">
+              {(MODEL_OPTIONS.text[provider] ?? []).map((option) => (
                 <option key={option} value={option} />
               ))}
             </datalist>
@@ -174,19 +137,22 @@ function AiConfigSection({
           <Input
             autoComplete="off"
             onChange={(event) => setApiKey(event.target.value)}
-            placeholder="填写对应服务商的 API Key"
+            placeholder={done ? "已连接，如需更换请重新填写" : "填写对应服务商的 API Key"}
             type="password"
             value={apiKey}
           />
         </FieldLabel>
         <div className="flex items-center gap-3">
-          <Button disabled={state === "busy" || !model || !apiKey} onClick={() => void handleSave()}>
+          <Button
+            disabled={state === "busy" || !model || !apiKey}
+            onClick={() => void handleConnect()}
+          >
             {state === "busy" ? (
               <Loader2 aria-hidden="true" className="size-4 animate-spin" />
             ) : null}
-            {state === "busy" ? "正在测试连接…" : "测试并保存"}
+            {state === "busy" ? "正在测试连接…" : "测试并连接"}
           </Button>
-          {state === "done" ? <Badge tone="success">已连接</Badge> : null}
+          {done ? <Badge tone="success">已连接</Badge> : null}
         </div>
         {state === "error" && message ? <Alert tone="danger">{message}</Alert> : null}
       </CardContent>
@@ -209,11 +175,11 @@ const EMPTY_EXPERIENCE: ExperienceDraft = {
 };
 
 function ResumeSection({
+  resume,
   onReady,
-  resumeName,
 }: {
-  onReady: (resumeId: string, name: string) => void;
-  resumeName: string | null;
+  resume: TrialResumeInput | null;
+  onReady: (resume: TrialResumeInput) => void;
 }) {
   const [tab, setTab] = useState<"upload" | "form">("upload");
   const [state, setState] = useState<RequestState>("idle");
@@ -223,53 +189,22 @@ function ResumeSection({
     { ...EMPTY_EXPERIENCE },
   ]);
 
-  async function submit(request: Promise<Response>) {
+  async function submit(request: Promise<TrialResumeInput>) {
     setState("busy");
     setMessage("");
     try {
-      const response = await request;
-      const data = (await response.json()) as {
-        resumeId?: string;
-        originalName?: string;
-        projects?: { name: string }[];
-        error?: string;
-      };
-      if (!response.ok || !data.resumeId) {
-        throw new Error(data.error ?? "简历处理失败。");
-      }
+      const parsed = await request;
       setState("done");
       setMessage(
-        data.projects?.length
-          ? `已识别 ${data.projects.length} 段经历：${data.projects.map((item) => item.name).join("、")}`
-          : "已保存简历内容。",
+        parsed.projects.length > 0
+          ? `已识别 ${parsed.projects.length} 段经历：${parsed.projects.map((p) => p.name).join("、")}`
+          : "已读取简历内容（未识别到独立经历，将只用全文出题）。",
       );
-      onReady(data.resumeId, data.originalName ?? "已提交的简历");
+      onReady(parsed);
     } catch (error) {
       setState("error");
       setMessage(error instanceof Error ? error.message : "简历处理失败。");
     }
-  }
-
-  function handleUpload(file: File | null) {
-    if (!file) return;
-    const formData = new FormData();
-    formData.append("file", file);
-    void submit(fetch("/api/trial/resume", { method: "POST", body: formData }));
-  }
-
-  function handleFormSubmit() {
-    void submit(
-      fetch("/api/trial/resume", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          summary,
-          experiences: experiences.filter(
-            (item) => item.name.trim() || item.description.trim(),
-          ),
-        }),
-      }),
-    );
   }
 
   function updateExperience(index: number, patch: Partial<ExperienceDraft>) {
@@ -281,11 +216,11 @@ function ResumeSection({
   return (
     <Card>
       <CardHeader className="flex-row items-center gap-3">
-        <StepBadge done={Boolean(resumeName)} index={2} />
+        <StepBadge done={Boolean(resume)} index={2} />
         <div>
           <CardTitle>提供简历内容</CardTitle>
           <CardDescription>
-            上传后只保留解析出的文本，不保存文件；也可以手动填写。内容仅用于本场出题。
+            上传的文件只在内存里解析一次，服务器不保存文件；也可以直接手动填写。
           </CardDescription>
         </div>
       </CardHeader>
@@ -314,7 +249,10 @@ function ResumeSection({
             <Input
               accept=".pdf,.doc,.docx"
               disabled={state === "busy"}
-              onChange={(event) => handleUpload(event.target.files?.[0] ?? null)}
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void submit(parseResumeFile(file));
+              }}
               type="file"
             />
           </FieldLabel>
@@ -335,7 +273,9 @@ function ResumeSection({
                   <FieldLabel>
                     名称
                     <Input
-                      onChange={(event) => updateExperience(index, { name: event.target.value })}
+                      onChange={(event) =>
+                        updateExperience(index, { name: event.target.value })
+                      }
                       placeholder="项目或实习名称"
                       value={experience.name}
                     />
@@ -387,7 +327,19 @@ function ResumeSection({
                   再加一段经历
                 </Button>
               ) : null}
-              <Button disabled={state === "busy"} onClick={handleFormSubmit}>
+              <Button
+                disabled={state === "busy"}
+                onClick={() =>
+                  void submit(
+                    parseResumeForm({
+                      summary,
+                      experiences: experiences.filter(
+                        (item) => item.name.trim() || item.description.trim(),
+                      ),
+                    }),
+                  )
+                }
+              >
                 {state === "busy" ? (
                   <Loader2 aria-hidden="true" className="size-4 animate-spin" />
                 ) : null}
@@ -409,33 +361,35 @@ function ResumeSection({
 
 function JobSection({
   presetJobs,
-  selection,
+  job,
   onSelect,
 }: {
   presetJobs: TrialPresetJob[];
-  selection: TrialJobSelection | null;
-  onSelect: (next: TrialJobSelection) => void;
+  job: TrialJobInput | null;
+  onSelect: (job: TrialJobInput) => void;
 }) {
-  const [customCompany, setCustomCompany] = useState("");
-  const [customTitle, setCustomTitle] = useState("");
-  const [customJd, setCustomJd] = useState("");
+  const [company, setCompany] = useState("");
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
 
   const customReady =
-    customCompany.trim() && customTitle.trim() && customJd.trim().length >= 40;
+    company.trim() && title.trim() && description.trim().length >= 40;
 
   return (
     <Card>
       <CardHeader className="flex-row items-center gap-3">
-        <StepBadge done={Boolean(selection)} index={3} />
+        <StepBadge done={Boolean(job)} index={3} />
         <div>
           <CardTitle>选择目标岗位</CardTitle>
-          <CardDescription>选一个预置岗位直接开始，或粘贴你正在投的岗位描述。</CardDescription>
+          <CardDescription>
+            选一个预置岗位直接开始，或粘贴你正在投的岗位描述。
+          </CardDescription>
         </div>
       </CardHeader>
       <CardContent className="grid gap-4">
         <div className="grid gap-3 sm:grid-cols-3">
-          {presetJobs.map((job) => {
-            const active = selection?.kind === "preset" && selection.job.id === job.id;
+          {presetJobs.map((preset) => {
+            const active = job?.jobTitle === preset.jobTitle && job.companyName === preset.companyName;
             return (
               <button
                 className={cn(
@@ -444,17 +398,23 @@ function JobSection({
                     ? "border-brand bg-accent/60"
                     : "border-border bg-surface hover:border-brand/40",
                 )}
-                key={job.id}
-                onClick={() => onSelect({ kind: "preset", job })}
+                key={preset.id}
+                onClick={() =>
+                  onSelect({
+                    companyName: preset.companyName,
+                    jobTitle: preset.jobTitle,
+                    jobDescription: preset.jobDescription,
+                  })
+                }
                 type="button"
               >
-                <p className="text-sm font-semibold text-foreground">{job.jobTitle}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{job.companyName}</p>
+                <p className="text-sm font-semibold text-foreground">{preset.jobTitle}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{preset.companyName}</p>
               </button>
             );
           })}
         </div>
-        <details open={selection?.kind === "custom"}>
+        <details>
           <summary className="cursor-pointer text-sm font-semibold text-muted-foreground">
             使用自己的岗位描述
           </summary>
@@ -462,26 +422,20 @@ function JobSection({
             <div className="grid gap-3 sm:grid-cols-2">
               <FieldLabel>
                 公司名称
-                <Input
-                  onChange={(event) => setCustomCompany(event.target.value)}
-                  value={customCompany}
-                />
+                <Input onChange={(e) => setCompany(e.target.value)} value={company} />
               </FieldLabel>
               <FieldLabel>
                 岗位名称
-                <Input
-                  onChange={(event) => setCustomTitle(event.target.value)}
-                  value={customTitle}
-                />
+                <Input onChange={(e) => setTitle(e.target.value)} value={title} />
               </FieldLabel>
             </div>
             <FieldLabel>
-              岗位描述（JD）
+              岗位描述（JD，至少 40 字）
               <Textarea
-                onChange={(event) => setCustomJd(event.target.value)}
+                onChange={(e) => setDescription(e.target.value)}
                 placeholder="粘贴完整的岗位职责与任职要求"
                 rows={6}
-                value={customJd}
+                value={description}
               />
             </FieldLabel>
             <div>
@@ -489,10 +443,9 @@ function JobSection({
                 disabled={!customReady}
                 onClick={() =>
                   onSelect({
-                    kind: "custom",
-                    companyName: customCompany.trim(),
-                    jobTitle: customTitle.trim(),
-                    jobDescription: customJd.trim(),
+                    companyName: company.trim(),
+                    jobTitle: title.trim(),
+                    jobDescription: description.trim(),
                   })
                 }
                 size="sm"
@@ -503,12 +456,9 @@ function JobSection({
             </div>
           </div>
         </details>
-        {selection ? (
+        {job ? (
           <Alert tone="success">
-            已选择：
-            {selection.kind === "preset"
-              ? `${selection.job.companyName} · ${selection.job.jobTitle}`
-              : `${selection.companyName} · ${selection.jobTitle}`}
+            已选择：{job.companyName} · {job.jobTitle}
           </Alert>
         ) : null}
       </CardContent>
@@ -516,83 +466,45 @@ function JobSection({
   );
 }
 
-type TrialJobSelection =
-  | { kind: "preset"; job: TrialPresetJob }
-  | {
-      kind: "custom";
-      companyName: string;
-      jobTitle: string;
-      jobDescription: string;
-    };
-
-export function TrialSetup({ presetJobs }: { presetJobs: TrialPresetJob[] }) {
-  const router = useRouter();
-  const [aiReady, setAiReady] = useState(false);
-  const [resume, setResume] = useState<{ id: string; name: string } | null>(null);
-  const [job, setJob] = useState<TrialJobSelection | null>(null);
-  const [state, setState] = useState<RequestState>("idle");
-  const [message, setMessage] = useState("");
-
+export function TrialSetup({
+  aiReady,
+  busy,
+  onStart,
+  presetJobs,
+}: {
+  aiReady: boolean;
+  busy: boolean;
+  onStart: (input: { job: TrialJobInput; resume: TrialResumeInput }) => void;
+  presetJobs: TrialPresetJob[];
+}) {
+  const [resume, setResume] = useState<TrialResumeInput | null>(null);
+  const [job, setJob] = useState<TrialJobInput | null>(null);
   const ready = aiReady && resume && job;
-
-  async function handleStart() {
-    if (!resume || !job) return;
-    setState("busy");
-    setMessage("");
-    const selected =
-      job.kind === "preset"
-        ? job.job
-        : { companyName: job.companyName, jobTitle: job.jobTitle, jobDescription: job.jobDescription };
-
-    const formData = new FormData();
-    formData.append("companyName", selected.companyName);
-    formData.append("jobTitle", selected.jobTitle);
-    formData.append("jobDescriptionText", selected.jobDescription);
-    formData.append("resumeId", resume.id);
-    formData.append("questionCount", "3");
-    formData.append("interactionMode", "text");
-    formData.append("difficulty", "standard");
-    formData.append("followUpsEnabled", "on");
-
-    try {
-      const response = await fetch("/api/interviews/mock", {
-        method: "POST",
-        body: formData,
-      });
-      const data = (await response.json()) as { href?: string; error?: string };
-      if (!response.ok || !data.href) throw new Error(data.error ?? "创建面试失败。");
-      router.push(data.href);
-    } catch (error) {
-      setState("error");
-      setMessage(error instanceof Error ? error.message : "创建面试失败。");
-    }
-  }
 
   return (
     <div className="grid gap-4">
-      <AiConfigSection configured={aiReady} onConfigured={() => setAiReady(true)} />
-      <ResumeSection
-        onReady={(id, name) => setResume({ id, name })}
-        resumeName={resume?.name ?? null}
-      />
-      <JobSection onSelect={setJob} presetJobs={presetJobs} selection={job} />
+      <AiSection ready={aiReady} />
+      <ResumeSection onReady={setResume} resume={resume} />
+      <JobSection job={job} onSelect={setJob} presetJobs={presetJobs} />
 
       <Card>
         <CardContent className="flex flex-wrap items-center justify-between gap-4">
           <p className="text-sm text-muted-foreground">
-            准备好后开始一场 3 题速览版：AI 按岗位与你的简历出题，作答后逐题评分并生成报告。
+            准备好后开始一场 3 题速览：AI 按岗位和你的简历出题，作答后逐题评分并生成报告。
           </p>
-          <Button disabled={!ready || state === "busy"} onClick={() => void handleStart()}>
-            {state === "busy" ? (
+          <Button
+            disabled={!ready || busy}
+            onClick={() => ready && onStart({ job, resume })}
+          >
+            {busy ? (
               <Loader2 aria-hidden="true" className="size-4 animate-spin" />
             ) : (
               <Sparkles aria-hidden="true" className="size-4" />
             )}
-            {state === "busy" ? "正在创建面试…" : "开始模拟面试"}
+            {busy ? "正在出题…" : "开始模拟面试"}
           </Button>
         </CardContent>
       </Card>
-      {state === "error" && message ? <Alert tone="danger">{message}</Alert> : null}
     </div>
   );
 }

@@ -3,33 +3,21 @@ import { NextResponse } from "next/server";
 import { validateAiTaskConfig } from "@/lib/ai/config";
 import { testAiConnection } from "@/lib/ai/providers";
 import { isTrialMode } from "@/lib/runtime-mode";
-import { toPublicAiTaskConfig } from "@/lib/settings/ai";
-import {
-  TRIAL_AI_COOKIE,
-  TRIAL_SESSION_TTL_MS,
-  encodeTrialAiCookie,
-  getTrialContext,
-} from "@/lib/trial/session";
+import { encodeTrialAiConfig } from "@/lib/trial/ai-config";
 
 export const runtime = "nodejs";
+export const maxDuration = 45;
 
 /**
- * 访客自带 AI Key：校验 + 实测连通后写进 httpOnly cookie。
- * Key 只存在访客浏览器里、随请求带上，服务端不落任何存储。
+ * 校验访客自带的模型配置并实测一次连通性，通过后返回编码串。
+ *
+ * **服务端不保存它**——由浏览器存进 sessionStorage，之后随每个请求的
+ * 请求头带上。现在失败好过面试出题时才失败。
  */
-
-export async function GET() {
-  if (!isTrialMode()) return NextResponse.json({ error: "Not found" }, { status: 404 });
-
-  const context = await getTrialContext();
-  return NextResponse.json({
-    configured: Boolean(context?.aiConfig),
-    config: context?.aiConfig ? toPublicAiTaskConfig(context.aiConfig) : null,
-  });
-}
-
 export async function POST(request: Request) {
-  if (!isTrialMode()) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!isTrialMode()) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
 
   let body: Record<string, unknown>;
   try {
@@ -53,47 +41,36 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: validated.message }, { status: 400 });
   }
 
-  // 真实调用一次确认 Key 可用——现在失败好过面试出题时失败。
   try {
     await testAiConnection(validated.value);
   } catch (error) {
-    // 只回分类文案：provider 的原始报错可能回显请求信息（含 Key 片段），
-    // 不能原样透传给客户端。
+    // 只回分类文案：provider 的原始报错可能回显请求信息（含 Key 片段）。
     return NextResponse.json(
       { error: describeConnectionFailure(error) },
       { status: 400 },
     );
   }
 
-  const response = NextResponse.json({
-    configured: true,
-    config: toPublicAiTaskConfig(validated.value),
+  return NextResponse.json({
+    token: encodeTrialAiConfig(validated.value),
+    provider: validated.value.provider,
+    model: validated.value.model,
   });
-  response.cookies.set(TRIAL_AI_COOKIE, encodeTrialAiCookie(validated.value), {
-    httpOnly: true,
-    sameSite: "lax",
-    // 见 proxy.ts：按构建环境判断，反代终结 TLS 时按协议判断会漏掉 Secure。
-    secure: process.env.NODE_ENV === "production",
-    maxAge: Math.floor(TRIAL_SESSION_TTL_MS / 1000),
-    // Key cookie 只随 API 请求发送，页面与静态资源不携带，缩小暴露面。
-    path: "/api",
-  });
-  return response;
 }
 
 function describeConnectionFailure(error: unknown): string {
   const message = error instanceof Error ? error.message : "";
   if (/\b401\b|unauthorized|invalid[_ ]api[_ ]key|incorrect api key/i.test(message)) {
-    return "模型连接测试失败：API Key 无效或无权限，请检查 Key 与服务商是否匹配。";
+    return "连接失败：API Key 无效或无权限，请检查 Key 与服务商是否匹配。";
   }
   if (/\b403\b|forbidden|quota|insufficient/i.test(message)) {
-    return "模型连接测试失败：Key 没有权限或额度不足。";
+    return "连接失败：Key 没有权限或额度不足。";
   }
   if (/\b404\b|not found|model.*not.*exist|does not exist/i.test(message)) {
-    return "模型连接测试失败：模型名称不存在，请检查拼写。";
+    return "连接失败：模型名称不存在，请检查拼写。";
   }
   if (/timeout|timed out|abort|econnrefused|fetch failed|network/i.test(message)) {
-    return "模型连接测试失败：服务连接超时或不可达，请检查服务地址与网络。";
+    return "连接失败：服务连接超时或不可达，请检查服务地址与网络。";
   }
-  return "模型连接测试失败：请检查服务商、模型名称与 Key 后重试。";
+  return "连接失败：请检查服务商、模型名称与 Key 后重试。";
 }

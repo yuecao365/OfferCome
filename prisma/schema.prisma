@@ -66,8 +66,6 @@ model Resume {
   filePath       String
   mimeType       String
   fileSize       Int
-  /// 解析出的简历全文。体验模式只存文本不留文件；本地模式为空时回退到按 filePath 现场解析。
-  extractedText  String?
   isDefault      Boolean                @default(false)
   projects       ResumeProject[]
   projectSources ResumeProjectSource[]

@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { isTrialMode } from "@/lib/runtime-mode";
-import { getTrialAiTaskConfig } from "@/lib/trial/session";
+import { getTrialAiTaskConfig } from "@/lib/trial/ai-config";
 
 import {
   AI_TASKS,
@@ -38,8 +38,8 @@ async function getLegacyOpenAiKey(): Promise<string | null> {
 }
 
 export async function getAiTaskConfig(task: AiTask): Promise<AiTaskConfig> {
-  // 体验模式：配置来自访客浏览器 cookie（BYO Key），完全不碰数据库——
-  // 访客的 Key 不落任何服务端存储。
+  // 体验模式：配置由访客随请求带上（BYO Key），完全不碰数据库——
+  // Key 不落任何服务端存储。
   if (isTrialMode()) {
     return getTrialAiTaskConfig(task);
   }

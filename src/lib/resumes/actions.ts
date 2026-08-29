@@ -1,7 +1,6 @@
 "use server";
 
 import { prisma } from "@/lib/db";
-import { isTrialMode } from "@/lib/runtime-mode";
 
 import {
   buildPendingResumeExperienceConfirmations,
@@ -72,17 +71,6 @@ export async function parseResumePreview(
   _prevState: ResumeActionState,
   formData: FormData,
 ): Promise<ResumeActionState> {
-  // 这条路径会把上传的文件落到服务器磁盘，和体验模式"只存文本、不留文件"
-  // 的承诺冲突。体验模式有自己的入口（/api/trial/resume 内存解析）。
-  // 挡在这里而不是 proxy：Server Action 都发往页面路径，按路径分不出来。
-  if (isTrialMode()) {
-    return {
-      status: "error",
-      message:
-        "体验模式不保存简历文件。请到「体验 AI 模拟面试」页面上传解析或手动填写简历内容。",
-    };
-  }
-
   const file = formData.get("resume");
   if (!(file instanceof File) || !file.name) {
     return { status: "error", message: "请选择要上传的简历文件。" };

@@ -8,75 +8,29 @@ import {
   isTrialWritablePath,
 } from "@/lib/runtime-mode";
 
-// 与 lib/trial/session.ts 保持一致。不直接 import：那个模块用了
-// node:async_hooks，proxy 的运行时不保证可用。
-const TRIAL_SESSION_COOKIE = "offerlai_trial_sid";
-const TRIAL_SESSION_TTL_SECONDS = 2 * 60 * 60;
-
-/**
- * 体验模式：读路径全放开（每个会话有自己的临时库，看到的是示例数据 +
- * 自己创建的内容）；写路径只开放模拟面试链路。会话 cookie 在这里发放——
- * 首个请求同时改写转发头，让同一次渲染就能解析到会话。
- */
-function trialProxy(request: NextRequest): NextResponse {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const method = request.method;
-  const hasSession = Boolean(request.cookies.get(TRIAL_SESSION_COOKIE)?.value);
+  const isRead = ["GET", "HEAD", "OPTIONS"].includes(request.method);
 
-  if (
-    !["GET", "HEAD", "OPTIONS"].includes(method) &&
-    !isTrialWritablePath(pathname)
-  ) {
+  // 体验模式：服务端完全无状态，访客数据和 AI Key 都在浏览器里。
+  // 这里只需要拦住会写服务端数据的入口，读取一律放行。
+  if (isTrialMode()) {
+    if (isRead || isTrialWritablePath(pathname)) {
+      return NextResponse.next();
+    }
     return NextResponse.json(
       {
-        success: false,
-        message: "体验模式仅开放 AI 模拟面试相关操作，其余功能请在本地版使用。",
+        error: "在线体验只提供 AI 模拟面试，其余功能请在本地版使用。",
       },
       { status: 403 },
     );
-  }
-
-  if (hasSession) {
-    return NextResponse.next();
-  }
-
-  // 首次访问：生成会话 id。写进响应 cookie 之外，还要改写本次转发的请求头，
-  // 否则当前这一次渲染读不到会话、页面会直接失败。
-  const sessionId = crypto.randomUUID();
-  const requestHeaders = new Headers(request.headers);
-  const existingCookie = requestHeaders.get("cookie");
-  requestHeaders.set(
-    "cookie",
-    existingCookie
-      ? `${existingCookie}; ${TRIAL_SESSION_COOKIE}=${sessionId}`
-      : `${TRIAL_SESSION_COOKIE}=${sessionId}`,
-  );
-
-  const response = NextResponse.next({ request: { headers: requestHeaders } });
-  response.cookies.set(TRIAL_SESSION_COOKIE, sessionId, {
-    httpOnly: true,
-    sameSite: "lax",
-    // 按构建环境而不是按请求协议判断：生产部署常见 TLS 在反代终结，
-    // 应用看到的是 http，按协议判断会漏掉 Secure。
-    secure: process.env.NODE_ENV === "production",
-    maxAge: TRIAL_SESSION_TTL_SECONDS,
-    path: "/",
-  });
-  return response;
-}
-
-export function proxy(request: NextRequest) {
-  if (isTrialMode()) {
-    return trialProxy(request);
   }
 
   if (!isDemoMode()) {
     return NextResponse.next();
   }
 
-  const { pathname } = request.nextUrl;
-
-  if (!["GET", "HEAD", "OPTIONS"].includes(request.method)) {
+  if (!isRead) {
     return NextResponse.json(
       { success: false, message: "在线体验环境为只读模式，不会保存任何数据。" },
       { status: 403 },

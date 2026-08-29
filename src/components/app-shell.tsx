@@ -30,12 +30,12 @@ export function AppShell({ active, subActive, immersive = false, children }: App
         ) : null}
         {trial ? (
           <div className="rounded-lg border border-warning/30 bg-warning-soft px-4 py-3 text-sm text-warning-strong">
-            体验模式：投递、面试记录、复盘都可以随意增删改，数据只属于你本次会话，约 2
-            小时后自动清除。想跑一场真实的 AI 模拟面试（需要你自己的模型 API Key），
+            在线体验：以下页面展示的是示例数据，用于了解产品结构。想真的跑一场 AI
+            模拟面试（用你自己的模型 API Key，数据只存在当前浏览器），
             <a className="font-semibold underline underline-offset-2" href="/trial">
               从这里开始
             </a>
-            。Boss 同步与语音作答仅在本地版开放。
+            。完整功能请使用本地版。
           </div>
         ) : null}
         {children}

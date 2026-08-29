@@ -18,30 +18,15 @@ export function isTrialMode(env?: { APP_MODE?: string }): boolean {
   return (env ?? { APP_MODE: process.env.APP_MODE }).APP_MODE === "trial";
 }
 
-const TRIAL_MOCK_ACTION_PATTERN =
-  /^\/api\/interviews\/mock\/[^/]+\/(?:answer|complete|jd-strategy|retry-generation)$/;
-
 /**
- * 体验模式允许的写路径。
+ * 体验模式唯一允许的写入口：/api/trial/* 这一组无状态接口。
  *
- * 分两类判定，因为写入口本身就有两种形态：
- * - API 路由走精确白名单。凡是会把访客数据写出会话边界的都不在其中：
- *   设置写入（Key 会落库）、Boss 同步（服务器上没有访客登录态）、
- *   录音导入与语音转写（要落音频文件，二期再说）。
- * - Server Action 由 Next 发往页面路径而不是 /api，所以按"非 API 的 POST"
- *   整体放行。投递、面试记录、简历项目的增删改都在这一类，数据全部落在
- *   访客自己的会话库里；个别会写服务器文件的动作在动作内部单独再挡一道。
+ * 它们不碰数据库、不写磁盘——收到请求里的数据，调模型，把结果返回给浏览器
+ * 保存。其余一切写操作（Server Action、Boss 同步、设置写入、录音导入）
+ * 都会落到服务端存储上，在体验模式下没有意义，一律拒绝。
  */
 export function isTrialWritablePath(pathname: string): boolean {
-  if (pathname.startsWith("/api/")) {
-    return (
-      pathname.startsWith("/api/trial/") ||
-      pathname === "/api/interviews/mock" ||
-      TRIAL_MOCK_ACTION_PATTERN.test(pathname)
-    );
-  }
-
-  return true;
+  return pathname.startsWith("/api/trial/");
 }
 
 const PUBLIC_DEMO_PATHS = new Set([

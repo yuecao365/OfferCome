@@ -79,10 +79,10 @@ export async function buildMockInterviewContext(input: {
   ]);
   if (!resume) throw new Error("所选简历不存在，请重新选择。");
 
-  // 有已解析文本（体验模式只存文本不留文件）就直接用，否则回退到现场解析。
-  const resumeText = resume.extractedText?.trim()
-    ? resume.extractedText
-    : await extractResumeTextFromFile(resume.filePath, resume.mimeType);
+  const resumeText = await extractResumeTextFromFile(
+    resume.filePath,
+    resume.mimeType,
+  );
   if (!resumeText.trim()) throw new Error("没有从所选简历中提取到文本。");
 
   const normalizedJobTitle = input.jobTitle.trim().toLocaleLowerCase();

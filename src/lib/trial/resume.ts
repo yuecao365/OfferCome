@@ -2,17 +2,16 @@ import "server-only";
 
 import path from "node:path";
 
-import { prisma } from "@/lib/db";
 import { extractDocumentText } from "@/lib/documents/extract-text";
 import { extractResumeExperiencesFromText } from "@/lib/resumes/extract";
 
+import type { TrialResumeInput } from "./interview";
+
 /**
- * 体验模式的简历录入：只存解析出的文本，不保留文件。
+ * 体验版的简历录入：**纯解析，不落任何存储**。
  *
- * 两条路径殊途同归——都产出一条带 extractedText 的 Resume 和若干
- * ResumeProject（+ ResumeProjectSource 链接，出题上下文靠它取项目）：
- * 1. 上传 PDF/DOC/DOCX：内存解析，字节流不落盘；
- * 2. 手动填表：概述 + 最多 3 段经历，服务端拼成简历文本。
+ * 两条路径都产出同一个 TrialResumeInput（全文 + 项目条目），由浏览器保存。
+ * 上传的文件只在内存里过一遍，函数返回后即被回收。
  */
 
 export const TRIAL_RESUME_MAX_BYTES = 10 * 1024 * 1024;
@@ -35,21 +34,11 @@ export type TrialResumeFormInput = {
   experiences: TrialResumeExperienceInput[];
 };
 
-export type TrialResumeResult = {
-  resumeId: string;
-  originalName: string;
-  textChars: number;
-  projects: { name: string; type: string }[];
-};
-
 /** 表单数据拼成简历文本——出题 agent 吃的就是这份纯文本。 */
 export function composeTrialResumeText(input: TrialResumeFormInput): string {
   const sections = [`## 个人概述\n${input.summary.trim()}`];
   for (const experience of input.experiences) {
-    const heading = [
-      experience.name.trim(),
-      experience.organization?.trim() || null,
-    ]
+    const heading = [experience.name.trim(), experience.organization?.trim() || null]
       .filter(Boolean)
       .join(" · ");
     const label = experience.type === "internship" ? "实习经历" : "项目经历";
@@ -58,9 +47,7 @@ export function composeTrialResumeText(input: TrialResumeFormInput): string {
   return sections.join("\n\n");
 }
 
-export function validateTrialResumeForm(
-  input: TrialResumeFormInput,
-): string | null {
+export function validateTrialResumeForm(input: TrialResumeFormInput): string | null {
   if (input.summary.trim().length < 30) {
     return "个人概述至少写 30 个字，说明方向、技术栈和亮点，出的题才会贴合你。";
   }
@@ -83,72 +70,24 @@ export function validateTrialResumeForm(
   return null;
 }
 
-type PersistExperience = {
-  name: string;
-  type: string;
-  organization: string | null;
-  description: string | null;
-  sourceText: string | null;
-  sortOrder: number;
-};
-
-async function persistTrialResume(input: {
-  originalName: string;
-  text: string;
-  experiences: PersistExperience[];
-}): Promise<TrialResumeResult> {
-  const text = input.text.trim().slice(0, MAX_TEXT_CHARS);
-
-  const resume = await prisma.$transaction(async (tx) => {
-    const created = await tx.resume.create({
-      data: {
-        originalName: input.originalName,
-        storedName: `trial-${crypto.randomUUID()}`,
-        // 不保留文件：filePath 置空，读简历一律走 extractedText。
-        filePath: "",
-        mimeType: "text/plain",
-        fileSize: Buffer.byteLength(text, "utf8"),
-        isDefault: false,
-        extractedText: text,
-      },
-    });
-    for (const experience of input.experiences) {
-      const project = await tx.resumeProject.create({
-        data: {
-          resumeId: created.id,
-          name: experience.name,
-          type: experience.type,
-          organization: experience.organization,
-          description: experience.description,
-          sourceText: experience.sourceText,
-          sortOrder: experience.sortOrder,
-        },
-      });
-      // 出题上下文按 projectSources 取项目，链接必须一并建立。
-      await tx.resumeProjectSource.create({
-        data: {
-          resumeId: created.id,
-          resumeProjectId: project.id,
-          extractedName: experience.name,
-          finalName: experience.name,
-          sourceText: experience.sourceText,
-        },
-      });
-    }
-    return created;
-  });
-
+function toResumeInput(
+  text: string,
+  experiences: { name: string; type: string; organization: string; description: string }[],
+): TrialResumeInput {
   return {
-    resumeId: resume.id,
-    originalName: input.originalName,
-    textChars: text.length,
-    projects: input.experiences.map(({ name, type }) => ({ name, type })),
+    text: text.trim().slice(0, MAX_TEXT_CHARS),
+    // id 只用于出题时引用项目，会话内唯一即可。
+    projects: experiences.map((experience, index) => ({
+      id: `trial-project-${index}`,
+      name: experience.name,
+      type: experience.type,
+      organization: experience.organization,
+      description: experience.description,
+    })),
   };
 }
 
-export async function createTrialResumeFromUpload(
-  file: File,
-): Promise<TrialResumeResult> {
+export async function parseTrialResumeUpload(file: File): Promise<TrialResumeInput> {
   const extension = path.extname(file.name).toLowerCase();
   if (!UPLOAD_EXTENSIONS.has(extension)) {
     throw new Error("体验版只支持 PDF、DOC、DOCX 简历；图片简历请改用手动填写。");
@@ -170,37 +109,30 @@ export async function createTrialResumeFromUpload(
     );
   }
 
-  // 解析失败不拦路：识别不出经历就只用全文出题，少一类题而已。
+  // 识别不出经历不拦路：只用全文出题，少一类项目深挖题而已。
   const experiences = extractResumeExperiencesFromText(text)
     .slice(0, MAX_PROJECTS_FROM_UPLOAD)
-    .map((item, index) => ({
+    .map((item) => ({
       name: item.title,
       type: item.type,
-      organization: item.organization,
-      description: item.description,
-      sourceText: item.sourceText,
-      sortOrder: index,
+      organization: item.organization ?? "",
+      description: item.description ?? item.sourceText,
     }));
 
-  return persistTrialResume({ originalName: file.name, text, experiences });
+  return toResumeInput(text, experiences);
 }
 
-export async function createTrialResumeFromForm(
-  input: TrialResumeFormInput,
-): Promise<TrialResumeResult> {
+export function parseTrialResumeForm(input: TrialResumeFormInput): TrialResumeInput {
   const message = validateTrialResumeForm(input);
   if (message) throw new Error(message);
 
-  return persistTrialResume({
-    originalName: "手动填写的简历",
-    text: composeTrialResumeText(input),
-    experiences: input.experiences.map((experience, index) => ({
+  return toResumeInput(
+    composeTrialResumeText(input),
+    input.experiences.map((experience) => ({
       name: experience.name.trim(),
       type: experience.type,
-      organization: experience.organization?.trim() || null,
+      organization: experience.organization?.trim() ?? "",
       description: experience.description.trim(),
-      sourceText: experience.description.trim(),
-      sortOrder: index,
     })),
-  });
+  );
 }
