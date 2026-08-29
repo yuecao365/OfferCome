@@ -26,12 +26,14 @@ primary_region = "nrt"      # 东京，国内访问延迟较低；改成你偏�
   internal_port = 3000
   force_https = true          # 体验模式的 Secure cookie 依赖 HTTPS
 
-  # 会话数据（每访客一个临时 SQLite）在机器本地，跨机器不共享。
-  # 因此必须单实例：auto_stop 关掉，min/max 都锁 1。
-  # 要扩容的话得先做会话粘性，或把会话状态移出本地文件系统。
+  # 会话数据（每访客一个临时 SQLite）在机器本地，跨机器不共享，
+  # 请求落到另一台就等于面试凭空消失。因此必须锁死单实例：
+  # max_machines_running 不设的话，fly deploy 会自动再起一台做高可用。
+  # 要扩容得先做会话粘性，或把会话状态移出本地文件系统。
   auto_stop_machines = false
   auto_start_machines = true
   min_machines_running = 1
+  max_machines_running = 1
 
   [http_service.concurrency]
     type = "requests"
