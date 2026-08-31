@@ -105,6 +105,12 @@ export function parseResumeForm(input: {
 export async function startInterview(input: {
   job: TrialJobInput;
   resume: TrialResumeInput;
+  options?: {
+    questionCount?: number;
+    difficulty?: string;
+    round?: string | null;
+    followUpsEnabled?: boolean;
+  };
 }): Promise<TrialInterview> {
   const { interview } = await postWithAi<{ interview: TrialInterview }>(
     "/api/trial/interview",

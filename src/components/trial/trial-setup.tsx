@@ -1,11 +1,11 @@
 "use client";
 
-import { Check, Loader2, Sparkles } from "lucide-react";
+import { ArrowRight, Check, Loader2, Sparkles } from "lucide-react";
 import { useState } from "react";
 
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -25,10 +25,9 @@ import {
 import { cn } from "@/lib/cn";
 import { writeAiToken } from "@/lib/trial/browser-store";
 import { connectAiConfig, parseResumeFile, parseResumeForm } from "@/lib/trial/client";
-import type { TrialJobInput, TrialResumeInput } from "@/lib/trial/interview";
-import type { TrialPresetJob } from "@/lib/trial/preset-jobs";
+import type { TrialResumeInput } from "@/lib/trial/interview";
 
-/** 体验版的三步准备：连接模型 → 提供简历 → 选择岗位。 */
+/** 体验版的两步准备：连接模型 → 提供简历。岗位在模拟面试页选择。 */
 
 type RequestState = "idle" | "busy" | "done" | "error";
 
@@ -359,150 +358,39 @@ function ResumeSection({
   );
 }
 
-function JobSection({
-  presetJobs,
-  job,
-  onSelect,
-}: {
-  presetJobs: TrialPresetJob[];
-  job: TrialJobInput | null;
-  onSelect: (job: TrialJobInput) => void;
-}) {
-  const [company, setCompany] = useState("");
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-
-  const customReady =
-    company.trim() && title.trim() && description.trim().length >= 40;
-
-  return (
-    <Card>
-      <CardHeader className="flex-row items-center gap-3">
-        <StepBadge done={Boolean(job)} index={3} />
-        <div>
-          <CardTitle>选择目标岗位</CardTitle>
-          <CardDescription>
-            选一个预置岗位直接开始，或粘贴你正在投的岗位描述。
-          </CardDescription>
-        </div>
-      </CardHeader>
-      <CardContent className="grid gap-4">
-        <div className="grid gap-3 sm:grid-cols-3">
-          {presetJobs.map((preset) => {
-            const active = job?.jobTitle === preset.jobTitle && job.companyName === preset.companyName;
-            return (
-              <button
-                className={cn(
-                  "rounded-lg border p-4 text-left transition-colors",
-                  active
-                    ? "border-brand bg-accent/60"
-                    : "border-border bg-surface hover:border-brand/40",
-                )}
-                key={preset.id}
-                onClick={() =>
-                  onSelect({
-                    companyName: preset.companyName,
-                    jobTitle: preset.jobTitle,
-                    jobDescription: preset.jobDescription,
-                  })
-                }
-                type="button"
-              >
-                <p className="text-sm font-semibold text-foreground">{preset.jobTitle}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{preset.companyName}</p>
-              </button>
-            );
-          })}
-        </div>
-        <details>
-          <summary className="cursor-pointer text-sm font-semibold text-muted-foreground">
-            使用自己的岗位描述
-          </summary>
-          <div className="mt-3 grid gap-3">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <FieldLabel>
-                公司名称
-                <Input onChange={(e) => setCompany(e.target.value)} value={company} />
-              </FieldLabel>
-              <FieldLabel>
-                岗位名称
-                <Input onChange={(e) => setTitle(e.target.value)} value={title} />
-              </FieldLabel>
-            </div>
-            <FieldLabel>
-              岗位描述（JD，至少 40 字）
-              <Textarea
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="粘贴完整的岗位职责与任职要求"
-                rows={6}
-                value={description}
-              />
-            </FieldLabel>
-            <div>
-              <Button
-                disabled={!customReady}
-                onClick={() =>
-                  onSelect({
-                    companyName: company.trim(),
-                    jobTitle: title.trim(),
-                    jobDescription: description.trim(),
-                  })
-                }
-                size="sm"
-                variant="outline"
-              >
-                使用这个岗位
-              </Button>
-            </div>
-          </div>
-        </details>
-        {job ? (
-          <Alert tone="success">
-            已选择：{job.companyName} · {job.jobTitle}
-          </Alert>
-        ) : null}
-      </CardContent>
-    </Card>
-  );
-}
-
 export function TrialSetup({
   aiReady,
-  busy,
-  onStart,
-  presetJobs,
+  resume,
+  onResumeReady,
 }: {
   aiReady: boolean;
-  busy: boolean;
-  onStart: (input: { job: TrialJobInput; resume: TrialResumeInput }) => void;
-  presetJobs: TrialPresetJob[];
+  resume: TrialResumeInput | null;
+  onResumeReady: (resume: TrialResumeInput) => void;
 }) {
-  const [resume, setResume] = useState<TrialResumeInput | null>(null);
-  const [job, setJob] = useState<TrialJobInput | null>(null);
-  const ready = aiReady && resume && job;
+  const ready = aiReady && resume !== null;
 
   return (
     <div className="grid gap-4">
       <AiSection ready={aiReady} />
-      <ResumeSection onReady={setResume} resume={resume} />
-      <JobSection job={job} onSelect={setJob} presetJobs={presetJobs} />
+      <ResumeSection onReady={onResumeReady} resume={resume} />
 
       <Card>
         <CardContent className="flex flex-wrap items-center justify-between gap-4">
           <p className="text-sm text-muted-foreground">
-            准备好后开始一场 3 题速览：AI 按岗位和你的简历出题，作答后逐题评分并生成报告。
+            {ready
+              ? "准备完成。去模拟面试页选择目标岗位，AI 按岗位和你的简历出题，作答后逐题评分并生成报告。"
+              : "完成上面两步后，就可以在真实工作台里体验 AI 模拟面试、投递管理、面试复盘等功能。"}
           </p>
-          <Button
-            disabled={!ready || busy}
-            onClick={() => ready && onStart({ job, resume })}
-          >
-            {busy ? (
-              <Loader2 aria-hidden="true" className="size-4 animate-spin" />
-            ) : (
+          <div className="flex flex-wrap gap-3">
+            <ButtonLink href="/interviews/mock">
               <Sparkles aria-hidden="true" className="size-4" />
-            )}
-            {busy ? "正在出题…" : "开始模拟面试"}
-          </Button>
+              开始 AI 模拟面试
+            </ButtonLink>
+            <ButtonLink href="/" variant="outline">
+              打开工作台
+              <ArrowRight aria-hidden="true" className="size-4" />
+            </ButtonLink>
+          </div>
         </CardContent>
       </Card>
     </div>

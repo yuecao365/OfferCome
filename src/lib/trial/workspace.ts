@@ -106,6 +106,14 @@ export type TrialApplicationInput = {
   note: string;
 };
 
+/** 保存访客提供的简历内容（跨访问保留在 localStorage，供模拟面试出题）。 */
+export function setWorkspaceResume(
+  workspace: TrialWorkspace,
+  resume: TrialResumeInput | null,
+): TrialWorkspace {
+  return { ...workspace, resume };
+}
+
 export function upsertApplication(
   workspace: TrialWorkspace,
   input: TrialApplicationInput,

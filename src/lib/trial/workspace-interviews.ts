@@ -91,6 +91,8 @@ export function deleteInterview(
 export function addCompletedMockInterview(
   workspace: TrialWorkspace,
   input: {
+    /** 复用会话 id，让历史列表的"打开"链接能找回这场面试。 */
+    id?: string;
     companyName: string;
     jobTitle: string;
     questions: {
@@ -106,7 +108,7 @@ export function addCompletedMockInterview(
 ): TrialWorkspace {
   const now = new Date().toISOString();
   const record: TrialWorkspaceInterview = {
-    id: crypto.randomUUID(),
+    id: input.id ?? crypto.randomUUID(),
     kind: "mock",
     companyName: input.companyName,
     jobTitle: input.jobTitle,
@@ -128,7 +130,13 @@ export function addCompletedMockInterview(
     createdAt: now,
     updatedAt: now,
   };
-  return { ...workspace, interviews: [record, ...workspace.interviews] };
+  return {
+    ...workspace,
+    interviews: [
+      record,
+      ...workspace.interviews.filter((item) => item.id !== record.id),
+    ],
+  };
 }
 
 /* ------------------------------ 查询适配 ------------------------------ */

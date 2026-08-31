@@ -2,7 +2,7 @@
 
 import { Keyboard, Loader2, Mic } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +21,69 @@ import { useReducedMotion } from "@/lib/use-reduced-motion";
 import { MockInterviewReport } from "./mock-interview-report";
 import { MockInterviewVoiceControls } from "./mock-interview-voice-controls";
 
+/** 提交一题后的会话推进结果，形状与本地版 answer API 的响应一致。 */
+export type MockInterviewAnswerOutcome = {
+  status: string;
+  currentQuestionIndex: number;
+  questionCount: number;
+  nextQuestion: {
+    id: string;
+    question: string;
+    category: string;
+    sortOrder: number;
+    isFollowUp: boolean;
+  } | null;
+};
+
+/**
+ * 房间的数据通道。默认实现走本地版 API + 服务端存储；
+ * 体验版注入浏览器实现（无状态计算 API + sessionStorage）。
+ */
+export type MockInterviewRoomTransport = {
+  submitAnswer(input: {
+    questionId: string;
+    answer?: string;
+    skip: boolean;
+  }): Promise<MockInterviewAnswerOutcome>;
+  complete(): Promise<void>;
+  /** 报告生成完成后的刷新方式；默认 router.refresh() 重取服务端视图。 */
+  onCompleted?: () => void;
+  /** 语音作答依赖服务端转写，体验版关闭。 */
+  voiceEnabled: boolean;
+};
+
+function createDefaultTransport(sessionId: string): MockInterviewRoomTransport {
+  return {
+    async submitAnswer(input) {
+      const response = await fetch(`/api/interviews/mock/${sessionId}/answer`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      const result = (await response.json()) as Partial<MockInterviewAnswerOutcome> & {
+        error?: string;
+      };
+      if (!response.ok || typeof result.currentQuestionIndex !== "number") {
+        throw new Error(result.error ?? "提交回答失败。");
+      }
+      return {
+        status: result.status ?? "in_progress",
+        currentQuestionIndex: result.currentQuestionIndex,
+        questionCount: result.questionCount ?? 0,
+        nextQuestion: result.nextQuestion ?? null,
+      };
+    },
+    async complete() {
+      const response = await fetch(`/api/interviews/mock/${sessionId}/complete`, {
+        method: "POST",
+      });
+      const result = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(result.error ?? "生成面试报告失败。");
+    },
+    voiceEnabled: true,
+  };
+}
+
 function categoryLabel(value: string): string {
   return (
     INTERVIEW_QUESTION_CATEGORY_LABELS[
@@ -29,8 +92,18 @@ function categoryLabel(value: string): string {
   );
 }
 
-export function MockInterviewRoom({ initial }: { initial: MockInterviewView }) {
+export function MockInterviewRoom({
+  initial,
+  transport: transportOverride,
+}: {
+  initial: MockInterviewView;
+  transport?: MockInterviewRoomTransport;
+}) {
   const router = useRouter();
+  const transport = useMemo(
+    () => transportOverride ?? createDefaultTransport(initial.id),
+    [initial.id, transportOverride],
+  );
   const [currentIndex, setCurrentIndex] = useState(initial.currentQuestionIndex);
   const [questions, setQuestions] = useState(initial.questions);
   const [questionCount, setQuestionCount] = useState(initial.questionCount);
@@ -90,31 +163,11 @@ export function MockInterviewRoom({ initial }: { initial: MockInterviewView }) {
     setPending(true);
     setError("");
     try {
-      const response = await fetch(`/api/interviews/mock/${initial.id}/answer`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          questionId: currentQuestion.id,
-          answer: skip ? undefined : answer,
-          skip,
-        }),
+      const result = await transport.submitAnswer({
+        questionId: currentQuestion.id,
+        answer: skip ? undefined : answer,
+        skip,
       });
-      const result = (await response.json()) as {
-        status?: string;
-        currentQuestionIndex?: number;
-        questionCount?: number;
-        nextQuestion?: {
-          id: string;
-          question: string;
-          category: string;
-          sortOrder: number;
-          isFollowUp: boolean;
-        } | null;
-        error?: string;
-      };
-      if (!response.ok || typeof result.currentQuestionIndex !== "number") {
-        throw new Error(result.error ?? "提交回答失败。");
-      }
       setQuestions((current) =>
         current.map((question) =>
           question.id === currentQuestion.id
@@ -123,7 +176,7 @@ export function MockInterviewRoom({ initial }: { initial: MockInterviewView }) {
         ),
       );
       setCurrentIndex(result.currentQuestionIndex);
-      if (typeof result.questionCount === "number") setQuestionCount(result.questionCount);
+      if (result.questionCount > 0) setQuestionCount(result.questionCount);
       if (result.nextQuestion && !questions.some((item) => item.id === result.nextQuestion!.id)) {
         if (result.nextQuestion.isFollowUp) {
           setInsertedFollowUpId(result.nextQuestion.id);
@@ -141,7 +194,7 @@ export function MockInterviewRoom({ initial }: { initial: MockInterviewView }) {
           return next;
         });
       }
-      setStatus(result.status ?? "in_progress");
+      setStatus(result.status);
       if (draftStorageKey) window.localStorage.removeItem(draftStorageKey);
       setAnswer("");
     } catch (submitError) {
@@ -168,12 +221,8 @@ export function MockInterviewRoom({ initial }: { initial: MockInterviewView }) {
     setError("");
     setStatus("evaluating");
     try {
-      const response = await fetch(`/api/interviews/mock/${initial.id}/complete`, {
-        method: "POST",
-      });
-      const result = (await response.json()) as { error?: string };
-      if (!response.ok) throw new Error(result.error ?? "生成面试报告失败。");
-      router.refresh();
+      await transport.complete();
+      (transport.onCompleted ?? (() => router.refresh()))();
     } catch (completeError) {
       setStatus("ready_to_evaluate");
       setError(
@@ -234,17 +283,19 @@ export function MockInterviewRoom({ initial }: { initial: MockInterviewView }) {
               <Keyboard aria-hidden="true" className="size-4" />
               文字
             </Button>
-            <Button
-              aria-pressed={mode === "voice"}
-              disabled={pending || voiceBusy}
-              onClick={() => setMode("voice")}
-              size="sm"
-              type="button"
-              variant={mode === "voice" ? "secondary" : "ghost"}
-            >
-              <Mic aria-hidden="true" className="size-4" />
-              语音
-            </Button>
+            {transport.voiceEnabled ? (
+              <Button
+                aria-pressed={mode === "voice"}
+                disabled={pending || voiceBusy}
+                onClick={() => setMode("voice")}
+                size="sm"
+                type="button"
+                variant={mode === "voice" ? "secondary" : "ghost"}
+              >
+                <Mic aria-hidden="true" className="size-4" />
+                语音
+              </Button>
+            ) : null}
           </div>
         </div>
         <ol

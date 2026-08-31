@@ -27,6 +27,15 @@ import {
 
 type ResumeOption = { id: string; name: string; isDefault: boolean };
 
+async function defaultCreateSession(formData: FormData): Promise<{ href: string }> {
+  const response = await fetch("/api/interviews/mock", { method: "POST", body: formData });
+  const result = (await response.json()) as { href?: string; error?: string };
+  if (!response.ok || !result.href) {
+    throw new Error(result.error ?? "创建模拟面试失败。");
+  }
+  return { href: result.href };
+}
+
 /**
  * 带入的岗位信息。id 为 null 表示只带了公司与岗位名（例如从备战页发起），
  * 没有可关联的投递记录。
@@ -45,12 +54,23 @@ export function MockInterviewSetup({
   transcriptionConfigured,
   seed,
   application,
+  createSession,
+  jdFileEnabled = true,
+  questionCounts = { options: [5, 8, 10, 12], defaultValue: 8 },
+  voiceDisabledHint = "需先在设置页配置语音转写模型。",
 }: {
   resumes: ResumeOption[];
   textConfigured: boolean;
   transcriptionConfigured: boolean;
   seed?: { id: string; kind: "question" | "insight"; title: string } | null;
   application?: MockInterviewApplication | null;
+  /** 覆盖默认的创建接口（体验版走无状态 API + 浏览器存储）。 */
+  createSession?: (formData: FormData) => Promise<{ href: string }>;
+  /** JD 文件解析依赖服务端落盘，体验版关闭、只留粘贴文本。 */
+  jdFileEnabled?: boolean;
+  /** 题量选项；体验版预算更紧，默认更少。 */
+  questionCounts?: { options: number[]; defaultValue: number };
+  voiceDisabledHint?: string;
 }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
@@ -68,14 +88,10 @@ export function MockInterviewSetup({
     setPending(true);
     setError("");
     try {
-      const response = await fetch("/api/interviews/mock", {
-        method: "POST",
-        body: new FormData(event.currentTarget),
-      });
-      const result = (await response.json()) as { href?: string; error?: string };
-      if (!response.ok || !result.href) {
-        throw new Error(result.error ?? "创建模拟面试失败。");
-      }
+      const formData = new FormData(event.currentTarget);
+      const result = createSession
+        ? await createSession(formData)
+        : await defaultCreateSession(formData);
       router.push(result.href);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "创建模拟面试失败。");
@@ -160,7 +176,8 @@ export function MockInterviewSetup({
             />
           </FieldLabel>
         </div>
-        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <div className={`mt-4 grid gap-4 ${jdFileEnabled ? "lg:grid-cols-2" : ""}`}>
+          {jdFileEnabled ? (
           <FieldLabel>
             上传 Job Description
             <Input
@@ -171,8 +188,9 @@ export function MockInterviewSetup({
             />
             <span className="font-normal leading-5">支持 TXT、MD、DOCX、PDF。上传文件后无需再粘贴文本。</span>
           </FieldLabel>
+          ) : null}
           <FieldLabel>
-            或粘贴 Job Description
+            {jdFileEnabled ? "或粘贴 Job Description" : "粘贴 Job Description"}
             <Textarea
               name="jobDescriptionText"
               onChange={(event) => setJobDescriptionText(event.target.value)}
@@ -200,7 +218,7 @@ export function MockInterviewSetup({
               <h2 className="text-sm font-semibold text-foreground">
                 面试设置
                 <span className="ml-2 text-xs font-normal text-muted-foreground group-open:hidden">
-                  默认：{resumes.find((resume) => resume.isDefault)?.name ?? resumes[0]?.name} · 第一轮 · 标准难度 · 8 题 · 文字作答 · 允许追问，点击调整
+                  默认：{resumes.find((resume) => resume.isDefault)?.name ?? resumes[0]?.name} · 第一轮 · 标准难度 · {questionCounts.defaultValue} 题 · 文字作答 · 允许追问，点击调整
                 </span>
               </h2>
               <p className="mt-1 hidden text-sm text-muted-foreground group-open:block">选择用于生成问题的简历、轮次、难度、题目数量和作答方式。</p>
@@ -236,8 +254,8 @@ export function MockInterviewSetup({
           </FieldLabel>
           <FieldLabel>
             题目数量
-            <Select defaultValue="8" name="questionCount">
-              {[5, 8, 10, 12].map((count) => (
+            <Select defaultValue={String(questionCounts.defaultValue)} name="questionCount">
+              {questionCounts.options.map((count) => (
                 <option key={count} value={count}>{count} 题</option>
               ))}
             </Select>
@@ -270,7 +288,7 @@ export function MockInterviewSetup({
                         {mode === "voice"
                           ? transcriptionConfigured
                             ? "朗读 AI 问题，录音转写后可编辑再提交。"
-                            : "需先在设置页配置语音转写模型。"
+                            : voiceDisabledHint
                           : "直接输入并提交文字回答。"}
                       </span>
                     </span>

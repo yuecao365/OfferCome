@@ -20,10 +20,36 @@ import type {
  * 因为体验数据本就是一次性的，不值得为它写迁移代码。
  */
 
-export const TRIAL_INTERVIEW_VERSION = 1;
+export const TRIAL_INTERVIEW_VERSION = 2;
 
-/** 体验版固定 3 题速览：控制访客 Key 的花费，也降低半途弃坑率。 */
+/** 默认 3 题速览：控制访客 Key 的花费，也降低半途弃坑率。 */
 export const TRIAL_QUESTION_COUNT = 3;
+
+/** 可选题量上限：体验版跑在 serverless 上，出题预算有限。 */
+export const TRIAL_MAX_QUESTION_COUNT = 8;
+
+/** 访客可调的出题选项；服务端负责钳制到合法范围。 */
+export type TrialInterviewOptions = {
+  questionCount: number;
+  difficulty: "easy" | "standard" | "hard";
+  round: string | null;
+};
+
+export function clampTrialOptions(
+  value: Partial<TrialInterviewOptions> | undefined,
+): TrialInterviewOptions {
+  const count = Number(value?.questionCount);
+  return {
+    questionCount: Number.isInteger(count)
+      ? Math.min(Math.max(count, TRIAL_QUESTION_COUNT), TRIAL_MAX_QUESTION_COUNT)
+      : TRIAL_QUESTION_COUNT,
+    difficulty:
+      value?.difficulty === "easy" || value?.difficulty === "hard"
+        ? value.difficulty
+        : "standard",
+    round: typeof value?.round === "string" && value.round ? value.round : null,
+  };
+}
 
 export type TrialResumeInput = {
   /** 简历全文，出题的主要素材。 */
@@ -44,6 +70,8 @@ export type TrialJobInput = {
 };
 
 export type TrialQuestion = {
+  /** 会话内稳定 id：追问插入会移动下标，组件层只认这个。 */
+  uid: string;
   question: string;
   category: string;
   /** 出题时预生成，保证同一道题对所有回答用同一把尺子。 */
@@ -69,7 +97,10 @@ export type TrialInterviewStatus =
 
 export type TrialInterview = {
   version: typeof TRIAL_INTERVIEW_VERSION;
+  /** 会话 id，同时用作 /interviews/mock/[id] 的路由参数。 */
+  id: string;
   createdAt: string;
+  followUpsEnabled: boolean;
   job: TrialJobInput;
   resume: TrialResumeInput;
   blueprint: MockInterviewJobBlueprint;
@@ -104,8 +135,10 @@ export function createTrialInterview(input: {
   resume: TrialResumeInput;
   blueprint: MockInterviewJobBlueprint;
   plan: MockInterviewQuestionPlan;
+  followUpsEnabled?: boolean;
 }): TrialInterview {
   const questions: TrialQuestion[] = input.plan.questions.map((question) => ({
+    uid: crypto.randomUUID(),
     question: question.question.trim(),
     category: question.category,
     rubric: question.rubric,
@@ -116,7 +149,9 @@ export function createTrialInterview(input: {
 
   return {
     version: TRIAL_INTERVIEW_VERSION,
+    id: crypto.randomUUID(),
     createdAt: new Date().toISOString(),
+    followUpsEnabled: input.followUpsEnabled ?? true,
     job: input.job,
     resume: input.resume,
     blueprint: input.blueprint,
@@ -169,6 +204,7 @@ export function insertTrialFollowUp(
 
   const at = parentIndex + 1;
   const question: TrialQuestion = {
+    uid: crypto.randomUUID(),
     question: followUp.question,
     category: parent.category,
     rubric: parent.rubric,
@@ -235,6 +271,7 @@ export function isTrialInterview(value: unknown): value is TrialInterview {
   const candidate = value as Partial<TrialInterview>;
   return (
     candidate.version === TRIAL_INTERVIEW_VERSION &&
+    typeof candidate.id === "string" &&
     Array.isArray(candidate.questions) &&
     Array.isArray(candidate.answers) &&
     Array.isArray(candidate.evaluations)
