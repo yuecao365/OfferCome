@@ -7,12 +7,15 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FieldLabel, Input, Select, Textarea } from "@/components/ui/form-controls";
 import { parseResumeFile, parseResumeForm } from "@/lib/trial/client";
+import { deleteStoredFile, putStoredFile } from "@/lib/trial/file-store";
 import type { TrialResumeInput } from "@/lib/trial/interview";
+import { TRIAL_RESUME_FILE_KEY } from "@/lib/trial/workspace-resume";
 import type { TrialResumeMeta } from "@/lib/trial/workspace";
 
 /**
- * 体验版的简历录入表单：上传文件（内存解析、不落盘）或手动填写。
- * /trial 准备页和简历中心的"上传简历"弹窗共用这一个组件。
+ * 网页版的简历录入表单：上传文件或手动填写。
+ * 文本解析在服务端做完即弃（服务器不存文件），原件另存进浏览器的
+ * 文件仓库，供简历中心像本地版一样内嵌预览与下载。
  */
 
 type RequestState = "idle" | "busy" | "done" | "error";
@@ -50,11 +53,16 @@ export function TrialResumeEditor({
   async function submit(
     request: Promise<TrialResumeInput>,
     meta: Omit<TrialResumeMeta, "savedAt"> | null,
+    file?: File,
   ) {
     setState("busy");
     setMessage("");
     try {
       const parsed = await request;
+      // 原件留在浏览器里，简历中心才能像本地版那样直接预览；
+      // 存不下（隐私模式、配额不足）就只保留解析文本。
+      const storedFile = file ? await putStoredFile(TRIAL_RESUME_FILE_KEY, file) : false;
+      if (!storedFile) await deleteStoredFile(TRIAL_RESUME_FILE_KEY);
       setState("done");
       setMessage(
         parsed.projects.length > 0
@@ -103,11 +111,15 @@ export function TrialResumeEditor({
             onChange={(event) => {
               const file = event.target.files?.[0];
               if (file) {
-                void submit(parseResumeFile(file), {
-                  fileName: file.name,
-                  fileSize: file.size,
-                  mimeType: file.type || null,
-                });
+                void submit(
+                  parseResumeFile(file),
+                  {
+                    fileName: file.name,
+                    fileSize: file.size,
+                    mimeType: file.type || null,
+                  },
+                  file,
+                );
               }
             }}
             type="file"

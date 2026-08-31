@@ -27,14 +27,14 @@ import { addCompletedMockInterview, deleteInterview } from "./workspace-intervie
 import { mutateWorkspace } from "./workspace-store";
 
 /**
- * 体验版模拟面试的浏览器动作：与本地版 API 承担相同职责，
- * 差别只在状态写进 sessionStorage/工作台而不是数据库。
+ * 网页版模拟面试的浏览器动作：与本地版 API 承担相同职责，
+ * 差别只在状态写进浏览器存储而不是数据库。
  * 房间组件通过 MockInterviewRoomTransport 使用这里的实现，UI 零分叉。
  */
 
 function rethrow(caught: unknown, fallback: string): never {
   if (isMissingAiConfig(caught)) {
-    throw new Error("模型配置已失效（可能是关闭标签页后丢失）。请重新连接模型服务。");
+    throw new Error("模型连接已失效，请到设置页重新连接后继续。");
   }
   throw caught instanceof Error ? caught : new Error(fallback);
 }
@@ -42,7 +42,7 @@ function rethrow(caught: unknown, fallback: string): never {
 function requireSession(): TrialInterview {
   const doc = trialInterviewDocument.read();
   if (!doc) {
-    throw new Error("会话已失效（进行中的面试只保存在当前标签页）。请重新开始一场。");
+    throw new Error("没有找到进行中的面试会话，请重新开始一场。");
   }
   return doc;
 }

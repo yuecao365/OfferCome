@@ -1,6 +1,7 @@
 import { AppChrome } from "@/components/app-chrome";
 import type { AppSection, InterviewSection } from "@/components/app-shell-types";
 import { ProfileRefreshScheduler } from "@/components/candidate-profile/profile-refresh-scheduler";
+import { TrialProfileRefreshScheduler } from "@/components/trial/trial-profile-refresh-scheduler";
 import { isDemoMode, isTrialMode } from "@/lib/runtime-mode";
 
 type AppShellProps = {
@@ -17,6 +18,7 @@ export function AppShell({ active, subActive, immersive = false, children }: App
   return (
     <>
       {!demo && !trial ? <ProfileRefreshScheduler /> : null}
+      {trial ? <TrialProfileRefreshScheduler /> : null}
       <AppChrome
         active={active}
         homeHref={demo || trial ? "/homepage" : "/"}

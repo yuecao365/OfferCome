@@ -84,6 +84,36 @@ function createDefaultTransport(sessionId: string): MockInterviewRoomTransport {
   };
 }
 
+type QuestionProgressState = "current" | "skipped" | "answered" | "pending";
+
+const PROGRESS_STATE_LABELS: Record<QuestionProgressState, string> = {
+  current: "当前",
+  skipped: "已跳过",
+  answered: "已答",
+  pending: "未答",
+};
+
+const PROGRESS_STATE_CLASSES: Record<QuestionProgressState, string> = {
+  current: "border-brand bg-accent ring-2 ring-brand/20",
+  skipped: "border-warning bg-warning-soft",
+  answered: "border-brand bg-brand",
+  pending: "border-border bg-muted",
+};
+
+/**
+ * 进度格的状态。只表示"作答到哪了"——是不是追问由格子的形状（更窄 + 虚线）
+ * 单独表达，两者正交，已回答的追问才不会被画成普通的已答题。
+ */
+export function questionProgressState(
+  question: { skipped: boolean },
+  index: number,
+  currentIndex: number,
+): QuestionProgressState {
+  if (index === currentIndex) return "current";
+  if (index > currentIndex) return "pending";
+  return question.skipped ? "skipped" : "answered";
+}
+
 function categoryLabel(value: string): string {
   return (
     INTERVIEW_QUESTION_CATEGORY_LABELS[
@@ -123,6 +153,7 @@ export function MockInterviewRoom({
     setError("");
   }, []);
 
+  const visibleQuestions = questions.slice(0, questionCount);
   const currentQuestion = questions[currentIndex] ?? null;
   const draftStorageKey = currentQuestion
     ? `mock-answer:${initial.id}:${currentQuestion.id}`
@@ -301,26 +332,23 @@ export function MockInterviewRoom({
         <ol
           aria-label={`面试进度，已完成 ${currentIndex} 题，共 ${questionCount} 题`}
           className="mt-3 grid gap-1.5"
-          style={{ gridTemplateColumns: `repeat(${questionCount}, minmax(0, 1fr))` }}
+          // 追问占更窄一格，视觉上"附属"于它追问的那道主题目。
+          style={{
+            gridTemplateColumns: visibleQuestions
+              .map((question) =>
+                question.isFollowUp ? "minmax(0, 0.45fr)" : "minmax(0, 1fr)",
+              )
+              .join(" "),
+          }}
         >
-          {questions.slice(0, questionCount).map((question, index) => {
-            const isCurrent = index === currentIndex;
-            const isCompleted = index < currentIndex;
-            const isSkipped = isCompleted && question.skipped;
+          {visibleQuestions.map((question, index) => {
+            const state = questionProgressState(question, index, currentIndex);
             return (
               <li
-                aria-current={isCurrent ? "step" : undefined}
-                aria-label={`${question.isFollowUp ? "追问" : `问题 ${index + 1}`}，${isCurrent ? "当前" : isSkipped ? "已跳过" : isCompleted ? "已答" : "未答"}`}
-                className={`h-2.5 rounded-full border ${
-                  isCurrent
-                    ? "border-brand bg-accent ring-2 ring-brand/20"
-                    : isSkipped
-                      ? "border-warning bg-warning-soft"
-                      : isCompleted
-                        ? "border-brand bg-brand"
-                        : question.isFollowUp
-                          ? "border-dashed border-info bg-info-soft"
-                          : "border-border bg-muted"
+                aria-current={state === "current" ? "step" : undefined}
+                aria-label={`${question.isFollowUp ? "追问" : `问题 ${index + 1}`}，${PROGRESS_STATE_LABELS[state]}`}
+                className={`h-2.5 rounded-full border ${PROGRESS_STATE_CLASSES[state]} ${
+                  question.isFollowUp ? "border-dashed" : ""
                 }`}
                 key={question.id}
               />
@@ -331,7 +359,10 @@ export function MockInterviewRoom({
           <span><i className="mr-1 inline-block size-2 rounded-full bg-brand" />已答</span>
           <span><i className="mr-1 inline-block size-2 rounded-full bg-accent ring-1 ring-brand" />当前</span>
           <span><i className="mr-1 inline-block size-2 rounded-full bg-warning-soft ring-1 ring-warning" />已跳过</span>
-          <span><i className="mr-1 inline-block size-2 rounded-full border border-dashed border-info bg-info-soft" />追问</span>
+          <span>
+            <i className="mr-1 inline-block h-2 w-3 rounded-full border border-dashed border-muted-foreground" />
+            追问（窄格，颜色同样表示作答状态）
+          </span>
         </div>
       </Card>
 

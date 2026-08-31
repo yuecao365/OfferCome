@@ -1,6 +1,7 @@
-import type {
-  ResumeListItem,
-  ResumeProjectListItem,
+import {
+  resumePreviewKind,
+  type ResumeListItem,
+  type ResumeProjectListItem,
 } from "@/lib/resumes/types";
 import type { ResumeProjectOption } from "@/lib/interviews/types";
 
@@ -16,27 +17,39 @@ import type { TrialWorkspace } from "./workspace";
  */
 
 export const TRIAL_RESUME_ID = "trial-resume";
+/** 原始简历文件在浏览器文件仓库里的键。 */
+export const TRIAL_RESUME_FILE_KEY = "resume";
 
-/** 与本地版 getResumes() 相同的列表条目形状（文件相关字段以占位补齐）。 */
-export function trialResumeListItems(workspace: TrialWorkspace): ResumeListItem[] {
+/**
+ * 与本地版 getResumes() 相同的列表条目形状。
+ * fileUrl 是浏览器为原始文件生成的 blob 地址（没存到原件时为 null，
+ * 页面据此降级成解析文本预览）。
+ */
+export function trialResumeListItems(
+  workspace: TrialWorkspace,
+  fileUrl: string | null = null,
+): ResumeListItem[] {
   if (!workspace.resume) return [];
   const meta = workspace.resumeMeta ?? null;
   const savedAt = new Date(meta?.savedAt ?? new Date().toISOString());
+  const originalName = meta?.fileName ?? "我的简历（手动填写）";
+  const mimeType = meta?.mimeType ?? "text/plain";
+  const previewKind = fileUrl ? resumePreviewKind(mimeType, originalName) : "none";
   return [
     {
       id: TRIAL_RESUME_ID,
-      originalName: meta?.fileName ?? "体验简历（手动填写）",
+      originalName,
       storedName: "",
-      mimeType: meta?.mimeType ?? "text/plain",
+      mimeType,
       fileSize:
         meta?.fileSize ?? new TextEncoder().encode(workspace.resume.text).length,
       isDefault: true,
       createdAt: savedAt,
       updatedAt: savedAt,
-      previewUrl: "",
-      downloadUrl: "",
-      canPreviewInline: false,
-      previewKind: "none",
+      previewUrl: fileUrl ?? "",
+      downloadUrl: fileUrl ?? "",
+      canPreviewInline: previewKind !== "none",
+      previewKind,
     },
   ];
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { Sparkles } from "lucide-react";
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 
 import {
   CandidateProfileDashboard,
@@ -12,11 +12,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { normalizeProfileDimension } from "@/lib/candidate-profile/types";
 import { trialAiTokenDocument } from "@/lib/trial/browser-store";
-import {
-  createTrialProfileTransport,
-  refreshTrialProfile,
-  shouldAutoRefreshTrialProfile,
-} from "@/lib/trial/profile-actions";
+import { createTrialProfileTransport } from "@/lib/trial/profile-actions";
 import { useStoredDocument } from "@/lib/trial/stored-document";
 import {
   trialProfile,
@@ -33,17 +29,9 @@ import { useTrialWorkspace } from "@/lib/trial/workspace-store";
 export function TrialProfilePage() {
   const workspace = useTrialWorkspace();
   const aiReady = useStoredDocument(trialAiTokenDocument) !== null;
+  // 自动补齐评估由 AppShell 上的 TrialProfileRefreshScheduler 负责，
+  // 这里只负责把浏览器里的画像渲染成与本地版相同的表盘。
   const transport = useMemo(() => createTrialProfileTransport(), []);
-
-  // 有新的已完成面试且模型可用时自动跑一轮，与本地版"自动更新"语义一致。
-  useEffect(() => {
-    if (!workspace || !aiReady) return;
-    if (shouldAutoRefreshTrialProfile()) {
-      refreshTrialProfile().catch(() => {
-        // 失败状态由表盘轮询展示，这里不用重复处理。
-      });
-    }
-  }, [aiReady, workspace]);
 
   if (!workspace) {
     // 首帧（SSR/未水合）还读不到浏览器数据，水合后立即补齐。

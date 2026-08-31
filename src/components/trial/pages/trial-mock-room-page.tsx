@@ -41,7 +41,7 @@ export function TrialMockRoomPage({ id }: { id: string }) {
     return (
       <EmptyState
         action={<ButtonLink href="/interviews/mock">返回模拟面试列表</ButtonLink>}
-        description="这场面试不在当前浏览器中。进行中的会话只保存在发起它的标签页，关闭后即清除。"
+        description="这场面试不在当前浏览器中。网页版的数据只保存在你自己的浏览器里，换设备或清除站点数据后无法恢复。"
         title="没有找到这场模拟面试"
       />
     );

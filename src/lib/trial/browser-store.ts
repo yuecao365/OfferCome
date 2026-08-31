@@ -5,8 +5,9 @@ import { createStoredDocument } from "./stored-document";
  * 网页版的两类浏览器数据：
  * - AI 连接：默认 localStorage（关掉网页也不用重连），访客可以改成
  *   "只在本次会话保留"，那样落在 sessionStorage、关标签页即清；
- * - 进行中的模拟面试：sessionStorage——一次性状态，误刷新不丢、关页即弃。
- * （工作台数据在 workspace-store.ts，用 localStorage 跨访问保留。）
+ * - 进行中的模拟面试：localStorage——逐题评分已经花掉访客的额度，
+ *   关掉网页再回来必须还能接着交卷。
+ * （工作台数据在 workspace-store.ts，同样用 localStorage 跨访问保留。）
  *
  * 连接串里含访客自己的 API Key，所以"记不记得住"必须由访客自己决定：
  * 共用电脑上应当关掉。默认记住是因为每次访问都重填 Key 太劝退。
@@ -76,7 +77,7 @@ const aiToken = createStoredDocument<string>({
 
 const interview = createStoredDocument<TrialInterview>({
   key: "offerlai.trial.interview",
-  storage: () => window.sessionStorage,
+  storage: () => window.localStorage,
   // 版本不匹配一律丢弃重来：体验数据是一次性的，不值得写迁移。
   parse: (value) => (isTrialInterview(value) ? value : null),
 });

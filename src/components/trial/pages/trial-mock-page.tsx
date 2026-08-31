@@ -55,7 +55,7 @@ export function TrialMockPage() {
       : null;
 
   const recent: MockInterviewListItem[] = [
-    // 进行中的会话只存在当前标签页；完成后由工作台记录接管展示。
+    // 进行中的会话单独保存；完成后由工作台记录接管展示。
     ...(activeSession && activeSession.status !== "completed"
       ? [
           {

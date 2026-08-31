@@ -16,9 +16,10 @@ import {
 import { currentWorkspace, mutateWorkspace } from "./workspace-store";
 
 /**
- * 体验版能力画像的浏览器编排：本地版由服务端后台任务驱动流水线，
- * 体验版没有服务端状态，改为页面打开时在浏览器里顺序执行，进度
- * 通过与本地版 status API 相同形状的数据喂给表盘。
+ * 网页版能力画像的浏览器编排：本地版由服务端后台任务驱动流水线，
+ * 网页版没有服务端状态，改为在浏览器里顺序执行（由 AppShell 上的
+ * TrialProfileRefreshScheduler 触发），进度通过与本地版 status API
+ * 相同形状的数据喂给表盘。
  */
 
 type TrialRunState = {
@@ -28,6 +29,9 @@ type TrialRunState = {
   totalCount: number;
   lastError: string | null;
 };
+
+/** 与本地版 ASSESSMENT_BATCH_SIZE 同口径：一轮最多评估几场面试。 */
+const ASSESSMENT_BATCH_SIZE = 3;
 
 const runState: TrialRunState = {
   status: "idle",
@@ -39,7 +43,7 @@ const runState: TrialRunState = {
 
 function friendlyMessage(caught: unknown, fallback: string): string {
   if (isMissingAiConfig(caught)) {
-    return "还没有连接模型服务。请先在体验准备页连接你自己的模型。";
+    return "还没有连接模型服务，请到设置页连接后重试。";
   }
   return caught instanceof Error ? caught.message : fallback;
 }
@@ -59,7 +63,7 @@ export async function refreshTrialProfile(): Promise<void> {
   runState.lastError = null;
 
   try {
-    for (const interview of pending) {
+    for (const interview of pending.slice(0, ASSESSMENT_BATCH_SIZE)) {
       const observations = await assessInterview({
         companyName: interview.companyName,
         jobTitle: interview.jobTitle,
@@ -94,6 +98,14 @@ export async function refreshTrialProfile(): Promise<void> {
         ),
       );
       runState.completedCount += 1;
+    }
+
+    if (pending.length > ASSESSMENT_BATCH_SIZE) {
+      // 还有没评估完的面试，先把这一批的观察落盘，合成留到下一轮，
+      // 避免用不完整的证据生成洞察。
+      runState.status = "idle";
+      runState.phase = "idle";
+      return;
     }
 
     runState.phase = "synthesis";
@@ -145,7 +157,7 @@ export async function refreshTrialProfile(): Promise<void> {
   }
 }
 
-/** 页面打开时自动补齐：有新的已完成面试就跑一轮，与本地版调度语义一致。 */
+/** 是否该自动跑一轮：有未评估的已完成面试，且上一轮没有在跑也没有失败。 */
 export function shouldAutoRefreshTrialProfile(): boolean {
   return (
     runState.status === "idle" &&
