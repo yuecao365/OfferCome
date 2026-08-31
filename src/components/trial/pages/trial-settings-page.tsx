@@ -15,8 +15,8 @@ import { trialAiTokenDocument } from "@/lib/trial/browser-store";
 import { useStoredDocument } from "@/lib/trial/stored-document";
 
 /**
- * 网页版的设置页：文本模型连接走浏览器方案（Key 换成临时令牌存
- * sessionStorage，服务器不存储），承担与本地版设置页相同的职责。
+ * 网页版的设置页：文本模型连接走浏览器方案（Key 换成连接串存在访客
+ * 浏览器，服务器不存储），承担与本地版设置页相同的职责。
  * 语音转写与联网搜索依赖服务端常驻配置，网页版不提供。
  */
 export function TrialSettingsPage() {

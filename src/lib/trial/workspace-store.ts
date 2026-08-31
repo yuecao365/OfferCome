@@ -13,7 +13,7 @@ import {
  * 工作台文档的存储实例与 React 绑定。
  *
  * 用 localStorage：投递、面试这类数据跨访问保留才有体验价值
- * （AI Key 仍在 sessionStorage，关标签页即消失）。
+ * （AI 连接单独存放，见 browser-store.ts）。
  *
  * 修改一律走 mutateWorkspace(纯函数)——写入自动通知所有订阅组件，
  * 页面之间不需要手动同步。

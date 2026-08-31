@@ -124,11 +124,6 @@ export function writeInterview(value: TrialInterview | null): void {
   interview.write(value);
 }
 
-export function clearTrialData(): void {
-  writeAiToken(null);
-  interview.write(null);
-}
-
 /** React 绑定用的文档实例（配合 useStoredDocument）。 */
 export const trialInterviewDocument = interview;
 export const trialAiTokenDocument = aiToken;

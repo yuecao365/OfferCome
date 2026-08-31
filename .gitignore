@@ -25,7 +25,6 @@
 *.pem
 .local/
 *.db
-!prisma/demo.db
 *.db-journal
 *.sqlite
 *.sqlite3

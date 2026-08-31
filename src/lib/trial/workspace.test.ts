@@ -8,7 +8,6 @@ import {
   deleteApplication,
   isTrialWorkspace,
   queryApplications,
-  updateApplicationStage,
   upsertApplication,
   type TrialWorkspace,
 } from "./workspace";
@@ -81,15 +80,6 @@ test("creates, edits and deletes applications through pure operations", () => {
   assert.equal(workspace.applications.length, 1);
 });
 
-test("advances the stage without touching anything else", () => {
-  let workspace = seeded();
-  const target = workspace.applications[0]!;
-  workspace = updateApplicationStage(workspace, target.id, "offer");
-
-  const updated = workspace.applications.find((item) => item.id === target.id)!;
-  assert.equal(updated.stage, "offer");
-  assert.equal(updated.companyName, target.companyName);
-});
 
 test("filters by keyword, stage, source and date range like the local version", () => {
   const workspace = seeded();

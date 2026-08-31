@@ -223,19 +223,6 @@ export function deleteApplication(
   };
 }
 
-export function updateApplicationStage(
-  workspace: TrialWorkspace,
-  id: string,
-  stage: ApplicationStage,
-): TrialWorkspace {
-  const now = new Date().toISOString();
-  return {
-    ...workspace,
-    applications: workspace.applications.map((item) =>
-      item.id === id ? { ...item, stage, updatedAt: now } : item,
-    ),
-  };
-}
 
 /* ------------------------------ 查询适配 ------------------------------ */
 

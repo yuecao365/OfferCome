@@ -1,24 +1,11 @@
 import "dotenv/config";
 
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
-import { copyFileSync, mkdirSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 
 import { PrismaClient } from "../generated/prisma/client";
-import { isDemoMode } from "./runtime-mode";
 import { resolvePrismaSqliteUrl } from "./sqlite-url";
 
 function getDatabaseUrl(): string {
-  if (isDemoMode()) {
-    const source = path.join(process.cwd(), "prisma", "demo.db");
-    const directory = path.join(tmpdir(), "offerlai-demo");
-    const target = path.join(directory, `demo-${process.pid}.db`);
-    mkdirSync(directory, { recursive: true });
-    copyFileSync(source, target);
-    return `file:${target}`;
-  }
-
   return process.env.DATABASE_URL ?? "file:./dev.db";
 }
 

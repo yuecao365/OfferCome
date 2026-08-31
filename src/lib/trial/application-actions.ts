@@ -2,17 +2,15 @@
 
 import type { ApplicationActionState } from "@/lib/applications/action-state";
 import { parseApplicationFormData } from "@/lib/applications/form";
-import { isApplicationStage } from "@/lib/applications/types";
 
 import {
   deleteApplication as deleteFromWorkspace,
-  updateApplicationStage,
   upsertApplication,
 } from "./workspace";
 import { mutateWorkspace } from "./workspace-store";
 
 /**
- * 体验版的投递动作：与 Server Action 同签名，写的是浏览器工作台。
+ * 网页版的投递动作：与 Server Action 同签名，写的是浏览器工作台。
  *
  * 表单校验复用本地版的 parseApplicationFormData（纯函数）——两个版本对
  * "什么算合法输入"永远一致，错误提示也一字不差。
@@ -69,15 +67,4 @@ export async function updateTrialApplication(
 
 export async function deleteTrialApplication(id: string): Promise<void> {
   mutateWorkspace((workspace) => deleteFromWorkspace(workspace, id));
-}
-
-export async function updateTrialApplicationStage(
-  id: string,
-  stage: string,
-): Promise<{ ok: boolean; message?: string }> {
-  if (!isApplicationStage(stage)) {
-    return { ok: false, message: "无效的流程状态。" };
-  }
-  mutateWorkspace((workspace) => updateApplicationStage(workspace, id, stage));
-  return { ok: true };
 }

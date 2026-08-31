@@ -15,8 +15,8 @@ import { useStoredDocument } from "@/lib/trial/stored-document";
 import { useTrialWorkspace } from "@/lib/trial/workspace-store";
 
 /**
- * 体验版的单场模拟面试页：进行中读 sessionStorage 会话文档，
- * 已完成读工作台记录，渲染与本地版相同的 MockInterviewSessionView。
+ * 网页版的单场模拟面试页：进行中读会话文档，已完成读工作台记录，
+ * 渲染与本地版相同的 MockInterviewSessionView。
  */
 export function TrialMockRoomPage({ id }: { id: string }) {
   const workspace = useTrialWorkspace();

@@ -11,8 +11,6 @@
     "lint": "eslint",
     "test": "tsx --test --experimental-test-module-mocks \"src/**/*.test.ts\"",
     "db:push": "prisma db push",
-    "demo:db": "tsx scripts/create-demo-db.ts",
-    "demo:seed": "tsx scripts/seed-demo.ts",
     "boss:login": "tsx scripts/boss-login.ts",
     "boss:sync": "tsx scripts/boss-sync.ts"
   },

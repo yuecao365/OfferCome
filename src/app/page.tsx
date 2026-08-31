@@ -9,7 +9,7 @@ import { parseApplicationTrendRange } from "@/lib/applications/analytics";
 import { getApplicationStats } from "@/lib/applications/queries";
 import { getInterviewStats } from "@/lib/interviews/queries";
 import { getUpcomingInterviews } from "@/lib/interviews/upcoming";
-import { isDemoMode, isTrialMode } from "@/lib/runtime-mode";
+import { isTrialMode } from "@/lib/runtime-mode";
 
 export default async function Home({
   searchParams,
@@ -37,12 +37,8 @@ export default async function Home({
   return (
     <AppShell active="overview">
       <DashboardView
-        gettingStarted={
-          isDemoMode() ? null : (
-            <GettingStartedCard hasApplications={stats.total > 0} />
-          )
-        }
-        homeHref={isDemoMode() ? "/homepage" : "/"}
+        gettingStarted={<GettingStartedCard hasApplications={stats.total > 0} />}
+        homeHref="/"
         interviewStats={interviewStats}
         stats={stats}
         trendRange={trendRange}

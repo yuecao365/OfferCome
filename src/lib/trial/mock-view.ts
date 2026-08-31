@@ -5,7 +5,7 @@ import type { TrialWorkspaceInterview } from "./workspace";
 
 /**
  * 把体验版的两种数据形态适配成本地版房间/报告组件吃的 MockInterviewView：
- * - 进行中的会话文档（sessionStorage）；
+ * - 进行中的会话文档；
  * - 已完成后写入工作台的模拟面试记录（localStorage）。
  * 组件层由此完全感知不到数据来自浏览器还是数据库。
  */
