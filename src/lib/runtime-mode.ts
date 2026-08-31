@@ -6,6 +6,8 @@ export function isDemoMode(
     VERCEL: process.env.VERCEL,
   };
 
+  // 体验模式优先：同一部署（如 Vercel）开了 trial 就不再是只读演示。
+  if (isTrialMode(runtimeEnv)) return false;
   return runtimeEnv.APP_MODE === "demo" || runtimeEnv.VERCEL === "1";
 }
 

@@ -1,6 +1,5 @@
 "use client";
 
-import { Sparkles } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 
 import { MockInterviewSetup } from "@/components/interviews/mock-interview-setup";
@@ -29,7 +28,6 @@ export function TrialMockPage() {
   const activeSession = useStoredDocument(trialInterviewDocument);
 
   const resume = workspace?.resume ?? null;
-  const ready = aiReady && resume !== null;
 
   // 从投递行发起时带入岗位信息（与本地版同一入口语义）。
   const applicationId = searchParams.get("applicationId");
@@ -91,7 +89,7 @@ export function TrialMockPage() {
       deleteActionFor={(id) => async () => deleteTrialMockSession(id)}
       recent={recent}
       setup={
-        ready ? (
+        resume ? (
           <MockInterviewSetup
             application={application}
             createSession={(formData) => createTrialMockSession(formData, resume)}
@@ -99,28 +97,19 @@ export function TrialMockPage() {
             resumes={[
               {
                 id: "trial-resume",
-                name: workspace?.resumeMeta?.fileName ?? "体验简历（保存在本浏览器）",
+                name: workspace?.resumeMeta?.fileName ?? "我的简历（保存在本浏览器）",
                 isDefault: true,
               },
             ]}
-            textConfigured
+            textConfigured={aiReady}
             transcriptionConfigured={false}
-            voiceDisabledHint="语音作答依赖本地版的转写服务，在线体验暂不支持。"
+            voiceDisabledHint="语音作答依赖本地版的转写服务，网页版暂不支持。"
           />
         ) : (
           <EmptyState
-            action={
-              <ButtonLink href="/trial">
-                <Sparkles aria-hidden="true" className="size-4" />
-                去完成准备
-              </ButtonLink>
-            }
-            description={
-              aiReady
-                ? "还差一步：提供你的简历内容（上传文件或填写表单），出题需要它。"
-                : "两步准备：连接你自己的模型服务、提供简历内容。全部数据只保存在当前浏览器。"
-            }
-            title="先完成体验准备"
+            action={<ButtonLink href="/resumes">前往简历中心</ButtonLink>}
+            description="模拟面试需要从已保存的简历中提取项目与经历。"
+            title="请先上传一份简历"
           />
         )
       }

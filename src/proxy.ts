@@ -15,6 +15,18 @@ export function proxy(request: NextRequest) {
   // 体验模式：服务端完全无状态，访客数据和 AI Key 都在浏览器里。
   // 这里只需要拦住会写服务端数据的入口，读取一律放行。
   if (isTrialMode()) {
+    // 与本地版一致的产品路由，唯一不同：根域名先落宣传页，
+    // "进入产品"后工作台挂在 /homepage 上。
+    if (pathname === "/") {
+      return NextResponse.redirect(new URL("/showcase", request.url));
+    }
+    if (pathname === "/homepage") {
+      return NextResponse.rewrite(new URL("/", request.url));
+    }
+    // 历史入口（旧的体验准备页）并入设置页。
+    if (pathname === "/trial") {
+      return NextResponse.redirect(new URL("/settings", request.url));
+    }
     if (isRead || isTrialWritablePath(pathname)) {
       return NextResponse.next();
     }

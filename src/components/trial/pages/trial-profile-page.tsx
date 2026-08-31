@@ -84,13 +84,13 @@ export function TrialProfilePage() {
           <Card className="grid gap-3 p-5 text-sm text-muted-foreground">
             <p className="font-semibold text-foreground">连接模型后自动生成画像</p>
             <p>
-              能力画像由 AI 逐题评估已完成的面试并聚合而成。连接你自己的模型服务后，
-              打开本页会自动分析工作台里的面试记录。
+              能力画像由 AI 逐题评估已完成的面试并聚合而成。在设置页连接你自己的
+              模型服务后，打开本页会自动分析工作台里的面试记录。
             </p>
             <div>
-              <ButtonLink href="/trial" size="sm">
+              <ButtonLink href="/settings" size="sm">
                 <Sparkles aria-hidden="true" className="size-4" />
-                去连接模型
+                前往设置页
               </ButtonLink>
             </div>
           </Card>

@@ -16,6 +16,11 @@ test("treats Vercel deployments as public demos", () => {
   assert.equal(isDemoMode({ APP_MODE: undefined, VERCEL: "1" }), true);
 });
 
+test("trial mode overrides the Vercel demo default", () => {
+  assert.equal(isDemoMode({ APP_MODE: "trial", VERCEL: "1" }), false);
+  assert.equal(isTrialMode({ APP_MODE: "trial" }), true);
+});
+
 test("keeps local and Docker runtimes fully enabled", () => {
   assert.equal(isDemoMode({ APP_MODE: "local", VERCEL: undefined }), false);
 });

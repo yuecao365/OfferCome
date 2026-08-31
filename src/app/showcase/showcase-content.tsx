@@ -71,7 +71,7 @@ const copy = {
     ),
     experienceProduct: "在线体验真实产品",
     localDeploy: "本地部署",
-    trustPoints: ["数据默认留在本机", "公开体验只读", "敏感自动化仅本地运行"],
+    trustPoints: ["数据默认留在本机", "在线体验数据只存你的浏览器", "敏感自动化仅本地运行"],
     loopSteps: ["投递", "面试", "复盘", "画像"],
     loopNote: "画像反过来决定下一场模拟面试的出题重点 —— 这是一个闭环",
     collage: {
@@ -140,7 +140,7 @@ const copy = {
     ctaTitle: "先在线浏览完整产品，再把数据留在自己的设备上。",
     enterExperience: "进入在线体验",
     viewSource: "查看源码",
-    footerNote: "在线体验使用虚构数据，不保存操作结果。",
+    footerNote: "在线体验的数据只保存在你的浏览器，AI 使用你自己的 API Key，服务器不存储。",
   },
   en: {
     navigationLabel: "Showcase navigation",
@@ -157,7 +157,7 @@ const copy = {
     localDeploy: "Run locally",
     trustPoints: [
       "Data stays on your device",
-      "Public demo is read-only",
+      "Online trial keeps data in your browser",
       "Sensitive automation runs locally",
     ],
     loopSteps: ["Apply", "Interview", "Review", "Profile"],
@@ -233,7 +233,7 @@ const copy = {
       "Explore the complete product online, then keep your own data on your device.",
     enterExperience: "Open live preview",
     viewSource: "View source",
-    footerNote: "The live preview uses fictional data and does not persist changes.",
+    footerNote: "The online trial stores data only in your browser and uses your own API key; the server keeps nothing.",
   },
 } satisfies Record<Language, ShowcaseCopy>;
 

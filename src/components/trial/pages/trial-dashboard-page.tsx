@@ -3,6 +3,7 @@
 import { useSearchParams } from "next/navigation";
 
 import { DashboardView } from "@/components/dashboard/dashboard-view";
+import { TrialGettingStartedCard } from "@/components/trial/trial-getting-started-card";
 import { parseApplicationTrendRange } from "@/lib/applications/analytics";
 import {
   applicationStats,
@@ -27,7 +28,8 @@ export function TrialDashboardPage() {
 
   return (
     <DashboardView
-      homeHref="/"
+      gettingStarted={<TrialGettingStartedCard workspace={workspace} />}
+      homeHref="/homepage"
       interviewStats={interviewStats(workspace)}
       stats={applicationStats(workspace, trendRange)}
       trendRange={trendRange}
