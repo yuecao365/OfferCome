@@ -349,3 +349,61 @@ export function parseInterviewFilters(
     page: Number.isFinite(page) && page > 0 ? page : 1,
   };
 }
+
+/**
+ * 面试状态到统计口径的映射。放在这个纯模块而不是 queries.ts：
+ * 体验版在浏览器里聚合同一套统计，必须与本地版共用同一份口径。
+ */
+export type InterviewStatusCount = {
+  status: string;
+  _count: { _all: number };
+};
+
+const OFFER_STATUSES = new Set(["offer", "offered"]);
+const PASSED_STATUSES = new Set([
+  "completed",
+  "passed",
+  "advanced",
+  "next_round",
+  ...OFFER_STATUSES,
+]);
+const FAILED_STATUSES = new Set([
+  "canceled",
+  "cancelled",
+  "failed",
+  "rejected",
+  "not_passed",
+]);
+const PREPARING_STATUSES = new Set(["scheduled", "preparing"]);
+const ACTIVE_STATUSES = new Set([
+  "in_progress",
+  "first_interview",
+  "second_interview",
+  "third_interview",
+  "hr_interview",
+]);
+
+export function toInterviewStats(rows: InterviewStatusCount[]): InterviewStats {
+  const stats: InterviewStats = {
+    total: 0,
+    offers: 0,
+    passed: 0,
+    failed: 0,
+    preparing: 0,
+    active: 0,
+  };
+
+  for (const row of rows) {
+    const status = row.status.trim().toLowerCase();
+    const count = row._count._all;
+
+    stats.total += count;
+    if (OFFER_STATUSES.has(status)) stats.offers += count;
+    if (PASSED_STATUSES.has(status)) stats.passed += count;
+    if (FAILED_STATUSES.has(status)) stats.failed += count;
+    if (PREPARING_STATUSES.has(status)) stats.preparing += count;
+    if (ACTIVE_STATUSES.has(status)) stats.active += count;
+  }
+
+  return stats;
+}

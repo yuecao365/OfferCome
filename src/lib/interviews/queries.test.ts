@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { toInterviewStats } from "./queries";
+import { toInterviewStats } from "./types";
 
 test("maps persisted interview statuses into overview metrics", () => {
   const stats = toInterviewStats([

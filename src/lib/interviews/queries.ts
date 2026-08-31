@@ -2,6 +2,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
 
 import {
+  toInterviewStats,
   INTERVIEW_HISTORY_PAGE_SIZE,
   type InterviewFilters,
   type InterviewListItem,
@@ -49,60 +50,6 @@ const INTERVIEW_INCLUDE = {
 } satisfies Prisma.InterviewInclude;
 
 type InterviewRow = Prisma.InterviewGetPayload<{ include: typeof INTERVIEW_INCLUDE }>;
-
-type InterviewStatusCount = {
-  status: string;
-  _count: { _all: number };
-};
-
-const OFFER_STATUSES = new Set(["offer", "offered"]);
-const PASSED_STATUSES = new Set([
-  "completed",
-  "passed",
-  "advanced",
-  "next_round",
-  ...OFFER_STATUSES,
-]);
-const FAILED_STATUSES = new Set([
-  "canceled",
-  "cancelled",
-  "failed",
-  "rejected",
-  "not_passed",
-]);
-const PREPARING_STATUSES = new Set(["scheduled", "preparing"]);
-const ACTIVE_STATUSES = new Set([
-  "in_progress",
-  "first_interview",
-  "second_interview",
-  "third_interview",
-  "hr_interview",
-]);
-
-export function toInterviewStats(rows: InterviewStatusCount[]): InterviewStats {
-  const stats: InterviewStats = {
-    total: 0,
-    offers: 0,
-    passed: 0,
-    failed: 0,
-    preparing: 0,
-    active: 0,
-  };
-
-  for (const row of rows) {
-    const status = row.status.trim().toLowerCase();
-    const count = row._count._all;
-
-    stats.total += count;
-    if (OFFER_STATUSES.has(status)) stats.offers += count;
-    if (PASSED_STATUSES.has(status)) stats.passed += count;
-    if (FAILED_STATUSES.has(status)) stats.failed += count;
-    if (PREPARING_STATUSES.has(status)) stats.preparing += count;
-    if (ACTIVE_STATUSES.has(status)) stats.active += count;
-  }
-
-  return stats;
-}
 
 function toInterviewListItem(row: InterviewRow): InterviewListItem {
   return {

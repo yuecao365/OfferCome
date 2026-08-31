@@ -41,6 +41,10 @@ type InterviewFormProps =
       onSaved?: () => void;
       transcriptionConfigured: boolean;
       prefill?: InterviewPrefill | null;
+      /** 覆盖默认的 Server Action（体验版传浏览器实现）。 */
+      action?: InterviewServerAction;
+      /** 体验版关闭导入：录音/文本识别依赖服务端转写与落盘。 */
+      draftImportEnabled?: boolean;
     }
   | {
       mode: "edit";
@@ -50,6 +54,8 @@ type InterviewFormProps =
       onSaved?: () => void;
       transcriptionConfigured?: boolean;
       prefill?: never;
+      action?: InterviewServerAction;
+      draftImportEnabled?: boolean;
     };
 
 type InterviewServerAction = (
@@ -111,12 +117,14 @@ export function InterviewForm(props: InterviewFormProps) {
   );
   const editInterviewId = props.mode === "edit" ? props.initial.id : null;
   const onSaved = props.onSaved;
+  const override = props.action;
   const action = useMemo<InterviewServerAction>(() => {
+    if (override) return override;
     if (editInterviewId) {
       return updateInterview.bind(null, editInterviewId);
     }
     return createInterview;
-  }, [editInterviewId]);
+  }, [editInterviewId, override]);
   const [state, formAction] = useActionState(action, initialInterviewActionState);
   const initial = props.mode === "edit" ? props.initial : null;
   const prefill = props.mode === "create" ? props.prefill ?? null : null;
@@ -168,7 +176,7 @@ export function InterviewForm(props: InterviewFormProps) {
       {prefill?.applicationId ? (
         <input name="applicationId" type="hidden" value={prefill.applicationId} />
       ) : null}
-      {props.mode === "create" ? (
+      {props.mode === "create" && props.draftImportEnabled !== false ? (
         <InterviewDraftImporter
           onDraft={(draftQuestions, header) => {
             setQuestions(draftQuestions);

@@ -1,4 +1,5 @@
 import { Sparkles } from "lucide-react";
+import type { ComponentProps } from "react";
 
 import { NewInterviewModal } from "@/components/interviews/interview-modals";
 import { ButtonLink, buttonClassName } from "@/components/ui/button";
@@ -8,6 +9,11 @@ import type { ResumeProjectOption } from "@/lib/interviews/types";
 export type ApplicationInterviewContext = {
   resumeProjects: ResumeProjectOption[];
   transcriptionConfigured: boolean;
+  /** 体验版在此注入浏览器动作与导入开关。 */
+  newInterview?: Pick<
+    ComponentProps<typeof NewInterviewModal>,
+    "action" | "draftImportEnabled"
+  >;
 };
 
 /**
@@ -33,6 +39,7 @@ export function ApplicationInterviewActions({
         transcriptionConfigured={context.transcriptionConfigured}
         triggerClassName={buttonClassName({ variant: "ghost", size: "sm" })}
         triggerLabel="记录面试"
+        {...context.newInterview}
       />
       <ButtonLink
         aria-label={`用「${application.companyName} · ${application.jobTitle}」开始 AI 模拟面试`}

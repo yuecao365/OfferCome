@@ -1,4 +1,5 @@
 import { Sparkles } from "lucide-react";
+import type { ComponentProps } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
@@ -15,9 +16,17 @@ import { InterviewStatusBadge } from "./interview-status-badge";
 type InterviewListProps = {
   interviews: InterviewListItem[];
   resumeProjects: ResumeProjectOption[];
+  /** 覆盖默认 Server Action（体验版传浏览器实现），按记录 id 绑定。 */
+  editActionFor?: (id: string) => ComponentProps<typeof EditInterviewModal>["action"];
+  deleteActionFor?: (id: string) => (formData: FormData) => Promise<void>;
 };
 
-export function InterviewList({ interviews, resumeProjects }: InterviewListProps) {
+export function InterviewList({
+  interviews,
+  resumeProjects,
+  editActionFor,
+  deleteActionFor,
+}: InterviewListProps) {
   if (interviews.length === 0) {
     return (
       <EmptyState
@@ -76,13 +85,20 @@ export function InterviewList({ interviews, resumeProjects }: InterviewListProps
                     ) : null}
                     <InterviewDetailsModal interview={interview} />
                     {interview.kind === "real" ? (
-                      <EditInterviewModal interview={interview} resumeProjects={resumeProjects} />
+                      <EditInterviewModal
+                        action={editActionFor?.(interview.id)}
+                        interview={interview}
+                        resumeProjects={resumeProjects}
+                      />
                     ) : interview.mockSessionId ? (
                       <ButtonLink href={`/interviews/mock/${interview.mockSessionId}`} size="sm" variant="outline">
                         打开
                       </ButtonLink>
                     ) : null}
-                    <InterviewDeleteButton id={interview.id} />
+                    <InterviewDeleteButton
+                      action={deleteActionFor?.(interview.id)}
+                      id={interview.id}
+                    />
                   </div>
                 </td>
               </tr>

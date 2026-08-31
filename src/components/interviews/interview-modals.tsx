@@ -1,5 +1,7 @@
 "use client";
 
+import type { ComponentProps } from "react";
+
 import { Modal } from "@/components/modal";
 import { buttonClassName } from "@/components/ui/button";
 import type {
@@ -15,12 +17,17 @@ export function NewInterviewModal({
   prefill,
   triggerLabel = "新建面试",
   triggerClassName,
+  action,
+  draftImportEnabled,
 }: {
   resumeProjects: ResumeProjectOption[];
   transcriptionConfigured: boolean;
   prefill?: InterviewPrefill | null;
   triggerLabel?: string;
   triggerClassName?: string;
+  /** 覆盖默认的 Server Action（体验版传浏览器实现）。 */
+  action?: ComponentProps<typeof InterviewForm>["action"];
+  draftImportEnabled?: boolean;
 }) {
   return (
     <Modal
@@ -37,6 +44,8 @@ export function NewInterviewModal({
               : "可以先保存问题，回答后续再补充。实习/项目问题允许暂不关联具体条目。"}
           </p>
           <InterviewForm
+            action={action}
+            draftImportEnabled={draftImportEnabled}
             mode="create"
             onCancel={close}
             onSaved={close}
@@ -53,14 +62,17 @@ export function NewInterviewModal({
 export function EditInterviewModal({
   interview,
   resumeProjects,
+  action,
 }: {
   interview: InterviewListItem;
   resumeProjects: ResumeProjectOption[];
+  action?: ComponentProps<typeof InterviewForm>["action"];
 }) {
   return (
     <Modal size="extraWide" title="编辑面试记录" triggerLabel="编辑">
       {(close) => (
         <InterviewForm
+          action={action}
           initial={interview}
           mode="edit"
           onCancel={close}

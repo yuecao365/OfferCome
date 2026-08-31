@@ -1,19 +1,14 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 
-import { NewApplicationModal } from "@/components/application-modals";
 import { AppShell } from "@/components/app-shell";
-import { ApplicationFilters } from "@/components/application-filters";
-import { ApplicationsTable } from "@/components/applications-table";
-import { Pagination } from "@/components/pagination";
-import { PageHeader } from "@/components/page-header";
-import { SyncBossButton } from "@/components/sync-boss-button";
+import { ApplicationsView } from "@/components/applications-view";
+import { TrialApplicationsPage } from "@/components/trial/pages/trial-applications-page";
 import {
   getApplicationFilterOptions,
   getApplications,
 } from "@/lib/applications/queries";
 import { parseApplicationFilters } from "@/lib/applications/types";
-import { TrialApplicationsPage } from "@/components/trial/pages/trial-applications-page";
 import { getResumeProjectOptions } from "@/lib/interviews/queries";
 import { isTrialMode } from "@/lib/runtime-mode";
 import { getAiTaskConfig, isAiTaskConfigured } from "@/lib/settings/ai";
@@ -47,30 +42,14 @@ export default async function ApplicationsPage({
 
   return (
     <AppShell active="applications">
-      <PageHeader
-        actions={
-          <>
-            <NewApplicationModal />
-            <SyncBossButton />
-          </>
-        }
-        description="集中管理投递记录，按公司、岗位、流程状态、来源和时间快速筛选。"
-        eyebrow="求职管理"
-        title="投递岗位"
-      />
-      <ApplicationFilters filters={filters} sources={options.sources} />
-      <ApplicationsTable
-        applications={applications.items}
+      <ApplicationsView
+        applications={applications}
+        filters={filters}
         interviewContext={{
           resumeProjects,
           transcriptionConfigured: isAiTaskConfigured(transcriptionConfig),
         }}
-      />
-      <Pagination
-        filters={filters}
-        page={applications.page}
-        total={applications.total}
-        totalPages={applications.totalPages}
+        sources={options.sources}
       />
     </AppShell>
   );

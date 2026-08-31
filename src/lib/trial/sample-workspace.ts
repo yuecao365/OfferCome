@@ -34,12 +34,83 @@ const SAMPLES: Array<{
   { companyName: "拾光工作室", jobTitle: "全栈工程师", source: "company_site", stage: "applied", appliedDaysAgo: 0 },
 ];
 
+const SAMPLE_INTERVIEWS = [
+  {
+    companyName: "云帆科技",
+    jobTitle: "后端开发工程师",
+    round: "first_interview",
+    daysAgo: 2,
+    note: "一面，聊了 40 分钟，整体氛围不错。",
+    questions: [
+      {
+        question: "介绍一下你项目里缓存和数据库的一致性是怎么保证的？",
+        answer:
+          "用的是先更新数据库再删缓存的策略，配合过期时间兜底。被追问删缓存失败怎么办时答得不够好，只说了重试。",
+        category: "technical",
+      },
+      {
+        question: "订单系统的幂等是怎么做的？",
+        answer: "业务侧用唯一请求号落库去重，数据库唯一索引兜底。",
+        category: "resume_project",
+      },
+      {
+        question: "为什么想换工作？",
+        answer: "希望在更大的流量场景下打磨架构能力。",
+        category: "general",
+      },
+    ],
+  },
+  {
+    companyName: "青竹信息",
+    jobTitle: "服务端开发实习生",
+    round: "second_interview",
+    daysAgo: 6,
+    note: "二面偏系统设计。",
+    questions: [
+      {
+        question: "设计一个短链服务，要考虑哪些点？",
+        answer: "讲了发号器、存储选型和缓存，漏了防刷和统计。",
+        category: "technical",
+      },
+      {
+        question: "你在项目里遇到过最难排查的问题是什么？",
+        answer: "一个偶发的连接池耗尽问题，最后定位到事务里调了外部接口。",
+        category: "resume_project",
+      },
+    ],
+  },
+];
+
 export function createSampleWorkspace(): TrialWorkspace {
   const seededAt = new Date().toISOString();
   return {
     version: TRIAL_WORKSPACE_VERSION,
     seededAt,
     resume: null,
+    interviews: SAMPLE_INTERVIEWS.map((sample, index) => {
+      const interviewedAt = daysAgo(sample.daysAgo, 14);
+      return {
+        id: `sample-interview-${index}`,
+        kind: "real" as const,
+        companyName: sample.companyName,
+        jobTitle: sample.jobTitle,
+        round: sample.round,
+        status: "completed",
+        interviewedAt,
+        note: sample.note,
+        questions: sample.questions.map((question, sortOrder) => ({
+          id: `sample-question-${index}-${sortOrder}`,
+          question: question.question,
+          answer: question.answer,
+          category: question.category,
+          sortOrder,
+        })),
+        totalScore: null,
+        report: null,
+        createdAt: interviewedAt,
+        updatedAt: interviewedAt,
+      };
+    }),
     applications: SAMPLES.map((sample, index) => {
       const appliedAt = daysAgo(sample.appliedDaysAgo, 9 + index);
       return {

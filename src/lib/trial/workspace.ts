@@ -18,7 +18,36 @@ import type { TrialResumeInput } from "./interview";
  * `version` 用于将来结构变更：不匹配一律丢弃重来，体验数据不值得写迁移。
  */
 
-export const TRIAL_WORKSPACE_VERSION = 1;
+/** v2：新增 interviews。体验数据一次性，旧版本直接丢弃重种，不写迁移。 */
+export const TRIAL_WORKSPACE_VERSION = 2;
+
+export type TrialWorkspaceQuestion = {
+  id: string;
+  question: string;
+  answer: string;
+  category: string;
+  sortOrder: number;
+  /** 模拟面试的逐题评分；真实面试没有。 */
+  score?: number | null;
+  feedback?: string | null;
+};
+
+export type TrialWorkspaceInterview = {
+  id: string;
+  kind: "real" | "mock";
+  companyName: string;
+  jobTitle: string;
+  round: string | null;
+  status: string;
+  /** ISO 字符串；真实面试必填（状态由它推导）。 */
+  interviewedAt: string | null;
+  note: string;
+  questions: TrialWorkspaceQuestion[];
+  totalScore: number | null;
+  report: import("@/lib/mock-interviews/types").MockInterviewReport | null;
+  createdAt: string;
+  updatedAt: string;
+};
 
 export type TrialApplication = {
   id: string;
@@ -40,6 +69,7 @@ export type TrialWorkspace = {
   /** 首次载入示例数据的时间；null 表示访客清空过、不再自动补种。 */
   seededAt: string | null;
   applications: TrialApplication[];
+  interviews: TrialWorkspaceInterview[];
   resume: TrialResumeInput | null;
 };
 
@@ -48,6 +78,7 @@ export function createEmptyWorkspace(): TrialWorkspace {
     version: TRIAL_WORKSPACE_VERSION,
     seededAt: null,
     applications: [],
+    interviews: [],
     resume: null,
   };
 }
@@ -57,7 +88,8 @@ export function isTrialWorkspace(value: unknown): value is TrialWorkspace {
   const candidate = value as Partial<TrialWorkspace>;
   return (
     candidate.version === TRIAL_WORKSPACE_VERSION &&
-    Array.isArray(candidate.applications)
+    Array.isArray(candidate.applications) &&
+    Array.isArray(candidate.interviews)
   );
 }
 
