@@ -1,6 +1,8 @@
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
+import { ensureDomMatrix } from "./dom-matrix-polyfill";
+
 type PdfTextItem = {
   str: string;
   transform?: number[];
@@ -85,6 +87,8 @@ function directoryUrl(...segments: string[]): string {
 }
 
 async function importPdfjsRuntime(): Promise<PdfJsModule> {
+  // pdfjs 在模块顶层就会构造 DOMMatrix，必须先于 import 补齐。
+  ensureDomMatrix();
   const moduleUrl = pathToFileURL(
     path.join(
       process.cwd(),
