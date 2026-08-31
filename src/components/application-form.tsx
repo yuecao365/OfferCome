@@ -32,12 +32,15 @@ type ApplicationFormProps =
       initial?: never;
       onCancel?: () => void;
       onSaved?: () => void;
+      /** 覆盖默认的 Server Action（体验版传浏览器实现）。 */
+      action?: ApplicationServerAction;
     }
   | {
       mode: "edit";
       initial: ApplicationListItem;
       onCancel?: () => void;
       onSaved?: () => void;
+      action?: ApplicationServerAction;
     };
 
 type ApplicationServerAction = (
@@ -69,9 +72,11 @@ function SubmitButton({ label }: { label: string }) {
 export function ApplicationForm(props: ApplicationFormProps) {
   const router = useRouter();
   const editId = props.mode === "edit" ? props.initial.id : null;
+  const override = props.action;
   const action = useMemo<ApplicationServerAction>(
-    () => (editId ? updateApplication.bind(null, editId) : createApplication),
-    [editId],
+    () =>
+      override ?? (editId ? updateApplication.bind(null, editId) : createApplication),
+    [editId, override],
   );
   const [state, formAction] = useActionState(
     action,

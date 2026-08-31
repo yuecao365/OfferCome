@@ -1,4 +1,5 @@
 import { ExternalLink } from "lucide-react";
+import type { ComponentProps } from "react";
 
 import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -15,7 +16,11 @@ import { StageBadge } from "./stage-badge";
 
 type ApplicationsTableProps = {
   applications: ApplicationListItem[];
-  interviewContext: ApplicationInterviewContext;
+  /** 体验版没有面试录入入口时传 null。 */
+  interviewContext: ApplicationInterviewContext | null;
+  /** 覆盖默认 Server Action（体验版传浏览器实现），按记录 id 绑定。 */
+  editActionFor?: (id: string) => ComponentProps<typeof EditApplicationModal>["action"];
+  deleteActionFor?: (id: string) => (formData: FormData) => Promise<void>;
 };
 
 function JobTitle({ application }: { application: ApplicationListItem }) {
@@ -51,6 +56,8 @@ function ApplicationStage({ application }: { application: ApplicationListItem })
 function ApplicationCards({
   applications,
   interviewContext,
+  editActionFor,
+  deleteActionFor,
 }: ApplicationsTableProps) {
   return (
     <div className="grid gap-3 md:hidden">
@@ -83,12 +90,20 @@ function ApplicationCards({
             </p>
           ) : null}
           <div className="mt-4 flex flex-wrap justify-end gap-1 border-t border-border pt-3">
-            <ApplicationInterviewActions
+            {interviewContext ? (
+              <ApplicationInterviewActions
+                application={application}
+                context={interviewContext}
+              />
+            ) : null}
+            <EditApplicationModal
+              action={editActionFor?.(application.id)}
               application={application}
-              context={interviewContext}
             />
-            <EditApplicationModal application={application} />
-            <ApplicationDeleteButton id={application.id} />
+            <ApplicationDeleteButton
+              action={deleteActionFor?.(application.id)}
+              id={application.id}
+            />
           </div>
         </article>
       ))}
@@ -99,6 +114,8 @@ function ApplicationCards({
 export function ApplicationsTable({
   applications,
   interviewContext,
+  editActionFor,
+  deleteActionFor,
 }: ApplicationsTableProps) {
   if (applications.length === 0) {
     return (
@@ -118,6 +135,8 @@ export function ApplicationsTable({
     <>
       <ApplicationCards
         applications={applications}
+        deleteActionFor={deleteActionFor}
+        editActionFor={editActionFor}
         interviewContext={interviewContext}
       />
       <div className="hidden overflow-hidden rounded-xl border border-border bg-surface shadow-card md:block">
@@ -164,12 +183,20 @@ export function ApplicationsTable({
                   </td>
                   <td className="px-4 py-3.5 text-right">
                     <div className="flex flex-wrap items-center justify-end gap-1">
-                      <ApplicationInterviewActions
+                      {interviewContext ? (
+                        <ApplicationInterviewActions
+                          application={application}
+                          context={interviewContext}
+                        />
+                      ) : null}
+                      <EditApplicationModal
+                        action={editActionFor?.(application.id)}
                         application={application}
-                        context={interviewContext}
                       />
-                      <EditApplicationModal application={application} />
-                      <ApplicationDeleteButton id={application.id} />
+                      <ApplicationDeleteButton
+                        action={deleteActionFor?.(application.id)}
+                        id={application.id}
+                      />
                     </div>
                   </td>
                 </tr>

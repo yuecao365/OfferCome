@@ -1,7 +1,7 @@
 "use client";
 
 import { Loader2, RotateCcw, Sparkles } from "lucide-react";
-import { useState, useSyncExternalStore } from "react";
+import { useState } from "react";
 
 import { TrialInterviewRoom } from "@/components/trial/trial-interview-room";
 import { TrialSetup } from "@/components/trial/trial-setup";
@@ -10,13 +10,11 @@ import { Button } from "@/components/ui/button";
 import { startInterview } from "@/lib/trial/client";
 import {
   clearTrialData,
-  getAiReadyServerSnapshot,
-  getAiReadySnapshot,
-  getInterviewSnapshot,
-  getServerSnapshot,
-  subscribeTrialStore,
+  trialAiTokenDocument,
+  trialInterviewDocument,
   writeInterview,
 } from "@/lib/trial/browser-store";
+import { useStoredDocument } from "@/lib/trial/stored-document";
 import type { TrialInterview, TrialJobInput, TrialResumeInput } from "@/lib/trial/interview";
 import type { TrialPresetJob } from "@/lib/trial/preset-jobs";
 
@@ -25,18 +23,8 @@ import type { TrialPresetJob } from "@/lib/trial/preset-jobs";
  * sessionStorage。服务端不保存任何东西，这里就是唯一的"真相来源"。
  */
 export function TrialWorkspace({ presetJobs }: { presetJobs: TrialPresetJob[] }) {
-  // sessionStorage 是 React 之外的存储，用 useSyncExternalStore 订阅：
-  // 写入后由 store 通知重渲染，不需要在 effect 里同步 setState。
-  const interview = useSyncExternalStore(
-    subscribeTrialStore,
-    getInterviewSnapshot,
-    getServerSnapshot,
-  );
-  const aiReady = useSyncExternalStore(
-    subscribeTrialStore,
-    getAiReadySnapshot,
-    getAiReadyServerSnapshot,
-  );
+  const interview = useStoredDocument(trialInterviewDocument);
+  const aiReady = useStoredDocument(trialAiTokenDocument) !== null;
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState("");
 

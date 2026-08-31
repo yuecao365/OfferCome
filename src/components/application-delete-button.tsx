@@ -24,10 +24,17 @@ function DeleteButton() {
   );
 }
 
-export function ApplicationDeleteButton({ id }: { id: string }) {
+export function ApplicationDeleteButton({
+  id,
+  action,
+}: {
+  id: string;
+  /** 覆盖默认的 Server Action（体验版传浏览器实现）。 */
+  action?: (formData: FormData) => Promise<void>;
+}) {
   return (
     <form
-      action={deleteApplication}
+      action={action ?? deleteApplication}
       onSubmit={(event) => {
         if (!window.confirm("确定删除这条投递记录吗？删除后无法恢复。")) {
           event.preventDefault();
