@@ -92,6 +92,16 @@ export type QuestionReviewItem = {
   answers: QuestionReviewAnswer[];
 };
 
+/** 复盘页数据的完整形状：本地版查数据库、体验版读浏览器工作台，返回同一形状。 */
+export type InterviewReviewPageData = {
+  projects: InterviewReviewProject[];
+  unlinkedProjectQuestionCount: number;
+  technicalQuestionCount: number;
+  generalQuestionCount: number;
+  selectedProject: InterviewReviewProject | null;
+  questionsPage: QuestionReviewPage;
+};
+
 export type QuestionReviewPage = {
   items: QuestionReviewItem[];
   page: number;

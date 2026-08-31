@@ -1,6 +1,8 @@
 import { connection } from "next/server";
 
 import { AppShell } from "@/components/app-shell";
+import { TrialProfilePage } from "@/components/trial/pages/trial-profile-page";
+import { isTrialMode } from "@/lib/runtime-mode";
 import { CandidateProfileDashboard } from "@/components/candidate-profile/candidate-profile-dashboard";
 import {
   PROFILE_INSIGHT_KINDS,
@@ -19,6 +21,14 @@ function isKind(value: string): value is ProfileInsightKind {
 }
 
 export default async function CandidateProfilePage() {
+  if (isTrialMode()) {
+    return (
+      <AppShell active="interviews" immersive subActive="interviews-profile">
+        <TrialProfilePage />
+      </AppShell>
+    );
+  }
+
   await connection();
   const [data, recentFeedback] = await Promise.all([
     getCandidateProfilePageData(),

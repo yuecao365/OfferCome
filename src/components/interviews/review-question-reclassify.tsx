@@ -28,6 +28,8 @@ type ReviewQuestionReclassifyProps = {
   category: InterviewQuestionCategory;
   resumeProjectId: string | null;
   projects: ReclassifyProjectOption[];
+  /** 覆盖默认的 Server Action（体验版传浏览器实现）。 */
+  action?: typeof reclassifyInterviewQuestions;
 };
 
 /**
@@ -39,6 +41,7 @@ export function ReviewQuestionReclassify({
   category,
   resumeProjectId,
   projects,
+  action = reclassifyInterviewQuestions,
 }: ReviewQuestionReclassifyProps) {
   const router = useRouter();
   const selectId = useId();
@@ -54,7 +57,7 @@ export function ReviewQuestionReclassify({
 
   function handleSubmit() {
     startTransition(async () => {
-      const result = await reclassifyInterviewQuestions({
+      const result = await action({
         questionIds,
         ...parseQuestionClassificationValue(value),
       });

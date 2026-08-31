@@ -4,7 +4,7 @@ import { Activity, Clock3, ListTree, Network, SlidersHorizontal, X } from "lucid
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { CandidateInsightCard } from "./candidate-insight-card";
+import { CandidateInsightCard, type InsightUpdateAction } from "./candidate-insight-card";
 import {
   EvidencePolarityBadge,
   evidencePolarityContainerClass,
@@ -53,6 +53,54 @@ export type ProfileSnapshotValue = {
   metrics: Array<{ dimension: ProfileDimension; level: number | null; levelLabel: string }>;
 };
 
+type ProfileStatusValue = DashboardProps["profileStatus"];
+
+/**
+ * 表盘的数据通道。默认实现走本地版 API + 数据库；
+ * 体验版注入浏览器实现（无状态计算 API + 浏览器工作台）。
+ */
+export type CandidateProfileTransport = {
+  fetchStatus(): Promise<Partial<ProfileStatusValue>>;
+  /** 触发一轮画像刷新；失败时抛带用户可读信息的 Error。 */
+  refresh(): Promise<void>;
+  correctObservation(
+    id: string,
+    body: { action: "exclude" | "restore" | "reassign_dimension"; dimension?: ProfileDimension },
+  ): Promise<void>;
+  /** 省略时洞察卡走它自己的默认实现（本地版 API）。 */
+  updateInsight?: InsightUpdateAction;
+};
+
+async function readJsonOrThrow(response: Response, fallback: string): Promise<void> {
+  if (response.ok) return;
+  const payload = (await response.json()) as { error?: string };
+  throw new Error(payload.error ?? fallback);
+}
+
+const defaultTransport: CandidateProfileTransport = {
+  async fetchStatus() {
+    const response = await fetch("/api/candidate-profile/status", { cache: "no-store" });
+    if (!response.ok) throw new Error("status");
+    return (await response.json()) as Partial<ProfileStatusValue>;
+  },
+  async refresh() {
+    const response = await fetch("/api/candidate-profile/refresh", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ force: true }),
+    });
+    await readJsonOrThrow(response, "重试画像刷新失败。");
+  },
+  async correctObservation(id, body) {
+    const response = await fetch(`/api/candidate-profile/observations/${id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    await readJsonOrThrow(response, "纠正证据失败。");
+  },
+};
+
 type DashboardProps = {
   insights: ProfileGraphInsight[];
   metrics: ProfileMetricValue[];
@@ -94,8 +142,10 @@ export function CandidateProfileDashboard({
   coldStartCard,
   roles,
   profileStatus,
-}: DashboardProps) {
+  transport: transportOverride,
+}: DashboardProps & { transport?: CandidateProfileTransport }) {
   const router = useRouter();
+  const transport = transportOverride ?? defaultTransport;
   const [mutating, setMutating] = useState(false);
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
@@ -127,11 +177,10 @@ export function CandidateProfileDashboard({
     let stopped = false;
     const check = async () => {
       try {
-        const response = await fetch("/api/candidate-profile/status", { cache: "no-store" });
-        if (!response.ok || stopped) return;
-        const status = (await response.json()) as typeof liveStatus & { pending: boolean };
+        const status = await transport.fetchStatus();
+        if (stopped) return;
         setLiveStatus((current) => ({ ...current, ...status }));
-        if (status.revision > profileStatus.revision) router.refresh();
+        if ((status.revision ?? 0) > profileStatus.revision) router.refresh();
       } catch {
         // 这里只同步展示状态；持久化任务由服务端和恢复调度器负责。
       }
@@ -144,7 +193,7 @@ export function CandidateProfileDashboard({
       stopped = true;
       window.clearInterval(interval);
     };
-  }, [liveStatus.status, profileStatus.revision, router]);
+  }, [liveStatus.status, profileStatus.revision, router, transport]);
 
   const filteredInsights = useMemo(() => {
     const cutoff = dateRange === "all" ? null : referenceNow - Number(dateRange) * 86_400_000;
@@ -179,15 +228,11 @@ export function CandidateProfileDashboard({
     action: "exclude" | "restore" | "reassign_dimension",
     dimension?: ProfileDimension,
   ) => {
-    const response = await fetch(`/api/candidate-profile/observations/${observationId}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action, dimension }),
-    });
-    const payload = (await response.json()) as { error?: string };
-    if (!response.ok) {
+    try {
+      await transport.correctObservation(observationId, { action, dimension });
+    } catch (caught) {
       setIsError(true);
-      setMessage(payload.error ?? "纠正证据失败。");
+      setMessage(caught instanceof Error ? caught.message : "纠正证据失败。");
       return;
     }
     setMessage("已保存，能力画像会自动更新。");
@@ -219,18 +264,15 @@ export function CandidateProfileDashboard({
   const retryRefresh = async () => {
     setMutating(true);
     setMessage("");
-    const response = await fetch("/api/candidate-profile/refresh", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ force: true }),
-    });
-    const payload = (await response.json()) as { error?: string };
-    setMutating(false);
-    if (!response.ok) {
+    try {
+      await transport.refresh();
+    } catch (caught) {
+      setMutating(false);
       setIsError(true);
-      setMessage(payload.error ?? "重试画像刷新失败。");
+      setMessage(caught instanceof Error ? caught.message : "重试画像刷新失败。");
       return;
     }
+    setMutating(false);
     setIsError(false);
     setLiveStatus((current) => ({ ...current, status: "pending" }));
     setMessage("已重新开始画像刷新，请保持页面打开。");
@@ -415,7 +457,7 @@ export function CandidateProfileDashboard({
                 if (grouped.length === 0) return null;
                 return <section className="grid gap-3" key={kind}>
                   <h3 className="font-semibold">{PROFILE_INSIGHT_KIND_LABELS[kind]}</h3>
-                  <div className="grid gap-3">{grouped.map((insight) => <CandidateInsightCard insight={insight} key={insight.id} />)}</div>
+                  <div className="grid gap-3">{grouped.map((insight) => <CandidateInsightCard insight={insight} key={insight.id} updateAction={transport.updateInsight} />)}</div>
                 </section>;
               })}
             </div>

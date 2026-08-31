@@ -71,6 +71,49 @@ export type TrialWorkspace = {
   applications: TrialApplication[];
   interviews: TrialWorkspaceInterview[];
   resume: TrialResumeInput | null;
+  /** 能力画像（可选字段，旧文档缺省视为还没生成过）。 */
+  profile?: TrialProfile | null;
+};
+
+/* ------------------------------ 能力画像文档 ------------------------------ */
+
+export type TrialProfileObservation = {
+  id: string;
+  interviewId: string;
+  questionId: string;
+  dimension: string;
+  score: number;
+  modelConfidence: number;
+  evidenceExcerpt: string;
+  sourceType: string;
+  status: "active" | "excluded";
+};
+
+export type TrialProfileInsight = {
+  id: string;
+  dimension: string;
+  kind: string;
+  title: string;
+  statement: string;
+  status: "active" | "tentative" | "hidden";
+  isUserLocked: boolean;
+  evidence: { observationId: string; polarity: "supports" | "contradicts" }[];
+};
+
+export type TrialProfileSnapshot = {
+  revision: number;
+  createdAt: string;
+  metrics: { dimension: string; level: number | null; levelLabel: string }[];
+};
+
+export type TrialProfile = {
+  revision: number;
+  refreshedAt: string | null;
+  /** interviewId → 内容指纹，跳过没变化的面试，省访客的 Key。 */
+  assessed: Record<string, string>;
+  observations: TrialProfileObservation[];
+  insights: TrialProfileInsight[];
+  snapshots: TrialProfileSnapshot[];
 };
 
 export function createEmptyWorkspace(): TrialWorkspace {

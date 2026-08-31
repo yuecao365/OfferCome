@@ -156,3 +156,63 @@ export async function requestReport(input: {
   );
   return report;
 }
+
+/** 一场面试的问答 → 能力观察（画像流水线第一相）。 */
+export async function assessInterview(input: {
+  companyName: string;
+  jobTitle: string;
+  sourceType: string;
+  questions: Array<{
+    id: string;
+    question: string;
+    answer: string;
+    category: string;
+    existingEvaluation?: { score: number | null; feedback: string | null } | null;
+  }>;
+}): Promise<
+  Array<{
+    questionId: string;
+    dimension: string;
+    score: number;
+    confidence: number;
+    evidenceExcerpt: string;
+  }>
+> {
+  const { observations } = await postWithAi<{
+    observations: Array<{
+      questionId: string;
+      dimension: string;
+      score: number;
+      confidence: number;
+      evidenceExcerpt: string;
+    }>;
+  }>("/api/trial/assess", input);
+  return observations;
+}
+
+/** 观察 → 画像洞察（画像流水线第三相；聚合在浏览器本地完成）。 */
+export async function synthesizeInsights(input: {
+  roleKey: string;
+  metrics: unknown;
+  observations: { id: string }[];
+  lockedInsights: unknown;
+}): Promise<
+  Array<{
+    dimension: string;
+    kind: string;
+    title: string;
+    statement: string;
+    evidence: { observationId: string; polarity: "supports" | "contradicts" }[];
+  }>
+> {
+  const { insights } = await postWithAi<{
+    insights: Array<{
+      dimension: string;
+      kind: string;
+      title: string;
+      statement: string;
+      evidence: { observationId: string; polarity: "supports" | "contradicts" }[];
+    }>;
+  }>("/api/trial/synthesize", input);
+  return insights;
+}

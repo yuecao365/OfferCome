@@ -1,3 +1,5 @@
+import type { ComponentProps } from "react";
+
 import {
   ArrowRight,
   BookOpenCheck,
@@ -172,11 +174,14 @@ export function QuestionReviewList({
   items,
   empty,
   reclassifyProjects,
+  reclassifyAction,
 }: {
   items: QuestionReviewItem[];
   empty: string;
   /** 传入实习/项目选项时，每条记录可以直接改归类；只读场景省略即可。 */
   reclassifyProjects?: ReclassifyProjectOption[];
+  /** 体验版在此注入浏览器归类动作。 */
+  reclassifyAction?: ComponentProps<typeof ReviewQuestionReclassify>["action"];
 }) {
   if (items.length === 0) {
     return (
@@ -252,6 +257,7 @@ export function QuestionReviewList({
             ))}
             {reclassifyProjects ? (
               <ReviewQuestionReclassify
+                action={reclassifyAction}
                 category={item.category}
                 projects={reclassifyProjects}
                 questionIds={item.answers.map((answer) => answer.id)}

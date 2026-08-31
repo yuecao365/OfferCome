@@ -46,7 +46,32 @@ export type CandidateInsightCardValue = {
   }>;
 };
 
-export function CandidateInsightCard({ insight }: { insight: CandidateInsightCardValue }) {
+export type InsightUpdateAction = (
+  id: string,
+  body: { action: "confirm" | "edit" | "hide" | "restore"; title: string; statement: string },
+) => Promise<void>;
+
+async function defaultUpdateAction(
+  id: string,
+  body: { action: string; title: string; statement: string },
+): Promise<void> {
+  const response = await fetch(`/api/candidate-profile/insights/${id}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const result = (await response.json()) as { error?: string };
+  if (!response.ok) throw new Error(result.error ?? "更新画像失败。");
+}
+
+export function CandidateInsightCard({
+  insight,
+  updateAction = defaultUpdateAction,
+}: {
+  insight: CandidateInsightCardValue;
+  /** 覆盖默认的本地版 API（体验版传浏览器实现）。 */
+  updateAction?: InsightUpdateAction;
+}) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(insight.title);
@@ -58,13 +83,7 @@ export function CandidateInsightCard({ insight }: { insight: CandidateInsightCar
     setPending(true);
     setError("");
     try {
-      const response = await fetch(`/api/candidate-profile/insights/${insight.id}`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action, title, statement }),
-      });
-      const result = (await response.json()) as { error?: string };
-      if (!response.ok) throw new Error(result.error ?? "更新画像失败。");
+      await updateAction(insight.id, { action, title, statement });
       setEditing(false);
       router.refresh();
     } catch (updateError) {

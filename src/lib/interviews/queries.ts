@@ -16,6 +16,7 @@ import {
   groupQuestionReviewItems,
   paginateQuestionReviewItems,
   type InterviewReviewFilters,
+  type InterviewReviewPageData,
   type InterviewReviewProject,
   type QuestionReviewPage,
 } from "./review";
@@ -240,15 +241,6 @@ export async function getInterviewWorkspaceData() {
     realInterviewRoundCounts: toRealInterviewRoundCounts(realRoundGroups),
   };
 }
-
-type InterviewReviewPageData = {
-  projects: InterviewReviewProject[];
-  unlinkedProjectQuestionCount: number;
-  technicalQuestionCount: number;
-  generalQuestionCount: number;
-  selectedProject: InterviewReviewProject | null;
-  questionsPage: QuestionReviewPage;
-};
 
 const INTERVIEW_REVIEW_QUESTION_INCLUDE = {
   interview: {
