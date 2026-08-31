@@ -10,6 +10,7 @@ import {
   updateTrialApplication,
 } from "@/lib/trial/application-actions";
 import { createTrialInterviewRecord } from "@/lib/trial/interview-actions";
+import { trialResumeProjectOptions } from "@/lib/trial/workspace-resume";
 import { useTrialWorkspace } from "@/lib/trial/workspace-store";
 import { applicationSources, queryApplications } from "@/lib/trial/workspace";
 
@@ -34,7 +35,7 @@ export function TrialApplicationsPage() {
       applications={applications}
       filters={filters}
       interviewContext={{
-        resumeProjects: [],
+        resumeProjects: workspace ? trialResumeProjectOptions(workspace) : [],
         transcriptionConfigured: false,
         newInterview: {
           action: createTrialInterviewRecord,

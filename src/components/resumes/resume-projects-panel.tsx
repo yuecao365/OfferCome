@@ -30,6 +30,9 @@ const blankDraft: ResumeExperienceFieldsValue = {
 
 type ResumeProjectsPanelProps = {
   projects: ResumeProjectListItem[];
+  /** 覆盖默认的 Server Action（体验版传浏览器实现）。 */
+  saveAction?: typeof saveResumeProject;
+  deleteAction?: typeof deleteResumeProject;
 };
 
 function ProjectEditor({
@@ -75,7 +78,11 @@ function ProjectEditor({
  * Lets the user fix, remove, or add internship/project records after upload,
  * so a wrong extraction is never permanent.
  */
-export function ResumeProjectsPanel({ projects }: ResumeProjectsPanelProps) {
+export function ResumeProjectsPanel({
+  projects,
+  saveAction = saveResumeProject,
+  deleteAction = deleteResumeProject,
+}: ResumeProjectsPanelProps) {
   const router = useRouter();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<ResumeExperienceFieldsValue>(blankDraft);
@@ -113,7 +120,7 @@ export function ResumeProjectsPanel({ projects }: ResumeProjectsPanelProps) {
 
   function handleSave() {
     startTransition(async () => {
-      const result = await saveResumeProject({
+      const result = await saveAction({
         id: editingId === NEW_PROJECT_ID ? null : editingId,
         name: draft.name,
         type: draft.type,
@@ -135,7 +142,7 @@ export function ResumeProjectsPanel({ projects }: ResumeProjectsPanelProps) {
     }
 
     startTransition(async () => {
-      const result = await deleteResumeProject(project.id);
+      const result = await deleteAction(project.id);
       setMessage({ status: result.status, text: result.message });
 
       if (result.status === "success") {

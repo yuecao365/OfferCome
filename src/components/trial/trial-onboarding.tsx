@@ -20,8 +20,8 @@ export function TrialOnboarding() {
     <div className="grid gap-4">
       <TrialSetup
         aiReady={aiReady}
-        onResumeReady={(resume) =>
-          mutateWorkspace((current) => setWorkspaceResume(current, resume))
+        onResumeReady={(resume, meta) =>
+          mutateWorkspace((current) => setWorkspaceResume(current, resume, meta))
         }
         resume={workspace?.resume ?? null}
       />

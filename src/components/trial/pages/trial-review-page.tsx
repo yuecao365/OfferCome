@@ -30,11 +30,19 @@ export function TrialReviewPage() {
       filters={filters}
       reclassifyAction={async (input) => {
         let count = 0;
+        let missingProject = false;
         mutateWorkspace((current) => {
           const result = reclassifyTrialQuestions(current, input);
           count = result.count;
+          missingProject = result.missingProject;
           return result.workspace;
         });
+        if (missingProject) {
+          return {
+            status: "error",
+            message: "选择的实习/项目不存在，请刷新后重试。",
+          };
+        }
         return { status: "success", message: `已重新归类 ${count} 条历史记录。` };
       }}
     />

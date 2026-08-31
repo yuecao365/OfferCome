@@ -22,6 +22,8 @@ import type { TrialResumeInput } from "./interview";
 export const TRIAL_WORKSPACE_VERSION = 2;
 
 export type TrialWorkspaceQuestion = {
+  /** 关联的实习/项目（可选字段，指向 resume.projects 里的条目）。 */
+  resumeProjectId?: string | null;
   id: string;
   question: string;
   answer: string;
@@ -71,6 +73,8 @@ export type TrialWorkspace = {
   applications: TrialApplication[];
   interviews: TrialWorkspaceInterview[];
   resume: TrialResumeInput | null;
+  /** 简历来源信息（可选字段）：文件名/大小/类型，手动填写时为 null 值。 */
+  resumeMeta?: TrialResumeMeta | null;
   /** 能力画像（可选字段，旧文档缺省视为还没生成过）。 */
   profile?: TrialProfile | null;
 };
@@ -149,12 +153,32 @@ export type TrialApplicationInput = {
   note: string;
 };
 
+export type TrialResumeMeta = {
+  fileName: string | null;
+  fileSize: number | null;
+  mimeType: string | null;
+  savedAt: string;
+};
+
 /** 保存访客提供的简历内容（跨访问保留在 localStorage，供模拟面试出题）。 */
 export function setWorkspaceResume(
   workspace: TrialWorkspace,
   resume: TrialResumeInput | null,
+  meta?: Omit<TrialResumeMeta, "savedAt"> | null,
 ): TrialWorkspace {
-  return { ...workspace, resume };
+  return {
+    ...workspace,
+    resume,
+    resumeMeta:
+      resume === null
+        ? null
+        : {
+            fileName: meta?.fileName ?? null,
+            fileSize: meta?.fileSize ?? null,
+            mimeType: meta?.mimeType ?? null,
+            savedAt: new Date().toISOString(),
+          },
+  };
 }
 
 export function upsertApplication(

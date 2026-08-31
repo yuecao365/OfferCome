@@ -1,5 +1,6 @@
 import { Check, FileText } from "lucide-react";
 import Link from "next/link";
+import type { ComponentProps } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -13,9 +14,14 @@ import { ResumeActions } from "./resume-actions";
 type ResumeListProps = {
   resumes: ResumeListItem[];
   selectedId: string | null;
+  /** 体验版在此注入浏览器动作。 */
+  actions?: Pick<
+    ComponentProps<typeof ResumeActions>,
+    "setDefaultAction" | "deleteAction" | "deleteConfirmMessage"
+  >;
 };
 
-export function ResumeList({ resumes, selectedId }: ResumeListProps) {
+export function ResumeList({ resumes, selectedId, actions }: ResumeListProps) {
   if (resumes.length === 0) {
     return (
       <EmptyState
@@ -56,7 +62,7 @@ export function ResumeList({ resumes, selectedId }: ResumeListProps) {
               </Link>
               <div className="mt-3 flex items-center justify-between gap-2 px-1">
                 {resume.isDefault ? <Badge tone="brand">默认使用</Badge> : <span />}
-                <ResumeActions id={resume.id} isDefault={resume.isDefault} />
+                <ResumeActions id={resume.id} isDefault={resume.isDefault} {...actions} />
               </div>
             </article>
           );

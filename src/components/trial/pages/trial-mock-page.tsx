@@ -96,8 +96,13 @@ export function TrialMockPage() {
             application={application}
             createSession={(formData) => createTrialMockSession(formData, resume)}
             jdFileEnabled={false}
-            questionCounts={{ options: [3, 5, 8], defaultValue: 3 }}
-            resumes={[{ id: "trial-resume", name: "体验简历（保存在本浏览器）", isDefault: true }]}
+            resumes={[
+              {
+                id: "trial-resume",
+                name: workspace?.resumeMeta?.fileName ?? "体验简历（保存在本浏览器）",
+                isDefault: true,
+              },
+            ]}
             textConfigured
             transcriptionConfigured={false}
             voiceDisabledHint="语音作答依赖本地版的转写服务，在线体验暂不支持。"

@@ -14,13 +14,17 @@ import type { TrialWorkspace } from "./workspace";
  * QuestionReviewSource，之后的聚合、相似合并、分页全部复用本地版纯函数——
  * 两个版本对"什么算同一道题"的判断永远一致。
  *
- * 体验版没有简历项目实体，所以实习/项目问题全部归入"未关联"。
+ * 实习/项目条目来自浏览器里的体验简历（workspace.resume.projects），
+ * 与本地版一样支持按单个项目聚焦与归类调整。
  */
 
 function reviewRows(
   workspace: TrialWorkspace,
   source: InterviewReviewFilters["source"],
 ): QuestionReviewSource[] {
+  const projectIds = new Set(
+    (workspace.resume?.projects ?? []).map((project) => project.id),
+  );
   return workspace.interviews
     // 与本地版同一道闸：只有已完成的面试参与复盘，进行中的题目不外泄。
     .filter(
@@ -36,7 +40,11 @@ function reviewRows(
           question: question.question,
           answer: question.answer,
           category: question.category,
-          resumeProjectId: null,
+          // 项目被删除后关联失效，按"未关联"处理。
+          resumeProjectId:
+            question.resumeProjectId && projectIds.has(question.resumeProjectId)
+              ? question.resumeProjectId
+              : null,
           sortOrder: question.sortOrder,
           createdAt: new Date(interview.createdAt),
           updatedAt: new Date(interview.updatedAt),
@@ -61,15 +69,33 @@ export function trialReviewPageData(
 ): InterviewReviewPageData {
   const rows = reviewRows(workspace, filters.source);
   const countsByCategory = new Map<string, number>();
+  const countsByProjectId = new Map<string, number>();
   for (const row of rows) {
     const category = normalizeQuestionCategory(row.category);
     countsByCategory.set(category, (countsByCategory.get(category) ?? 0) + 1);
+    if (category === "resume_project") {
+      const key = row.resumeProjectId ?? "unlinked";
+      countsByProjectId.set(key, (countsByProjectId.get(key) ?? 0) + 1);
+    }
   }
 
+  const projects = (workspace.resume?.projects ?? []).map((project) => ({
+    id: project.id,
+    name: project.name,
+    type: project.type,
+    organization: project.organization,
+    description: project.description || null,
+    questionCount: countsByProjectId.get(project.id) ?? 0,
+  }));
+
   const scoped =
-    filters.section === "projects" && filters.projectId === "unlinked"
+    filters.section === "projects" && filters.projectId
       ? rows.filter(
-          (row) => normalizeQuestionCategory(row.category) === "resume_project",
+          (row) =>
+            normalizeQuestionCategory(row.category) === "resume_project" &&
+            (filters.projectId === "unlinked"
+              ? row.resumeProjectId === null
+              : row.resumeProjectId === filters.projectId),
         )
       : filters.section === "question_bank" && filters.category
         ? rows.filter(
@@ -78,11 +104,14 @@ export function trialReviewPageData(
         : null;
 
   return {
-    projects: [],
-    unlinkedProjectQuestionCount: countsByCategory.get("resume_project") ?? 0,
+    projects,
+    unlinkedProjectQuestionCount: countsByProjectId.get("unlinked") ?? 0,
     technicalQuestionCount: countsByCategory.get("technical") ?? 0,
     generalQuestionCount: countsByCategory.get("general") ?? 0,
-    selectedProject: null,
+    selectedProject:
+      filters.section === "projects" && filters.projectId
+        ? (projects.find((project) => project.id === filters.projectId) ?? null)
+        : null,
     questionsPage: paginateQuestionReviewItems(
       scoped ? groupQuestionReviewItems(scoped) : [],
       filters.page,
@@ -93,8 +122,19 @@ export function trialReviewPageData(
 /** 与本地版 reclassifyInterviewQuestions 同责的浏览器实现。 */
 export function reclassifyTrialQuestions(
   workspace: TrialWorkspace,
-  input: { questionIds: string[]; category: string },
-): { workspace: TrialWorkspace; count: number } {
+  input: { questionIds: string[]; category: string; resumeProjectId: string | null },
+): { workspace: TrialWorkspace; count: number; missingProject: boolean } {
+  const resumeProjectId =
+    input.category === "resume_project" ? input.resumeProjectId : null;
+  if (
+    resumeProjectId &&
+    !(workspace.resume?.projects ?? []).some(
+      (project) => project.id === resumeProjectId,
+    )
+  ) {
+    return { workspace, count: 0, missingProject: true };
+  }
+
   const ids = new Set(input.questionIds);
   let count = 0;
   const interviews = workspace.interviews.map((interview) => {
@@ -106,9 +146,13 @@ export function reclassifyTrialQuestions(
       questions: interview.questions.map((question) => {
         if (!ids.has(question.id)) return question;
         count += 1;
-        return { ...question, category: input.category };
+        return { ...question, category: input.category, resumeProjectId };
       }),
     };
   });
-  return { workspace: { ...workspace, interviews }, count };
+  return {
+    workspace: { ...workspace, interviews },
+    count,
+    missingProject: false,
+  };
 }

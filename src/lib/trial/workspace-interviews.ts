@@ -61,6 +61,7 @@ export function upsertInterview(
       question: question.question,
       answer: question.answer,
       category: question.category,
+      resumeProjectId: question.resumeProjectId ?? null,
       sortOrder: index,
     })),
     totalScore: existing?.totalScore ?? null,
@@ -143,6 +144,7 @@ export function addCompletedMockInterview(
 
 export function toInterviewListItem(
   record: TrialWorkspaceInterview,
+  projectNames: Map<string, string> = new Map(),
 ): InterviewListItem {
   return {
     id: record.id,
@@ -165,8 +167,10 @@ export function toInterviewListItem(
         question.category === "resume_project" || question.category === "technical"
           ? question.category
           : "general",
-      resumeProjectId: null,
-      resumeProjectName: null,
+      resumeProjectId: question.resumeProjectId ?? null,
+      resumeProjectName: question.resumeProjectId
+        ? (projectNames.get(question.resumeProjectId) ?? null)
+        : null,
       sortOrder: question.sortOrder,
     })),
   };
@@ -218,10 +222,13 @@ export function queryInterviews(
   const page = Math.min(filters.page, totalPages);
   const start = (page - 1) * INTERVIEW_HISTORY_PAGE_SIZE;
 
+  const projectNames = new Map(
+    (workspace.resume?.projects ?? []).map((project) => [project.id, project.name]),
+  );
   return {
     interviews: sorted
       .slice(start, start + INTERVIEW_HISTORY_PAGE_SIZE)
-      .map(toInterviewListItem),
+      .map((record) => toInterviewListItem(record, projectNames)),
     total,
     totalPages,
     page,

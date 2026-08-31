@@ -22,11 +22,10 @@ import type {
 
 export const TRIAL_INTERVIEW_VERSION = 2;
 
-/** 默认 3 题速览：控制访客 Key 的花费，也降低半途弃坑率。 */
-export const TRIAL_QUESTION_COUNT = 3;
-
-/** 可选题量上限：体验版跑在 serverless 上，出题预算有限。 */
-export const TRIAL_MAX_QUESTION_COUNT = 8;
+/** 题量与本地版一致（默认 8）；服务端仍钳制范围防手工请求越界。 */
+export const TRIAL_QUESTION_COUNT = 8;
+export const TRIAL_MIN_QUESTION_COUNT = 3;
+export const TRIAL_MAX_QUESTION_COUNT = 12;
 
 /** 访客可调的出题选项；服务端负责钳制到合法范围。 */
 export type TrialInterviewOptions = {
@@ -41,7 +40,7 @@ export function clampTrialOptions(
   const count = Number(value?.questionCount);
   return {
     questionCount: Number.isInteger(count)
-      ? Math.min(Math.max(count, TRIAL_QUESTION_COUNT), TRIAL_MAX_QUESTION_COUNT)
+      ? Math.min(Math.max(count, TRIAL_MIN_QUESTION_COUNT), TRIAL_MAX_QUESTION_COUNT)
       : TRIAL_QUESTION_COUNT,
     difficulty:
       value?.difficulty === "easy" || value?.difficulty === "hard"

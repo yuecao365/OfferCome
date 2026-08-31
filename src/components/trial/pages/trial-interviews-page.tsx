@@ -7,6 +7,7 @@ import {
   interviewWorkspaceOverview,
   upcomingInterviews,
 } from "@/lib/trial/workspace-interviews";
+import { trialResumeProjectOptions } from "@/lib/trial/workspace-resume";
 import { useTrialWorkspace } from "@/lib/trial/workspace-store";
 
 /**
@@ -28,7 +29,7 @@ export function TrialInterviewsPage() {
         action: createTrialInterviewRecord,
         draftImportEnabled: false,
       }}
-      resumeProjects={[]}
+      resumeProjects={trialResumeProjectOptions(workspace)}
       stageCounts={applicationStageCounts(workspace)}
       transcriptionConfigured={false}
       upcomingInterviews={upcomingInterviews(workspace)}
