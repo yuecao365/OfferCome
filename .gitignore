@@ -49,3 +49,6 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+# Claude Code 会话本地配置
+.claude/
