@@ -183,6 +183,7 @@ export function queryInterviews(
   const query = filters.q.toLowerCase();
 
   const matched = workspace.interviews.filter((item) => {
+    if (filters.kind !== "all" && item.kind !== filters.kind) return false;
     if (
       filters.status !== "all" &&
       normalizeInterviewStatus(item.status) !== filters.status

@@ -19,6 +19,7 @@ import {
 
 const baseFilters: InterviewFilters = {
   q: "",
+  kind: "all",
   status: "all",
   round: "all",
   category: "all",

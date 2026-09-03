@@ -125,8 +125,11 @@ export type RealInterviewRoundCounts = {
 
 export const INTERVIEW_HISTORY_PAGE_SIZE = 20;
 
+export type InterviewKindFilter = "all" | "real" | "mock";
+
 export type InterviewFilters = {
   q: string;
+  kind: InterviewKindFilter;
   status: InterviewStatus | "all";
   round: InterviewRound | "all";
   category: InterviewQuestionCategory | "all";
@@ -333,6 +336,7 @@ function getQueryValue(
 export function parseInterviewFilters(
   params: Record<string, string | string[] | undefined>,
 ): InterviewFilters {
+  const kind = getQueryValue(params, "kind");
   const status = getQueryValue(params, "status");
   const round = getQueryValue(params, "round");
   const category = getQueryValue(params, "category");
@@ -342,6 +346,7 @@ export function parseInterviewFilters(
 
   return {
     q: getQueryValue(params, "q").slice(0, 100),
+    kind: kind === "real" || kind === "mock" ? kind : "all",
     status: isInterviewStatus(status) ? status : "all",
     round: isInterviewRound(round) ? round : "all",
     category: isQuestionCategory(category) ? category : "all",

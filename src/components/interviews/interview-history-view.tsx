@@ -1,4 +1,4 @@
-import { Search, SlidersHorizontal } from "lucide-react";
+import { Search } from "lucide-react";
 import type { ComponentProps } from "react";
 
 import { InterviewList } from "@/components/interviews/interview-list";
@@ -6,6 +6,7 @@ import { NewInterviewModal } from "@/components/interviews/interview-modals";
 import { PageHeader } from "@/components/page-header";
 import { ButtonLink } from "@/components/ui/button";
 import { FilterForm } from "@/components/ui/filter-form";
+import { FilterMore, FilterSearch, FilterSelect, FilterToolbar } from "@/components/ui/filter-toolbar";
 import { FieldLabel, Input, Select } from "@/components/ui/form-controls";
 import { ListPagination } from "@/components/ui/list-pagination";
 import {
@@ -54,6 +55,7 @@ export function InterviewHistoryView({
   const historyHref = (page: number): string => {
     const params = new URLSearchParams();
     if (filters.q) params.set("q", filters.q);
+    if (filters.kind !== "all") params.set("kind", filters.kind);
     if (filters.status !== "all") params.set("status", filters.status);
     if (filters.round !== "all") params.set("round", filters.round);
     if (filters.category !== "all") params.set("category", filters.category);
@@ -66,6 +68,7 @@ export function InterviewHistoryView({
   const hasAnyFilter =
     hasAdvancedFilters ||
     Boolean(filters.q) ||
+    filters.kind !== "all" ||
     filters.status !== "all" ||
     filters.round !== "all";
 
@@ -83,10 +86,9 @@ export function InterviewHistoryView({
         title="历史面试"
       />
 
-      <FilterForm action="/interviews/history" className="grid gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="relative w-full sm:w-64">
-            <span className="sr-only">搜索</span>
+      <FilterForm action="/interviews/history">
+        <FilterToolbar>
+          <FilterSearch label="搜索">
             <Search
               aria-hidden="true"
               className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
@@ -99,8 +101,15 @@ export function InterviewHistoryView({
               placeholder="搜索公司、岗位或问题"
               type="search"
             />
-          </label>
-          <span className="block w-full sm:w-40">
+          </FilterSearch>
+          <FilterSelect>
+            <Select aria-label="面试类型" defaultValue={filters.kind} name="kind">
+              <option value="all">真实与模拟</option>
+              <option value="real">真实面试</option>
+              <option value="mock">AI 模拟</option>
+            </Select>
+          </FilterSelect>
+          <FilterSelect>
             <Select aria-label="状态" defaultValue={filters.status} name="status">
               <option value="all">全部状态</option>
               {INTERVIEW_STATUSES.map((status) => (
@@ -109,8 +118,8 @@ export function InterviewHistoryView({
                 </option>
               ))}
             </Select>
-          </span>
-          <span className="block w-full sm:w-40">
+          </FilterSelect>
+          <FilterSelect>
             <Select aria-label="轮次" defaultValue={filters.round} name="round">
               <option value="all">全部轮次</option>
               {INTERVIEW_ROUNDS.map((round) => (
@@ -119,42 +128,33 @@ export function InterviewHistoryView({
                 </option>
               ))}
             </Select>
-          </span>
-          <details className="contents" open={hasAdvancedFilters || undefined}>
-            <summary className="inline-flex h-8 cursor-pointer list-none items-center gap-1.5 rounded-control px-2.5 text-[0.8125rem] text-muted-foreground hover:bg-muted hover:text-foreground">
-              <SlidersHorizontal aria-hidden="true" className="size-3.5" strokeWidth={1.5} />
-              更多筛选
-              {hasAdvancedFilters ? (
-                <span aria-label="已启用更多筛选" className="size-1.5 rounded-full bg-brand" />
-              ) : null}
-            </summary>
-            <div className="grid w-full gap-2 border-t border-border pt-3 sm:grid-cols-2 xl:grid-cols-4">
-              <FieldLabel>
-                问题类型
-                <Select defaultValue={filters.category} name="category">
-                  <option value="all">全部类型</option>
-                  {INTERVIEW_QUESTION_CATEGORIES.map((category) => (
-                    <option key={category} value={category}>
-                      {INTERVIEW_QUESTION_CATEGORY_LABELS[category]}
-                    </option>
-                  ))}
-                </Select>
-              </FieldLabel>
-              <FieldLabel>
-                排序
-                <Select defaultValue={filters.sort} name="sort">
-                  <option value="newest">最新在前</option>
-                  <option value="oldest">最早在前</option>
-                </Select>
-              </FieldLabel>
-            </div>
-          </details>
+          </FilterSelect>
           {hasAnyFilter ? (
             <ButtonLink className="ml-auto" href="/interviews/history" size="sm" variant="ghost">
               清空筛选
             </ButtonLink>
           ) : null}
-        </div>
+          <FilterMore active={hasAdvancedFilters}>
+            <FieldLabel>
+              问题类型
+              <Select defaultValue={filters.category} name="category">
+                <option value="all">全部类型</option>
+                {INTERVIEW_QUESTION_CATEGORIES.map((category) => (
+                  <option key={category} value={category}>
+                    {INTERVIEW_QUESTION_CATEGORY_LABELS[category]}
+                  </option>
+                ))}
+              </Select>
+            </FieldLabel>
+            <FieldLabel>
+              排序
+              <Select defaultValue={filters.sort} name="sort">
+                <option value="newest">最新在前</option>
+                <option value="oldest">最早在前</option>
+              </Select>
+            </FieldLabel>
+          </FilterMore>
+        </FilterToolbar>
       </FilterForm>
 
       <InterviewList

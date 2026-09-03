@@ -93,12 +93,14 @@ test("parses interview history filters from URL query values", () => {
     q: "  react ",
     status: "completed",
     round: "first_interview",
+    kind: "mock",
     category: "technical",
     sort: "oldest",
   });
 
   assert.deepEqual(filters, {
     q: "react",
+    kind: "mock",
     status: "completed",
     round: "first_interview",
     category: "technical",

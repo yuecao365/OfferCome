@@ -93,6 +93,10 @@ function buildInterviewWhere(filters: InterviewFilters): Prisma.InterviewWhereIn
     ];
   }
 
+  if (filters.kind !== "all") {
+    where.kind = filters.kind;
+  }
+
   if (filters.status !== "all") {
     where.status = filters.status;
   }
@@ -111,6 +115,7 @@ function buildInterviewWhere(filters: InterviewFilters): Prisma.InterviewWhereIn
 export async function getInterviews(
   filters: InterviewFilters = {
     q: "",
+    kind: "all",
     status: "all",
     round: "all",
     category: "all",
