@@ -9,7 +9,7 @@ import {
 import { cn } from "@/lib/cn";
 
 const fieldControlClassName =
-  "block h-10 w-full rounded-lg border border-border-strong bg-surface px-3 text-sm text-foreground shadow-card outline-none transition-[border-color,box-shadow] placeholder:text-muted-foreground focus:border-brand focus:ring-2 focus:ring-ring/20 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground";
+  "block h-8 w-full rounded-control border border-border-strong bg-surface px-2.5 text-[0.8125rem] text-foreground outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-muted-foreground focus:border-brand focus:ring-2 focus:ring-ring/20 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground";
 
 export function FieldLabel({
   className,
@@ -17,7 +17,7 @@ export function FieldLabel({
 }: LabelHTMLAttributes<HTMLLabelElement>) {
   return (
     <label
-      className={cn("grid gap-1.5 text-xs font-semibold text-muted-foreground", className)}
+      className={cn("grid gap-1.5 text-xs font-medium text-muted-foreground", className)}
       {...props}
     />
   );
@@ -52,7 +52,7 @@ export const Textarea = forwardRef<
 >(function Textarea({ className, ...props }, ref) {
   return (
     <textarea
-      className={cn(fieldControlClassName, "h-auto min-h-24 py-2.5 leading-6", className)}
+      className={cn(fieldControlClassName, "h-auto min-h-24 py-2 leading-6", className)}
       ref={ref}
       {...props}
     />

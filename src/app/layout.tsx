@@ -1,3 +1,5 @@
+import { GeistMono } from "geist/font/mono";
+import { GeistSans } from "geist/font/sans";
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import "./globals.css";
@@ -26,7 +28,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html data-scroll-behavior="smooth" lang="zh-CN" suppressHydrationWarning>
+    <html
+      className={`${GeistSans.variable} ${GeistMono.variable}`}
+      data-scroll-behavior="smooth"
+      lang="zh-CN"
+      suppressHydrationWarning
+    >
       <body>
         {children}
         <Script id="theme-init" strategy="beforeInteractive">

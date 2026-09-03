@@ -53,7 +53,6 @@ export function ApplicationsView({
           </>
         }
         description="集中管理投递记录，按公司、岗位、流程状态、来源和时间快速筛选。"
-        eyebrow="求职管理"
         title="投递岗位"
       />
       <ApplicationFilters filters={filters} sources={sources} />

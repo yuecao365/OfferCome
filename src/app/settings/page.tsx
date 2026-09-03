@@ -28,7 +28,6 @@ export default async function SettingsPage() {
     <AppShell active="settings">
       <PageHeader
         description="分别配置语音转写和文本理解模型。API Key 只保存在本机服务端。"
-        eyebrow="系统"
         title="设置"
       />
 

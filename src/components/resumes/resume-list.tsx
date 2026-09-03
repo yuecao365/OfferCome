@@ -26,7 +26,6 @@ export function ResumeList({ resumes, selectedId, actions }: ResumeListProps) {
     return (
       <EmptyState
         description="上传第一份 PDF、DOC、DOCX 或图片简历后，可以在这里管理版本。"
-        icon={<FileText aria-hidden="true" className="size-5" />}
         title="还没有简历"
       />
     );

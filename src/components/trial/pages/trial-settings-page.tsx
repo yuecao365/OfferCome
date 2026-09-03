@@ -26,7 +26,6 @@ export function TrialSettingsPage() {
     <>
       <PageHeader
         description="连接你自己的模型服务，即可使用 AI 模拟面试、简历解析与能力画像。Key 只保存在当前浏览器标签页，服务器不存储。"
-        eyebrow="系统"
         title="设置"
       />
 

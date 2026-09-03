@@ -4,25 +4,26 @@ import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
 type ButtonVariant = "primary" | "secondary" | "outline" | "ghost" | "danger";
-type ButtonSize = "sm" | "md" | "icon";
+type ButtonSize = "sm" | "md" | "icon" | "icon-sm";
 
 const variants: Record<ButtonVariant, string> = {
   primary:
-    "border-brand bg-brand text-brand-foreground shadow-[inset_0_1px_0_rgb(255_255_255/0.16)] hover:border-brand-hover hover:bg-brand-hover",
+    "border-brand bg-brand text-brand-foreground shadow-[inset_0_1px_0_rgb(255_255_255/0.18)] hover:border-brand-hover hover:bg-brand-hover",
   secondary:
-    "border-accent bg-accent text-accent-foreground hover:border-brand/20 hover:bg-accent-strong",
+    "border-transparent bg-accent text-accent-foreground hover:bg-accent-strong",
   outline:
-    "border-border-strong bg-surface text-foreground hover:border-brand/40 hover:bg-surface-subtle",
+    "border-border-strong bg-surface text-foreground shadow-card hover:bg-surface-subtle",
   ghost:
     "border-transparent bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground",
   danger:
-    "border-danger bg-danger text-brand-foreground hover:border-danger-strong hover:bg-danger-strong",
+    "border-danger bg-danger text-white hover:border-danger-strong hover:bg-danger-strong",
 };
 
 const sizes: Record<ButtonSize, string> = {
-  sm: "h-8 gap-1.5 px-3 text-xs",
-  md: "h-10 gap-2 px-4 text-sm",
-  icon: "size-10 justify-center p-0",
+  sm: "h-7 gap-1.5 px-2.5 text-xs",
+  md: "h-8 gap-2 px-3 text-[0.8125rem]",
+  icon: "size-8 justify-center p-0",
+  "icon-sm": "size-7 justify-center p-0",
 };
 
 export function buttonClassName({
@@ -35,7 +36,7 @@ export function buttonClassName({
   className?: string;
 } = {}): string {
   return cn(
-    "inline-flex shrink-0 items-center justify-center rounded-lg border font-semibold transition-[background-color,border-color,color,box-shadow,transform] duration-200 ease-app focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 motion-safe:active:scale-[0.98]",
+    "inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-control border font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-app focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 motion-safe:active:scale-[0.97]",
     variants[variant],
     sizes[size],
     className,
@@ -69,6 +70,7 @@ type ButtonLinkProps = LinkProps & {
   variant?: ButtonVariant;
   size?: ButtonSize;
   "aria-label"?: string;
+  title?: string;
 };
 
 export function ButtonLink({

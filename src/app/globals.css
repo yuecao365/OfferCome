@@ -1,76 +1,80 @@
 @import "tailwindcss";
 
+/* ============================================================
+   设计 token。原则：近乎单色的底 + 唯一强调色（brand）；
+   发丝线分隔表面，投影只留给浮层；数字用等宽/表格数字。
+   ============================================================ */
 :root {
-  --background: #f4f7f6;
-  --foreground: #17211e;
+  --background: #fafafa;
+  --foreground: #18181b;
   --surface: #ffffff;
-  --surface-subtle: #f8faf9;
+  --surface-subtle: #f6f6f7;
   --surface-raised: #ffffff;
-  --surface-sunken: #eceff0;
-  --muted: #edf2f0;
-  --muted-foreground: #64716d;
-  --border: #dde5e2;
-  --border-strong: #c5d0cc;
-  --brand: #176b5d;
-  --brand-hover: #11574c;
+  --surface-sunken: #f2f2f3;
+  --muted: #efeff1;
+  --muted-foreground: #6f6f76;
+  --border: rgb(9 9 11 / 0.08);
+  --border-strong: rgb(9 9 11 / 0.15);
+  --brand: #1a7f5f;
+  --brand-hover: #156a4f;
   --brand-foreground: #ffffff;
-  --accent: #e5f3ef;
-  --accent-strong: #d7ebe5;
-  --accent-foreground: #145e52;
-  --ring: #278878;
-  --info: #3572a5;
-  --info-soft: #edf5fb;
-  --info-strong: #245b89;
-  --success: #17805f;
-  --success-soft: #e9f7f1;
-  --success-strong: #116348;
-  --warning: #b7791f;
-  --warning-soft: #fff7e6;
+  --accent: rgb(26 127 95 / 0.1);
+  --accent-strong: rgb(26 127 95 / 0.18);
+  --accent-foreground: #156a4f;
+  --ring: #1a7f5f;
+  --info: #3b6fb0;
+  --info-soft: rgb(59 111 176 / 0.1);
+  --info-strong: #2c5689;
+  --success: #1a7f5f;
+  --success-soft: rgb(26 127 95 / 0.1);
+  --success-strong: #156a4f;
+  --warning: #b3761a;
+  --warning-soft: rgb(179 118 26 / 0.12);
   --warning-strong: #8a5a13;
   --danger: #c2414a;
-  --danger-soft: #fff0f1;
+  --danger-soft: rgb(194 65 74 / 0.1);
   --danger-strong: #9f3039;
-  --app-shadow-card: 0 1px 2px rgb(23 33 30 / 0.05), 0 2px 8px -2px rgb(23 33 30 / 0.06);
-  --app-shadow-raised: 0 2px 4px rgb(23 33 30 / 0.05), 0 12px 24px -8px rgb(23 33 30 / 0.12);
-  --app-shadow-overlay: 0 20px 50px rgb(23 33 30 / 0.16);
-  --app-glow-brand: 0 0 28px rgb(23 107 93 / 0.12);
-  --app-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --app-shadow-card: 0 1px 2px rgb(9 9 11 / 0.04);
+  --app-shadow-raised: 0 1px 2px rgb(9 9 11 / 0.05), 0 8px 24px -12px rgb(9 9 11 / 0.15);
+  --app-shadow-overlay: 0 16px 48px -12px rgb(9 9 11 / 0.25), 0 0 0 1px rgb(9 9 11 / 0.06);
+  --app-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --app-ease-move: cubic-bezier(0.77, 0, 0.175, 1);
+  --app-ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 [data-theme="dark"] {
-  --background: #0b100e;
-  --foreground: #f0f6f3;
-  --surface: #121815;
-  --surface-subtle: #161d1a;
-  --surface-raised: #1b2420;
-  --surface-sunken: #070b09;
-  --muted: #212b26;
-  --muted-foreground: #94a49d;
-  --border: #222c27;
-  --border-strong: #35423c;
-  --brand: #34d399;
-  --brand-hover: #5ce0ad;
-  --brand-foreground: #05291c;
-  --accent: #11342b;
-  --accent-strong: #164534;
-  --accent-foreground: #7fe8c0;
-  --ring: #34d399;
-  --info: #78aeda;
-  --info-soft: #16232e;
-  --info-strong: #a4ccec;
-  --success: #4ade80;
-  --success-soft: #132a1d;
-  --success-strong: #86efac;
-  --warning: #e2ae5d;
-  --warning-soft: #2b2113;
-  --warning-strong: #f0c982;
-  --danger: #e2767d;
-  --danger-soft: #2e181a;
-  --danger-strong: #f1a1a6;
-  --app-shadow-card: inset 0 1px 0 rgb(255 255 255 / 0.04), 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px -12px rgb(0 0 0 / 0.5);
-  --app-shadow-raised: inset 0 1px 0 rgb(255 255 255 / 0.05), 0 16px 36px -12px rgb(0 0 0 / 0.6);
-  --app-shadow-overlay: 0 24px 60px rgb(0 0 0 / 0.55);
-  --app-glow-brand: 0 0 28px rgb(52 211 153 / 0.14);
+  --background: #0c0c0d;
+  --foreground: #ededef;
+  --surface: #131315;
+  --surface-subtle: #161618;
+  --surface-raised: #1a1a1d;
+  --surface-sunken: #09090a;
+  --muted: #1c1c20;
+  --muted-foreground: #8a8a91;
+  --border: rgb(255 255 255 / 0.08);
+  --border-strong: rgb(255 255 255 / 0.15);
+  --brand: #2fbf8a;
+  --brand-hover: #4ccf9d;
+  --brand-foreground: #062015;
+  --accent: rgb(47 191 138 / 0.12);
+  --accent-strong: rgb(47 191 138 / 0.2);
+  --accent-foreground: #6fdcb0;
+  --ring: #2fbf8a;
+  --info: #7aa7dc;
+  --info-soft: rgb(122 167 220 / 0.12);
+  --info-strong: #a9c7ec;
+  --success: #2fbf8a;
+  --success-soft: rgb(47 191 138 / 0.12);
+  --success-strong: #6fdcb0;
+  --warning: #d9a755;
+  --warning-soft: rgb(217 167 85 / 0.12);
+  --warning-strong: #ecc37e;
+  --danger: #e07078;
+  --danger-soft: rgb(224 112 120 / 0.12);
+  --danger-strong: #f0a0a5;
+  --app-shadow-card: inset 0 1px 0 rgb(255 255 255 / 0.04);
+  --app-shadow-raised: inset 0 1px 0 rgb(255 255 255 / 0.05), 0 8px 24px -12px rgb(0 0 0 / 0.5);
+  --app-shadow-overlay: inset 0 1px 0 rgb(255 255 255 / 0.06), 0 24px 64px -16px rgb(0 0 0 / 0.7), 0 0 0 1px rgb(255 255 255 / 0.06);
 }
 
 @theme inline {
@@ -108,10 +112,23 @@
   --shadow-overlay: var(--app-shadow-overlay);
   --shadow-glow-brand: var(--app-glow-brand);
   --ease-app: var(--app-ease-out);
-  --text-display: 1.75rem;
-  --text-display--line-height: 2.1rem;
-  --text-display--letter-spacing: -0.03em;
-  --text-display--font-weight: 600;
+  --ease-move: var(--app-ease-move);
+  --ease-drawer: var(--app-ease-drawer);
+  --font-sans:
+    var(--font-geist-sans), "PingFang SC", "HarmonyOS Sans SC", "MiSans",
+    "Microsoft YaHei", ui-sans-serif, system-ui, sans-serif;
+  --font-mono:
+    var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, Consolas,
+    "PingFang SC", "Microsoft YaHei", monospace;
+  /* 圆角只有三档：控件 / 面板 / 浮层 */
+  --radius-control: 6px;
+  --radius-panel: 10px;
+  --radius-overlay: 12px;
+  /* 展示级数字：北极星指标、报告总分 */
+  --text-display: 2.75rem;
+  --text-display--line-height: 3rem;
+  --text-display--letter-spacing: -0.02em;
+  --text-display--font-weight: 500;
 }
 
 /* Keep legacy Tailwind utilities readable until each page uses semantic tokens. */
@@ -150,10 +167,11 @@ html[data-theme="dark"] {
     min-height: 100vh;
     background: var(--background);
     color: var(--foreground);
-    font-family:
-      Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
-      "Segoe UI", "Microsoft YaHei", sans-serif;
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+    line-height: 1.6;
     text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
   }
 
   button,
@@ -180,7 +198,7 @@ html[data-theme="dark"] {
 
   :where(input, select, textarea)::placeholder {
     color: var(--muted-foreground);
-    opacity: 0.8;
+    opacity: 0.7;
   }
 
   ::selection {
@@ -204,21 +222,14 @@ html[data-theme="dark"] {
   }
 }
 
-@keyframes page-enter {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
+/* ------------------------------------------------------------
+   动效：只动 opacity / transform；进入用强 ease-out，抽屉用 iOS 曲线。
+   页面切换只做 150ms 淡入，不再全站错峰。
+   ------------------------------------------------------------ */
 @keyframes rise-in {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
@@ -227,12 +238,8 @@ html[data-theme="dark"] {
 }
 
 @keyframes drawer-enter {
-  from {
-    transform: translateX(-100%);
-  }
-  to {
-    transform: translateX(0);
-  }
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
 }
 
 @keyframes overlay-enter {
@@ -243,60 +250,68 @@ html[data-theme="dark"] {
 @keyframes modal-enter {
   from {
     opacity: 0;
-    transform: translateY(8px) scale(0.985);
+    transform: scale(0.97);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: scale(1);
   }
 }
 
 @keyframes follow-up-enter {
   from {
     opacity: 0;
-    transform: translateY(-8px);
-    clip-path: inset(0 0 100% 0);
+    transform: translateY(-4px);
   }
   to {
     opacity: 1;
     transform: translateY(0);
-    clip-path: inset(0);
   }
 }
 
-@keyframes interview-current-x {
-  to { background-position: 28px 0; }
+/* 页面切换：旧内容快出（90ms），新内容慢进（180ms）；由 <ViewTransition default="page-swap"> 触发 */
+::view-transition-old(.page-swap) {
+  animation: vt-fade-out 90ms ease-out both;
 }
 
-@keyframes interview-current-y {
-  to { background-position: 0 28px; }
+::view-transition-new(.page-swap) {
+  animation:
+    vt-fade-in 180ms var(--app-ease-out) both,
+    vt-rise 180ms var(--app-ease-out) both;
 }
 
-.page-content {
-  animation: page-enter 240ms ease-out both;
+@keyframes vt-fade-out {
+  to { opacity: 0; }
 }
 
-/* 页面直接子块错峰进场；prefers-reduced-motion 时由全局规则整体禁用 */
-.page-content > * {
-  animation: rise-in 420ms var(--app-ease-out) both;
+@keyframes vt-fade-in {
+  from { opacity: 0; }
 }
 
-.page-content > *:nth-child(2) { animation-delay: 50ms; }
-.page-content > *:nth-child(3) { animation-delay: 100ms; }
-.page-content > *:nth-child(4) { animation-delay: 150ms; }
-.page-content > *:nth-child(5) { animation-delay: 200ms; }
-.page-content > *:nth-child(n + 6) { animation-delay: 240ms; }
+@keyframes vt-rise {
+  from { transform: translateY(4px); }
+}
+
+/* 一组新内容首次揭示时的错峰进场（如报告生成完成），由调用方显式加类 */
+.reveal-group > * {
+  animation: rise-in 240ms var(--app-ease-out) both;
+}
+
+.reveal-group > *:nth-child(2) { animation-delay: 40ms; }
+.reveal-group > *:nth-child(3) { animation-delay: 80ms; }
+.reveal-group > *:nth-child(4) { animation-delay: 120ms; }
+.reveal-group > *:nth-child(n + 5) { animation-delay: 160ms; }
 
 .drawer-overlay {
-  animation: overlay-enter 180ms ease-out both;
+  animation: overlay-enter 160ms ease-out both;
 }
 
 .drawer-panel {
-  animation: drawer-enter 220ms var(--app-ease-out) both;
+  animation: drawer-enter 320ms var(--app-ease-drawer) both;
 }
 
 .modal-overlay {
-  animation: overlay-enter 160ms ease-out both;
+  animation: overlay-enter 140ms ease-out both;
 }
 
 .modal-panel {
@@ -304,43 +319,24 @@ html[data-theme="dark"] {
 }
 
 .animate-follow-up-enter {
-  animation: follow-up-enter 300ms var(--app-ease-out) both;
+  animation: follow-up-enter 160ms var(--app-ease-out) both;
 }
 
-.stat-hero {
-  background-color: var(--surface);
-  background-image:
-    radial-gradient(64% 90% at 88% -10%, color-mix(in srgb, var(--brand) 11%, transparent), transparent 62%),
-    radial-gradient(42% 70% at -6% 110%, color-mix(in srgb, var(--brand) 7%, transparent), transparent 52%);
-  box-shadow: var(--app-shadow-card), var(--app-glow-brand);
+/* 点阵底纹：能力画像画布的母题，也用于沉浸模式与空状态 */
+.dot-grid {
+  background-image: radial-gradient(
+    color-mix(in srgb, var(--muted-foreground) 28%, transparent) 0.7px,
+    transparent 0.7px
+  );
+  background-size: 22px 22px;
 }
 
 .profile-graph-canvas {
-  background-color: var(--surface-subtle);
+  background-color: var(--surface-sunken);
   background-image:
-    radial-gradient(circle at 48% 45%, color-mix(in srgb, var(--brand) 14%, transparent), transparent 42%),
+    radial-gradient(circle at 48% 45%, color-mix(in srgb, var(--brand) 10%, transparent), transparent 42%),
     radial-gradient(color-mix(in srgb, var(--muted-foreground) 24%, transparent) 0.7px, transparent 0.7px);
   background-size: 100% 100%, 22px 22px;
-}
-
-.interview-current-x {
-  animation: interview-current-x 1.8s linear infinite;
-  background-image: repeating-linear-gradient(
-    90deg,
-    transparent 0 7px,
-    var(--brand) 7px 13px,
-    transparent 13px 20px
-  );
-}
-
-.interview-current-y {
-  animation: interview-current-y 1.8s linear infinite;
-  background-image: repeating-linear-gradient(
-    180deg,
-    transparent 0 7px,
-    var(--brand) 7px 13px,
-    transparent 13px 20px
-  );
 }
 
 /* ============================================================
@@ -427,4 +423,13 @@ html[data-theme="dark"] {
 
 @media (prefers-reduced-motion: reduce) {
   .sc-reveal { opacity: 1; transform: none; }
+}
+
+/* 宣传页首屏指标块保留品牌渐变底（产品内已改为无框指标条） */
+.showcase-light .stat-hero {
+  background-color: var(--surface);
+  background-image:
+    radial-gradient(64% 90% at 88% -10%, color-mix(in srgb, var(--brand) 11%, transparent), transparent 62%),
+    radial-gradient(42% 70% at -6% 110%, color-mix(in srgb, var(--brand) 7%, transparent), transparent 52%);
+  box-shadow: var(--app-shadow-card), var(--app-glow-brand);
 }

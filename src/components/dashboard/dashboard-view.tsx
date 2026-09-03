@@ -75,7 +75,6 @@ export function DashboardView({
           </ButtonLink>
         }
         description="汇总岗位投递和面试记录，快速判断整体进展、近期变化与下一步重点。"
-        eyebrow="工作台"
         title="数据概览"
       />
 
@@ -94,13 +93,12 @@ export function DashboardView({
             </span>
           )
         }
-        eyebrow="求职进行中"
         label="投递岗位"
         note="按投递或首次发现时间统计"
         tiles={[
-          { icon: CalendarClock, label: "7 天新增", value: stats.recent7Days },
-          { icon: MessagesSquare, label: "真实面试", value: interviewStats.total },
-          { icon: CheckCircle2, label: "Offer", value: stats.stageCounts.offer },
+          { label: "7 天新增", value: stats.recent7Days },
+          { label: "真实面试", value: interviewStats.total },
+          { label: "Offer", value: stats.stageCounts.offer },
         ]}
         value={stats.total}
       />

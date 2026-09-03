@@ -108,7 +108,6 @@ export function InterviewsWorkspaceView({
           />
         }
         description="集中管理面试记录、模拟训练与复盘，并用真实证据持续完善能力画像。"
-        eyebrow="面试训练"
         title="面试工作台"
       />
 
@@ -121,14 +120,12 @@ export function InterviewsWorkspaceView({
             <ArrowRight aria-hidden="true" className="size-4" />
           </ButtonLink>
         }
-        eyebrow="主要训练入口"
         label="真实面试记录"
         note="使用真实岗位描述、已保存简历、历史面试和已确认画像生成针对性问题。"
         tiles={[
-          { icon: Sparkles, label: "模拟训练", value: workspace.completedMockCount },
-          { icon: CheckCircle2, label: "当前 Offer", value: progress.offer },
+          { label: "模拟训练", value: workspace.completedMockCount },
+          { label: "当前 Offer", value: progress.offer },
           {
-            icon: Gauge,
             label: "模拟均分",
             suffix: "分",
             value: Math.round(workspace.averageMockScore ?? 0),

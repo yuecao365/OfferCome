@@ -73,7 +73,6 @@ export function InterviewHistoryView({
           />
         }
         description="查看真实与模拟面试记录，维护面试问题、回答、轮次和状态。"
-        eyebrow="面试训练"
         title="历史面试"
       />
 

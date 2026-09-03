@@ -47,7 +47,6 @@ export function MockInterviewsView({
     <>
       <PageHeader
         description="结合目标岗位描述、所选简历、历史面试和已确认画像生成逐题训练，完成后获得有证据的评分与建议。"
-        eyebrow="面试训练"
         title="AI 模拟面试"
       />
 

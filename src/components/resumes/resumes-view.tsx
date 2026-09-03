@@ -38,7 +38,6 @@ export function ResumesView({
       <PageHeader
         actions={uploadModal}
         description={description}
-        eyebrow="求职管理"
         title="简历中心"
       />
 

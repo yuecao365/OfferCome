@@ -4,28 +4,33 @@ import { cn } from "@/lib/cn";
 
 type BadgeTone = "neutral" | "brand" | "info" | "success" | "warning" | "danger";
 
-const tones: Record<BadgeTone, string> = {
-  neutral: "border-border bg-muted text-muted-foreground",
-  brand: "border-brand/15 bg-accent text-accent-foreground",
-  info: "border-info/20 bg-info-soft text-info-strong",
-  success: "border-success/20 bg-success-soft text-success-strong",
-  warning: "border-warning/25 bg-warning-soft text-warning-strong",
-  danger: "border-danger/20 bg-danger-soft text-danger-strong",
+/** 徽章统一为「灰底 + 彩色圆点」；只有 success 用浅色填充，让 Offer 一类的结果状态更醒目。 */
+const dots: Record<BadgeTone, string> = {
+  neutral: "bg-muted-foreground",
+  brand: "bg-brand",
+  info: "bg-info",
+  success: "bg-success",
+  warning: "bg-warning",
+  danger: "bg-danger",
 };
 
 export function Badge({
   className,
   tone = "neutral",
+  children,
   ...props
 }: HTMLAttributes<HTMLSpanElement> & { tone?: BadgeTone }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 whitespace-nowrap rounded-md border px-2 py-1 text-xs font-semibold leading-none",
-        tones[tone],
+        "inline-flex h-6 items-center gap-1.5 whitespace-nowrap rounded-control border border-border bg-surface px-2 text-xs font-medium text-foreground",
+        tone === "success" && "border-success/25 bg-success-soft text-success-strong",
         className,
       )}
       {...props}
-    />
+    >
+      <span aria-hidden="true" className={cn("size-1.5 shrink-0 rounded-full", dots[tone])} />
+      {children}
+    </span>
   );
 }

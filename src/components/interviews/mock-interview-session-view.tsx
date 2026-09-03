@@ -43,7 +43,6 @@ export function MockInterviewSessionView({
           </>
         }
         description="按顺序完成问题，系统会保存回答并在结束后生成基于证据的评估。"
-        eyebrow="AI 模拟面试"
         title={`${session.companyName} · ${session.jobTitle}`}
       />
       {session.status === "awaiting_jd_review" && session.jobDescriptionReview ? (

@@ -25,7 +25,9 @@ const modalWidths: Record<ModalSize, string> = {
 
 type ModalProps = {
   title: string;
-  triggerLabel?: string;
+  triggerLabel?: ReactNode;
+  /** 图标型触发按钮的无障碍名称与悬停提示。 */
+  triggerTitle?: string;
   triggerClassName?: string;
   size?: ModalSize;
   open?: boolean;
@@ -36,6 +38,7 @@ type ModalProps = {
 export function Modal({
   title,
   triggerLabel,
+  triggerTitle,
   triggerClassName,
   size = "default",
   open: controlledOpen,
@@ -140,12 +143,14 @@ export function Modal({
     <>
       {triggerLabel ? (
         <button
+          aria-label={triggerTitle}
           className={
             triggerClassName ??
             buttonClassName({ variant: "outline", size: "sm" })
           }
           onClick={() => setOpen(true)}
           ref={triggerRef}
+          title={triggerTitle}
           type="button"
         >
           {triggerLabel}
@@ -163,7 +168,7 @@ export function Modal({
         >
           <div
             className={cn(
-              "modal-panel flex max-h-[calc(100dvh-2rem)] w-full flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-overlay sm:max-h-[calc(100dvh-3rem)]",
+              "modal-panel flex max-h-[calc(100dvh-2rem)] w-full flex-col overflow-hidden rounded-overlay border border-border bg-surface shadow-overlay sm:max-h-[calc(100dvh-3rem)]",
               modalWidths[size],
             )}
             ref={dialogRef}
@@ -182,7 +187,7 @@ export function Modal({
                 size="sm"
                 variant="ghost"
               >
-                <X aria-hidden="true" className="size-4" />
+                <X aria-hidden="true" className="size-4" strokeWidth={1.5} />
                 关闭
               </Button>
             </div>

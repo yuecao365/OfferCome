@@ -6,7 +6,7 @@ export function Card({ className, ...props }: HTMLAttributes<HTMLElement>) {
   return (
     <section
       className={cn(
-        "rounded-xl border border-border bg-surface text-foreground shadow-card",
+        "rounded-panel border border-border bg-surface text-foreground shadow-card",
         className,
       )}
       {...props}
@@ -17,7 +17,7 @@ export function Card({ className, ...props }: HTMLAttributes<HTMLElement>) {
 export function CardHeader({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn("flex flex-col gap-1.5 border-b border-border px-5 py-4", className)}
+      className={cn("flex flex-col gap-1 border-b border-border px-5 py-3.5", className)}
       {...props}
     />
   );
@@ -34,7 +34,7 @@ export function CardTitle({ className, ...props }: HTMLAttributes<HTMLHeadingEle
 
 export function CardDescription({ className, ...props }: HTMLAttributes<HTMLParagraphElement>) {
   return (
-    <p className={cn("text-sm leading-6 text-muted-foreground", className)} {...props} />
+    <p className={cn("text-[0.8125rem] leading-5 text-muted-foreground", className)} {...props} />
   );
 }
 

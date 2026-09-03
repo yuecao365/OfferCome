@@ -60,7 +60,6 @@ export function InterviewReviewView({
     <>
       <PageHeader
         description="先选择复盘范围，再聚焦查看某个项目、技术问题或通用问题的历史回答。"
-        eyebrow="面试训练"
         title="面试复盘"
       />
 

@@ -53,7 +53,6 @@ export default async function InterviewPreparePage({
           </ButtonLink>
         }
         description="面试前集中查看这家公司问过的问题和你当前较弱的能力方向。"
-        eyebrow="面试准备"
         title={`${interview.companyName} · ${interview.jobTitle}`}
       />
 
