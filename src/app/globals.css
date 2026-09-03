@@ -110,16 +110,17 @@
   --shadow-card: var(--app-shadow-card);
   --shadow-raised: var(--app-shadow-raised);
   --shadow-overlay: var(--app-shadow-overlay);
-  --shadow-glow-brand: var(--app-glow-brand);
   --ease-app: var(--app-ease-out);
   --ease-move: var(--app-ease-move);
   --ease-drawer: var(--app-ease-drawer);
+  /* 直接写字体名而不用 geist 包的变量：包里的 fallback 以通用 monospace 收尾，
+     会让中文字形先落到系统等宽（宋体）而轮不到下面的中文栈。 */
   --font-sans:
-    var(--font-geist-sans), "PingFang SC", "HarmonyOS Sans SC", "MiSans",
+    "GeistSans", "PingFang SC", "HarmonyOS Sans SC", "MiSans",
     "Microsoft YaHei", ui-sans-serif, system-ui, sans-serif;
   --font-mono:
-    var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, Consolas,
-    "PingFang SC", "Microsoft YaHei", monospace;
+    "GeistMono", "PingFang SC", "HarmonyOS Sans SC", "MiSans",
+    "Microsoft YaHei", ui-monospace, Consolas, monospace;
   /* 圆角只有三档：控件 / 面板 / 浮层 */
   --radius-control: 6px;
   --radius-panel: 10px;
@@ -345,91 +346,72 @@ html[data-theme="dark"] {
    ============================================================ */
 .showcase-light {
   color-scheme: light;
-  --background: #f4f8f6;
-  --foreground: #17211c;
+  --background: #fafafa;
+  --foreground: #18181b;
   --surface: #ffffff;
-  --surface-subtle: #f3f8f5;
+  --surface-subtle: #f6f6f7;
   --surface-raised: #ffffff;
-  --surface-sunken: #e9f0ec;
-  --muted: #e9f0ec;
-  --muted-foreground: #68756e;
-  --border: #e3ebe6;
-  --border-strong: #d5e3dc;
-  --brand: #176b5d;
-  --brand-hover: #11574c;
+  --surface-sunken: #f2f2f3;
+  --muted: #efeff1;
+  --muted-foreground: #6f6f76;
+  --border: rgb(9 9 11 / 0.08);
+  --border-strong: rgb(9 9 11 / 0.15);
+  --brand: #1a7f5f;
+  --brand-hover: #156a4f;
   --brand-foreground: #ffffff;
-  --accent: #e0f2ea;
-  --accent-strong: #cbe6d9;
-  --accent-foreground: #14604f;
-  --ring: #278878;
-  --app-shadow-card: 0 1px 2px rgb(23 33 30 / 0.05), 0 2px 10px -2px rgb(23 33 30 / 0.07);
-  --app-shadow-raised: 0 30px 70px -30px rgb(23 33 30 / 0.28), 0 10px 30px -18px rgb(23 107 93 / 0.15);
-  --app-shadow-overlay: 0 20px 50px rgb(23 33 30 / 0.16);
-  --app-glow-brand: 0 0 28px rgb(23 107 93 / 0.1);
+  --accent: rgb(26 127 95 / 0.1);
+  --accent-strong: rgb(26 127 95 / 0.18);
+  --accent-foreground: #156a4f;
+  --ring: #1a7f5f;
+  --app-shadow-card: 0 1px 2px rgb(9 9 11 / 0.04);
+  --app-shadow-raised: 0 1px 2px rgb(9 9 11 / 0.04), 0 24px 48px -24px rgb(9 9 11 / 0.18);
+  --app-shadow-overlay: 0 16px 40px -16px rgb(9 9 11 / 0.2), 0 0 0 1px rgb(9 9 11 / 0.04);
 }
 
-/* 氛围点阵，取自能力画像画布的底纹 */
-.sc-dots {
-  background-image: radial-gradient(rgb(23 107 93 / 0.1) 1.1px, transparent 1.1px);
-  background-size: 30px 30px;
-  mask-image: radial-gradient(70% 70% at 68% 34%, #000 0%, transparent 78%);
+/* 首屏点阵，取自能力画像画布的底纹，向下渐隐 */
+.showcase-light .sc-dots {
+  background-image: radial-gradient(rgb(9 9 11 / 0.14) 0.8px, transparent 0.8px);
+  background-size: 24px 24px;
+  mask-image: linear-gradient(to bottom, #000 0%, transparent 100%);
 }
 
 @keyframes sc-rise {
-  from { opacity: 0; transform: translateY(18px); }
+  from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes sc-pop {
-  from { opacity: 0; transform: scale(0.82); }
-  to { opacity: 1; transform: scale(1); }
 }
 
 @keyframes sc-draw {
   to { stroke-dashoffset: 0; }
 }
 
-@keyframes sc-drop {
-  from { opacity: 0; transform: translateY(-14px) rotate(-1deg); }
-  to { opacity: 1; transform: translateY(0) rotate(-1deg); }
+@keyframes sc-bar {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
 }
 
-@keyframes sc-float {
-  0%, 100% { transform: translateY(0) rotate(var(--sc-rot, 0deg)); }
-  50% { transform: translateY(-6px) rotate(var(--sc-rot, 0deg)); }
+.sc-rise { animation: sc-rise 520ms var(--app-ease-out) both; }
+.sc-bar {
+  transform-origin: left;
+  animation: sc-bar 700ms var(--app-ease-out) 900ms both;
 }
-
-.sc-rise { animation: sc-rise 640ms var(--app-ease-out) both; }
-.sc-pop { animation: sc-pop 420ms var(--app-ease-out) both; }
-.sc-drop { animation: sc-drop 540ms var(--app-ease-out) both; }
-.sc-float { animation: sc-float 5.2s ease-in-out infinite; }
 
 .sc-chartline path {
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
-  animation: sc-draw 900ms var(--app-ease-out) 700ms both;
+  animation: sc-draw 800ms var(--app-ease-out) 500ms both;
 }
-.sc-chartline circle { animation: sc-pop 360ms var(--app-ease-out) 1450ms both; }
+.sc-chartline circle { animation: sc-rise 300ms var(--app-ease-out) 1200ms both; }
 
 /* 滚动进入视口后显示；reduced-motion 时直接可见 */
 .sc-reveal {
   opacity: 0;
-  transform: translateY(26px);
+  transform: translateY(12px);
   transition:
-    opacity 700ms var(--app-ease-out),
-    transform 700ms var(--app-ease-out);
+    opacity 500ms var(--app-ease-out),
+    transform 500ms var(--app-ease-out);
 }
 .sc-reveal[data-revealed] { opacity: 1; transform: translateY(0); }
 
 @media (prefers-reduced-motion: reduce) {
   .sc-reveal { opacity: 1; transform: none; }
-}
-
-/* 宣传页首屏指标块保留品牌渐变底（产品内已改为无框指标条） */
-.showcase-light .stat-hero {
-  background-color: var(--surface);
-  background-image:
-    radial-gradient(64% 90% at 88% -10%, color-mix(in srgb, var(--brand) 11%, transparent), transparent 62%),
-    radial-gradient(42% 70% at -6% 110%, color-mix(in srgb, var(--brand) 7%, transparent), transparent 52%);
-  box-shadow: var(--app-shadow-card), var(--app-glow-brand);
 }

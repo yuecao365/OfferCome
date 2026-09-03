@@ -1,15 +1,6 @@
 "use client";
 
-import {
-  ArrowRight,
-  ArrowUpRight,
-  BookOpenCheck,
-  Check,
-  Database,
-  ExternalLink,
-  Inbox,
-  ShieldCheck,
-} from "lucide-react";
+import { ArrowRight, ArrowUpRight, Database, ShieldCheck } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -31,28 +22,20 @@ type ShowcaseCopy = {
   trustPoints: readonly [string, string, string];
   loopSteps: readonly [string, string, string, string];
   loopNote: string;
-  collage: {
+  frame: {
     address: string;
-    eyebrow: string;
-    mainLabel: string;
-    growBadge: string;
-    tiles: readonly [string, string, string];
-    toast: ReactNode;
-    graphTitle: string;
-    graphNodeA: string;
-    graphNodeB: string;
-    insight: string;
     scoreTitle: string;
-    scoreVerdict: string;
-    scoreDetail: readonly [string, string];
+    scoreDetail: string;
+    syncToast: string;
   };
   highlightsEyebrow: string;
   highlightsTitle: readonly [string, string];
   highlightsDescription: string;
   features: readonly [Feature, Feature, Feature, Feature, Feature];
+  privacyEyebrow: string;
   privacy: readonly [Feature, Feature];
-  ctaEyebrow: string;
   ctaTitle: string;
+  ctaDescription: string;
   enterExperience: string;
   viewSource: string;
   footerNote: string;
@@ -65,33 +48,20 @@ const copy = {
     heroTitle: ["每一场面试，", "都算数"],
     heroDescription: (
       <>
-        开源 · 数据全部留在本机。OfferLai 把<b>投递、面试、复盘</b>
-        沉淀成你的<b>能力画像</b>，让下一场，永远比上一场准备得更好。
+        开源，数据全部留在本机。OfferLai 把<b>投递、面试、复盘</b>
+        沉淀成你的<b>能力画像</b>，让下一场永远比上一场准备得更好。
       </>
     ),
     experienceProduct: "在线体验真实产品",
     localDeploy: "本地部署",
     trustPoints: ["数据默认留在本机", "在线体验数据只存你的浏览器", "敏感自动化仅本地运行"],
     loopSteps: ["投递", "面试", "复盘", "画像"],
-    loopNote: "画像反过来决定下一场模拟面试的出题重点 —— 这是一个闭环",
-    collage: {
-      address: "localhost:3000 · OfferLai 数据概览",
-      eyebrow: "求职进行中",
-      mainLabel: "投递岗位",
-      growBadge: "最近 7 天 +6",
-      tiles: ["7 天新增", "真实面试", "Offer"],
-      toast: (
-        <>
-          已同步 3 条新投递 <em>· boss_zhipin</em>
-        </>
-      ),
-      graphTitle: "能力画像",
-      graphNodeA: "技术基础",
-      graphNodeB: "项目表达",
-      insight: "↑ 技术基础较稳定 · 证据 3 场 / 4 条",
+    loopNote: "画像反过来决定下一场模拟面试的出题重点，这是一个闭环。",
+    frame: {
+      address: "localhost:3000 / 数据概览",
       scoreTitle: "AI 模拟面试 · 报告",
-      scoreVerdict: "表现良好",
-      scoreDetail: ["逐题证据评分", "已汇入能力画像"],
+      scoreDetail: "逐题证据评分，已汇入能力画像",
+      syncToast: "已同步 3 条新投递 · boss_zhipin",
     },
     highlightsEyebrow: "一个闭环，五个环节",
     highlightsTitle: ["不只是记录，", "而是积累可复用的求职经验。"],
@@ -124,6 +94,7 @@ const copy = {
           "第一场面试后就给出「继续保持」与「值得再练」，能力归为内容力、证据力与表达力三组，每条洞察都由你回答中的原文支撑，弱项可一键生成针对性训练。",
       },
     ],
+    privacyEyebrow: "边界",
     privacy: [
       {
         title: "数据属于用户，而不是平台",
@@ -136,11 +107,11 @@ const copy = {
           "Boss 登录、扫码、验证码与安全校验始终由用户本人完成；系统只读取已有记录，不自动投递，也不发送消息。",
       },
     ],
-    ctaEyebrow: "开始体验",
     ctaTitle: "先在线浏览完整产品，再把数据留在自己的设备上。",
+    ctaDescription: "在线体验的数据只保存在你的浏览器，AI 使用你自己的 API Key，服务器不存储。",
     enterExperience: "进入在线体验",
     viewSource: "查看源码",
-    footerNote: "在线体验的数据只保存在你的浏览器，AI 使用你自己的 API Key，服务器不存储。",
+    footerNote: "Local-first career workspace",
   },
   en: {
     navigationLabel: "Showcase navigation",
@@ -149,7 +120,7 @@ const copy = {
     heroDescription: (
       <>
         Open source, local-first. OfferLai turns <b>applications, interviews
-        and reviews</b> into a living <b>capability profile</b> — so every next
+        and reviews</b> into a living <b>capability profile</b>, so every next
         interview starts better prepared than the last.
       </>
     ),
@@ -162,25 +133,12 @@ const copy = {
     ],
     loopSteps: ["Apply", "Interview", "Review", "Profile"],
     loopNote:
-      "The profile then decides what your next mock interview drills — a closed loop.",
-    collage: {
-      address: "localhost:3000 · OfferLai dashboard",
-      eyebrow: "JOB SEARCH IN PROGRESS",
-      mainLabel: "applications",
-      growBadge: "+6 in 7 days",
-      tiles: ["New in 7 days", "Real interviews", "Offers"],
-      toast: (
-        <>
-          3 new applications synced <em>· boss_zhipin</em>
-        </>
-      ),
-      graphTitle: "Capability profile",
-      graphNodeA: "Fundamentals",
-      graphNodeB: "Storytelling",
-      insight: "↑ Solid fundamentals · 3 interviews / 4 pieces of evidence",
-      scoreTitle: "MOCK INTERVIEW · REPORT",
-      scoreVerdict: "Strong performance",
-      scoreDetail: ["Scored per question", "Merged into your profile"],
+      "The profile then decides what your next mock interview drills. A closed loop.",
+    frame: {
+      address: "localhost:3000 / dashboard",
+      scoreTitle: "Mock interview · report",
+      scoreDetail: "Scored per question, merged into your profile",
+      syncToast: "3 new applications synced · boss_zhipin",
     },
     highlightsEyebrow: "One loop, five stages",
     highlightsTitle: [
@@ -208,7 +166,7 @@ const copy = {
       {
         title: "Just drop your interview in",
         description:
-          "Audio, transcripts, review notes, PDF or Word — OfferLai works out the material type, which voice is yours, and the company, role and round, then hands you an editable draft.",
+          "Audio, transcripts, review notes, PDF or Word. OfferLai works out the material type, which voice is yours, and the company, role and round, then hands you an editable draft.",
       },
       {
         title: "A capability profile that coaches you",
@@ -216,6 +174,7 @@ const copy = {
           "From your very first interview you get what to keep doing and what to practise, grouped into content, evidence, and delivery. Every insight is backed by your own words, and any weak spot turns into targeted practice with one click.",
       },
     ],
+    privacyEyebrow: "Boundaries",
     privacy: [
       {
         title: "Your data belongs to you, not the platform",
@@ -228,24 +187,23 @@ const copy = {
           "You complete Boss login, QR codes, CAPTCHAs, and security checks yourself. OfferLai reads existing records only; it never applies or sends messages for you.",
       },
     ],
-    ctaEyebrow: "Get started",
     ctaTitle:
       "Explore the complete product online, then keep your own data on your device.",
+    ctaDescription:
+      "The online trial stores data only in your browser and uses your own API key; the server keeps nothing.",
     enterExperience: "Open live preview",
     viewSource: "View source",
-    footerNote: "The online trial stores data only in your browser and uses your own API key; the server keeps nothing.",
+    footerNote: "Local-first career workspace",
   },
 } satisfies Record<Language, ShowcaseCopy>;
 
-/** 功能区排版：三大（配截图）+ 两小（纯文字卡），顺序沿闭环叙事。 */
+/** 功能区排版：三大（配截图）+ 两小（纯文字），顺序沿闭环叙事。 */
 const featureLayout = [
   { kind: "big", index: 0, image: "/showcase/applications.png" },
   { kind: "compact", indexes: [1, 3] },
   { kind: "big", index: 2, image: "/showcase/mock-interview.png" },
   { kind: "big", index: 4, image: "/showcase/ability-profile.png" },
 ] as const;
-
-const compactIcons = [BookOpenCheck, Inbox] as const;
 
 function Reveal({
   children,
@@ -287,132 +245,71 @@ function Reveal({
   );
 }
 
-/** 主视觉右侧的产品拼贴：真实 UI 的手绘复刻，数字与 demo 站一致。 */
-function HeroCollage({ content }: { content: ShowcaseCopy["collage"] }) {
+/** 浏览器窗框：发丝线 + 三个单色圆点 + 等宽地址，里面放真实产品截图。 */
+function BrowserFrame({
+  address,
+  children,
+  className,
+}: {
+  address: string;
+  children: ReactNode;
+  className?: string;
+}) {
   return (
-    <div aria-hidden="true" className="relative hidden min-h-[560px] lg:block">
-      {/* 主窗：数据概览 */}
-      <div className="sc-rise absolute left-10 top-20 w-[560px] rounded-2xl border border-border bg-surface shadow-raised [animation-delay:250ms]">
-        <div className="flex items-center gap-2 border-b border-border px-5 py-3.5">
-          <span className="size-2.5 rounded-full bg-[#f26d5f]" />
-          <span className="size-2.5 rounded-full bg-[#f2b63c]" />
-          <span className="size-2.5 rounded-full bg-[#38b26a]" />
-          <span className="ml-2 text-xs font-medium tracking-wide text-muted-foreground">
-            {content.address}
-          </span>
-        </div>
-        <div className="stat-hero rounded-b-2xl p-7">
-          <p className="text-xs font-bold tracking-[0.14em] text-brand">
-            {content.eyebrow}
-          </p>
-          <p className="mt-2 flex items-baseline gap-3">
-            <span className="text-[68px] font-extrabold leading-none tracking-[-0.04em] tabular-nums">
-              16
-            </span>
-            <span className="text-sm font-medium text-muted-foreground">
-              {content.mainLabel}
-            </span>
-          </p>
-          <span className="mt-3 inline-flex items-center gap-1 rounded-full bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground">
-            <ArrowUpRight aria-hidden="true" className="size-3.5" />
-            {content.growBadge}
-          </span>
-          <div className="mt-5 flex gap-2.5">
-            {([
-              [content.tiles[0], "6", false],
-              [content.tiles[1], "2", false],
-              [content.tiles[2], "1", true],
-            ] as const).map(([label, value, highlighted]) => (
-              <div
-                className={cn(
-                  "flex-1 rounded-xl border p-3",
-                  highlighted
-                    ? "border-accent-strong bg-accent/45"
-                    : "border-border bg-surface/75",
-                )}
-                key={label}
-              >
-                <p className="text-[11px] font-medium text-muted-foreground">{label}</p>
-                <p
-                  className={cn(
-                    "mt-1 text-2xl font-bold leading-none tabular-nums",
-                    highlighted && "text-brand",
-                  )}
-                >
-                  {value}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
+    <div
+      className={cn(
+        "overflow-hidden rounded-panel border border-border bg-surface shadow-raised",
+        className,
+      )}
+    >
+      <div className="flex items-center gap-1.5 border-b border-border bg-surface-subtle px-3.5 py-2.5">
+        <span className="size-2 rounded-full bg-border-strong" />
+        <span className="size-2 rounded-full bg-border-strong" />
+        <span className="size-2 rounded-full bg-border-strong" />
+        <span className="ml-2 font-mono text-[11px] text-muted-foreground">{address}</span>
       </div>
+      {children}
+    </div>
+  );
+}
 
-      {/* 浮卡：能力画像星座 */}
-      <div className="sc-pop sc-float absolute -right-2 top-2 w-[280px] rounded-2xl border border-border bg-surface p-5 shadow-raised [--sc-rot:-1.8deg] [animation-delay:650ms,0ms]">
-        <p className="text-xs font-bold tracking-[0.1em] text-muted-foreground">
-          {content.graphTitle}
+/** 主视觉：真实的数据概览截图 + 一张报告小卡 + 一条同步提示。 */
+function HeroVisual({ frame }: { frame: ShowcaseCopy["frame"] }) {
+  return (
+    <div aria-hidden="true" className="relative hidden lg:block">
+      <BrowserFrame address={frame.address} className="sc-rise [animation-delay:200ms]">
+        <Image
+          alt=""
+          className="block h-auto w-full"
+          height={950}
+          priority
+          sizes="(max-width: 1280px) 60vw, 720px"
+          src="/showcase/dashboard.png"
+          width={1920}
+        />
+      </BrowserFrame>
+
+      <div className="sc-rise absolute -left-10 bottom-10 w-[272px] rounded-panel border border-border bg-surface p-4 shadow-overlay [animation-delay:520ms]">
+        <p className="text-xs text-muted-foreground">{frame.scoreTitle}</p>
+        <p className="mt-1 flex items-baseline gap-1">
+          <span className="text-4xl font-medium tracking-tight tabular-nums text-foreground">84</span>
+          <span className="text-xs text-muted-foreground">/ 100</span>
         </p>
-        <div className="mt-3 h-[136px] overflow-hidden rounded-xl bg-surface-subtle">
-          <svg className="size-full" viewBox="0 0 240 136">
-            <line stroke="#b9d8cc" strokeWidth="1.6" x1="48" x2="108" y1="88" y2="40" />
-            <line stroke="#b9d8cc" strokeWidth="1.6" x1="108" x2="180" y1="40" y2="70" />
-            <line stroke="#cfe2d9" strokeWidth="1.4" x1="48" x2="122" y1="88" y2="106" />
-            <line stroke="#cfe2d9" strokeWidth="1.4" x1="180" x2="122" y1="70" y2="106" />
-            <line stroke="#d9e8e0" strokeWidth="1.2" x1="108" x2="206" y1="40" y2="24" />
-            <circle cx="108" cy="40" fill="#34d399" opacity=".92" r="12" />
-            <circle cx="108" cy="40" fill="none" opacity=".4" r="18" stroke="#34d399" strokeWidth="1.4" />
-            <circle cx="48" cy="88" fill="#176b5d" opacity=".85" r="8" />
-            <circle cx="180" cy="70" fill="#5cc4a2" r="10" />
-            <circle cx="122" cy="106" fill="#9ed3bd" r="6" />
-            <circle cx="206" cy="24" fill="#bfe0d1" r="4.5" />
-            <text fill="#3d5148" fontSize="10" fontWeight="600" textAnchor="middle" x="108" y="68">
-              {content.graphNodeA}
-            </text>
-            <text fill="#7d8b84" fontSize="9.5" textAnchor="middle" x="180" y="92">
-              {content.graphNodeB}
-            </text>
-          </svg>
+        <div className="mt-3 h-1 overflow-hidden rounded-full bg-muted">
+          <div className="sc-bar h-full rounded-full bg-brand" style={{ width: "84%" }} />
         </div>
-        <span className="mt-3 inline-flex rounded-full border border-accent-strong bg-accent/45 px-3 py-1.5 text-xs font-semibold text-accent-foreground">
-          {content.insight}
-        </span>
+        <p className="mt-2.5 text-xs leading-5 text-muted-foreground">{frame.scoreDetail}</p>
       </div>
 
-      {/* 浮卡：模拟面试评分环 */}
-      <div className="sc-pop sc-float absolute bottom-6 left-2 w-[300px] rounded-2xl border border-border bg-surface p-5 shadow-raised [--sc-rot:1.6deg] [animation-delay:850ms,2.6s]">
-        <p className="whitespace-nowrap text-xs font-bold tracking-[0.1em] text-muted-foreground">
-          {content.scoreTitle}
-        </p>
-        <div className="mt-3.5 flex items-center gap-4">
-          <div className="relative size-[78px] shrink-0 rounded-full bg-[conic-gradient(var(--brand)_0_302deg,var(--muted)_302deg_360deg)]">
-            <div className="absolute inset-[8px] rounded-full bg-surface" />
-            <b className="absolute inset-0 flex items-center justify-center text-2xl font-extrabold tabular-nums">
-              84
-            </b>
-          </div>
-          <div>
-            <p className="whitespace-nowrap text-sm font-bold">{content.scoreVerdict}</p>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              {content.scoreDetail[0]}
-              <br />
-              {content.scoreDetail[1]}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* 浮标：同步 toast */}
-      <div className="sc-drop absolute left-16 top-11 z-10 flex rotate-[-1deg] items-center gap-2.5 rounded-xl bg-[#122b23] px-4 py-2.5 text-[13px] font-medium text-[#d9efe6] shadow-overlay [animation-delay:1200ms]">
-        <span className="flex size-4 items-center justify-center rounded-full bg-[#34d399]">
-          <Check aria-hidden="true" className="size-2.5 stroke-[3.4] text-[#0b2a20]" />
-        </span>
-        <span className="[&_em]:not-italic [&_em]:text-[#7fb7a3]">{content.toast}</span>
+      <div className="sc-rise absolute -top-4 right-6 inline-flex items-center gap-2 rounded-control border border-border bg-surface px-3 py-2 font-mono text-[11px] text-foreground shadow-raised [animation-delay:720ms]">
+        <span className="size-1.5 rounded-full bg-brand" />
+        {frame.syncToast}
       </div>
     </div>
   );
 }
 
-function LoopChips({
+function LoopLine({
   steps,
   note,
 }: {
@@ -420,21 +317,47 @@ function LoopChips({
   note: string;
 }) {
   return (
-    <div>
-      <div className="flex flex-wrap items-center gap-y-3">
-        {steps.map((step, index) => (
-          <span className="sc-pop flex items-center" key={step} style={{ animationDelay: `${900 + index * 110}ms` }}>
-            <span className="rounded-xl border-[1.5px] border-border-strong bg-surface px-4 py-2 text-[15px] font-semibold shadow-card">
+    <div className="sc-rise [animation-delay:560ms]">
+      <ol className="flex flex-wrap items-center gap-x-2 gap-y-2 font-mono text-[13px] text-muted-foreground">
+        {steps.map((step) => (
+          <li className="flex items-center gap-2" key={step}>
+            <span className="rounded-control border border-border bg-surface px-2.5 py-1 text-foreground">
               {step}
             </span>
-            <ArrowRight aria-hidden="true" className="mx-1.5 size-4 text-border-strong" />
-          </span>
+            <ArrowRight aria-hidden="true" className="size-3.5 text-border-strong" strokeWidth={1.5} />
+          </li>
         ))}
-        <span className="sc-pop rounded-xl bg-brand px-5 py-2.5 text-[15px] font-extrabold tracking-wide text-brand-foreground shadow-glow-brand [animation-delay:1400ms]">
+        <li className="rounded-control bg-brand px-2.5 py-1 font-medium text-brand-foreground">
           Offer
-        </span>
+        </li>
+      </ol>
+      <p className="mt-3 text-xs text-muted-foreground">{note}</p>
+    </div>
+  );
+}
+
+function SectionHeading({
+  eyebrow,
+  title,
+  description,
+}: {
+  eyebrow: string;
+  title: ReactNode;
+  description?: string;
+}) {
+  return (
+    <div className="grid gap-6 border-b border-border pb-10 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:items-end">
+      <div>
+        <p className="font-mono text-xs text-muted-foreground">{eyebrow}</p>
+        <h2 className="mt-3 text-[28px] font-semibold leading-tight tracking-tight sm:text-4xl">
+          {title}
+        </h2>
       </div>
-      <p className="mt-3.5 text-xs tracking-wide text-muted-foreground">{note}</p>
+      {description ? (
+        <p className="max-w-xl text-[15px] leading-7 text-muted-foreground lg:justify-self-end">
+          {description}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -462,37 +385,30 @@ export function ShowcaseContent({
         displayFontVariable,
       )}
     >
-      {/* 氛围层 */}
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-60 -top-72 h-[860px] w-[1000px] bg-[radial-gradient(closest-side,rgb(23_107_93/0.1),transparent_70%)]" />
-        <div className="absolute -bottom-96 -right-72 h-[900px] w-[1000px] bg-[radial-gradient(closest-side,rgb(52_211_153/0.12),transparent_70%)]" />
-        <div className="sc-dots absolute inset-0" />
-      </div>
+      <div aria-hidden="true" className="sc-dots pointer-events-none absolute inset-x-0 top-0 h-[720px]" />
 
-      <header className="sticky top-0 z-40 border-b border-border/70 bg-background/85 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 sm:px-8">
-          <Link className="flex items-center gap-3" href="/showcase">
-            <span className="flex size-9 items-center justify-center rounded-xl bg-brand text-sm font-bold text-brand-foreground">
-              OL
-            </span>
-            <span className="font-bold tracking-tight">OfferLai</span>
+      <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur">
+        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-5 sm:px-8">
+          <Link className="flex items-center gap-1.5 text-sm font-semibold tracking-tight" href="/showcase">
+            OfferLai
+            <span aria-hidden="true" className="size-1.5 rounded-full bg-brand" />
           </Link>
-
           <nav aria-label={content.navigationLabel} className="flex items-center gap-2">
             <div
               aria-label={language === "zh" ? "切换展示语言" : "Change showcase language"}
-              className="flex rounded-lg border border-border-strong bg-surface-subtle p-0.5"
+              className="inline-flex items-center gap-0.5 rounded-control bg-surface-sunken p-0.5"
               role="group"
             >
               {(["zh", "en"] as const).map((option) => (
                 <button
                   aria-pressed={language === option}
                   className={cn(
-                    "flex h-7 min-w-8 items-center justify-center rounded-md px-2 text-xs font-semibold transition-colors",
+                    "inline-flex h-7 min-w-8 items-center justify-center rounded-[4px] px-2 text-xs transition-colors duration-150",
                     language === option
-                      ? "bg-surface text-foreground shadow-card"
+                      ? "bg-surface font-medium text-foreground shadow-card"
                       : "text-muted-foreground hover:text-foreground",
                   )}
+                  data-shot={option === "en" ? "lang-en" : undefined}
                   key={option}
                   onClick={() => setLanguage(option)}
                   type="button"
@@ -502,34 +418,37 @@ export function ShowcaseContent({
               ))}
             </div>
             <Link
-              className="hidden h-9 items-center gap-2 rounded-lg px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-surface-subtle hover:text-foreground md:inline-flex"
+              className={buttonClassName({ variant: "ghost", size: "md", className: "hidden md:inline-flex" })}
               href="https://github.com/yuecao365/OfferLai"
             >
               GitHub
-              <ExternalLink aria-hidden="true" className="size-3.5" />
+              <ArrowUpRight aria-hidden="true" className="size-3.5" strokeWidth={1.5} />
             </Link>
-            <Link className={buttonClassName({ size: "sm", className: "h-9 px-3.5" })} href="/homepage">
+            <Link className={buttonClassName()} href="/homepage">
               {content.enterProduct}
-              <ArrowRight aria-hidden="true" className="hidden size-4 sm:block" />
+              <ArrowRight aria-hidden="true" className="size-3.5" strokeWidth={1.5} />
             </Link>
           </nav>
         </div>
       </header>
 
       {/* ============ Hero ============ */}
-      <section className="relative mx-auto grid max-w-7xl gap-14 px-5 pb-24 pt-16 sm:px-8 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] lg:items-center lg:pb-28 lg:pt-20">
+      <section
+        className="relative mx-auto grid max-w-6xl gap-14 px-5 pb-24 pt-16 sm:px-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-center lg:pb-32 lg:pt-24"
+        data-shot="hero"
+      >
         <div>
           <h1
-            className="text-[56px] font-black leading-[1.14] sm:text-[72px] xl:text-[84px]"
+            className="text-[52px] font-black leading-[1.12] tracking-tight sm:text-[64px] xl:text-[72px]"
             style={{ fontFamily: "var(--font-sc-display), var(--font-sans, inherit)" }}
           >
             <span className="sc-rise block">{content.heroTitle[0]}</span>
-            <span className="sc-rise relative inline-block [animation-delay:120ms]">
+            <span className="sc-rise relative inline-block [animation-delay:100ms]">
               {content.heroTitle[1]}
               <span className="text-brand">。</span>
               <svg
                 aria-hidden="true"
-                className="sc-chartline absolute -bottom-5 left-1 right-0 h-8 w-[103%]"
+                className="sc-chartline absolute -bottom-4 left-1 h-6 w-[102%]"
                 fill="none"
                 preserveAspectRatio="none"
                 viewBox="0 0 360 40"
@@ -537,90 +456,86 @@ export function ShowcaseContent({
                 <path
                   d="M4 32 L96 26 L188 29 L286 10 L340 14"
                   pathLength="1"
-                  stroke="#34d399"
+                  stroke="var(--brand)"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  strokeWidth="5"
+                  strokeWidth="4"
                 />
-                <circle cx="340" cy="14" fill="#176b5d" r="7.5" stroke="#f4f8f6" strokeWidth="3.5" />
+                <circle cx="340" cy="14" fill="var(--brand)" r="6" stroke="var(--background)" strokeWidth="3" />
               </svg>
             </span>
           </h1>
 
-          <p className="sc-rise mt-12 max-w-xl text-lg leading-9 text-muted-foreground [animation-delay:240ms] [&_b]:font-bold [&_b]:text-brand">
+          <p className="sc-rise mt-10 max-w-lg text-[17px] leading-8 text-muted-foreground [animation-delay:220ms] [&_b]:font-medium [&_b]:text-foreground">
             {content.heroDescription}
           </p>
 
-          <div className="sc-rise mt-9 flex flex-wrap items-center gap-3 [animation-delay:360ms]">
-            <Link className={buttonClassName({ className: "h-11 px-6" })} href="/homepage">
+          <div className="sc-rise mt-8 flex flex-wrap items-center gap-2.5 [animation-delay:340ms]">
+            <Link className={buttonClassName({ className: "h-10 px-5 text-sm" })} href="/homepage">
               {content.experienceProduct}
-              <ArrowRight aria-hidden="true" className="size-4" />
+              <ArrowRight aria-hidden="true" className="size-4" strokeWidth={1.5} />
             </Link>
             <Link
-              className={buttonClassName({ variant: "outline", className: "h-11 px-6" })}
+              className={buttonClassName({ variant: "outline", className: "h-10 px-5 text-sm" })}
               href={localDeployHref}
             >
               {content.localDeploy}
-              <ExternalLink aria-hidden="true" className="size-4" />
+              <ArrowUpRight aria-hidden="true" className="size-4" strokeWidth={1.5} />
             </Link>
           </div>
 
-          <div className="sc-rise mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-muted-foreground [animation-delay:480ms] sm:text-[13px]">
-            <span className="inline-flex items-center gap-1.5">
-              <ShieldCheck aria-hidden="true" className="size-4 text-brand" />
-              {content.trustPoints[0]}
-            </span>
-            <span>{content.trustPoints[1]}</span>
-            <span>{content.trustPoints[2]}</span>
-          </div>
+          <ul className="sc-rise mt-6 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted-foreground [animation-delay:440ms]">
+            {content.trustPoints.map((point, index) => (
+              <li className="inline-flex items-center gap-1.5" key={point}>
+                {index === 0 ? (
+                  <ShieldCheck aria-hidden="true" className="size-3.5 text-brand" strokeWidth={1.5} />
+                ) : (
+                  <span aria-hidden="true" className="size-1 rounded-full bg-border-strong" />
+                )}
+                {point}
+              </li>
+            ))}
+          </ul>
 
-          <div className="mt-12">
-            <LoopChips note={content.loopNote} steps={content.loopSteps} />
+          <div className="mt-12 border-t border-border pt-8">
+            <LoopLine note={content.loopNote} steps={content.loopSteps} />
           </div>
         </div>
 
-        <HeroCollage content={content.collage} />
+        <HeroVisual frame={content.frame} />
       </section>
 
       {/* ============ 功能：一个闭环，五个环节 ============ */}
-      <section className="relative mx-auto max-w-7xl px-5 pb-20 sm:px-8 lg:pb-28">
+      <section className="relative mx-auto max-w-6xl px-5 pb-24 sm:px-8 lg:pb-32">
         <Reveal>
-          <div className="grid gap-8 border-b border-border pb-12 lg:grid-cols-[minmax(0,0.72fr)_minmax(0,1.28fr)] lg:items-end">
-            <div>
-              <p className="text-sm font-bold text-brand">{content.highlightsEyebrow}</p>
-              <h2 className="mt-3 text-3xl font-bold leading-tight tracking-tight sm:text-4xl">
-                <span>{content.highlightsTitle[0]}</span>
+          <SectionHeading
+            description={content.highlightsDescription}
+            eyebrow={content.highlightsEyebrow}
+            title={
+              <>
+                {content.highlightsTitle[0]}
                 <br />
-                <span>{content.highlightsTitle[1]}</span>
-              </h2>
-            </div>
-            <p className="max-w-2xl text-base leading-8 text-muted-foreground lg:justify-self-end">
-              {content.highlightsDescription}
-            </p>
-          </div>
+                {content.highlightsTitle[1]}
+              </>
+            }
+          />
         </Reveal>
 
-        <div className="mt-16 grid gap-16 lg:gap-24">
+        <div className="mt-16 grid gap-20 lg:gap-28">
           {featureLayout.map((row, rowIndex) => {
             if (row.kind === "compact") {
               return (
-                <div className="grid gap-5 md:grid-cols-2" key="compact">
+                <div className="grid gap-px overflow-hidden rounded-panel border border-border bg-border md:grid-cols-2" key="compact">
                   {row.indexes.map((featureIndex, position) => {
                     const feature = content.features[featureIndex];
-                    const Icon = compactIcons[position];
                     return (
-                      <Reveal delay={position * 120} key={feature.title}>
-                        <article className="group h-full rounded-2xl border border-border bg-surface p-7 shadow-card transition-[border-color,box-shadow,transform] duration-200 ease-app hover:-translate-y-1 hover:border-brand/30 hover:shadow-raised">
-                          <div className="flex items-center justify-between">
-                            <span className="flex size-10 items-center justify-center rounded-xl bg-accent text-accent-foreground">
-                              <Icon aria-hidden="true" className="size-5" />
-                            </span>
-                            <span className="text-xs font-bold text-muted-foreground">
-                              {String(rowIndex + position + 1).padStart(2, "0")}
-                            </span>
-                          </div>
-                          <h3 className="mt-5 text-lg font-bold">{feature.title}</h3>
-                          <p className="mt-3 text-sm leading-7 text-muted-foreground">
+                      <Reveal className="bg-surface" delay={position * 100} key={feature.title}>
+                        <article className="h-full p-7">
+                          <span className="font-mono text-xs text-muted-foreground">
+                            {String(rowIndex + position + 1).padStart(2, "0")}
+                          </span>
+                          <h3 className="mt-4 text-lg font-semibold tracking-tight">{feature.title}</h3>
+                          <p className="mt-3 text-[15px] leading-7 text-muted-foreground">
                             {feature.description}
                           </p>
                         </article>
@@ -636,29 +551,22 @@ export function ShowcaseContent({
             const reversed = displayNumber % 2 === 0;
             return (
               <Reveal key={feature.title}>
-                <div className="grid items-center gap-8 lg:grid-cols-2 lg:gap-14">
+                <div className="grid items-center gap-8 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-14">
                   <div className={cn(reversed && "lg:order-2")}>
-                    <span className="text-xs font-bold tracking-[0.18em] text-brand">
+                    <span className="font-mono text-xs text-muted-foreground">
                       {String(displayNumber).padStart(2, "0")}
                     </span>
-                    <h3 className="mt-3 text-2xl font-bold tracking-tight sm:text-[28px]">
-                      {feature.title}
-                    </h3>
-                    <p className="mt-4 max-w-xl text-[15px] leading-8 text-muted-foreground">
+                    <h3 className="mt-4 text-2xl font-semibold tracking-tight">{feature.title}</h3>
+                    <p className="mt-4 max-w-md text-[15px] leading-7 text-muted-foreground">
                       {feature.description}
                     </p>
                   </div>
-                  <div
-                    className={cn(
-                      "group overflow-hidden rounded-2xl border border-border bg-surface-sunken shadow-raised",
-                      reversed && "lg:order-1",
-                    )}
-                  >
+                  <div className={cn("overflow-hidden rounded-panel border border-border bg-surface-sunken shadow-raised", reversed && "lg:order-1")}>
                     <Image
                       alt={feature.title}
-                      className="h-auto w-full transition-transform duration-500 ease-app group-hover:scale-[1.02]"
+                      className="block h-auto w-full"
                       height={950}
-                      sizes="(max-width: 1024px) 100vw, 640px"
+                      sizes="(max-width: 1024px) 100vw, 660px"
                       src={row.image}
                       width={1920}
                     />
@@ -670,61 +578,64 @@ export function ShowcaseContent({
         </div>
       </section>
 
-      {/* ============ 隐私 ============ */}
-      <section className="relative mx-auto max-w-7xl px-5 pb-20 sm:px-8 lg:pb-24">
-        <div className="grid gap-5 md:grid-cols-2">
-          {content.privacy.map((item, index) => {
-            const Icon = index === 0 ? Database : ShieldCheck;
-            return (
-              <Reveal delay={index * 120} key={item.title}>
-                <div className="flex h-full gap-4 rounded-2xl border border-border bg-surface p-7 shadow-card">
-                  <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent text-accent-foreground">
-                    <Icon aria-hidden="true" className="size-5" />
-                  </span>
+      {/* ============ 边界 ============ */}
+      <section className="relative mx-auto max-w-6xl px-5 pb-24 sm:px-8 lg:pb-32">
+        <Reveal>
+          <p className="font-mono text-xs text-muted-foreground">{content.privacyEyebrow}</p>
+          <div className="mt-4 grid gap-10 border-t border-border pt-8 md:grid-cols-2">
+            {content.privacy.map((item, index) => {
+              const Icon = index === 0 ? Database : ShieldCheck;
+              return (
+                <div className="flex gap-4" key={item.title}>
+                  <Icon aria-hidden="true" className="mt-1 size-4 shrink-0 text-muted-foreground" strokeWidth={1.5} />
                   <div>
-                    <h2 className="font-bold">{item.title}</h2>
-                    <p className="mt-2 max-w-xl text-sm leading-7 text-muted-foreground">
+                    <h2 className="text-base font-semibold tracking-tight">{item.title}</h2>
+                    <p className="mt-2 max-w-md text-[15px] leading-7 text-muted-foreground">
                       {item.description}
                     </p>
                   </div>
                 </div>
-              </Reveal>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        </Reveal>
       </section>
 
       {/* ============ CTA ============ */}
-      <section className="relative mx-auto max-w-7xl px-5 pb-24 sm:px-8">
+      <section className="relative mx-auto max-w-6xl px-5 pb-24 sm:px-8">
         <Reveal>
-          <div className="stat-hero flex flex-col gap-8 rounded-3xl border border-border p-10 sm:p-14 lg:flex-row lg:items-end lg:justify-between">
+          <div className="dot-grid flex flex-col gap-8 rounded-panel border border-border bg-surface p-8 sm:p-12 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="text-sm font-bold text-brand">{content.ctaEyebrow}</p>
-              <h2 className="mt-3 max-w-2xl text-3xl font-bold leading-tight tracking-tight">
+              <h2 className="max-w-2xl text-2xl font-semibold leading-snug tracking-tight sm:text-3xl">
                 {content.ctaTitle}
               </h2>
+              <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground">
+                {content.ctaDescription}
+              </p>
             </div>
-            <div className="flex shrink-0 flex-wrap gap-3">
-              <Link className={buttonClassName({ className: "h-11 px-6" })} href="/homepage">
+            <div className="flex shrink-0 flex-wrap gap-2.5">
+              <Link className={buttonClassName({ className: "h-10 px-5 text-sm" })} href="/homepage">
                 {content.enterExperience}
-                <ArrowRight aria-hidden="true" className="size-4" />
+                <ArrowRight aria-hidden="true" className="size-4" strokeWidth={1.5} />
               </Link>
               <Link
-                className={buttonClassName({ variant: "outline", className: "h-11 px-6" })}
+                className={buttonClassName({ variant: "outline", className: "h-10 px-5 text-sm" })}
                 href="https://github.com/yuecao365/OfferLai"
               >
                 {content.viewSource}
-                <ExternalLink aria-hidden="true" className="size-4" />
+                <ArrowUpRight aria-hidden="true" className="size-4" strokeWidth={1.5} />
               </Link>
             </div>
           </div>
         </Reveal>
       </section>
 
-      <footer className="relative border-t border-border bg-surface/60">
-        <div className="mx-auto flex max-w-7xl flex-col gap-2 px-5 py-6 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-8">
-          <span>OfferLai · Local-first career workspace</span>
-          <span>{content.footerNote}</span>
+      <footer className="relative border-t border-border">
+        <div className="mx-auto flex max-w-6xl flex-col gap-2 px-5 py-6 font-mono text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-8">
+          <span>OfferLai · {content.footerNote}</span>
+          <Link className="hover:text-foreground" href="https://github.com/yuecao365/OfferLai">
+            github.com/yuecao365/OfferLai
+          </Link>
         </div>
       </footer>
     </main>
