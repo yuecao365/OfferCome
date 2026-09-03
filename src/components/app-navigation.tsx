@@ -98,9 +98,12 @@ export function Navigation({
 }) {
   return (
     <nav aria-label="主导航" className="flex-1 overflow-y-auto px-3 py-3">
-      <div className="grid gap-5">
+      <div className={cn("grid", collapsed ? "gap-2" : "gap-5")}>
         {navigationGroups.map((group) => (
-          <section key={group.label}>
+          <section
+            className={cn(collapsed && "border-t border-border pt-2 first:border-t-0 first:pt-0")}
+            key={group.label}
+          >
             <h2
               className={cn(
                 "mb-1 px-2.5 text-[0.6875rem] font-medium tracking-[0.04em] text-muted-foreground/80",
@@ -128,7 +131,7 @@ export function Navigation({
                           : undefined
                       }
                     >
-                      {selected || (collapsed && branchSelected) ? <ActiveBar /> : null}
+                      {selected ? <ActiveBar /> : null}
                       <Icon
                         aria-hidden="true"
                         className={cn(
@@ -149,10 +152,14 @@ export function Navigation({
                       )}
                     </Link>
 
-                    {item.children && !collapsed ? (
+                    {item.children ? (
                       <div
                         aria-label={`${item.label}子页面`}
-                        className="ml-[1.125rem] mt-0.5 grid gap-px border-l border-border pl-2.5"
+                        // 收起时子页面平铺为图标，和一级项同宽同距；展开时缩进并加左侧引导线
+                        className={cn(
+                          "grid gap-px",
+                          collapsed ? "mt-px" : "ml-[1.125rem] mt-0.5 border-l border-border pl-2.5",
+                        )}
                         role="group"
                       >
                         {item.children.map((child) => {
@@ -161,20 +168,31 @@ export function Navigation({
                           return (
                             <Link
                               aria-current={childSelected ? "page" : undefined}
-                              className={navItemClassName({ selected: childSelected, compact: true })}
+                              className={navItemClassName({
+                                selected: childSelected,
+                                collapsed,
+                                compact: !collapsed,
+                              })}
                               href={child.href}
                               key={child.href}
                               onClick={onNavigate}
+                              title={collapsed ? child.label : undefined}
                             >
+                              {collapsed && childSelected ? <ActiveBar /> : null}
                               <ChildIcon
                                 aria-hidden="true"
                                 className={cn(
-                                  "size-3.5 shrink-0",
+                                  "shrink-0",
+                                  collapsed ? "size-4" : "size-3.5",
                                   childSelected ? "text-foreground" : "text-muted-foreground group-hover:text-foreground",
                                 )}
                                 strokeWidth={1.5}
                               />
-                              <span className="truncate">{child.label}</span>
+                              {collapsed ? (
+                                <span className="sr-only">{child.label}</span>
+                              ) : (
+                                <span className="truncate">{child.label}</span>
+                              )}
                             </Link>
                           );
                         })}

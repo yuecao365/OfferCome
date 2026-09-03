@@ -62,12 +62,12 @@ export function NextActionCard({
   ];
 
   return (
-    <Card>
+    <Card className="flex flex-col">
       <CardHeader>
         <CardTitle>下一步行动</CardTitle>
         <CardDescription>根据当前记录自动判断。</CardDescription>
       </CardHeader>
-      <CardContent className="flex h-full flex-col">
+      <CardContent className="flex flex-1 flex-col">
         <h3 className="text-base font-semibold tracking-tight text-foreground">{action.title}</h3>
         <p className="mt-1.5 text-[0.8125rem] leading-5 text-muted-foreground">{action.description}</p>
         <ul className="mt-5 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-border pt-4">
@@ -93,7 +93,7 @@ export function NextActionCard({
             </li>
           ))}
         </ul>
-        <ButtonLink className="mt-auto self-start pt-0" href={action.href}>
+        <ButtonLink className="mt-6 self-start" href={action.href}>
           {action.label}
           <ArrowRight aria-hidden="true" className="size-3.5" strokeWidth={1.5} />
         </ButtonLink>

@@ -10,6 +10,7 @@ import { MobileNavigationDrawer } from "@/components/mobile-navigation-drawer";
 import { ThemeButton } from "@/components/theme-button";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
+import { useSidebarCollapsed } from "@/lib/use-sidebar-collapsed";
 
 export function AppChrome({
   active,
@@ -24,7 +25,7 @@ export function AppChrome({
   immersive?: boolean;
   children: ReactNode;
 }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, toggleCollapsed] = useSidebarCollapsed();
   const [mobileOpen, setMobileOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const currentKey = subActive ?? active;
@@ -51,7 +52,7 @@ export function AppChrome({
         active={active}
         collapsed={collapsed}
         homeHref={homeHref}
-        onToggle={() => setCollapsed((value) => !value)}
+        onToggle={toggleCollapsed}
         subActive={subActive}
       />
 
@@ -80,7 +81,7 @@ export function AppChrome({
               "flex w-full flex-col",
               immersive
                 ? "gap-0 px-3 py-3 sm:px-4 lg:px-5 lg:py-4"
-                : "max-w-[1120px] gap-8 px-4 py-6 sm:px-6 lg:px-10 lg:py-10",
+                : "mx-auto max-w-[1360px] gap-8 px-4 py-6 sm:px-6 lg:px-10 lg:py-10",
             )}
             id="main-content"
             key={currentKey}
