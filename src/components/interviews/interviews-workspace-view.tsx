@@ -1,16 +1,16 @@
-import { ArrowRight, CheckCircle2, Gauge, Sparkles } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import type { ComponentProps } from "react";
 
 import { InterviewConversionOverview } from "@/components/interviews/interview-conversion-overview";
 import { InterviewHistorySummary } from "@/components/interviews/interview-history-summary";
+import { MockTag } from "@/components/interviews/interview-list";
 import { NewInterviewModal } from "@/components/interviews/interview-modals";
 import { InterviewStageFlow } from "@/components/interviews/interview-stage-flow";
 import { InterviewWorkspaceLinks } from "@/components/interviews/interview-workspace-links";
 import { UpcomingInterviewsCard } from "@/components/interviews/upcoming-interviews-card";
 import { PageHeader } from "@/components/page-header";
 import { StatHero } from "@/components/stat-hero";
-import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { buildCareerFlowSnapshot } from "@/lib/applications/analytics";
@@ -137,7 +137,7 @@ export function InterviewsWorkspaceView({
       <Card>
         <CardHeader>
           <CardTitle>面试进程地图</CardTitle>
-          <CardDescription>查看岗位至少到达的面试轮次；流动高光表示当前存在可推进的后续路径。</CardDescription>
+          <CardDescription>查看岗位至少到达的面试轮次；亮起的连线表示已有岗位走到该阶段。</CardDescription>
         </CardHeader>
         <CardContent>
           <InterviewStageFlow progress={progress} />
@@ -159,8 +159,8 @@ export function InterviewsWorkspaceView({
           </CardContent>
         </Card>
 
-        <Card className="border-brand/20 bg-accent/25">
-          <CardContent className="h-full p-6">
+        <Card>
+          <CardContent className="h-full">
             <InterviewHistorySummary {...historySummary} />
           </CardContent>
         </Card>
@@ -180,7 +180,7 @@ export function InterviewsWorkspaceView({
             <div className="divide-y divide-border">
               {workspace.recent.map((interview) => (
                 <Link
-                  className="group relative -mx-2 flex flex-col gap-3 rounded-lg px-2 py-4 transition-colors duration-200 ease-app hover:bg-surface-subtle sm:flex-row sm:items-center sm:justify-between"
+                  className="group relative -mx-2 flex flex-col gap-2 rounded-control px-2 py-3 transition-colors duration-150 hover:bg-surface-subtle sm:flex-row sm:items-center sm:justify-between"
                   href={interview.mockSessionId ? `/interviews/mock/${interview.mockSessionId}` : "/interviews/history"}
                   key={interview.id}
                 >
@@ -190,18 +190,16 @@ export function InterviewsWorkspaceView({
                   />
                   <div className="min-w-0 pl-2">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="truncate text-sm font-semibold text-foreground">
+                      <p className="truncate text-sm font-medium text-foreground">
                         {interview.companyName} · {interview.jobTitle}
                       </p>
-                      <Badge tone={interview.kind === "mock" ? "brand" : "neutral"}>
-                        {interview.kind === "mock" ? "AI 模拟" : "真实面试"}
-                      </Badge>
+                      {interview.kind === "mock" ? <MockTag /> : null}
                     </div>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {formatDate(interview.occurredAt)} · {roundLabel(interview.round)} · {interview.questionCount} 个问题
                     </p>
                   </div>
-                  <span className="shrink-0 text-xs font-medium text-muted-foreground">
+                  <span className="shrink-0 font-mono text-xs text-muted-foreground">
                     {statusLabel(interview.status)}{interview.score !== null ? ` · ${interview.score} 分` : ""}
                   </span>
                 </Link>

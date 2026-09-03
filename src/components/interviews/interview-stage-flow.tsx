@@ -1,6 +1,6 @@
-import { CheckCircle2, CircleX } from "lucide-react";
-
 import type { InterviewStageProgress } from "@/lib/interviews/analytics";
+
+import { cn } from "@/lib/cn";
 
 const stages = [
   ["一面", "firstInterview"],
@@ -9,31 +9,48 @@ const stages = [
   ["HR 面", "hrInterview"],
 ] as const;
 
-function StageNode({ count, index, label }: { count: number; index: number; label: string }) {
+function StageNode({
+  count,
+  label,
+  tone = "default",
+}: {
+  count: number;
+  label: string;
+  tone?: "default" | "success";
+}) {
   return (
-    <div className="min-w-0 flex-1 rounded-lg border border-border bg-surface-subtle p-3 text-center">
-      <span className="mx-auto flex size-7 items-center justify-center rounded-full bg-accent text-xs font-semibold text-accent-foreground">
-        {index + 1}
-      </span>
-      <p className="mt-2 text-sm font-semibold text-foreground">{label}</p>
-      <p className="mt-1 text-xs text-muted-foreground">至少到达 {count}</p>
+    <div
+      className={cn(
+        "min-w-0 flex-1 rounded-control border px-3 py-2.5",
+        tone === "success" ? "border-success/25 bg-success-soft" : "border-border bg-surface-subtle",
+      )}
+    >
+      <p className={cn("text-xs", tone === "success" ? "text-success-strong" : "text-muted-foreground")}>
+        {label}
+      </p>
+      <p
+        className={cn(
+          "mt-1 text-xl font-medium tabular-nums leading-7",
+          tone === "success" ? "text-success-strong" : count > 0 ? "text-foreground" : "text-muted-foreground",
+        )}
+      >
+        {count}
+      </p>
     </div>
   );
 }
 
-function HorizontalConnector({ active }: { active: boolean }) {
+/** 阶段连接线：已有岗位到达该阶段时亮起为品牌色，不做跑马动画。 */
+function Connector({ active, vertical = false }: { active: boolean; vertical?: boolean }) {
   return (
-    <div aria-hidden="true" className="relative mt-8 h-0.5 w-7 shrink-0 overflow-hidden bg-border lg:w-12">
-      {active ? <span className="interview-current-x absolute inset-0" /> : null}
-    </div>
-  );
-}
-
-function VerticalConnector({ active }: { active: boolean }) {
-  return (
-    <div aria-hidden="true" className="relative mx-auto h-6 w-0.5 overflow-hidden bg-border">
-      {active ? <span className="interview-current-y absolute inset-0" /> : null}
-    </div>
+    <div
+      aria-hidden="true"
+      className={cn(
+        "shrink-0",
+        vertical ? "mx-auto h-4 w-px" : "mt-7 h-px w-6 lg:w-10",
+        active ? "bg-brand" : "bg-border-strong",
+      )}
+    />
   );
 }
 
@@ -43,43 +60,32 @@ export function InterviewStageFlow({ progress }: { progress: InterviewStageProgr
   return (
     <div>
       <div className="hidden items-start md:flex">
-        {stageValues.map((stage, index) => (
+        {stageValues.map((stage) => (
           <div className="contents" key={stage.key}>
-            <StageNode count={stage.count} index={index} label={stage.label} />
-            <HorizontalConnector active={stage.count > 0} />
+            <StageNode count={stage.count} label={stage.label} />
+            <Connector active={stage.count > 0} />
           </div>
         ))}
-        <div className="min-w-0 flex-1 rounded-lg border border-success/25 bg-success-soft p-3 text-center">
-          <CheckCircle2 aria-hidden="true" className="mx-auto size-7 text-success-strong" />
-          <p className="mt-2 text-sm font-semibold text-success-strong">Offer</p>
-          <p className="mt-1 text-xs text-success-strong">当前 {progress.offer}</p>
-        </div>
+        <StageNode count={progress.offer} label="Offer" tone="success" />
       </div>
 
       <div className="md:hidden">
-        {stageValues.map((stage, index) => (
+        {stageValues.map((stage) => (
           <div key={stage.key}>
-            <StageNode count={stage.count} index={index} label={stage.label} />
-            <VerticalConnector active={stage.count > 0} />
+            <StageNode count={stage.count} label={stage.label} />
+            <Connector active={stage.count > 0} vertical />
           </div>
         ))}
-        <div className="rounded-lg border border-success/25 bg-success-soft p-3 text-center">
-          <CheckCircle2 aria-hidden="true" className="mx-auto size-7 text-success-strong" />
-          <p className="mt-2 text-sm font-semibold text-success-strong">Offer</p>
-          <p className="mt-1 text-xs text-success-strong">当前 {progress.offer}</p>
-        </div>
+        <StageNode count={progress.offer} label="Offer" tone="success" />
       </div>
 
-      <div className="mt-5 flex flex-col gap-3 rounded-lg border border-dashed border-danger/25 bg-danger-soft/60 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2">
-          <CircleX aria-hidden="true" className="size-4 text-danger-strong" />
-          <span className="text-sm font-semibold text-danger-strong">已拒绝 {progress.rejected}</span>
-        </div>
-        <p className="text-xs leading-5 text-danger-strong">当前数据没有记录拒绝发生的具体轮次，因此不将其错误连接到某一面。</p>
+      <div className="mt-4 flex flex-col gap-1 border-t border-border pt-3 text-xs leading-5 text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+        <span>
+          已拒绝 <span className="font-mono tabular-nums text-foreground">{progress.rejected}</span>
+          ，未记录发生轮次，不接入上方任一阶段
+        </span>
+        <span>数字为「至少到达」该轮次的岗位数，综合投递阶段与真实面试记录取较高值。</span>
       </div>
-      <p className="mt-3 text-xs leading-5 text-muted-foreground">
-        “至少到达”综合岗位当前阶段与真实面试轮次记录，取可确认的较高值；后续轮次会计入此前已到达阶段。
-      </p>
     </div>
   );
 }

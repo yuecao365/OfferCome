@@ -1,10 +1,4 @@
-import {
-  ArrowUpRight,
-  BriefcaseBusiness,
-  CalendarClock,
-  CheckCircle2,
-  MessagesSquare,
-} from "lucide-react";
+import { BriefcaseBusiness } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -13,6 +7,7 @@ import { ApplicationTrendChart } from "@/components/dashboard/application-trend-
 import { NextActionCard } from "@/components/dashboard/next-action-card";
 import { UpcomingInterviewsCard } from "@/components/interviews/upcoming-interviews-card";
 import { PageHeader } from "@/components/page-header";
+import { SegmentedLinks } from "@/components/ui/segmented-links";
 import { StatHero } from "@/components/stat-hero";
 import { StageBadge } from "@/components/stage-badge";
 import { ButtonLink } from "@/components/ui/button";
@@ -33,7 +28,6 @@ import type {
   ApplicationStats,
   ApplicationTrendRange,
 } from "@/lib/applications/types";
-import { cn } from "@/lib/cn";
 import { formatDateTime } from "@/lib/format/date";
 import type { InterviewStats } from "@/lib/interviews/types";
 import type { UpcomingInterviews } from "@/lib/interviews/upcoming";
@@ -83,18 +77,13 @@ export function DashboardView({
       <StatHero
         badge={
           stats.recent7Days > 0 ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-accent px-2.5 py-1 text-xs font-semibold text-accent-foreground">
-              <ArrowUpRight aria-hidden="true" className="size-3.5" />
-              最近 7 天 +{stats.recent7Days}
+            <span className="font-mono text-xs font-medium text-brand">
+              +{stats.recent7Days}
             </span>
-          ) : (
-            <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">
-              最近 7 天暂无新增
-            </span>
-          )
+          ) : null
         }
         label="投递岗位"
-        note="按投递或首次发现时间统计"
+        note={stats.recent7Days > 0 ? "最近 7 天新增，按投递或首次发现时间统计" : "最近 7 天暂无新增"}
         tiles={[
           { label: "7 天新增", value: stats.recent7Days },
           { label: "真实面试", value: interviewStats.total },
@@ -122,28 +111,14 @@ export function DashboardView({
                     {trendOption.description} · 按{trendOption.granularityLabel}聚合 · 单位：岗位数。
                   </CardDescription>
                 </div>
-                <nav
-                  aria-label="投递趋势时间范围"
-                  className="flex w-full rounded-lg border border-border bg-surface-subtle p-1 sm:w-auto"
-                >
-                  {APPLICATION_TREND_RANGE_OPTIONS.map((option) => {
-                    const isActive = option.value === trendRange;
-                    return (
-                      <Link
-                        aria-current={isActive ? "page" : undefined}
-                        className={cn(
-                          "flex h-8 flex-1 items-center justify-center whitespace-nowrap rounded-md px-3 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground sm:flex-none",
-                          isActive && "bg-surface text-foreground shadow-card",
-                        )}
-                        href={trendHref(option.value, homeHref)}
-                        key={option.value}
-                        scroll={false}
-                      >
-                        {option.label}
-                      </Link>
-                    );
-                  })}
-                </nav>
+                <SegmentedLinks
+                  ariaLabel="投递趋势时间范围"
+                  items={APPLICATION_TREND_RANGE_OPTIONS.map((option) => ({
+                    href: trendHref(option.value, homeHref),
+                    label: option.label,
+                    active: option.value === trendRange,
+                  }))}
+                />
               </CardHeader>
               <CardContent>
                 <ApplicationTrendChart
@@ -175,7 +150,7 @@ export function DashboardView({
                   <CardTitle>最近投递</CardTitle>
                   <CardDescription>最近新增或同步的岗位记录。</CardDescription>
                 </div>
-                <Link className="text-sm font-semibold text-brand hover:text-brand-hover" href="/applications">
+                <Link className="text-xs text-muted-foreground hover:text-foreground" href="/applications">
                   查看全部
                 </Link>
               </CardHeader>
@@ -183,7 +158,7 @@ export function DashboardView({
                 <div className="divide-y divide-border">
                   {stats.recentApplications.map((application) => (
                     <Link
-                      className="group relative -mx-2 flex items-center justify-between gap-4 rounded-lg px-2 py-4 transition-colors duration-200 ease-app hover:bg-surface-subtle"
+                      className="group relative -mx-2 flex items-center justify-between gap-4 rounded-control px-2 py-3 transition-colors duration-150 hover:bg-surface-subtle"
                       href="/applications"
                       key={application.id}
                     >
@@ -192,10 +167,10 @@ export function DashboardView({
                         className="absolute inset-y-3 left-0 w-0.5 rounded-full bg-brand opacity-0 transition-opacity duration-200 group-hover:opacity-100"
                       />
                       <div className="min-w-0 pl-2">
-                        <p className="truncate text-sm font-semibold text-foreground">
+                        <p className="truncate text-sm font-medium text-foreground">
                           {application.companyName}
                         </p>
-                        <p className="mt-1 truncate text-sm text-muted-foreground">
+                        <p className="mt-0.5 truncate text-[0.8125rem] text-muted-foreground">
                           {application.jobTitle}
                         </p>
                       </div>

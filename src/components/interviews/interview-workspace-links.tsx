@@ -29,22 +29,27 @@ const entries = [
 
 export function InterviewWorkspaceLinks() {
   return (
-    <section aria-label="面试工具" className="grid gap-3 md:grid-cols-3">
+    <section aria-label="面试工具" className="grid gap-2 md:grid-cols-3">
       {entries.map((entry) => {
         const Icon = entry.icon;
         return (
           <Link
-            className="group rounded-xl border border-border bg-surface p-5 shadow-card transition-[border-color,background-color,transform,box-shadow] duration-200 ease-app hover:-translate-y-0.5 hover:border-brand/30 hover:bg-surface-subtle hover:shadow-raised"
+            className="group flex items-start gap-3 rounded-panel border border-border bg-surface p-4 transition-colors duration-150 hover:bg-surface-subtle"
             href={entry.href}
             key={entry.href}
           >
-            <Icon aria-hidden="true" className="size-5 text-brand" />
-            <h2 className="mt-4 text-sm font-semibold text-foreground">{entry.title}</h2>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">{entry.description}</p>
-            <span className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-brand">
-              打开
-              <ArrowRight aria-hidden="true" className="size-3.5 transition-transform group-hover:translate-x-0.5" />
+            <Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-muted-foreground" strokeWidth={1.5} />
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-medium text-foreground">{entry.title}</span>
+              <span className="mt-0.5 block text-[0.8125rem] leading-5 text-muted-foreground">
+                {entry.description}
+              </span>
             </span>
+            <ArrowRight
+              aria-hidden="true"
+              className="mt-0.5 size-3.5 shrink-0 text-muted-foreground transition-transform duration-150 group-hover:translate-x-0.5"
+              strokeWidth={1.5}
+            />
           </Link>
         );
       })}

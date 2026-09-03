@@ -36,7 +36,7 @@ const blankDraft: ResumeExperienceFieldsValue = {
 };
 
 const indexRowClassName =
-  "flex w-full min-w-0 items-center justify-between gap-3 overflow-hidden rounded-lg border border-border px-3 py-2.5 text-sm transition-colors hover:border-brand/30 hover:bg-surface-subtle";
+  "flex w-full min-w-0 items-center justify-between gap-3 overflow-hidden rounded-control border border-border px-3 py-2 text-[0.8125rem] transition-colors duration-150 hover:bg-surface-subtle";
 
 type ReviewProjectIndexProps = {
   projects: InterviewReviewProject[];
@@ -214,7 +214,7 @@ export function ReviewProjectIndex({
             <div className="flex min-w-0 items-center gap-1" key={project.id}>
               <Link
                 aria-current={isActive ? "page" : undefined}
-                className={cn(indexRowClassName, isActive && "border-brand/35 bg-accent/60")}
+                className={cn(indexRowClassName, isActive && "border-border-strong bg-surface-subtle font-medium")}
                 href={reviewHref({
                   section: "projects",
                   projectId: project.id,
@@ -257,7 +257,7 @@ export function ReviewProjectIndex({
           aria-current={activeProjectId === "unlinked" ? "page" : undefined}
           className={cn(
             indexRowClassName,
-            activeProjectId === "unlinked" && "border-brand/35 bg-accent/60",
+            activeProjectId === "unlinked" && "border-border-strong bg-surface-subtle font-medium",
           )}
           href={reviewHref({
             section: "projects",

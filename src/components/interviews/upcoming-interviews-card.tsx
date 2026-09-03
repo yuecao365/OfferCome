@@ -18,7 +18,7 @@ function InterviewRow({
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 py-3">
       <div className="min-w-0">
-        <p className="truncate text-sm font-semibold text-foreground">
+        <p className="truncate text-sm font-medium text-foreground">
           {interview.companyName} · {interview.jobTitle}
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
@@ -47,10 +47,10 @@ export function UpcomingInterviewsCard({
   }
 
   return (
-    <Card className="border-brand/25 bg-accent/25">
+    <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <CalendarClock aria-hidden="true" className="size-4 text-brand" />
+          <CalendarClock aria-hidden="true" className="size-4 text-muted-foreground" strokeWidth={1.5} />
           面试日程
         </CardTitle>
         <CardDescription>

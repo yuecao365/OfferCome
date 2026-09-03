@@ -1,7 +1,8 @@
-import { ArrowRight, CheckCircle2, Circle, Sparkles } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
 
 import { ButtonLink } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/cn";
 import type { ApplicationStats } from "@/lib/applications/types";
 import type { InterviewStats } from "@/lib/interviews/types";
 
@@ -61,36 +62,40 @@ export function NextActionCard({
   ];
 
   return (
-    <Card className="border-brand/20 bg-accent/35">
-      <CardContent className="flex h-full min-h-72 flex-col p-6">
-        <span className="flex size-10 items-center justify-center rounded-lg bg-brand text-brand-foreground">
-          <Sparkles aria-hidden="true" className="size-5" />
-        </span>
-        <p className="mt-6 text-xs font-semibold uppercase tracking-[0.12em] text-brand">下一步行动</p>
-        <h2 className="mt-2 text-xl font-semibold tracking-tight text-foreground">{action.title}</h2>
-        <p className="mt-3 text-sm leading-6 text-muted-foreground">{action.description}</p>
-        <div className="mt-5 border-t border-brand/15 pt-4">
-          <p className="text-xs font-semibold text-foreground">进展信号</p>
-          <ul className="mt-3 grid grid-cols-2 gap-2">
-            {signals.map((signal) => (
-              <li
-                className={signal.done ? "flex items-center gap-2 text-xs text-foreground" : "flex items-center gap-2 text-xs text-muted-foreground"}
-                key={signal.label}
-              >
-                {signal.done ? (
-                  <CheckCircle2 aria-hidden="true" className="size-3.5 shrink-0 text-success" />
-                ) : (
-                  <Circle aria-hidden="true" className="size-3.5 shrink-0" />
+    <Card>
+      <CardHeader>
+        <CardTitle>下一步行动</CardTitle>
+        <CardDescription>根据当前记录自动判断。</CardDescription>
+      </CardHeader>
+      <CardContent className="flex h-full flex-col">
+        <h3 className="text-base font-semibold tracking-tight text-foreground">{action.title}</h3>
+        <p className="mt-1.5 text-[0.8125rem] leading-5 text-muted-foreground">{action.description}</p>
+        <ul className="mt-5 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-border pt-4">
+          {signals.map((signal) => (
+            <li
+              className={cn(
+                "flex items-center gap-2 text-xs",
+                signal.done ? "text-foreground" : "text-muted-foreground",
+              )}
+              key={signal.label}
+            >
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "flex size-3.5 shrink-0 items-center justify-center rounded-full border",
+                  signal.done ? "border-brand bg-brand text-brand-foreground" : "border-border-strong",
                 )}
-                <span>{signal.label}</span>
-                <span className="sr-only">{signal.done ? "已达成" : "待推进"}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-        <ButtonLink className="mt-6 self-start" href={action.href}>
+              >
+                {signal.done ? <Check className="size-2.5" strokeWidth={3} /> : null}
+              </span>
+              <span>{signal.label}</span>
+              <span className="sr-only">{signal.done ? "已达成" : "待推进"}</span>
+            </li>
+          ))}
+        </ul>
+        <ButtonLink className="mt-auto self-start pt-0" href={action.href}>
           {action.label}
-          <ArrowRight aria-hidden="true" className="size-4" />
+          <ArrowRight aria-hidden="true" className="size-3.5" strokeWidth={1.5} />
         </ButtonLink>
       </CardContent>
     </Card>

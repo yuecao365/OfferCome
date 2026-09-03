@@ -25,7 +25,7 @@ export function GettingStartedChecklist({ steps }: { steps: SetupStep[] }) {
             完成这几步，工作台就能端到端运转起来。
           </CardDescription>
         </div>
-        <span className="rounded-full bg-accent px-2.5 py-1 text-xs font-semibold tabular-nums text-accent-foreground">
+        <span className="font-mono text-xs tabular-nums text-muted-foreground">
           {doneCount}/{steps.length}
         </span>
       </CardHeader>
@@ -54,7 +54,7 @@ export function GettingStartedChecklist({ steps }: { steps: SetupStep[] }) {
             >
               <Circle aria-hidden="true" className="size-5 shrink-0 text-border-strong" />
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-foreground">{step.label}</p>
+                <p className="text-sm font-medium text-foreground">{step.label}</p>
                 <p className="mt-0.5 truncate text-xs text-muted-foreground">{step.hint}</p>
               </div>
               <ArrowRight

@@ -1,4 +1,3 @@
-import { FolderKanban, LibraryBig } from "lucide-react";
 import Link from "next/link";
 import type { ComponentProps } from "react";
 
@@ -10,9 +9,9 @@ import {
 } from "@/components/interviews/interview-review-components";
 import { ReviewProjectIndex } from "@/components/interviews/review-project-index";
 import { PageHeader } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn } from "@/lib/cn";
+import { MetaText } from "@/components/ui/data-table";
+import { SegmentedLinks } from "@/components/ui/segmented-links";
 import {
   INTERVIEW_REVIEW_SOURCE_LABELS,
   INTERVIEW_REVIEW_PAGE_SIZE,
@@ -63,12 +62,11 @@ export function InterviewReviewView({
         title="面试复盘"
       />
 
-      <section className="grid gap-3 md:grid-cols-2">
+      <section className="grid gap-2 md:grid-cols-2">
         <ReviewScopeCard
           count={projectQuestionCount}
           description="按单个实习或项目查看关联问题，避免所有项目问题混在一起。"
           href={reviewHref({ section: "projects", source: filters.source })}
-          icon={<FolderKanban aria-hidden="true" className="size-5" />}
           isActive={filters.section === "projects"}
           title="实习/项目"
         />
@@ -76,38 +74,27 @@ export function InterviewReviewView({
           count={data.technicalQuestionCount + data.generalQuestionCount}
           description="查看技术八股或通用问题，按问题聚合历史回答。"
           href={reviewHref({ section: "question_bank", source: filters.source })}
-          icon={<LibraryBig aria-hidden="true" className="size-5" />}
           isActive={filters.section === "question_bank"}
           title="通用问题库"
         />
       </section>
 
-      <nav aria-label="复盘来源" className="flex flex-wrap items-center gap-2">
-        {(Object.keys(INTERVIEW_REVIEW_SOURCE_LABELS) as InterviewReviewSourceFilter[]).map(
-          (source) => {
-            const isActive = filters.source === source;
-            return (
-              <Link
-                aria-current={isActive ? "page" : undefined}
-                className={cn(
-                  "rounded-lg border border-border bg-surface px-3 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:border-brand/30 hover:bg-surface-subtle hover:text-foreground",
-                  isActive &&
-                    "border-brand bg-brand text-brand-foreground hover:bg-brand-hover hover:text-brand-foreground",
-                )}
-                href={reviewHref({
-                  section: filters.section,
-                  projectId: filters.projectId,
-                  category: filters.category,
-                  source,
-                })}
-                key={source}
-              >
-                {INTERVIEW_REVIEW_SOURCE_LABELS[source]}
-              </Link>
-            );
-          },
+      <SegmentedLinks
+        ariaLabel="复盘来源"
+        className="self-start"
+        items={(Object.keys(INTERVIEW_REVIEW_SOURCE_LABELS) as InterviewReviewSourceFilter[]).map(
+          (source) => ({
+            href: reviewHref({
+              section: filters.section,
+              projectId: filters.projectId,
+              category: filters.category,
+              source,
+            }),
+            label: INTERVIEW_REVIEW_SOURCE_LABELS[source],
+            active: filters.source === source,
+          }),
         )}
-      </nav>
+      />
 
       {filters.section === "overview" ? (
         <InterviewReviewOverview
@@ -133,12 +120,12 @@ export function InterviewReviewView({
                 <Card>
                   <CardHeader className="flex-row items-center justify-between gap-4">
                     <div>
-                      <CardTitle className="text-base">{selectedProjectTitle}</CardTitle>
+                      <CardTitle>{selectedProjectTitle}</CardTitle>
                       <p className="mt-1 text-sm text-muted-foreground">
                         按相同问题聚合历史回答，每页最多 {INTERVIEW_REVIEW_PAGE_SIZE} 个问题。
                       </p>
                     </div>
-                    <Badge tone="brand">{data.questionsPage.total} 个问题</Badge>
+                    <MetaText>{data.questionsPage.total} 个问题</MetaText>
                   </CardHeader>
                 </Card>
                 <QuestionReviewList
@@ -178,35 +165,21 @@ export function InterviewReviewView({
                 <CardTitle>通用问题库</CardTitle>
                 <p className="mt-1 text-sm text-muted-foreground">选择分类后，按相同问题聚合不同面试中的回答。</p>
               </div>
-              <Link className="text-xs font-semibold text-brand hover:text-brand-hover" href={reviewHref({ section: "overview", source: filters.source })}>
+              <Link className="text-xs text-muted-foreground hover:text-foreground" href={reviewHref({ section: "overview", source: filters.source })}>
                 返回概览
               </Link>
             </CardHeader>
-            <CardContent className="flex flex-wrap gap-2">
-              {(["technical", "general"] as const).map((category) => {
-                const isActive = filters.category === category;
-                const count =
-                  category === "technical"
-                    ? data.technicalQuestionCount
-                    : data.generalQuestionCount;
-                return (
-                  <Link
-                    aria-current={isActive ? "page" : undefined}
-                    className={cn(
-                      "rounded-lg border border-border bg-surface px-3 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:border-brand/30 hover:bg-surface-subtle hover:text-foreground",
-                      isActive && "border-brand bg-brand text-brand-foreground hover:bg-brand-hover hover:text-brand-foreground",
-                    )}
-                    href={reviewHref({
-                      section: "question_bank",
-                      category,
-                      source: filters.source,
-                    })}
-                    key={category}
-                  >
-                    {QUESTION_CATEGORY_LABELS[category]} · {count} 条记录
-                  </Link>
-                );
-              })}
+            <CardContent className="py-4">
+              <SegmentedLinks
+                ariaLabel="问题分类"
+                items={(["technical", "general"] as const).map((category) => ({
+                  href: reviewHref({ section: "question_bank", category, source: filters.source }),
+                  label: `${QUESTION_CATEGORY_LABELS[category]} · ${
+                    category === "technical" ? data.technicalQuestionCount : data.generalQuestionCount
+                  }`,
+                  active: filters.category === category,
+                }))}
+              />
             </CardContent>
           </Card>
 
@@ -214,10 +187,10 @@ export function InterviewReviewView({
             <div className="grid gap-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-base font-semibold text-foreground">{QUESTION_CATEGORY_LABELS[filters.category]}</h2>
+                  <h2 className="text-sm font-semibold text-foreground">{QUESTION_CATEGORY_LABELS[filters.category]}</h2>
                   <p className="mt-1 text-sm text-muted-foreground">每页最多显示 {INTERVIEW_REVIEW_PAGE_SIZE} 个聚合问题。</p>
                 </div>
-                <Badge tone="brand">{data.questionsPage.total} 个问题</Badge>
+                <MetaText>{data.questionsPage.total} 个问题</MetaText>
               </div>
               <QuestionReviewList
                 reclassifyAction={reclassifyAction}
