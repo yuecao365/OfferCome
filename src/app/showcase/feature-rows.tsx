@@ -112,7 +112,8 @@ function FeatureRow({ copy, index }: { copy: ShowcaseCopy; index: number }) {
   const reversed = index % 2 === 1;
   return (
     <li
-      className="sc-reveal grid items-center gap-8 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-16"
+      // 列一律 minmax(0, …)：否则小屏上图片会按原始宽度把列撑开，被 overflow clip 裁成空白
+      className="sc-reveal grid grid-cols-[minmax(0,1fr)] items-center gap-8 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-16"
       data-revealed={revealed ? "true" : undefined}
       ref={ref}
     >
@@ -121,7 +122,7 @@ function FeatureRow({ copy, index }: { copy: ShowcaseCopy; index: number }) {
         <h3 className="mt-3 text-2xl font-semibold tracking-tight sm:text-[28px]">{feature.title}</h3>
         <p className="mt-4 max-w-lg text-base leading-7 text-muted-foreground">{feature.description}</p>
       </div>
-      <div className={cn(reversed && "lg:order-1")}>
+      <div className={cn("min-w-0", reversed && "lg:order-1")}>
         <FeatureVisual active={revealed} copy={copy} index={index} />
       </div>
     </li>
