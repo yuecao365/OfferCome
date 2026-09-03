@@ -21,11 +21,11 @@ function DetailFrame({ src, alt, active }: { src: string; alt: string; active: b
       <Image
         alt={alt}
         className={cn("block h-auto w-full transition-transform duration-700 ease-app", active ? "scale-100" : "scale-[1.02]")}
-        height={1000}
-        quality={90}
-        sizes="(max-width: 1024px) 100vw, 680px"
+        height={900}
+        quality={92}
+        sizes="(max-width: 1024px) 100vw, 720px"
         src={src}
-        width={1600}
+        width={1200}
       />
     </div>
   );
@@ -131,7 +131,7 @@ export function FeatureScroll({ copy }: { copy: ShowcaseCopy }) {
   };
 
   return (
-    <div className="grid gap-12 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:gap-16">
+    <div className="grid gap-12 lg:grid-cols-[minmax(0,0.78fr)_minmax(0,1.22fr)] lg:gap-16">
       <ol className="grid gap-6 lg:gap-0">
         {copy.features.map((feature, index) => {
           const isActive = index === active;
@@ -148,7 +148,7 @@ export function FeatureScroll({ copy }: { copy: ShowcaseCopy }) {
                 }}
               >
                 <button
-                  className="block w-full text-left"
+                  className="block w-full text-left focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
                   onClick={() => {
                     setActive(index);
                     stepRefs.current[index]?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -181,7 +181,9 @@ export function FeatureScroll({ copy }: { copy: ShowcaseCopy }) {
       </ol>
 
       <div className="relative hidden lg:block">
-        <div className="sticky top-24">
+        {/* 整屏高的粘顶容器，视觉始终停在视口正中，而不是贴着顶栏 */}
+        <div className="sticky top-0 flex h-screen items-center">
+          <div className="w-full">
           {copy.features.map((feature, index) => {
             const isActive = index === active;
             return (
@@ -197,6 +199,7 @@ export function FeatureScroll({ copy }: { copy: ShowcaseCopy }) {
               </div>
             );
           })}
+          </div>
         </div>
       </div>
     </div>
