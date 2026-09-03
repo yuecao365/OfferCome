@@ -2,62 +2,16 @@
 
 import { ArrowRight, ArrowUpRight, Database, ShieldCheck } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { buttonClassName } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import { useCountUp } from "@/lib/use-count-up";
 
 import { showcaseCopy, type Language, type ShowcaseCopy } from "./copy";
-import { FeatureScroll } from "./feature-scroll";
+import { FeatureRows } from "./feature-rows";
 import { LoopDemo } from "./loop-demo";
-
-function useRevealed(threshold = 0.18) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [revealed, setRevealed] = useState(false);
-
-  useEffect(() => {
-    const node = ref.current;
-    if (!node) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            setRevealed(true);
-            observer.disconnect();
-          }
-        }
-      },
-      { threshold },
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [threshold]);
-
-  return { ref, revealed };
-}
-
-function Reveal({
-  children,
-  className,
-  delay = 0,
-}: {
-  children: ReactNode;
-  className?: string;
-  delay?: number;
-}) {
-  const { ref, revealed } = useRevealed();
-  return (
-    <div
-      className={cn("sc-reveal", className)}
-      data-revealed={revealed ? "true" : undefined}
-      ref={ref}
-      style={delay ? { transitionDelay: `${delay}ms` } : undefined}
-    >
-      {children}
-    </div>
-  );
-}
+import { Reveal, useRevealed } from "./reveal";
 
 /** 进入视口后数字从 0 滚到位。 */
 function Fact({ value, suffix, label }: ShowcaseCopy["facts"][number]) {
@@ -293,7 +247,7 @@ export function ShowcaseContent({ displayFontVariable }: { displayFontVariable: 
           />
         </Reveal>
         <div className="mt-12">
-          <FeatureScroll copy={content} />
+          <FeatureRows copy={content} />
         </div>
       </section>
 
