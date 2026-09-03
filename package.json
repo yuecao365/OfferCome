@@ -12,8 +12,7 @@
     "test": "tsx --test --experimental-test-module-mocks \"src/**/*.test.ts\"",
     "db:push": "prisma db push",
     "boss:login": "tsx scripts/boss-login.ts",
-    "boss:sync": "tsx scripts/boss-sync.ts",
-    "agent:runs": "tsx scripts/agent-runs.ts"
+    "boss:sync": "tsx scripts/boss-sync.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.7",
