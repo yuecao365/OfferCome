@@ -77,7 +77,7 @@ export function ProductMark({
       )}
       href={homeHref}
     >
-      {collapsed ? null : <span>OfferLai</span>}
+      {collapsed ? null : <span>OfferCome</span>}
       <span aria-hidden="true" className="size-1.5 rounded-full bg-brand" />
     </Link>
   );

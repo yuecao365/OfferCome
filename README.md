@@ -1,10 +1,10 @@
 <div align="center">
 
-# OfferLai
+# OfferCome
 
 **A local-first workspace that turns every application and interview into better preparation for the next one.**
 
-[简体中文](README_CN.md) · [Product Site](https://www.offer-lai.com) · [Live Preview](https://www.offer-lai.com/homepage)
+[简体中文](README_CN.md) · [Product Site](https://offercome.yuecao.dev) · [Live Preview](https://offercome.yuecao.dev/homepage)
 
 ![Next.js](https://img.shields.io/badge/Next.js-16-000000?style=flat-square&logo=nextdotjs)
 ![React](https://img.shields.io/badge/React-19-149ECA?style=flat-square&logo=react)
@@ -16,38 +16,38 @@
 
 [Introduction](#introduction) · [Preview](#project-preview) · [How It Works](#how-it-works) · [Features](#features) · [Under the Hood](#under-the-hood) · [Quick Start](#quick-start)
 
-<a href="https://www.offer-lai.com/showcase"><img src="docs/images/hero-en.png" alt="OfferLai — every interview counts" width="820"></a>
+<a href="https://offercome.yuecao.dev/showcase"><img src="docs/images/hero-en.png" alt="OfferCome — every interview counts" width="820"></a>
 
 </div>
 
 ## Introduction
 
-Job hunting scatters your effort: applications live in one platform, resumes in a folder, interview memories in your head, and the lessons from a bad answer disappear before the next interview. OfferLai connects applications, resumes, real interviews, AI mock practice, review, and a long-term capability profile into one workspace, so each round feeds the next.
+Job hunting scatters your effort: applications live in one platform, resumes in a folder, interview memories in your head, and the lessons from a bad answer disappear before the next interview. OfferCome connects applications, resumes, real interviews, AI mock practice, review, and a long-term capability profile into one workspace, so each round feeds the next.
 
 > **Local-first by design.** Your SQLite database, resume files, and Boss Zhipin browser session stay on your own machine. AI providers are contacted only after you configure a model service yourself, and only with the content that task requires.
 
 ## Project Preview
 
-The [live preview](https://www.offer-lai.com/homepage) runs on fictional data in read-only mode. It never accepts or stores resumes, interview records, API keys, or Boss Zhipin credentials. Run it locally for the complete, writable product.
+The [live preview](https://offercome.yuecao.dev/homepage) runs on fictional data in read-only mode. It never accepts or stores resumes, interview records, API keys, or Boss Zhipin credentials. Run it locally for the complete, writable product.
 
 <table>
   <tr>
-    <td width="50%" align="center"><strong>Dashboard</strong><br><img src="docs/images/dashboard.png" alt="OfferLai dashboard"></td>
-    <td width="50%" align="center"><strong>Applications</strong><br><img src="docs/images/applications.png" alt="OfferLai applications"></td>
+    <td width="50%" align="center"><strong>Dashboard</strong><br><img src="docs/images/dashboard.png" alt="OfferCome dashboard"></td>
+    <td width="50%" align="center"><strong>Applications</strong><br><img src="docs/images/applications.png" alt="OfferCome applications"></td>
   </tr>
   <tr>
-    <td width="50%" align="center"><strong>AI Mock Interview</strong><br><img src="docs/images/mock-interview.png" alt="OfferLai AI mock interview"></td>
-    <td width="50%" align="center"><strong>Interview History</strong><br><img src="docs/images/interview-history.png" alt="OfferLai interview history"></td>
+    <td width="50%" align="center"><strong>AI Mock Interview</strong><br><img src="docs/images/mock-interview.png" alt="OfferCome AI mock interview"></td>
+    <td width="50%" align="center"><strong>Interview History</strong><br><img src="docs/images/interview-history.png" alt="OfferCome interview history"></td>
   </tr>
   <tr>
-    <td width="50%" align="center"><strong>Interview Review</strong><br><img src="docs/images/interview-review.png" alt="OfferLai interview review"></td>
-    <td width="50%" align="center"><strong>Capability Profile</strong><br><img src="docs/images/ability-profile.png" alt="OfferLai capability profile"></td>
+    <td width="50%" align="center"><strong>Interview Review</strong><br><img src="docs/images/interview-review.png" alt="OfferCome interview review"></td>
+    <td width="50%" align="center"><strong>Capability Profile</strong><br><img src="docs/images/ability-profile.png" alt="OfferCome capability profile"></td>
   </tr>
 </table>
 
 ## How It Works
 
-OfferLai is built around one loop. Every stage produces evidence that makes the next stage sharper.
+OfferCome is built around one loop. Every stage produces evidence that makes the next stage sharper.
 
 ```
 Applications ──▶ Resume & projects ──▶ AI mock interview ──▶ Real interview
@@ -57,7 +57,7 @@ Applications ──▶ Resume & projects ──▶ AI mock interview ──▶ R
 ```
 
 1. **Import your applications** so the workspace knows which roles you are actually chasing.
-2. **Upload a resume**; OfferLai indexes your internships and projects as reusable interview material.
+2. **Upload a resume**; OfferCome indexes your internships and projects as reusable interview material.
 3. **Run a mock interview** grounded in interview skill packs, that resume, and everything you have answered before.
 4. **Record the real interview** afterwards — drop in audio, a transcript, or your own notes.
 5. **Review by project or question bank**, where repeated questions gather all your past answers side by side.
@@ -67,11 +67,11 @@ Applications ──▶ Resume & projects ──▶ AI mock interview ──▶ R
 
 ### Applications
 
-Import your existing Boss Zhipin records with one click: OfferLai drives a local browser through the Chrome DevTools Protocol, walks the pages, deduplicates stable job identities, and highlights what is new or changed. Applications idle for 30 days are flagged as rejected during a sync — a judgement made only while syncing, never behind your back. Login, QR codes, CAPTCHAs, and security checks are always completed by you; OfferLai reads your records and never applies or messages anyone on your behalf. Records you delete stay deleted and are not resurrected by the next sync. Applications can also be created and edited by hand, and every stage change flows into the dashboard.
+Import your existing Boss Zhipin records with one click: OfferCome drives a local browser through the Chrome DevTools Protocol, walks the pages, deduplicates stable job identities, and highlights what is new or changed. Applications idle for 30 days are flagged as rejected during a sync — a judgement made only while syncing, never behind your back. Login, QR codes, CAPTCHAs, and security checks are always completed by you; OfferCome reads your records and never applies or messages anyone on your behalf. Records you delete stay deleted and are not resurrected by the next sync. Applications can also be created and edited by hand, and every stage change flows into the dashboard.
 
 ### Resumes
 
-Upload a PDF, Word, or image resume and OfferLai extracts your internships and projects. A confirmation step lets you correct, merge, or complete what the parser found before anything is written, which keeps the review index free of near-duplicate projects. Extraction is a starting point rather than a verdict: the index stays editable afterwards, so one bad parse never locks your project list into the wrong shape. The parsed experiences become the material that mock interviews and project deep-dive questions draw on.
+Upload a PDF, Word, or image resume and OfferCome extracts your internships and projects. A confirmation step lets you correct, merge, or complete what the parser found before anything is written, which keeps the review index free of near-duplicate projects. Extraction is a starting point rather than a verdict: the index stays editable afterwards, so one bad parse never locks your project list into the wrong shape. The parsed experiences become the material that mock interviews and project deep-dive questions draw on.
 
 ### AI mock interviews
 
@@ -83,7 +83,7 @@ Every question is scored against a rubric generated when the question was writte
 
 ### Interview history and import
 
-Record a completed interview by hand, or simply drop in what you already have: audio, a verbatim transcript, a written summary, PDF, Word, or plain text. OfferLai works out the rest — whether the file is audio or text, whether a recording contains the interviewer, which speaker is you, and whether text is a transcript or a summary. It also extracts the company, role, round, and date to prefill the form. Recording and question recognition run as a single action, and long recordings are chunked automatically for upload and transcription. Questions arrive as an editable draft, classified and linked to the right project; nothing is saved until you confirm.
+Record a completed interview by hand, or simply drop in what you already have: audio, a verbatim transcript, a written summary, PDF, Word, or plain text. OfferCome works out the rest — whether the file is audio or text, whether a recording contains the interviewer, which speaker is you, and whether text is a transcript or a summary. It also extracts the company, role, round, and date to prefill the form. Recording and question recognition run as a single action, and long recordings are chunked automatically for upload and transcription. Questions arrive as an editable draft, classified and linked to the right project; nothing is saved until you confirm.
 
 Interviews scheduled in the future become preparation targets: a dedicated page gathers what that company has asked before and which of your abilities are currently weakest.
 
@@ -117,15 +117,15 @@ Some design choices that shape how the product behaves:
 
 ### 1. Live preview
 
-Open the **[OfferLai live preview](https://www.offer-lai.com/homepage)**. Read-only; nothing you do there is saved.
+Open the **[OfferCome live preview](https://offercome.yuecao.dev/homepage)**. Read-only; nothing you do there is saved.
 
 ### 2. Local Docker deployment (recommended)
 
 **Requirements:** Docker Desktop or Docker Engine with Docker Compose.
 
 ```bash
-git clone https://github.com/yuecao365/OfferLai.git
-cd OfferLai
+git clone https://github.com/yuecao365/OfferCome.git
+cd OfferCome
 docker compose up -d --build
 ```
 
@@ -143,8 +143,8 @@ docker compose down
 **Requirements:** Node.js 22+, npm, and Chrome or Edge for Boss Zhipin login.
 
 ```powershell
-git clone https://github.com/yuecao365/OfferLai.git
-Set-Location OfferLai
+git clone https://github.com/yuecao365/OfferCome.git
+Set-Location OfferCome
 Copy-Item .env.example .env.local
 npm ci
 npm run db:push
@@ -163,7 +163,7 @@ npm run boss:sync
 
 ## Deployment Notes
 
-OfferLai is designed as a local-first application. Several workflows depend on long-running tasks or local resources: LLM calls may run for 60 seconds or longer, audio transcription can run for up to 10 minutes, large recordings are chunked and may be split with ffmpeg, mock-interview generation and profile refreshes use Next.js `after()` background work, Boss synchronization drives a local browser over the Chrome DevTools Protocol, and resume files plus browser session state live on the local filesystem.
+OfferCome is designed as a local-first application. Several workflows depend on long-running tasks or local resources: LLM calls may run for 60 seconds or longer, audio transcription can run for up to 10 minutes, large recordings are chunked and may be split with ffmpeg, mock-interview generation and profile refreshes use Next.js `after()` background work, Boss synchronization drives a local browser over the Chrome DevTools Protocol, and resume files plus browser session state live on the local filesystem.
 
 Deploying the writable product to a serverless platform such as Vercel therefore requires your own answers for function timeouts, an ffmpeg runtime, durable background execution, and persistent file and database storage. The hosted Vercel site in this repository is a read-only preview; for the complete product, use the local Docker Compose deployment described above.
 

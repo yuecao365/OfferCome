@@ -74,7 +74,7 @@ export const showcaseCopy = {
     heroTitle: ["每一场面试，", "都算数"],
     heroDescription: (
       <>
-        开源，数据全部留在本机。OfferLai 把<b>投递、面试、复盘</b>
+        开源，数据全部留在本机。OfferCome 把<b>投递、面试、复盘</b>
         沉淀成你的<b>能力画像</b>，让下一场永远比上一场准备得更好。
       </>
     ),
@@ -119,7 +119,7 @@ export const showcaseCopy = {
       insightActions: ["确认并保护", "编辑"],
     },
     facts: [
-      { value: 0, suffix: "条", label: "数据经过 OfferLai 的服务器" },
+      { value: 0, suffix: "条", label: "数据经过 OfferCome 的服务器" },
       { value: 1, suffix: "个", label: "API Key 就能开始训练" },
       { value: 5, suffix: "个环节", label: "串成一个闭环，每一步喂给下一步" },
     ],
@@ -178,7 +178,7 @@ export const showcaseCopy = {
       {
         title: "数据属于用户，而不是平台",
         description:
-          "正式使用时，SQLite 数据库、简历文件与 Boss 浏览器状态保存在用户自己的设备中，不进入 OfferLai 中央数据库。",
+          "正式使用时，SQLite 数据库、简历文件与 Boss 浏览器状态保存在用户自己的设备中，不进入 OfferCome 中央数据库。",
       },
       {
         title: "自动化有边界，安全校验不绕过",
@@ -198,7 +198,7 @@ export const showcaseCopy = {
     heroTitle: ["Every interview", "counts"],
     heroDescription: (
       <>
-        Open source, local-first. OfferLai turns <b>applications, interviews
+        Open source, local-first. OfferCome turns <b>applications, interviews
         and reviews</b> into a living <b>capability profile</b>, so every next
         interview starts better prepared than the last.
       </>
@@ -248,7 +248,7 @@ export const showcaseCopy = {
       insightActions: ["Confirm", "Edit"],
     },
     facts: [
-      { value: 0, suffix: "", label: "records pass through OfferLai servers" },
+      { value: 0, suffix: "", label: "records pass through OfferCome servers" },
       { value: 1, suffix: "", label: "API key is all you need to start" },
       { value: 5, suffix: " stages", label: "form one loop; each feeds the next" },
     ],
@@ -260,7 +260,7 @@ export const showcaseCopy = {
       {
         title: "Bring your applications in with one click",
         description:
-          "Drive a local browser to import your existing Boss Zhipin records, deduplicate them, and surface what is new or changed. Applications idle too long get flagged during a sync. Login and CAPTCHAs stay with you; OfferLai reads, never applies.",
+          "Drive a local browser to import your existing Boss Zhipin records, deduplicate them, and surface what is new or changed. Applications idle too long get flagged during a sync. Login and CAPTCHAs stay with you; OfferCome reads, never applies.",
       },
       {
         title: "Skill packs that ask the right questions",
@@ -275,7 +275,7 @@ export const showcaseCopy = {
       {
         title: "Just drop your interview in",
         description:
-          "Audio, transcripts, review notes, PDF or Word. OfferLai works out the material type, which voice is yours, and the company, role and round, then hands you an editable draft.",
+          "Audio, transcripts, review notes, PDF or Word. OfferCome works out the material type, which voice is yours, and the company, role and round, then hands you an editable draft.",
       },
       {
         title: "A capability profile that coaches you",
@@ -307,12 +307,12 @@ export const showcaseCopy = {
       {
         title: "Your data belongs to you, not the platform",
         description:
-          "In normal use, the SQLite database, resume files, and Boss browser state remain on your own device instead of an OfferLai-hosted central database.",
+          "In normal use, the SQLite database, resume files, and Boss browser state remain on your own device instead of an OfferCome-hosted central database.",
       },
       {
         title: "Automation has explicit safety boundaries",
         description:
-          "You complete Boss login, QR codes, CAPTCHAs, and security checks yourself. OfferLai reads existing records only; it never applies or sends messages for you.",
+          "You complete Boss login, QR codes, CAPTCHAs, and security checks yourself. OfferCome reads existing records only; it never applies or sends messages for you.",
       },
     ],
     ctaTitle: "Explore the complete product online, then keep your own data on your device.",

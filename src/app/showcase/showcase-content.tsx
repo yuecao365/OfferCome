@@ -93,8 +93,8 @@ export function ShowcaseContent({ displayFontVariable }: { displayFontVariable: 
   const content = showcaseCopy[language];
   const localDeployHref =
     language === "zh"
-      ? "https://github.com/yuecao365/OfferLai/blob/main/README_CN.md#快速开始"
-      : "https://github.com/yuecao365/OfferLai#quick-start";
+      ? "https://github.com/yuecao365/OfferCome/blob/main/README_CN.md#快速开始"
+      : "https://github.com/yuecao365/OfferCome#quick-start";
 
   useEffect(() => {
     document.documentElement.lang = language === "zh" ? "zh-CN" : "en";
@@ -112,7 +112,7 @@ export function ShowcaseContent({ displayFontVariable }: { displayFontVariable: 
       <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-5 sm:px-8">
           <Link className="flex items-center gap-1.5 text-sm font-semibold tracking-tight" href="/showcase">
-            OfferLai
+            OfferCome
             <span aria-hidden="true" className="size-1.5 rounded-full bg-brand" />
           </Link>
           <nav aria-label={content.navigationLabel} className="flex items-center gap-2">
@@ -141,7 +141,7 @@ export function ShowcaseContent({ displayFontVariable }: { displayFontVariable: 
             </div>
             <Link
               className={buttonClassName({ variant: "ghost", className: "hidden md:inline-flex" })}
-              href="https://github.com/yuecao365/OfferLai"
+              href="https://github.com/yuecao365/OfferCome"
             >
               GitHub
               <ArrowUpRight aria-hidden="true" className="size-3.5" strokeWidth={1.5} />
@@ -309,7 +309,7 @@ export function ShowcaseContent({ displayFontVariable }: { displayFontVariable: 
               </Link>
               <Link
                 className={buttonClassName({ variant: "outline", className: "h-10 px-5 text-sm" })}
-                href="https://github.com/yuecao365/OfferLai"
+                href="https://github.com/yuecao365/OfferCome"
               >
                 {content.viewSource}
                 <ArrowUpRight aria-hidden="true" className="size-4" strokeWidth={1.5} />
@@ -321,9 +321,9 @@ export function ShowcaseContent({ displayFontVariable }: { displayFontVariable: 
 
       <footer className="relative border-t border-border">
         <div className="mx-auto flex max-w-7xl flex-col gap-2 px-5 py-6 font-mono text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-8">
-          <span>OfferLai · {content.footerNote}</span>
-          <Link className="hover:text-foreground" href="https://github.com/yuecao365/OfferLai">
-            github.com/yuecao365/OfferLai
+          <span>OfferCome · {content.footerNote}</span>
+          <Link className="hover:text-foreground" href="https://github.com/yuecao365/OfferCome">
+            github.com/yuecao365/OfferCome
           </Link>
         </div>
       </footer>

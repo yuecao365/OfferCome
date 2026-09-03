@@ -10,7 +10,7 @@ const displayFont = Noto_Sans_SC({
 });
 
 export const metadata = {
-  title: "OfferLai - Local-first career workspace",
+  title: "OfferCome - Local-first career workspace",
   description:
     "A local-first workspace for applications, resumes, real interviews, AI mock interviews, review, and long-term capability growth.",
 };

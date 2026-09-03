@@ -1,10 +1,10 @@
 <div align="center">
 
-# OfferLai
+# OfferCome
 
 **本地优先的求职工作台：让每一次投递和面试，都变成下一次更好的准备。**
 
-[English](README.md) · [产品介绍](https://www.offer-lai.com) · [在线体验](https://www.offer-lai.com/homepage)
+[English](README.md) · [产品介绍](https://offercome.yuecao.dev) · [在线体验](https://offercome.yuecao.dev/homepage)
 
 ![Next.js](https://img.shields.io/badge/Next.js-16-000000?style=flat-square&logo=nextdotjs)
 ![React](https://img.shields.io/badge/React-19-149ECA?style=flat-square&logo=react)
@@ -16,38 +16,38 @@
 
 [项目简介](#项目简介) · [项目预览](#项目预览) · [核心闭环](#核心闭环) · [功能介绍](#功能介绍) · [设计与实现](#设计与实现) · [快速开始](#快速开始)
 
-<a href="https://www.offer-lai.com/showcase"><img src="docs/images/hero.png" alt="OfferLai — 每一场面试，都算数" width="820"></a>
+<a href="https://offercome.yuecao.dev/showcase"><img src="docs/images/hero.png" alt="OfferCome — 每一场面试，都算数" width="820"></a>
 
 </div>
 
 ## 项目简介
 
-求职过程中的信息是散的：投递记录留在招聘平台，简历躺在文件夹里，面试经历只存在脑子里，而某次没答好的教训，往往还没到下一场面试就已经忘了。OfferLai 把投递、简历、真实面试、AI 模拟训练、复盘和长期能力画像连成一个工作台，让每一轮的产出都成为下一轮的输入。
+求职过程中的信息是散的：投递记录留在招聘平台，简历躺在文件夹里，面试经历只存在脑子里，而某次没答好的教训，往往还没到下一场面试就已经忘了。OfferCome 把投递、简历、真实面试、AI 模拟训练、复盘和长期能力画像连成一个工作台，让每一轮的产出都成为下一轮的输入。
 
 > **本地优先设计：** SQLite 数据库、简历文件和 Boss 浏览器登录状态都保存在你自己的设备上。只有在你主动配置模型服务之后才会调用 AI 服务商，并且只发送该任务必需的内容。
 
 ## 项目预览
 
-[在线体验](https://www.offer-lai.com/homepage)使用虚构数据、以只读模式运行，不接收也不保存简历、面试记录、API Key 或 Boss 登录信息。完整可读写的产品请在本地部署。
+[在线体验](https://offercome.yuecao.dev/homepage)使用虚构数据、以只读模式运行，不接收也不保存简历、面试记录、API Key 或 Boss 登录信息。完整可读写的产品请在本地部署。
 
 <table>
   <tr>
-    <td width="50%" align="center"><strong>数据概览</strong><br><img src="docs/images/dashboard.png" alt="OfferLai 数据概览"></td>
-    <td width="50%" align="center"><strong>投递岗位</strong><br><img src="docs/images/applications.png" alt="OfferLai 投递岗位"></td>
+    <td width="50%" align="center"><strong>数据概览</strong><br><img src="docs/images/dashboard.png" alt="OfferCome 数据概览"></td>
+    <td width="50%" align="center"><strong>投递岗位</strong><br><img src="docs/images/applications.png" alt="OfferCome 投递岗位"></td>
   </tr>
   <tr>
-    <td width="50%" align="center"><strong>AI 模拟面试</strong><br><img src="docs/images/mock-interview.png" alt="OfferLai AI 模拟面试"></td>
-    <td width="50%" align="center"><strong>历史面试</strong><br><img src="docs/images/interview-history.png" alt="OfferLai 历史面试"></td>
+    <td width="50%" align="center"><strong>AI 模拟面试</strong><br><img src="docs/images/mock-interview.png" alt="OfferCome AI 模拟面试"></td>
+    <td width="50%" align="center"><strong>历史面试</strong><br><img src="docs/images/interview-history.png" alt="OfferCome 历史面试"></td>
   </tr>
   <tr>
-    <td width="50%" align="center"><strong>面试复盘</strong><br><img src="docs/images/interview-review.png" alt="OfferLai 面试复盘"></td>
-    <td width="50%" align="center"><strong>能力画像</strong><br><img src="docs/images/ability-profile.png" alt="OfferLai 能力画像"></td>
+    <td width="50%" align="center"><strong>面试复盘</strong><br><img src="docs/images/interview-review.png" alt="OfferCome 面试复盘"></td>
+    <td width="50%" align="center"><strong>能力画像</strong><br><img src="docs/images/ability-profile.png" alt="OfferCome 能力画像"></td>
   </tr>
 </table>
 
 ## 核心闭环
 
-OfferLai 围绕一个闭环设计，每个环节的产出都会让下一个环节更准。
+OfferCome 围绕一个闭环设计，每个环节的产出都会让下一个环节更准。
 
 ```
 投递岗位 ──▶ 简历与项目 ──▶ AI 模拟面试 ──▶ 真实面试
@@ -67,7 +67,7 @@ OfferLai 围绕一个闭环设计，每个环节的产出都会让下一个环�
 
 ### 投递岗位
 
-一键导入 Boss 直聘上已有的记录：OfferLai 通过 Chrome DevTools Protocol 驱动本机浏览器逐页读取，按稳定岗位身份去重，并突出新增与来源变化。超过 30 天没有后续互动的投递会在同步时被标记为已拒绝——这个判断只在同步过程中发生，不会在你不知情时偷偷改动数据。登录、扫码、验证码和安全校验始终由你本人完成；系统只读取你已有的记录，不会代你投递或发送任何消息。你删除过的岗位不会在下次同步时被重新拉回。投递记录同样支持手动新建与编辑，阶段变化会实时反映到数据概览。
+一键导入 Boss 直聘上已有的记录：OfferCome 通过 Chrome DevTools Protocol 驱动本机浏览器逐页读取，按稳定岗位身份去重，并突出新增与来源变化。超过 30 天没有后续互动的投递会在同步时被标记为已拒绝——这个判断只在同步过程中发生，不会在你不知情时偷偷改动数据。登录、扫码、验证码和安全校验始终由你本人完成；系统只读取你已有的记录，不会代你投递或发送任何消息。你删除过的岗位不会在下次同步时被重新拉回。投递记录同样支持手动新建与编辑，阶段变化会实时反映到数据概览。
 
 ### 简历中心
 
@@ -117,15 +117,15 @@ OfferLai 围绕一个闭环设计，每个环节的产出都会让下一个环�
 
 ### 1. 在线体验
 
-直接打开 **[OfferLai 在线体验](https://www.offer-lai.com/homepage)**。该环境只读，操作不会被保存。
+直接打开 **[OfferCome 在线体验](https://offercome.yuecao.dev/homepage)**。该环境只读，操作不会被保存。
 
 ### 2. Docker 本地部署（推荐）
 
 **环境要求：** Docker Desktop 或 Docker Engine + Docker Compose。
 
 ```bash
-git clone https://github.com/yuecao365/OfferLai.git
-cd OfferLai
+git clone https://github.com/yuecao365/OfferCome.git
+cd OfferCome
 docker compose up -d --build
 ```
 
@@ -143,8 +143,8 @@ docker compose down
 **环境要求：** Node.js 22+、npm，以及用于 Boss 登录的 Chrome 或 Edge。
 
 ```powershell
-git clone https://github.com/yuecao365/OfferLai.git
-Set-Location OfferLai
+git clone https://github.com/yuecao365/OfferCome.git
+Set-Location OfferCome
 Copy-Item .env.example .env.local
 npm ci
 npm run db:push
@@ -163,7 +163,7 @@ npm run boss:sync
 
 ## 部署说明
 
-OfferLai 按本地优先方式设计。多项能力依赖长任务或本地资源：LLM 调用可能持续 60 秒以上；音频转写最长可运行 10 分钟；超长录音会分片并可能需要 ffmpeg 切分；模拟面试生成与画像刷新使用 Next.js `after()` 后台任务；Boss 同步通过 Chrome DevTools Protocol 驱动本机浏览器；简历文件与浏览器会话状态保存在本地文件系统。
+OfferCome 按本地优先方式设计。多项能力依赖长任务或本地资源：LLM 调用可能持续 60 秒以上；音频转写最长可运行 10 分钟；超长录音会分片并可能需要 ffmpeg 切分；模拟面试生成与画像刷新使用 Next.js `after()` 后台任务；Boss 同步通过 Chrome DevTools Protocol 驱动本机浏览器；简历文件与浏览器会话状态保存在本地文件系统。
 
 因此，若要把可读写的完整产品部署到 Vercel 等 serverless 平台，需要你自行解决函数超时、ffmpeg 运行环境、可靠的后台任务，以及数据库与文件的持久化存储。本仓库中的 Vercel 站点仅作为只读预览；完整产品请按上文使用 Docker Compose 在本地运行。
 
