@@ -3,14 +3,29 @@ import type { ComponentProps } from "react";
 import { NewApplicationModal } from "@/components/application-modals";
 import { ApplicationFilters } from "@/components/application-filters";
 import { ApplicationsTable } from "@/components/applications-table";
-import { Pagination } from "@/components/pagination";
 import { PageHeader } from "@/components/page-header";
 import { SyncBossButton } from "@/components/sync-boss-button";
+import { ListPagination } from "@/components/ui/list-pagination";
 import type { ApplicationInterviewContext } from "@/components/application-interview-actions";
 import type {
   ApplicationFilters as ApplicationFiltersValue,
   ApplicationListItem,
 } from "@/lib/applications/types";
+
+function applicationPageHref(filters: ApplicationFiltersValue, page: number): string {
+  const params = new URLSearchParams();
+  if (filters.q) params.set("q", filters.q);
+  if (filters.status !== "all") params.set("status", filters.status);
+  if (filters.source !== "all") params.set("source", filters.source);
+  if (filters.from) params.set("from", filters.from);
+  if (filters.to) params.set("to", filters.to);
+  if (filters.sortBy !== "updatedAt") params.set("sortBy", filters.sortBy);
+  if (filters.sortDir !== "desc") params.set("sortDir", filters.sortDir);
+  if (filters.pageSize !== 12) params.set("pageSize", String(filters.pageSize));
+  if (page > 1) params.set("page", String(page));
+  const query = params.toString();
+  return query ? `/applications?${query}` : "/applications";
+}
 
 /**
  * 投递页的呈现层。本地版（服务端取数）和体验版（浏览器取数）
@@ -61,8 +76,9 @@ export function ApplicationsView({
         interviewContext={interviewContext}
         {...table}
       />
-      <Pagination
-        filters={filters}
+      <ListPagination
+        ariaLabel="岗位列表分页"
+        hrefForPage={(page) => applicationPageHref(filters, page)}
         page={applications.page}
         total={applications.total}
         totalPages={applications.totalPages}

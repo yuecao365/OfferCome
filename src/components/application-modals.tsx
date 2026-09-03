@@ -1,5 +1,6 @@
 "use client";
 
+import { Pencil } from "lucide-react";
 import type { ComponentProps } from "react";
 
 import type { ApplicationListItem } from "@/lib/applications/types";
@@ -35,7 +36,12 @@ export function EditApplicationModal({
   action?: ComponentProps<typeof ApplicationForm>["action"];
 }) {
   return (
-    <Modal title="编辑投递" triggerLabel="编辑">
+    <Modal
+      title="编辑投递"
+      triggerClassName={buttonClassName({ variant: "ghost", size: "icon-sm" })}
+      triggerLabel={<Pencil aria-hidden="true" className="size-3.5" strokeWidth={1.5} />}
+      triggerTitle="编辑投递"
+    >
       {(close) => (
         <ApplicationForm
           action={action}

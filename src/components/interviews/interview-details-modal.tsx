@@ -1,14 +1,22 @@
 "use client";
 
+import { Eye } from "lucide-react";
+
 import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/modal";
+import { buttonClassName } from "@/components/ui/button";
 import { formatDateTime } from "@/lib/format/date";
 import type { InterviewListItem } from "@/lib/interviews/types";
 import { questionCategoryLabel, roundLabel } from "@/lib/interviews/types";
 
 export function InterviewDetailsModal({ interview }: { interview: InterviewListItem }) {
   return (
-    <Modal title={`${interview.companyName} · ${interview.jobTitle}`} triggerLabel="查看详情">
+    <Modal
+      title={`${interview.companyName} · ${interview.jobTitle}`}
+      triggerClassName={buttonClassName({ variant: "ghost", size: "icon-sm" })}
+      triggerLabel={<Eye aria-hidden="true" className="size-3.5" strokeWidth={1.5} />}
+      triggerTitle="查看详情"
+    >
       {() => (
         <div className="grid gap-4">
           <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">

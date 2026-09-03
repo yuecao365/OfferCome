@@ -1,8 +1,17 @@
-import { Sparkles } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import type { ComponentProps } from "react";
 
-import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
+import {
+  DataRow,
+  DataTable,
+  DataTableBody,
+  DataTableHead,
+  MetaText,
+  RowActions,
+  Td,
+  Th,
+} from "@/components/ui/data-table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatShortDateTime } from "@/lib/format/date";
 import type { InterviewListItem, ResumeProjectOption } from "@/lib/interviews/types";
@@ -21,6 +30,15 @@ type InterviewListProps = {
   deleteActionFor?: (id: string) => (formData: FormData) => Promise<void>;
 };
 
+/** 模拟面试的来源标记：等宽小字，不用彩色药丸。 */
+export function MockTag() {
+  return (
+    <span className="rounded-control border border-border px-1 font-mono text-[0.625rem] leading-4 text-muted-foreground">
+      AI
+    </span>
+  );
+}
+
 export function InterviewList({
   interviews,
   resumeProjects,
@@ -38,73 +56,77 @@ export function InterviewList({
   }
 
   return (
-    <section className="overflow-hidden rounded-xl border border-border bg-surface shadow-card">
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[960px] border-collapse text-left text-sm">
-          <thead className="bg-surface-subtle text-xs font-semibold text-muted-foreground">
-            <tr>
-              <th className="px-4 py-3">公司与岗位</th>
-              <th className="px-4 py-3">面试时间</th>
-              <th className="px-4 py-3">轮次</th>
-              <th className="px-4 py-3">状态</th>
-              <th className="px-4 py-3">问题数</th>
-              <th className="px-4 py-3">最近更新</th>
-              <th className="px-4 py-3 text-right">操作</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {interviews.map((interview) => (
-              <tr className="transition-colors hover:bg-surface-subtle" key={interview.id}>
-                <td className="max-w-72 px-4 py-3.5">
-                  <div className="flex items-center gap-2">
-                    <p className="truncate font-semibold text-foreground">{interview.companyName}</p>
-                    {interview.kind === "mock" ? <Badge tone="brand">AI 模拟</Badge> : null}
-                  </div>
-                  <p className="mt-1 truncate text-muted-foreground">{interview.jobTitle}</p>
-                </td>
-                <td className="whitespace-nowrap px-4 py-3.5 text-muted-foreground">
-                  {formatShortDateTime(interview.interviewedAt, "未设置")}
-                </td>
-                <td className="whitespace-nowrap px-4 py-3.5 text-muted-foreground">
-                  {roundLabel(interview.round)}
-                </td>
-                <td className="px-4 py-3.5">
-                  <InterviewStatusBadge status={interview.status} />
-                </td>
-                <td className="px-4 py-3.5 text-muted-foreground">{interview.questionCount}</td>
-                <td className="whitespace-nowrap px-4 py-3.5 text-muted-foreground">
-                  {formatShortDateTime(interview.updatedAt, "未设置")}
-                </td>
-                <td className="px-4 py-3.5">
-                  <div className="flex items-center justify-end gap-1">
-                    {interview.status === "scheduled" ? (
-                      <ButtonLink href={`/interviews/prepare/${interview.id}`} size="sm" variant="outline">
-                        去准备
-                      </ButtonLink>
-                    ) : null}
-                    <InterviewDetailsModal interview={interview} />
-                    {interview.kind === "real" ? (
-                      <EditInterviewModal
-                        action={editActionFor?.(interview.id)}
-                        interview={interview}
-                        resumeProjects={resumeProjects}
-                      />
-                    ) : interview.mockSessionId ? (
-                      <ButtonLink href={`/interviews/mock/${interview.mockSessionId}`} size="sm" variant="outline">
-                        打开
-                      </ButtonLink>
-                    ) : null}
-                    <InterviewDeleteButton
-                      action={deleteActionFor?.(interview.id)}
-                      id={interview.id}
+    <DataTable>
+      <DataTableHead>
+        <Th>公司与岗位</Th>
+        <Th>面试时间</Th>
+        <Th>轮次</Th>
+        <Th>状态</Th>
+        <Th className="text-right">问题</Th>
+        <Th>最近更新</Th>
+        <Th className="text-right">
+          <span className="sr-only">操作</span>
+        </Th>
+      </DataTableHead>
+      <DataTableBody>
+        {interviews.map((interview) => (
+          <DataRow key={interview.id}>
+            <Td className="max-w-72">
+              <div className="flex items-center gap-2">
+                <p className="truncate font-medium text-foreground">{interview.companyName}</p>
+                {interview.kind === "mock" ? <MockTag /> : null}
+              </div>
+              <p className="mt-0.5 truncate text-muted-foreground">{interview.jobTitle}</p>
+            </Td>
+            <Td>
+              <MetaText>{formatShortDateTime(interview.interviewedAt, "未设置")}</MetaText>
+            </Td>
+            <Td className="whitespace-nowrap text-muted-foreground">{roundLabel(interview.round)}</Td>
+            <Td>
+              <InterviewStatusBadge status={interview.status} />
+            </Td>
+            <Td className="text-right">
+              <MetaText>{interview.questionCount}</MetaText>
+            </Td>
+            <Td>
+              <MetaText>{formatShortDateTime(interview.updatedAt, "未设置")}</MetaText>
+            </Td>
+            <Td className="py-2">
+              <div className="flex items-center justify-end gap-2">
+                {interview.status === "scheduled" ? (
+                  <ButtonLink href={`/interviews/prepare/${interview.id}`} size="sm" variant="outline">
+                    去准备
+                  </ButtonLink>
+                ) : null}
+                <RowActions>
+                  <InterviewDetailsModal interview={interview} />
+                  {interview.kind === "real" ? (
+                    <EditInterviewModal
+                      action={editActionFor?.(interview.id)}
+                      interview={interview}
+                      resumeProjects={resumeProjects}
                     />
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </section>
+                  ) : interview.mockSessionId ? (
+                    <ButtonLink
+                      aria-label="打开模拟面试"
+                      href={`/interviews/mock/${interview.mockSessionId}`}
+                      size="icon-sm"
+                      title="打开模拟面试"
+                      variant="ghost"
+                    >
+                      <ArrowUpRight aria-hidden="true" className="size-3.5" strokeWidth={1.5} />
+                    </ButtonLink>
+                  ) : null}
+                  <InterviewDeleteButton
+                    action={deleteActionFor?.(interview.id)}
+                    id={interview.id}
+                  />
+                </RowActions>
+              </div>
+            </Td>
+          </DataRow>
+        ))}
+      </DataTableBody>
+    </DataTable>
   );
 }

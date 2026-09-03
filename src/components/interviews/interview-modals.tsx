@@ -1,6 +1,7 @@
 "use client";
 
-import type { ComponentProps } from "react";
+import { Pencil } from "lucide-react";
+import type { ComponentProps, ReactNode } from "react";
 
 import { Modal } from "@/components/modal";
 import { buttonClassName } from "@/components/ui/button";
@@ -16,6 +17,7 @@ export function NewInterviewModal({
   transcriptionConfigured,
   prefill,
   triggerLabel = "新建面试",
+  triggerTitle,
   triggerClassName,
   action,
   draftImportEnabled,
@@ -23,7 +25,8 @@ export function NewInterviewModal({
   resumeProjects: ResumeProjectOption[];
   transcriptionConfigured: boolean;
   prefill?: InterviewPrefill | null;
-  triggerLabel?: string;
+  triggerLabel?: ReactNode;
+  triggerTitle?: string;
   triggerClassName?: string;
   /** 覆盖默认的 Server Action（体验版传浏览器实现）。 */
   action?: ComponentProps<typeof InterviewForm>["action"];
@@ -35,6 +38,7 @@ export function NewInterviewModal({
       title="新增面试"
       triggerClassName={triggerClassName ?? buttonClassName()}
       triggerLabel={triggerLabel}
+      triggerTitle={triggerTitle}
     >
       {(close) => (
         <div className="grid gap-4">
@@ -69,7 +73,13 @@ export function EditInterviewModal({
   action?: ComponentProps<typeof InterviewForm>["action"];
 }) {
   return (
-    <Modal size="extraWide" title="编辑面试记录" triggerLabel="编辑">
+    <Modal
+      size="extraWide"
+      title="编辑面试记录"
+      triggerClassName={buttonClassName({ variant: "ghost", size: "icon-sm" })}
+      triggerLabel={<Pencil aria-hidden="true" className="size-3.5" strokeWidth={1.5} />}
+      triggerTitle="编辑面试记录"
+    >
       {(close) => (
         <InterviewForm
           action={action}

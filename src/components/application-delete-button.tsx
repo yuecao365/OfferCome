@@ -14,12 +14,12 @@ function DeleteButton() {
       aria-label="删除投递记录"
       className="text-danger hover:bg-danger-soft hover:text-danger-strong"
       disabled={pending}
-      size="icon"
+      size="icon-sm"
       title="删除投递记录"
       type="submit"
       variant="ghost"
     >
-      <Trash2 aria-hidden="true" className="size-4" />
+      <Trash2 aria-hidden="true" className="size-3.5" strokeWidth={1.5} />
     </Button>
   );
 }

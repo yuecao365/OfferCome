@@ -1,4 +1,4 @@
-import { Sparkles } from "lucide-react";
+import { MessageSquarePlus, Play } from "lucide-react";
 import type { ComponentProps } from "react";
 
 import { NewInterviewModal } from "@/components/interviews/interview-modals";
@@ -37,18 +37,19 @@ export function ApplicationInterviewActions({
         }}
         resumeProjects={context.resumeProjects}
         transcriptionConfigured={context.transcriptionConfigured}
-        triggerClassName={buttonClassName({ variant: "ghost", size: "sm" })}
-        triggerLabel="记录面试"
+        triggerClassName={buttonClassName({ variant: "ghost", size: "icon-sm" })}
+        triggerLabel={<MessageSquarePlus aria-hidden="true" className="size-3.5" strokeWidth={1.5} />}
+        triggerTitle="记录面试"
         {...context.newInterview}
       />
       <ButtonLink
         aria-label={`用「${application.companyName} · ${application.jobTitle}」开始 AI 模拟面试`}
         href={`/interviews/mock?applicationId=${encodeURIComponent(application.id)}`}
-        size="sm"
+        size="icon-sm"
+        title="AI 模拟面试"
         variant="ghost"
       >
-        <Sparkles aria-hidden="true" className="size-4" />
-        模拟面试
+        <Play aria-hidden="true" className="size-3.5" strokeWidth={1.5} />
       </ButtonLink>
     </>
   );

@@ -1,12 +1,13 @@
+import { Search, SlidersHorizontal } from "lucide-react";
 import type { ComponentProps } from "react";
 
 import { InterviewList } from "@/components/interviews/interview-list";
 import { NewInterviewModal } from "@/components/interviews/interview-modals";
 import { PageHeader } from "@/components/page-header";
-import { Button, ButtonLink } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { ButtonLink } from "@/components/ui/button";
+import { FilterForm } from "@/components/ui/filter-form";
 import { FieldLabel, Input, Select } from "@/components/ui/form-controls";
-import { PageNumbers } from "@/components/ui/page-numbers";
+import { ListPagination } from "@/components/ui/list-pagination";
 import {
   INTERVIEW_QUESTION_CATEGORIES,
   INTERVIEW_QUESTION_CATEGORY_LABELS,
@@ -61,6 +62,12 @@ export function InterviewHistoryView({
     const query = params.toString();
     return query ? `/interviews/history?${query}` : "/interviews/history";
   };
+  const hasAdvancedFilters = filters.category !== "all" || filters.sort !== "newest";
+  const hasAnyFilter =
+    hasAdvancedFilters ||
+    Boolean(filters.q) ||
+    filters.status !== "all" ||
+    filters.round !== "all";
 
   return (
     <>
@@ -76,47 +83,52 @@ export function InterviewHistoryView({
         title="历史面试"
       />
 
-      <Card className="p-4">
-        <form className="grid gap-4">
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(260px,1.4fr)_minmax(150px,0.7fr)_minmax(150px,0.7fr)_auto] xl:items-end">
-            <FieldLabel>
-              搜索
-              <Input
-                defaultValue={filters.q}
-                name="q"
-                placeholder="公司、岗位或问题"
-                type="search"
-              />
-            </FieldLabel>
-            <FieldLabel>
-              状态
-              <Select defaultValue={filters.status} name="status">
-                <option value="all">全部状态</option>
-                {INTERVIEW_STATUSES.map((status) => (
-                  <option key={status} value={status}>
-                    {INTERVIEW_STATUS_LABELS[status]}
-                  </option>
-                ))}
-              </Select>
-            </FieldLabel>
-            <FieldLabel>
-              轮次
-              <Select defaultValue={filters.round} name="round">
-                <option value="all">全部轮次</option>
-                {INTERVIEW_ROUNDS.map((round) => (
-                  <option key={round} value={round}>
-                    {INTERVIEW_ROUND_LABELS[round]}
-                  </option>
-                ))}
-              </Select>
-            </FieldLabel>
-            <Button type="submit">应用筛选</Button>
-          </div>
-          <details>
-            <summary className="w-fit cursor-pointer text-sm font-semibold text-muted-foreground hover:text-foreground">
+      <FilterForm action="/interviews/history" className="grid gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="relative w-full sm:w-64">
+            <span className="sr-only">搜索</span>
+            <Search
+              aria-hidden="true"
+              className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
+              strokeWidth={1.5}
+            />
+            <Input
+              className="pl-8"
+              defaultValue={filters.q}
+              name="q"
+              placeholder="搜索公司、岗位或问题"
+              type="search"
+            />
+          </label>
+          <span className="block w-full sm:w-40">
+            <Select aria-label="状态" defaultValue={filters.status} name="status">
+              <option value="all">全部状态</option>
+              {INTERVIEW_STATUSES.map((status) => (
+                <option key={status} value={status}>
+                  {INTERVIEW_STATUS_LABELS[status]}
+                </option>
+              ))}
+            </Select>
+          </span>
+          <span className="block w-full sm:w-40">
+            <Select aria-label="轮次" defaultValue={filters.round} name="round">
+              <option value="all">全部轮次</option>
+              {INTERVIEW_ROUNDS.map((round) => (
+                <option key={round} value={round}>
+                  {INTERVIEW_ROUND_LABELS[round]}
+                </option>
+              ))}
+            </Select>
+          </span>
+          <details className="contents" open={hasAdvancedFilters || undefined}>
+            <summary className="inline-flex h-8 cursor-pointer list-none items-center gap-1.5 rounded-control px-2.5 text-[0.8125rem] text-muted-foreground hover:bg-muted hover:text-foreground">
+              <SlidersHorizontal aria-hidden="true" className="size-3.5" strokeWidth={1.5} />
               更多筛选
+              {hasAdvancedFilters ? (
+                <span aria-label="已启用更多筛选" className="size-1.5 rounded-full bg-brand" />
+              ) : null}
             </summary>
-            <div className="mt-3 grid gap-3 border-t border-border pt-4 sm:grid-cols-2">
+            <div className="grid w-full gap-2 border-t border-border pt-3 sm:grid-cols-2 xl:grid-cols-4">
               <FieldLabel>
                 问题类型
                 <Select defaultValue={filters.category} name="category">
@@ -137,13 +149,13 @@ export function InterviewHistoryView({
               </FieldLabel>
             </div>
           </details>
-          <div className="flex justify-end border-t border-border pt-3">
-            <ButtonLink href="/interviews/history" size="sm" variant="ghost">
+          {hasAnyFilter ? (
+            <ButtonLink className="ml-auto" href="/interviews/history" size="sm" variant="ghost">
               清空筛选
             </ButtonLink>
-          </div>
-        </form>
-      </Card>
+          ) : null}
+        </div>
+      </FilterForm>
 
       <InterviewList
         interviews={interviewPage.interviews}
@@ -151,23 +163,14 @@ export function InterviewHistoryView({
         {...list}
       />
 
-      {interviewPage.totalPages > 1 ? (
-        <nav
-          aria-label="历史面试分页"
-          className="flex flex-col gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-sm text-muted-foreground shadow-card sm:flex-row sm:items-center sm:justify-between"
-        >
-          <span>
-            共 {interviewPage.total} 场 · 第 {interviewPage.page} /{" "}
-            {interviewPage.totalPages} 页
-          </span>
-          <PageNumbers
-            ariaLabel="历史面试页码"
-            hrefForPage={historyHref}
-            page={interviewPage.page}
-            totalPages={interviewPage.totalPages}
-          />
-        </nav>
-      ) : null}
+      <ListPagination
+        ariaLabel="历史面试分页"
+        hrefForPage={historyHref}
+        page={interviewPage.page}
+        total={interviewPage.total}
+        totalPages={interviewPage.totalPages}
+        unit="场"
+      />
     </>
   );
 }
