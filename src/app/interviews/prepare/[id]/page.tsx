@@ -56,7 +56,7 @@ export default async function InterviewPreparePage({
         title={`${interview.companyName} · ${interview.jobTitle}`}
       />
 
-      <Card className="border-brand/25 bg-accent/25">
+      <Card>
         <CardContent className="flex flex-wrap items-center gap-x-6 gap-y-3 p-5">
           <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <CalendarClock aria-hidden="true" className="size-4 text-brand" />
@@ -122,7 +122,7 @@ export default async function InterviewPreparePage({
               <div className="grid gap-3 sm:grid-cols-2">
                 {weakDimensions.map((item) => (
                   <div
-                    className="rounded-xl border border-border bg-surface p-4"
+                    className="rounded-control border border-border bg-surface p-4"
                     key={item.dimension}
                   >
                     <div className="flex items-center justify-between gap-3">

@@ -96,7 +96,7 @@ export function ProfileAbilityBars({
                   return (
                     <button
                       aria-label={`${PROFILE_DIMENSION_LABELS[dimension]}，${metric!.levelLabel}，证据${metric!.confidenceLabel}`}
-                      className={`rounded-xl border bg-surface p-4 text-left transition-colors hover:border-brand/40 ${confidenceClass(metric!.evidenceConfidence)}`}
+                      className={`rounded-panel border bg-surface p-4 text-left transition-colors duration-150 hover:bg-surface-subtle ${confidenceClass(metric!.evidenceConfidence)}`}
                       key={dimension}
                       onClick={() => onSelect(dimension)}
                       type="button"
@@ -209,7 +209,7 @@ export function ProfileTimelineChart({ snapshots }: { snapshots: ProfileSnapshot
           );
         })}
       </div>
-      <div aria-label="能力等级成长时间轴" className="h-80 rounded-xl border border-border bg-surface p-3" role="img">
+      <div aria-label="能力等级成长时间轴" className="h-80 rounded-panel border border-border bg-surface p-3" role="img">
         <ResponsiveContainer height="100%" width="100%">
           <LineChart data={data} margin={{ bottom: 8, left: -12, right: 12, top: 12 }}>
             <CartesianGrid stroke="var(--border)" strokeDasharray="3 4" />

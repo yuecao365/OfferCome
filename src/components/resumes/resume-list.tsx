@@ -1,4 +1,4 @@
-import { Check, FileText } from "lucide-react";
+import { Check } from "lucide-react";
 import Link from "next/link";
 import type { ComponentProps } from "react";
 
@@ -32,7 +32,7 @@ export function ResumeList({ resumes, selectedId, actions }: ResumeListProps) {
   }
 
   return (
-    <section aria-labelledby="resume-list-title" className="overflow-hidden rounded-xl border border-border bg-surface shadow-card">
+    <section aria-labelledby="resume-list-title" className="overflow-hidden rounded-panel border border-border bg-surface">
       <div className="border-b border-border px-4 py-3">
         <h2 className="text-sm font-semibold text-foreground" id="resume-list-title">
           简历版本 · {resumes.length}
@@ -42,7 +42,7 @@ export function ResumeList({ resumes, selectedId, actions }: ResumeListProps) {
         {resumes.map((resume) => {
           const selected = selectedId === resume.id;
           return (
-            <article className={cn("p-3 transition-colors", selected ? "bg-accent/55" : "hover:bg-surface-subtle")} key={resume.id}>
+            <article className={cn("relative p-3 transition-colors duration-150", selected ? "bg-surface-subtle before:absolute before:inset-y-3 before:left-0 before:w-0.5 before:rounded-full before:bg-brand" : "hover:bg-surface-subtle")} key={resume.id}>
               <Link
                 aria-current={selected ? "page" : undefined}
                 className="block rounded-lg p-1 focus-visible:outline-offset-2"

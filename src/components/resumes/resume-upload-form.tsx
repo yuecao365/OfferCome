@@ -299,7 +299,7 @@ function ResumeParseForm({
 }) {
   return (
     <form action={formAction} className="grid gap-5">
-      <div className="rounded-xl border border-dashed border-border-strong bg-surface-subtle p-5 sm:p-6">
+      <div className="dot-grid rounded-panel border border-dashed border-border-strong p-5 sm:p-6">
         <div className="flex items-start gap-3">
           <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground">
             <FileUp aria-hidden="true" className="size-5" />

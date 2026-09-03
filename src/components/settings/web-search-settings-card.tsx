@@ -48,7 +48,7 @@ export function WebSearchSettingsCard({ initial }: { initial: PublicWebSearchCon
   }
 
   return (
-    <section className="rounded-xl border border-border bg-surface p-5 shadow-card sm:p-6">
+    <section className="rounded-panel border border-border bg-surface p-5 shadow-card">
       <div className="border-b border-border pb-4">
         <h2 className="font-semibold text-foreground">公开岗位信息检索</h2>
         <p className="mt-1 text-sm leading-6 text-muted-foreground">

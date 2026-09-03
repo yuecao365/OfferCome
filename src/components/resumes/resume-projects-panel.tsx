@@ -157,7 +157,7 @@ export function ResumeProjectsPanel({
   return (
     <section
       aria-labelledby="resume-projects-title"
-      className="overflow-hidden rounded-xl border border-border bg-surface shadow-card"
+      className="overflow-hidden rounded-panel border border-border bg-surface"
     >
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
         <div className="flex items-center gap-2">

@@ -445,7 +445,7 @@ export function ProfileGraph({ insights, selectedId, onSelect, reducedMotion }: 
   return (
     <section
       aria-label="能力画像知识网络。拖拽节点或画布探索关系，选择洞察后突出相关证据。"
-      className="profile-graph-canvas relative h-[calc(100vh-7rem)] min-h-[640px] w-full overflow-hidden rounded-2xl border border-border-strong shadow-2xl"
+      className="profile-graph-canvas relative h-[calc(100vh-7rem)] min-h-[640px] w-full overflow-hidden rounded-panel border border-border"
     >
       <button
         className="absolute right-4 top-4 z-10 rounded-lg border border-border bg-surface/85 px-3 py-1.5 text-[11px] font-medium text-foreground backdrop-blur hover:bg-surface-raised"
@@ -456,11 +456,11 @@ export function ProfileGraph({ insights, selectedId, onSelect, reducedMotion }: 
       </button>
       <div className="h-full w-full" ref={containerRef} />
       {renderError ? (
-        <div className="absolute inset-x-4 top-20 z-20 rounded-xl border border-danger/30 bg-danger-soft/90 px-4 py-3 text-sm text-danger-strong backdrop-blur">
+        <div className="absolute inset-x-4 top-20 z-20 rounded-control border border-danger/30 bg-danger-soft/90 px-4 py-3 text-sm text-danger-strong backdrop-blur">
           图谱暂时无法渲染：{renderError}
         </div>
       ) : null}
-      <div className="pointer-events-none absolute bottom-4 left-4 z-10 flex max-w-[calc(100%-2rem)] flex-wrap gap-x-4 gap-y-2 rounded-xl border border-border bg-surface/85 px-3 py-2 text-[10px] text-muted-foreground backdrop-blur">
+      <div className="pointer-events-none absolute bottom-4 left-4 z-10 flex max-w-[calc(100%-2rem)] flex-wrap gap-x-4 gap-y-2 rounded-control border border-border bg-surface/85 px-3 py-2 text-[10px] text-muted-foreground backdrop-blur">
         <span>拖拽节点 · 滚轮缩放 · 悬停追踪</span>
         <span><i className="mr-1.5 inline-block size-2 rounded-full bg-success" />优势</span>
         <span><i className="mr-1.5 inline-block size-2 rounded-full bg-danger" />短板</span>

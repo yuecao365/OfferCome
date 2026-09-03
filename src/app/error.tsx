@@ -18,8 +18,8 @@ export default function ErrorPage({
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-background p-6 text-foreground">
-      <section className="w-full max-w-lg rounded-xl border border-border bg-surface p-8 text-center shadow-card" role="alert">
-        <span className="mx-auto flex size-11 items-center justify-center rounded-xl bg-danger-soft text-danger-strong">
+      <section className="w-full max-w-lg rounded-panel border border-border bg-surface p-8 text-center" role="alert">
+        <span className="mx-auto flex size-9 items-center justify-center rounded-full bg-danger-soft text-danger-strong">
           <AlertTriangle aria-hidden="true" className="size-5" />
         </span>
         <h1 className="mt-5 text-xl font-semibold">页面加载失败</h1>

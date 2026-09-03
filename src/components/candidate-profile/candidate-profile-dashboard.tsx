@@ -306,7 +306,7 @@ export function CandidateProfileDashboard({
         selectedId={selectedId}
       />
 
-      <div className="absolute left-4 right-24 top-4 z-30 flex max-w-max flex-wrap items-center gap-1.5 rounded-xl border border-border bg-surface/90 p-1.5 text-foreground shadow-xl backdrop-blur-xl">
+      <div className="absolute left-4 right-24 top-4 z-30 flex max-w-max flex-wrap items-center gap-1.5 rounded-panel border border-border bg-surface/90 p-1 text-foreground shadow-overlay backdrop-blur-xl">
         <span className="hidden items-center gap-2 border-r border-border px-2.5 py-1 text-xs font-semibold sm:inline-flex">
           <i className={`size-1.5 rounded-full ${isUpdating ? "animate-pulse bg-info" : liveStatus.status === "failed" ? "bg-danger" : "bg-success"}`} />
           能力图谱
@@ -350,7 +350,7 @@ export function CandidateProfileDashboard({
       {showFilters ? (
         <section
           aria-label="画像筛选"
-          className="absolute left-4 top-16 z-40 grid w-[min(760px,calc(100%-2rem))] gap-3 rounded-xl border border-border bg-surface/95 p-4 text-foreground shadow-2xl backdrop-blur-xl sm:grid-cols-2 lg:grid-cols-4"
+          className="absolute left-4 top-16 z-40 grid w-[min(760px,calc(100%-2rem))] gap-3 rounded-panel border border-border bg-surface/95 p-4 text-foreground shadow-overlay backdrop-blur-xl sm:grid-cols-2 lg:grid-cols-4"
         >
           <div className="col-span-full flex items-center justify-between">
             <strong className="text-sm">筛选与岗位视角</strong>
@@ -424,10 +424,10 @@ export function CandidateProfileDashboard({
       ) : null}
 
       {view !== "graph" ? (
-        <section className="absolute bottom-16 right-4 top-16 z-30 w-[min(780px,calc(100%-2rem))] overflow-y-auto rounded-xl border border-border bg-surface/95 p-5 text-foreground shadow-2xl backdrop-blur-xl">
+        <section className="absolute bottom-16 right-4 top-16 z-30 w-[min(780px,calc(100%-2rem))] overflow-y-auto rounded-panel border border-border bg-surface/95 p-5 text-foreground shadow-overlay backdrop-blur-xl">
           <div className="mb-5 flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">能力图谱分析</p>
+              <p className="text-xs text-muted-foreground">能力图谱分析</p>
               <h2 className="mt-1 text-xl font-semibold">{views.find((item) => item.id === view)?.label}</h2>
             </div>
             <button aria-label="返回图谱" className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setView("graph")} type="button">
@@ -503,7 +503,7 @@ function InsightDetail({ insight, metrics, snapshots, onClose, onCorrect }: {
     const item = snapshot.metrics.find((entry) => entry.dimension === insight.dimension);
     return item?.level === null || item?.level === undefined ? [] : [{ date: snapshot.createdAt, level: item.level }];
   }).reverse();
-  return <aside className="h-full overflow-y-auto rounded-xl border border-border bg-surface/95 p-5 text-foreground shadow-2xl backdrop-blur-xl">
+  return <aside className="h-full overflow-y-auto rounded-panel border border-border bg-surface/95 p-5 text-foreground shadow-overlay backdrop-blur-xl">
     <div className="flex items-start justify-between gap-3"><div className="flex flex-wrap gap-2"><Badge tone="brand">{PROFILE_INSIGHT_KIND_LABELS[insight.kind]}</Badge><Badge>{PROFILE_DIMENSION_LABELS[insight.dimension]}</Badge></div><button aria-label="关闭洞察详情" className="rounded px-2 py-1 text-sm text-muted-foreground hover:bg-muted" onClick={onClose} type="button">×</button></div>
     <h2 className="mt-3 text-lg font-semibold">{insight.title}</h2>
     <p className="mt-2 text-sm leading-6 text-muted-foreground">{insight.statement}</p>

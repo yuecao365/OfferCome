@@ -34,7 +34,7 @@ export function TrialSettingsPage() {
 
         <Card>
           <CardHeader className="flex-row items-center gap-3">
-            <span className="flex size-9 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+            <span className="flex size-8 items-center justify-center rounded-control bg-muted text-muted-foreground">
               <Monitor aria-hidden="true" className="size-4" />
             </span>
             <div>
