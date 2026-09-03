@@ -129,10 +129,10 @@ cd OfferCome
 docker compose up -d --build
 ```
 
-Open **[http://localhost:3000](http://localhost:3000)**. SQLite data and uploaded files persist in the `offerlai-data` and `offerlai-local` Docker volumes.
+Open **[http://localhost:3000](http://localhost:3000)**. SQLite data and uploaded files persist in the `offercome-data` and `offercome-local` Docker volumes.
 
 ```bash
-docker compose logs -f offerlai
+docker compose logs -f offercome
 docker compose down
 ```
 

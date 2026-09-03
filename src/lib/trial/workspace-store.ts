@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 
+import { WORKSPACE_KEY } from "./storage-keys";
 import { createStoredDocument, useStoredDocument } from "./stored-document";
 import {
   createEmptyWorkspace,
@@ -37,7 +38,7 @@ function stripLegacySamples(workspace: TrialWorkspace): TrialWorkspace {
 }
 
 const document = createStoredDocument<TrialWorkspace>({
-  key: "offerlai.trial.workspace",
+  key: WORKSPACE_KEY,
   storage: () => window.localStorage,
   parse: (value) => (isTrialWorkspace(value) ? stripLegacySamples(value) : null),
 });

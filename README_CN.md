@@ -129,10 +129,10 @@ cd OfferCome
 docker compose up -d --build
 ```
 
-打开 **[http://localhost:3000](http://localhost:3000)**。SQLite 数据与上传文件持久化在 `offerlai-data` 和 `offerlai-local` 两个 Docker 卷中。
+打开 **[http://localhost:3000](http://localhost:3000)**。SQLite 数据与上传文件持久化在 `offercome-data` 和 `offercome-local` 两个 Docker 卷中。
 
 ```bash
-docker compose logs -f offerlai
+docker compose logs -f offercome
 docker compose down
 ```
 

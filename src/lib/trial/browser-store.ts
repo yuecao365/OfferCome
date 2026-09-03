@@ -1,4 +1,9 @@
 import { isTrialInterview, type TrialInterview } from "./interview";
+import {
+  AI_REMEMBER_KEY,
+  AI_TOKEN_KEY,
+  INTERVIEW_KEY,
+} from "./storage-keys";
 import { createStoredDocument } from "./stored-document";
 
 /**
@@ -12,9 +17,6 @@ import { createStoredDocument } from "./stored-document";
  * 连接串里含访客自己的 API Key，所以"记不记得住"必须由访客自己决定：
  * 共用电脑上应当关掉。默认记住是因为每次访问都重填 Key 太劝退。
  */
-
-const AI_TOKEN_KEY = "offerlai.trial.ai";
-const AI_REMEMBER_KEY = "offerlai.trial.ai.remember";
 
 function safeStorage(pick: (scope: Window) => Storage): Storage | null {
   try {
@@ -76,7 +78,7 @@ const aiToken = createStoredDocument<string>({
 });
 
 const interview = createStoredDocument<TrialInterview>({
-  key: "offerlai.trial.interview",
+  key: INTERVIEW_KEY,
   storage: () => window.localStorage,
   // 版本不匹配一律丢弃重来：体验数据是一次性的，不值得写迁移。
   parse: (value) => (isTrialInterview(value) ? value : null),

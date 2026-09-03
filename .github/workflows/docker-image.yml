@@ -14,7 +14,7 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: yuecao365/offerlai
+  IMAGE_NAME: yuecao365/offercome
 
 jobs:
   build:

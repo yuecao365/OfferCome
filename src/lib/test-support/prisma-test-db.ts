@@ -49,7 +49,7 @@ function ensureTemplateDatabase(): string {
   const projectRoot = process.cwd();
   const schema = readFileSync(path.join(projectRoot, "prisma", "schema.prisma"), "utf8");
   const digest = createHash("sha256").update(schema).digest("hex").slice(0, 16);
-  const directory = path.join(tmpdir(), "offerlai-test-template");
+  const directory = path.join(tmpdir(), "offercome-test-template");
   const template = path.join(directory, `schema-${digest}.db`);
   if (existsSync(template)) return template;
 
@@ -68,7 +68,7 @@ function ensureTemplateDatabase(): string {
 }
 
 export function createTestDatabase(): TestDatabase {
-  const directory = mkdtempSync(path.join(tmpdir(), "offerlai-test-"));
+  const directory = mkdtempSync(path.join(tmpdir(), "offercome-test-"));
   const file = path.join(directory, "test.db");
   copyFileSync(ensureTemplateDatabase(), file);
 

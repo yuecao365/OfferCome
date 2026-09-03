@@ -1,8 +1,8 @@
 services:
-  offerlai:
+  offercome:
     build:
       context: .
-    image: ghcr.io/yuecao365/offerlai:latest
+    image: ghcr.io/yuecao365/offercome:latest
     ports:
       - "3000:3000"
     environment:
@@ -13,10 +13,10 @@ services:
       OPENAI_INTERVIEW_MODEL: ${OPENAI_INTERVIEW_MODEL:-}
       OPENAI_TRANSCRIPTION_MODEL: ${OPENAI_TRANSCRIPTION_MODEL:-}
     volumes:
-      - offerlai-data:/data
-      - offerlai-local:/app/.local
+      - offercome-data:/data
+      - offercome-local:/app/.local
     restart: unless-stopped
 
 volumes:
-  offerlai-data:
-  offerlai-local:
+  offercome-data:
+  offercome-local:

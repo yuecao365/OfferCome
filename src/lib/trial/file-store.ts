@@ -11,7 +11,8 @@
  * 存不进去（隐私模式、配额不足）不是致命错误：调用方降级成纯文本预览。
  */
 
-const DATABASE_NAME = "offerlai.trial.files";
+import { FILE_DATABASE_NAME as DATABASE_NAME } from "./storage-keys";
+
 const STORE_NAME = "files";
 const DATABASE_VERSION = 1;
 

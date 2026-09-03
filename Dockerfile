@@ -2,7 +2,7 @@ FROM node:22-bookworm-slim AS builder
 
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV DATABASE_URL=file:/tmp/offerlai-build.db
+ENV DATABASE_URL=file:/tmp/offercome-build.db
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 
 RUN apt-get update \

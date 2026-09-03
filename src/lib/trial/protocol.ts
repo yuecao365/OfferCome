@@ -6,4 +6,4 @@
  */
 
 /** 访客自带的模型配置随这个请求头传递，不入请求体（出错时更不容易被日志记录）。 */
-export const TRIAL_AI_HEADER = "x-offerlai-trial-ai";
+export const TRIAL_AI_HEADER = "x-offercome-trial-ai";
