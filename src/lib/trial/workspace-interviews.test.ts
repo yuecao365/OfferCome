@@ -187,13 +187,12 @@ test("upcomingInterviews 区分未来面试与待补录", () => {
       interviewedAt: new Date("2026-08-29T10:00:00"),
     }),
   );
-  // 第二条在写入时已是过去时间，状态被推导为 completed，需要手动改回
-  // scheduled 才能覆盖"到点未补录"的场景。
+  // upsertInterview 用真实时钟推导状态，而本测试的 now 是固定日期：
+  // 两条记录一律显式置为 scheduled，测试才不随日历推移而失效，
+  // 同时覆盖"未来面试"和"到点未补录"两种场景。
   workspace = {
     ...workspace,
-    interviews: workspace.interviews.map((item) =>
-      item.companyName === "青竹信息" ? { ...item, status: "scheduled" } : item,
-    ),
+    interviews: workspace.interviews.map((item) => ({ ...item, status: "scheduled" })),
   };
 
   const result = upcomingInterviews(workspace, now);
