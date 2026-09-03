@@ -7,7 +7,7 @@ import {
   isMockInterviewMode,
   type MockInterviewReport,
   type MockInterviewView,
-  mockInterviewJobBlueprintSchema,
+  storedJobBlueprintSchema,
   type MockInterviewGenerationErrorContext,
 } from "./types";
 import { buildQuestionTeaching } from "./teaching";
@@ -95,7 +95,7 @@ export async function getMockInterviewView(id: string): Promise<MockInterviewVie
   });
   if (!session) return null;
   const snapshot = parseJsonObject(session.contextSnapshotJson);
-  const blueprint = mockInterviewJobBlueprintSchema.safeParse(snapshot.jobBlueprint);
+  const blueprint = storedJobBlueprintSchema.safeParse(snapshot.jobBlueprint);
   const reviewCount =
     typeof snapshot.jdReviewCount === "number" ? snapshot.jdReviewCount : 0;
   const generationErrorContext =

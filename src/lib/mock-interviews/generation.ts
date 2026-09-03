@@ -24,7 +24,7 @@ import {
 } from "./session-state";
 import {
   ACTIVE_MOCK_INTERVIEW_STATUS,
-  mockInterviewJobBlueprintSchema,
+  storedJobBlueprintSchema,
   type MockInterviewJobBlueprint,
 } from "./types";
 
@@ -99,7 +99,7 @@ async function ensureBlueprint(
   snapshot: GenerationSnapshot,
   generationId: string,
 ): Promise<MockInterviewJobBlueprint | Abandoned> {
-  const stored = mockInterviewJobBlueprintSchema.safeParse(snapshot.jobBlueprint);
+  const stored = storedJobBlueprintSchema.safeParse(snapshot.jobBlueprint);
   if (stored.success) return stored.data;
 
   await claimSession(prisma, {

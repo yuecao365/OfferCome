@@ -3,7 +3,7 @@ import test from "node:test";
 
 import {
   createMockInterviewQuestionBatchSchema,
-  mockInterviewJobBlueprintSchema,
+  storedJobBlueprintSchema,
 } from "./types";
 
 const validQuestion = {
@@ -33,7 +33,7 @@ test("requires the exact requested question count", () => {
 });
 
 test("parses legacy blueprints with default competency provenance", () => {
-  const parsed = mockInterviewJobBlueprintSchema.parse({
+  const parsed = storedJobBlueprintSchema.parse({
     summary: "旧快照",
     completeness: "complete",
     missingInformation: [],

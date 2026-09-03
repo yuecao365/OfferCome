@@ -110,6 +110,27 @@ test("rejects unconfigured providers before calling the model", () => {
   );
 });
 
+test("rejects strict-mode incompatible schemas before calling the model", async () => {
+  const logs = captureLogs();
+  try {
+    await assert.rejects(
+      run(failingModel(new Error("model must not be called")), {
+        schema: z.object({ answer: z.string(), note: z.string().optional() }),
+      }),
+      (error: unknown) =>
+        error instanceof AgentRunError &&
+        error.kind === "incompatible_schema" &&
+        error.message.includes("note 不在 required 里"),
+    );
+    assert.deepEqual(
+      logs.records.map((record) => record.errorKind),
+      ["incompatible_schema"],
+    );
+  } finally {
+    logs.restore();
+  }
+});
+
 test("classifies timeouts separately from provider failures", async () => {
   const logs = captureLogs();
   try {

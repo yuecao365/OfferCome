@@ -1,4 +1,5 @@
 import {
+  asSchema,
   generateText,
   NoObjectGeneratedError,
   NoOutputGeneratedError,
@@ -13,6 +14,7 @@ import { randomUUID } from "node:crypto";
 
 import type { AiTaskConfig } from "./config";
 import { createTextModel } from "./providers";
+import { findStrictSchemaViolation } from "./strict-schema";
 
 /**
  * 所有 agent 共用的防注入基座。
@@ -35,6 +37,7 @@ function buildSystemPrompt(system: string, untrustedInputs?: string): string {
 
 export type AgentRunErrorKind =
   | "not_configured"
+  | "incompatible_schema"
   | "timeout"
   | "invalid_structured_output"
   | "provider_error";
@@ -206,6 +209,27 @@ export async function runAgent<T>(
     model: config.model,
     promptVersion: options.promptVersion,
   };
+  // schema 不满足严格模式时 provider 会直接拒绝请求，模型根本没跑；
+  // 提前查出来并用明确的错误类型报出，而不是伪装成一次 provider 故障。
+  const schemaViolation = findStrictSchemaViolation(
+    asSchema(options.schema).jsonSchema,
+  );
+  if (schemaViolation) {
+    logAgentRun({
+      ...logBase,
+      status: "failed",
+      durationMs: 0,
+      errorKind: "incompatible_schema",
+    });
+    throw new AgentRunError({
+      kind: "incompatible_schema",
+      agent: options.agent,
+      runId,
+      message: `agent ${options.agent} 的输出 schema 不兼容严格模式：${schemaViolation}。可空字段请用 nullable，缺省值在解析后由代码补。`,
+      durationMs: 0,
+    });
+  }
+
   // 结构化输出在 result.output 上惰性校验并抛错，所以先留存原始文本和用量，
   // 供失败时归类、抢救和记账使用。
   let rawText: string | undefined;

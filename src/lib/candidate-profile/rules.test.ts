@@ -4,11 +4,37 @@ import test from "node:test";
 import {
   aggregateProfileDimension,
   deriveInsightStatus,
+  isAssessableAnswer,
   profileEvidenceWeight,
   profileSourceWeight,
+  sanitizeInsightText,
   timeDecayWeight,
   type AggregationObservation,
 } from "./rules";
+
+test("keyboard mashing and one-word answers are not assessable", () => {
+  assert.equal(isAssessableAnswer("asdfasdfadf"), false);
+  assert.equal(isAssessableAnswer("是的，我做过。"), false);
+  assert.equal(isAssessableAnswer("aaaaaaaaaaaaaaaaaaaaaaaaaaaa"), false);
+  assert.equal(
+    isAssessableAnswer("哈希表主要是一个数据结构，它进行了 Key 和 Value 的配对。"),
+    true,
+  );
+});
+
+test("internal ids are stripped from insight prose", () => {
+  assert.equal(
+    sanitizeInsightText(
+      "候选人在多个问题中回答内容与问题高度不匹配（见cmsxc25hu009drktakvddqpbg等9条低分观察，均为1分）。建议专注于理解问题本身。",
+    ),
+    "候选人在多个问题中回答内容与问题高度不匹配。建议专注于理解问题本身。",
+  );
+  assert.equal(
+    sanitizeInsightText("参考 cmsx92vpu000jrktamd7v55jl 的表述，逻辑不够紧凑。"),
+    "参考 的表述，逻辑不够紧凑。",
+  );
+  assert.equal(sanitizeInsightText("回答相关度高，基础扎实。"), "回答相关度高，基础扎实。");
+});
 
 const now = new Date("2026-07-22T00:00:00.000Z");
 

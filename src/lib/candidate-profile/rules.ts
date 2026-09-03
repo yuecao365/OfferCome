@@ -215,6 +215,33 @@ export function aggregateProfileDimension(
   };
 }
 
+const MIN_ASSESSABLE_ANSWER_CHARS = 20;
+const MIN_ASSESSABLE_DISTINCT_CHARS = 8;
+
+/**
+ * 回答短到没有信息量（"是的"、随手敲的 asdf）就不送评估：
+ * 引用真实性只保证模型没编造，保证不了输入本身有意义。
+ */
+export function isAssessableAnswer(answer: string): boolean {
+  const compact = answer.replace(/\s+/g, "");
+  return (
+    compact.length >= MIN_ASSESSABLE_ANSWER_CHARS &&
+    new Set(compact).size >= MIN_ASSESSABLE_DISTINCT_CHARS
+  );
+}
+
+const INTERNAL_ID = /\bc[a-z0-9]{24}\b/g;
+const PARENTHETICAL_WITH_ID = /[（(][^（）()]*\bc[a-z0-9]{24}\b[^（）()]*[）)]/g;
+
+/** 模型会把 observationId 写进给用户看的正文；先删整个括号，再删裸 ID。 */
+export function sanitizeInsightText(text: string): string {
+  return text
+    .replace(PARENTHETICAL_WITH_ID, "")
+    .replace(INTERNAL_ID, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+}
+
 export function deriveInsightStatus(input: {
   isUserLocked: boolean;
   confidence: number;

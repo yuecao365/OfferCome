@@ -38,6 +38,26 @@ export const MOCK_INTERVIEW_DIFFICULTY_LABELS = {
   challenging: "压力面",
 } as const;
 
+const jobCompetencySchema = z.object({
+  id: z.string().min(1).max(40),
+  name: z.string().min(1).max(100),
+  description: z.string().min(1).max(400),
+  priority: z.enum(["core", "secondary"]),
+  jdEvidence: z
+    .string()
+    .min(1)
+    .max(240)
+    .describe("从 JD 原文逐字截取的短证据"),
+  // 严格模式要求每个字段都 required：可空用 nullable，不用 default/optional。
+  origin: z.enum(["jd", "inferred"]),
+  sourceUrl: z
+    .string()
+    .max(500)
+    .refine((value) => /^https?:\/\//i.test(value), "来源必须是 HTTP(S) 地址")
+    .nullable(),
+});
+
+/** 发给模型的蓝图 schema。 */
 export const mockInterviewJobBlueprintSchema = z.object({
   summary: z
     .string()
@@ -46,25 +66,16 @@ export const mockInterviewJobBlueprintSchema = z.object({
     .describe("仅根据 JD 总结岗位实际工作重点，不加入候选人历史"),
   completeness: z.enum(["complete", "partial", "minimal"]),
   missingInformation: z.array(z.string().min(1).max(200)).max(6),
+  competencies: z.array(jobCompetencySchema).min(0).max(10),
+});
+
+/** 读会话快照用：早期蓝图没有 origin / sourceUrl，解析时补缺省值。 */
+export const storedJobBlueprintSchema = mockInterviewJobBlueprintSchema.extend({
   competencies: z
     .array(
-      z.object({
-        id: z.string().min(1).max(40),
-        name: z.string().min(1).max(100),
-        description: z.string().min(1).max(400),
-        priority: z.enum(["core", "secondary"]),
-        jdEvidence: z
-          .string()
-          .min(1)
-          .max(240)
-          .describe("从 JD 原文逐字截取的短证据"),
-        origin: z.enum(["jd", "inferred"]).default("jd"),
-        sourceUrl: z
-          .string()
-          .max(500)
-          .refine((value) => /^https?:\/\//i.test(value), "来源必须是 HTTP(S) 地址")
-          .nullable()
-          .default(null),
+      jobCompetencySchema.extend({
+        origin: jobCompetencySchema.shape.origin.default("jd"),
+        sourceUrl: jobCompetencySchema.shape.sourceUrl.default(null),
       }),
     )
     .min(0)

@@ -2,7 +2,7 @@ import "server-only";
 
 import { z } from "zod";
 
-import { assertAiConfigured, runAgent } from "@/lib/ai/run-agent";
+import { assertAiConfigured, logAgentRun, runAgent } from "@/lib/ai/run-agent";
 import { salvageJson } from "@/lib/ai/salvage-json";
 import { getAiTaskConfig } from "@/lib/settings/ai";
 
@@ -39,16 +39,19 @@ function cleanBlueprint(
   return { ...blueprint, competencies };
 }
 
-/** 简化重试用的宽松 schema：结构越简单，小模型的结构化成功率越高。 */
+/**
+ * 简化重试用的宽松 schema：结构越简单，小模型的结构化成功率越高。
+ * 字段全部 required 但可空——严格模式不接受 optional/nullish。
+ */
 const simplifiedBlueprintSchema = z.object({
-  summary: z.string().max(2_000).nullish(),
+  summary: z.string().max(2_000).nullable(),
   competencies: z
     .array(
       z.object({
         name: z.string().min(1).max(200),
-        description: z.string().max(2_000).nullish(),
-        priority: z.string().nullish(),
-        jdEvidence: z.string().max(2_000).nullish(),
+        description: z.string().max(2_000).nullable(),
+        priority: z.string().nullable(),
+        jdEvidence: z.string().max(2_000).nullable(),
       }),
     )
     .max(12),
@@ -120,6 +123,23 @@ export async function analyzeMockInterviewJob(input: {
     jobTitle: input.jobTitle,
     jobDescription: input.jobDescription.slice(0, 30_000),
   };
+  const startedAt = Date.now();
+
+  // 走到第几级是可观察指标：兜底率升高说明上游在坏，而不是降级链在"正常工作"。
+  const finish = (level: 1 | 2 | 3, blueprint: MockInterviewJobBlueprint) => {
+    logAgentRun({
+      runId: input.generationId,
+      agent: "job_blueprint",
+      event: "selection",
+      status: level === 3 ? "partial" : "success",
+      provider: config.provider,
+      model: config.model,
+      promptVersion: MOCK_INTERVIEW_PROMPT_VERSION,
+      durationMs: Date.now() - startedAt,
+      metrics: { level, competencyCount: blueprint.competencies.length },
+    });
+    return blueprint;
+  };
 
   // 第一级：严格 schema + 残缺 JSON 抢救。
   try {
@@ -140,7 +160,7 @@ export async function analyzeMockInterviewJob(input: {
       payload,
     });
     if (output.competencies.length > 0) {
-      return cleanBlueprint(output, input.jobDescription);
+      return finish(1, cleanBlueprint(output, input.jobDescription));
     }
   } catch {
     // 进入简化重试。失败细节已由 runAgent 记录。
@@ -162,10 +182,10 @@ export async function analyzeMockInterviewJob(input: {
       payload,
     });
     const normalized = normalizeLooseBlueprint(output);
-    if (normalized) return cleanBlueprint(normalized, input.jobDescription);
+    if (normalized) return finish(2, cleanBlueprint(normalized, input.jobDescription));
   } catch {
     // 进入兜底蓝图。
   }
 
-  return fallbackJobBlueprint(input.jobTitle);
+  return finish(3, fallbackJobBlueprint(input.jobTitle));
 }

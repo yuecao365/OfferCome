@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { mockInterviewJobBlueprintSchema } from "@/lib/mock-interviews/types";
+import { storedJobBlueprintSchema } from "@/lib/mock-interviews/types";
 
 export async function GET(
   _request: Request,
@@ -26,7 +26,7 @@ export async function GET(
     const parsed = JSON.parse(session.contextSnapshotJson) as unknown;
     if (parsed && typeof parsed === "object") snapshot = parsed as Record<string, unknown>;
   } catch {}
-  const blueprint = mockInterviewJobBlueprintSchema.safeParse(snapshot.jobBlueprint);
+  const blueprint = storedJobBlueprintSchema.safeParse(snapshot.jobBlueprint);
   const reviewCount =
     typeof snapshot.jdReviewCount === "number" ? snapshot.jdReviewCount : 0;
 

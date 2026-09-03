@@ -388,7 +388,7 @@ model CandidateInsightEvidence {
   userCorrectedAt   DateTime?
   createdAt         DateTime            @default(now())
 
-  @@unique([insightId, interviewId, questionId, polarity])
+  @@unique([insightId, observationId])
   @@index([interviewId])
   @@index([questionId])
   @@index([observationId])

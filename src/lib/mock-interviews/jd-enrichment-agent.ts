@@ -21,7 +21,7 @@ const enrichedCompetenciesSchema = z.object({
       description: z.string().min(1).max(400),
       priority: z.enum(["core", "secondary"]),
       jdEvidence: z.string().min(1).max(240),
-      sourceUrl: z.string().max(500).nullable().default(null),
+      sourceUrl: z.string().max(500).nullable(),
     }),
   ).min(1).max(8),
 });

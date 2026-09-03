@@ -3,7 +3,7 @@ import "server-only";
 import { prisma } from "@/lib/db";
 
 import { isProfileSourceType } from "./assessment";
-import { aggregateProfileDimension } from "./rules";
+import { aggregateProfileDimension, sanitizeInsightText } from "./rules";
 import {
   PROFILE_ASSESSMENT_VERSION,
   PROFILE_DIMENSIONS,
@@ -82,12 +82,18 @@ export function validateSynthesis(
   return synthesis.insights.flatMap((insight) => {
     // 引用真实性是硬门：observationId 必须真实存在。
     // 维度一致性放宽：跨维度引用是合法的——"稳定模式"类洞察天然横跨多个维度。
+    // 同一条观察只保留第一次引用，与证据表的唯一键 (insightId, observationId) 对齐。
+    const seen = new Set<string>();
     const evidence = insight.evidence.flatMap((reference) => {
       const observation = byId.get(reference.observationId);
-      return observation
-        ? [{ observation, polarity: reference.polarity }]
-        : [];
+      if (!observation || seen.has(observation.id)) return [];
+      seen.add(observation.id);
+      return [{ observation, polarity: reference.polarity }];
     });
-    return evidence.length > 0 ? [{ ...insight, evidence }] : [];
+    const title = sanitizeInsightText(insight.title);
+    const statement = sanitizeInsightText(insight.statement);
+    return evidence.length > 0 && title && statement
+      ? [{ ...insight, title, statement, evidence }]
+      : [];
   });
 }

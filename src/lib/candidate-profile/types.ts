@@ -157,8 +157,9 @@ export type ProfileRefreshStatus = {
 };
 
 export const PROFILE_STATE_ID = "default";
-export const PROFILE_ASSESSMENT_VERSION = "ability-assessment-v3";
+// v4：评估前加了回答信息量闸门，升版本触发全量重建，冲掉垃圾回答产生的观察。
+export const PROFILE_ASSESSMENT_VERSION = "ability-assessment-v4";
 export const PROFILE_AGGREGATION_VERSION = "candidate-profile-scoring-v3-real-priority";
-export const PROFILE_PROMPT_VERSION = "candidate-profile-v3-coach";
+export const PROFILE_PROMPT_VERSION = "candidate-profile-v4-coach";
 export const PROFILE_DEBOUNCE_MS = 60_000;
 export const PROFILE_AGENT_TIMEOUT_MS = 60_000;

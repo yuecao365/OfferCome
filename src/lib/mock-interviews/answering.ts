@@ -7,7 +7,7 @@ import { generateMockInterviewFollowUp } from "./follow-up-agent";
 import { canRequestFollowUp } from "./follow-up-policy";
 import { scheduleMockInterviewQuestionEvaluation } from "./question-evaluation-background";
 import { claimSession, parseGenerationSnapshot } from "./session-state";
-import { mockInterviewJobBlueprintSchema } from "./types";
+import { storedJobBlueprintSchema } from "./types";
 
 const MAX_ANSWER_LENGTH = 20_000;
 
@@ -241,7 +241,7 @@ export async function submitMockInterviewAnswer(input: {
 
   const snapshot = parseGenerationSnapshot(submitted.session.contextSnapshotJson);
   const metadata = parseGenerationSnapshot(evaluation.generationMetadataJson);
-  const blueprint = mockInterviewJobBlueprintSchema.safeParse(snapshot.jobBlueprint);
+  const blueprint = storedJobBlueprintSchema.safeParse(snapshot.jobBlueprint);
   const competencyId =
     typeof metadata.jobCompetencyId === "string" ? metadata.jobCompetencyId : null;
   const competency =

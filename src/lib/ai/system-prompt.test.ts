@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test, { mock } from "node:test";
+import { asSchema } from "@ai-sdk/provider-utils";
 import { z } from "zod";
 
 import type { AiTaskConfig } from "./config";
@@ -16,6 +17,7 @@ const captured: { system?: string } = {};
 
 mock.module("ai", {
   namedExports: {
+    asSchema,
     generateText: async (options: { system: string }) => {
       captured.system = options.system;
       return {

@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db";
 import { deriveDeliveryObservation } from "@/lib/interviews/voice-metrics";
 
 import { assessInterviewQuestions } from "./assessment-agent";
-import { profileSourceWeight } from "./rules";
+import { isAssessableAnswer, profileSourceWeight } from "./rules";
 import { normalizeRoleTitle, roleContextKey } from "./role-context";
 import {
   PROFILE_ASSESSMENT_VERSION,
@@ -173,7 +173,7 @@ export async function assessInterview(interview: CompletedInterview, sourceHash:
   try {
     const questions = interview.questions.flatMap((question) => {
       const answer = question.answer?.trim();
-      return answer
+      return answer && isAssessableAnswer(answer)
         ? [{
             id: question.id,
             question: question.question,
