@@ -1,20 +1,36 @@
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { MetaText } from "@/components/ui/data-table";
+import { cn } from "@/lib/cn";
 import {
   MOCK_INTERVIEW_DIFFICULTY_LABELS,
   type MockInterviewView,
 } from "@/lib/mock-interviews/types";
 
-import {
-  InterviewScoreRing,
-  QuestionDimensionScores,
-} from "./mock-interview-report-visuals";
+import { QuestionDimensionScores } from "./mock-interview-report-visuals";
 
-function scoreTone(score: number): "success" | "brand" | "warning" {
-  if (score >= 80) return "success";
-  if (score >= 50) return "brand";
-  return "warning";
+/** 分数只用明暗表达强弱：高分正文色，中分灰，低分用警示色。 */
+function Score({ value }: { value: number }) {
+  return (
+    <span
+      className={cn(
+        "shrink-0 font-mono text-sm tabular-nums",
+        value >= 80 ? "text-foreground" : value >= 50 ? "text-muted-foreground" : "text-warning-strong",
+      )}
+    >
+      {value}
+      <span className="ml-0.5 text-xs text-muted-foreground">分</span>
+    </span>
+  );
+}
+
+function FollowUpTag() {
+  return (
+    <span className="rounded-control border border-border px-1 font-mono text-[0.625rem] leading-4 text-muted-foreground">
+      追问
+    </span>
+  );
 }
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -37,15 +53,18 @@ export function MockInterviewReport({ session }: { session: MockInterviewView })
   ).length;
 
   return (
-    <div className="grid gap-6">
-      <Card className="grid items-center gap-5 p-5 md:grid-cols-[160px_minmax(0,1fr)]">
-        <div className="text-center">
-          <p className="mb-2 text-sm font-semibold text-foreground">面试总分</p>
-          <InterviewScoreRing score={report.totalScore} />
+    <div className="reveal-group grid gap-6">
+      <section className="grid gap-6 border-b border-border pb-6 md:grid-cols-[auto_minmax(0,1fr)] md:gap-10">
+        <div>
+          <p className="text-[0.8125rem] text-muted-foreground">面试总分</p>
+          <p className="mt-1 text-display tabular-nums text-foreground">
+            {report.totalScore}
+            <span className="ml-1 text-sm font-normal tracking-normal text-muted-foreground">/ 100</span>
+          </p>
         </div>
         <div>
           <h3 className="text-sm font-semibold text-foreground">总体评价</h3>
-          <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
+          <p className="mt-2 whitespace-pre-wrap text-[0.8125rem] leading-6 text-muted-foreground">
             {report.summary}
           </p>
           {sourced.length > 0 ? (
@@ -55,7 +74,7 @@ export function MockInterviewReport({ session }: { session: MockInterviewView })
             </p>
           ) : null}
         </div>
-      </Card>
+      </section>
 
       {session.personalizationUsed ? (
         <Card className="grid gap-5 p-5 md:grid-cols-2">
@@ -129,33 +148,31 @@ export function MockInterviewReport({ session }: { session: MockInterviewView })
       </Card>
 
       <section className="grid gap-3">
-        <h3 className="text-base font-semibold text-foreground">逐题反馈</h3>
+        <h3 className="text-sm font-semibold text-foreground">逐题反馈</h3>
         {session.questions.filter((question) => !question.isFollowUp).map((question, index) => (
           <Card className="p-4" key={question.id}>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="text-xs font-medium text-muted-foreground">问题 {index + 1}</p>
+                <MetaText>问题 {index + 1}</MetaText>
                 <div className="mt-1 flex items-center gap-2">
-                  {question.isFollowUp ? <Badge tone="brand">追问</Badge> : null}
-                  <h4 className="text-sm font-semibold text-foreground">{question.question}</h4>
+                  {question.isFollowUp ? <FollowUpTag /> : null}
+                  <h4 className="text-sm font-medium text-foreground">{question.question}</h4>
                 </div>
               </div>
               {question.skipped ? (
                 <Badge tone="warning">已跳过</Badge>
               ) : (
-                <Badge tone={scoreTone(question.evaluation?.score ?? 0)}>
-                  {question.evaluation?.score ?? 0} 分
-                </Badge>
+                <Score value={question.evaluation?.score ?? 0} />
               )}
             </div>
             {!question.skipped ? (
-              <details className="mt-3 rounded-lg border border-border bg-surface-subtle p-3">
+              <details className="mt-3 rounded-control border border-border bg-surface-subtle p-3">
                 <summary className="cursor-pointer text-sm font-medium text-foreground">查看我的回答</summary>
                 <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{question.answer}</p>
               </details>
             ) : null}
             {question.teaching ? (
-              <details className="mt-3 rounded-lg border border-border bg-surface-subtle p-3">
+              <details className="mt-3 rounded-control border border-border bg-surface-subtle p-3">
                 <summary className="cursor-pointer text-sm font-medium text-foreground">
                   这道题在考察什么
                 </summary>
@@ -172,7 +189,7 @@ export function MockInterviewReport({ session }: { session: MockInterviewView })
                     </Badge>
                   </div>
                   {question.teaching.competencyOrigin === "inferred" ? (
-                    <div className="rounded-lg border border-border bg-surface p-3">
+                    <div className="rounded-control border border-border bg-surface p-3">
                       <p className="font-medium text-foreground">
                         该岗位的常见要求（非你提供的岗位描述）
                       </p>
@@ -181,7 +198,7 @@ export function MockInterviewReport({ session }: { session: MockInterviewView })
                       </p>
                       {question.teaching.sourceUrl ? (
                         <a
-                          className="mt-1 inline-block font-medium text-brand underline"
+                          className="mt-1 inline-block font-medium text-foreground underline"
                           href={question.teaching.sourceUrl}
                           rel="noreferrer"
                           target="_blank"
@@ -191,7 +208,7 @@ export function MockInterviewReport({ session }: { session: MockInterviewView })
                       ) : null}
                     </div>
                   ) : question.teaching.jdEvidence ? (
-                    <blockquote className="border-l-2 border-brand pl-3 italic">
+                    <blockquote className="border-l-2 border-border-strong pl-3">
                       JD 依据：{question.teaching.jdEvidence}
                     </blockquote>
                   ) : null}
@@ -223,18 +240,16 @@ export function MockInterviewReport({ session }: { session: MockInterviewView })
             {session.questions
               .filter((followUp) => followUp.parentQuestionId === question.id)
               .map((followUp) => (
-                <div className="mt-4 border-l-2 border-brand pl-4" key={followUp.id}>
+                <div className="mt-4 border-l-2 border-border-strong pl-4" key={followUp.id}>
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <Badge tone="brand">追问</Badge>
-                      <h5 className="text-sm font-semibold text-foreground">{followUp.question}</h5>
+                      <FollowUpTag />
+                      <h5 className="text-sm font-medium text-foreground">{followUp.question}</h5>
                     </div>
                     {followUp.skipped ? (
                       <Badge tone="warning">已跳过</Badge>
                     ) : (
-                      <Badge tone={scoreTone(followUp.evaluation?.score ?? 0)}>
-                        {followUp.evaluation?.score ?? 0} 分
-                      </Badge>
+                      <Score value={followUp.evaluation?.score ?? 0} />
                     )}
                   </div>
                   {!followUp.skipped ? (

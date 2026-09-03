@@ -53,7 +53,7 @@ export function MockInterviewsView({
       {setup}
 
       <section className="grid gap-3">
-        <h2 className="text-base font-semibold tracking-normal">最近的模拟面试</h2>
+        <h2 className="text-sm font-semibold text-foreground">最近的模拟面试</h2>
         {recent.length === 0 ? (
           <EmptyState className="min-h-40" description="配置目标岗位和岗位描述后，开始第一次针对性训练。" title="还没有模拟面试记录" />
         ) : (
@@ -61,14 +61,14 @@ export function MockInterviewsView({
             {recent.map((session) => (
               <div className="flex items-center gap-2" key={session.id}>
                 <Link
-                  className="flex min-w-0 flex-1 items-center justify-between gap-4 px-4 py-3.5 hover:bg-surface-subtle"
+                  className="flex min-w-0 flex-1 items-center justify-between gap-4 px-4 py-3 transition-colors duration-150 hover:bg-surface-subtle"
                   href={`/interviews/mock/${session.id}`}
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-foreground">
+                    <p className="truncate text-sm font-medium text-foreground">
                       {session.companyName} · {session.jobTitle}
                     </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
+                    <p className="mt-0.5 font-mono text-xs text-muted-foreground">
                       已回答 {Math.min(session.currentQuestionIndex, session.questionCount)}/{session.questionCount} 题
                       {session.totalScore !== null ? ` · ${session.totalScore} 分` : ""}
                     </p>

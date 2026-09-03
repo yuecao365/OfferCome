@@ -213,7 +213,7 @@ export function MockInterviewVoiceControls({
   const elapsedMinutes = Math.floor(elapsedSeconds / 60);
   const elapsedRemainder = String(elapsedSeconds % 60).padStart(2, "0");
   return (
-    <div className="grid gap-2 rounded-lg border border-border bg-surface-subtle p-3">
+    <div className="grid gap-2 rounded-control border border-border bg-surface-subtle p-3">
       <div className="flex flex-wrap items-center gap-2">
         <Button
           disabled={disabled || busy}

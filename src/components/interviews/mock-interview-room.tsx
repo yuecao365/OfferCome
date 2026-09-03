@@ -5,10 +5,10 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Alert } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { MetaText } from "@/components/ui/data-table";
 import { FieldLabel, Textarea } from "@/components/ui/form-controls";
 import { INTERVIEW_QUESTION_CATEGORY_LABELS } from "@/lib/interviews/types";
 import {
@@ -94,14 +94,14 @@ const PROGRESS_STATE_LABELS: Record<QuestionProgressState, string> = {
 };
 
 const PROGRESS_STATE_CLASSES: Record<QuestionProgressState, string> = {
-  current: "border-brand bg-accent ring-2 ring-brand/20",
-  skipped: "border-warning bg-warning-soft",
-  answered: "border-brand bg-brand",
-  pending: "border-border bg-muted",
+  current: "bg-accent-strong ring-1 ring-inset ring-brand",
+  skipped: "bg-warning/50",
+  answered: "bg-brand",
+  pending: "bg-muted",
 };
 
 /**
- * 进度格的状态。只表示"作答到哪了"——是不是追问由格子的形状（更窄 + 虚线）
+ * 进度格的状态。只表示"作答到哪了"——是不是追问由格子的形状（长条 / 圆点）
  * 单独表达，两者正交，已回答的追问才不会被画成普通的已答题。
  */
 export function questionProgressState(
@@ -267,8 +267,8 @@ export function MockInterviewRoom({
   if (status === "ready_to_evaluate" || status === "evaluating") {
     return (
       <Card className="p-6">
-        <h3 className="text-lg font-semibold text-foreground">全部题目已完成</h3>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+        <h3 className="text-base font-semibold tracking-tight text-foreground">全部题目已完成</h3>
+        <p className="mt-1.5 max-w-2xl text-[0.8125rem] leading-5 text-muted-foreground">
           逐题评分已经在作答过程中完成，现在只需汇总本场表现。
         </p>
         <Button
@@ -294,15 +294,16 @@ export function MockInterviewRoom({
   }
 
   return (
-    <div className="grid gap-5">
-      <Card aria-label="面试进度" className="p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-          <div className="flex items-center gap-3">
-            <span className="font-semibold text-foreground">问题 {currentIndex + 1} / {questionCount}</span>
-            <Badge tone="info">{MOCK_INTERVIEW_MODE_LABELS[mode]}</Badge>
+    <div className="grid gap-4">
+      <section aria-label="面试进度" className="grid gap-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-baseline gap-2">
+            <span className="font-mono text-sm tabular-nums text-foreground">
+              {currentIndex + 1} / {questionCount}
+            </span>
+            <MetaText>{MOCK_INTERVIEW_MODE_LABELS[mode]}</MetaText>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="mr-1 text-muted-foreground">已完成 {currentIndex} 题</span>
+          <div className="flex items-center gap-1">
             <Button
               aria-pressed={mode === "text"}
               disabled={pending || voiceBusy}
@@ -311,7 +312,7 @@ export function MockInterviewRoom({
               type="button"
               variant={mode === "text" ? "secondary" : "ghost"}
             >
-              <Keyboard aria-hidden="true" className="size-4" />
+              <Keyboard aria-hidden="true" className="size-3.5" strokeWidth={1.5} />
               文字
             </Button>
             {transport.voiceEnabled ? (
@@ -323,7 +324,7 @@ export function MockInterviewRoom({
                 type="button"
                 variant={mode === "voice" ? "secondary" : "ghost"}
               >
-                <Mic aria-hidden="true" className="size-4" />
+                <Mic aria-hidden="true" className="size-3.5" strokeWidth={1.5} />
                 语音
               </Button>
             ) : null}
@@ -331,7 +332,7 @@ export function MockInterviewRoom({
         </div>
         <ol
           aria-label={`面试进度，已完成 ${currentIndex} 题，共 ${questionCount} 题`}
-          className="mt-3 grid items-center gap-1.5"
+          className="grid items-center gap-1"
           // 主题目是长条、追问是紧跟其后的小圆点：形状差异一眼可辨，
           // 又能看出追问从属于前一道主题目。
           style={{
@@ -346,29 +347,18 @@ export function MockInterviewRoom({
               <li
                 aria-current={state === "current" ? "step" : undefined}
                 aria-label={`${question.isFollowUp ? "追问" : `问题 ${index + 1}`}，${PROGRESS_STATE_LABELS[state]}`}
-                className={`h-2.5 rounded-full border ${PROGRESS_STATE_CLASSES[state]} ${
-                  question.isFollowUp ? "-ml-1 w-2.5" : ""
+                className={`h-1.5 rounded-full ${PROGRESS_STATE_CLASSES[state]} ${
+                  question.isFollowUp ? "size-2.5 -ml-0.5" : ""
                 }`}
                 key={question.id}
               />
             );
           })}
         </ol>
-        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-          <span className="inline-flex items-center gap-1.5">
-            <i className="inline-block h-1.5 w-4 rounded-full bg-brand" />已答
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <i className="inline-block h-1.5 w-4 rounded-full bg-accent ring-1 ring-brand" />当前
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <i className="inline-block h-1.5 w-4 rounded-full bg-warning-soft ring-1 ring-warning" />已跳过
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <i className="inline-block size-2 rounded-full bg-brand" />追问
-          </span>
-        </div>
-      </Card>
+        <p className="text-[0.6875rem] text-muted-foreground">
+          长条是主题目，圆点是追问；实心为已答，描边为当前，浅色为已跳过。
+        </p>
+      </section>
 
       <Card
         className={`p-5 ${
@@ -378,17 +368,17 @@ export function MockInterviewRoom({
         }`}
       >
       <form className="grid gap-4" onSubmit={submitAnswer}>
-        <div>
+        <div className="border-l-2 border-brand pl-4">
           <div className="flex flex-wrap items-center gap-2">
-            <Badge>{categoryLabel(currentQuestion.category)}</Badge>
+            <MetaText>{categoryLabel(currentQuestion.category)}</MetaText>
             {currentQuestion.isFollowUp ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-accent px-2.5 py-1 text-xs font-semibold text-accent-foreground">
-                <CornerDownRight aria-hidden="true" className="size-3.5" />
+              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                <CornerDownRight aria-hidden="true" className="size-3.5" strokeWidth={1.5} />
                 追问 · 基于你上一题的回答
               </span>
             ) : null}
           </div>
-          <h3 className="mt-3 text-lg font-semibold leading-7 text-foreground">{currentQuestion.question}</h3>
+          <h3 className="mt-2 text-lg font-medium leading-7 tracking-tight text-foreground">{currentQuestion.question}</h3>
         </div>
         {mode === "voice" ? (
           <MockInterviewVoiceControls
@@ -438,7 +428,7 @@ export function MockInterviewRoom({
             disabled={pending || voiceBusy}
             onClick={skipQuestion}
             type="button"
-            variant="outline"
+            variant="ghost"
           >
             跳过这题
           </Button>

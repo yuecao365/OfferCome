@@ -141,12 +141,12 @@ export function MockInterviewGenerationProgress({
         </div>
       ) : (
         <div className="flex items-center gap-3">
-          <LoaderCircle aria-hidden="true" className="size-5 animate-spin text-brand" />
+          <LoaderCircle aria-hidden="true" className="size-4 animate-spin text-muted-foreground" strokeWidth={1.5} />
           <div>
-            <h3 className="font-semibold text-foreground">
+            <h3 className="text-sm font-semibold text-foreground">
               {phaseLabel(state.generationPhase)}
             </h3>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-1 text-[0.8125rem] text-muted-foreground">
               可以离开或刷新页面，生成会在后台继续。
             </p>
           </div>

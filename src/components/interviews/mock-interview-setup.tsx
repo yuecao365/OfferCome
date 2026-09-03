@@ -1,14 +1,6 @@
 "use client";
 
-import {
-  FileText,
-  Keyboard,
-  LoaderCircle,
-  MessageCircleQuestion,
-  Mic,
-  Settings2,
-  Sparkles,
-} from "lucide-react";
+import { ArrowRight, Keyboard, LoaderCircle, Mic } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
@@ -121,7 +113,7 @@ export function MockInterviewSetup({
                 : "，请在下方补充岗位描述后开始。"}
             {!application.jobDescription && application.jobUrl ? (
               <a
-                className="ml-1 font-semibold underline"
+                className="ml-1 font-medium underline"
                 href={application.jobUrl}
                 rel="noreferrer"
                 target="_blank"
@@ -135,7 +127,7 @@ export function MockInterviewSetup({
       {seed ? (
         <Alert tone="info">
           <span>本场将围绕「{seed.title}」重点出题。</span>
-          <Link className="ml-2 font-semibold underline" href="/interviews/mock">
+          <Link className="ml-2 font-medium underline" href="/interviews/mock">
             关闭
           </Link>
           <input
@@ -148,19 +140,14 @@ export function MockInterviewSetup({
       {!textConfigured ? (
         <Alert tone="danger">
           文本模型尚未配置，暂时不能创建 AI 模拟面试。请先前往
-          <a className="ml-1 font-semibold underline" href="/settings">设置页</a>
+          <a className="ml-1 font-medium underline" href="/settings">设置页</a>
           完成配置。
         </Alert>
       ) : null}
       <Card className="p-5">
-        <div className="mb-5 flex items-start gap-3 border-b border-border pb-4">
-          <span className="flex size-9 items-center justify-center rounded-lg bg-accent text-accent-foreground">
-            <FileText aria-hidden="true" className="size-4" />
-          </span>
-          <div>
-            <h2 className="text-sm font-semibold text-foreground">目标岗位与岗位描述</h2>
-            <p className="mt-1 text-sm text-muted-foreground">岗位名称和公司为必填；岗位描述可以上传文件或粘贴文本，二选一即可。</p>
-          </div>
+        <div className="mb-5 border-b border-border pb-4">
+          <h2 className="text-sm font-semibold text-foreground">目标岗位与岗位描述</h2>
+          <p className="mt-1 text-[0.8125rem] text-muted-foreground">岗位名称和公司为必填；岗位描述可以上传文件或粘贴文本，二选一即可。</p>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           <FieldLabel>
@@ -188,7 +175,7 @@ export function MockInterviewSetup({
             上传 Job Description
             <Input
               accept=".txt,.md,.docx,.pdf"
-              className="h-auto min-h-10 py-1.5 file:mr-3 file:rounded-md file:border-0 file:bg-accent file:px-2 file:py-1 file:text-xs file:font-semibold file:text-accent-foreground"
+              className="h-auto min-h-8 py-1 file:mr-3 file:rounded-[4px] file:border-0 file:bg-muted file:px-2 file:py-0.5 file:text-xs file:font-medium file:text-foreground"
               name="jobDescriptionFile"
               type="file"
             />
@@ -216,19 +203,13 @@ export function MockInterviewSetup({
           折叠时表单控件仍在 DOM 中，默认值照常随表单提交。 */}
       <Card className="p-5">
         <details className="group">
-          <summary className="flex cursor-pointer select-none items-start gap-3 [&::-webkit-details-marker]:hidden">
-            <span className="flex size-9 items-center justify-center rounded-lg bg-accent text-accent-foreground">
-              <Settings2 aria-hidden="true" className="size-4" />
+          <summary className="flex cursor-pointer select-none flex-wrap items-baseline gap-x-3 gap-y-1 [&::-webkit-details-marker]:hidden">
+            <h2 className="text-sm font-semibold text-foreground">面试设置</h2>
+            <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground group-open:hidden">
+              {resumes.find((resume) => resume.isDefault)?.name ?? resumes[0]?.name} · 第一轮 · 标准难度 · {questionCounts.defaultValue} 题 · 文字作答 · 允许追问
             </span>
-            <div>
-              <h2 className="text-sm font-semibold text-foreground">
-                面试设置
-                <span className="ml-2 text-xs font-normal text-muted-foreground group-open:hidden">
-                  默认：{resumes.find((resume) => resume.isDefault)?.name ?? resumes[0]?.name} · 第一轮 · 标准难度 · {questionCounts.defaultValue} 题 · 文字作答 · 允许追问，点击调整
-                </span>
-              </h2>
-              <p className="mt-1 hidden text-sm text-muted-foreground group-open:block">选择用于生成问题的简历、轮次、难度、题目数量和作答方式。</p>
-            </div>
+            <span className="text-xs text-muted-foreground group-open:hidden">调整</span>
+            <span className="w-full text-[0.8125rem] text-muted-foreground group-open:block hidden">选择用于生成问题的简历、轮次、难度、题目数量和作答方式。</span>
           </summary>
           <div className="mt-5 border-t border-border pt-4">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -268,7 +249,7 @@ export function MockInterviewSetup({
           </FieldLabel>
         </div>
         <fieldset className="mt-5 grid gap-2">
-          <legend className="text-xs font-semibold text-muted-foreground">
+          <legend className="text-xs font-medium text-muted-foreground">
             作答方式
           </legend>
           <div className="grid gap-2 sm:grid-cols-2">
@@ -284,10 +265,10 @@ export function MockInterviewSetup({
                     type="radio"
                     value={mode}
                   />
-                  <span className="flex min-h-16 items-center gap-3 rounded-lg border border-border-strong bg-surface px-4 py-3 text-sm text-foreground transition-colors peer-checked:border-brand peer-checked:bg-accent peer-focus-visible:ring-2 peer-focus-visible:ring-ring">
-                    <Icon aria-hidden="true" className="size-4 shrink-0 text-brand" />
+                  <span className="flex min-h-14 items-center gap-3 rounded-control border border-border-strong bg-surface px-3.5 py-2.5 text-sm text-foreground transition-colors duration-150 peer-checked:border-brand peer-checked:bg-accent peer-focus-visible:ring-2 peer-focus-visible:ring-ring">
+                    <Icon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" strokeWidth={1.5} />
                     <span>
-                      <strong className="block font-semibold">
+                      <strong className="block font-medium">
                         {MOCK_INTERVIEW_MODE_LABELS[mode]}
                       </strong>
                       <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">
@@ -304,13 +285,10 @@ export function MockInterviewSetup({
             })}
           </div>
         </fieldset>
-        <label className="mt-5 flex cursor-pointer items-center justify-between gap-4 rounded-lg border border-border-strong bg-surface px-4 py-3 transition-colors hover:border-brand/40 hover:bg-surface-subtle">
+        <label className="mt-5 flex cursor-pointer items-center justify-between gap-4 rounded-control border border-border-strong bg-surface px-3.5 py-2.5 transition-colors duration-150 hover:bg-surface-subtle">
           <span className="flex min-w-0 items-center gap-3">
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent text-brand">
-              <MessageCircleQuestion aria-hidden="true" className="size-4" />
-            </span>
             <span>
-              <strong className="block text-sm font-semibold text-foreground">
+              <strong className="block text-sm font-medium text-foreground">
                 允许 AI 追问
               </strong>
               <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">
@@ -326,7 +304,7 @@ export function MockInterviewSetup({
               name="followUpsEnabled"
               type="checkbox"
             />
-            <span className="relative h-6 w-11 rounded-full bg-border-strong transition-colors after:absolute after:left-1 after:top-1 after:size-4 after:rounded-full after:bg-white after:shadow-sm after:transition-transform peer-checked:bg-brand peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-ring" />
+            <span className="relative h-5 w-9 rounded-full bg-border-strong transition-colors duration-150 after:absolute after:left-0.5 after:top-0.5 after:size-4 after:rounded-full after:bg-white after:shadow-sm after:transition-transform after:duration-150 after:ease-app peer-checked:bg-brand peer-checked:after:translate-x-4 peer-focus-visible:ring-2 peer-focus-visible:ring-ring" />
           </span>
         </label>
           </div>
@@ -335,7 +313,7 @@ export function MockInterviewSetup({
 
       {pending ? (
         <Alert tone="info">
-          <span className="flex items-center gap-2 font-semibold">
+          <span className="flex items-center gap-2 font-medium">
             <LoaderCircle aria-hidden="true" className="size-4 animate-spin" />
             正在创建面试房间…
           </span>
@@ -349,8 +327,8 @@ export function MockInterviewSetup({
           题目会结合你的简历和过往面试记录生成。
         </p>
         <Button disabled={pending || resumes.length === 0 || !textConfigured} type="submit">
-          <Sparkles aria-hidden="true" className="size-4" />
-          {pending ? "正在生成" : "开始 AI 模拟面试"}
+          {pending ? "正在创建" : "开始模拟面试"}
+          <ArrowRight aria-hidden="true" className="size-3.5" strokeWidth={1.5} />
         </Button>
       </div>
     </form>

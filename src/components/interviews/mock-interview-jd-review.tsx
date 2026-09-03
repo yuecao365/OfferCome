@@ -49,7 +49,7 @@ export function MockInterviewJdReview({
   return (
     <Card className="grid gap-5 p-6">
       <div>
-        <h2 className="text-lg font-semibold text-foreground">这份岗位描述还缺少一些信息</h2>
+        <h2 className="text-base font-semibold tracking-tight text-foreground">这份岗位描述还缺少一些信息</h2>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
           {review.missingInformation.length > 0
             ? `缺少：${review.missingInformation.join("、")}`

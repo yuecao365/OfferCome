@@ -1,159 +1,42 @@
-"use client";
-
-import {
-  PolarAngleAxis,
-  PolarGrid,
-  PolarRadiusAxis,
-  Radar,
-  RadarChart,
-  RadialBar,
-  RadialBarChart,
-  ResponsiveContainer,
-} from "recharts";
-
-import { useCountUp } from "@/lib/use-count-up";
-import { useReducedMotion } from "@/lib/use-reduced-motion";
-
 type QuestionDimension = {
   name: string;
   score: number;
   evidence: string;
 };
 
-export function InterviewScoreRing({ score }: { score: number }) {
-  const reducedMotion = useReducedMotion();
-  const displayScore = useCountUp(score);
-
-  return (
-    <div
-      aria-label={`面试总分 ${score} 分，共 100 分`}
-      className="relative mx-auto size-32"
-      role="img"
-    >
-      <ResponsiveContainer height="100%" width="100%">
-        <RadialBarChart
-          data={[{ score }]}
-          endAngle={-270}
-          innerRadius="76%"
-          outerRadius="100%"
-          startAngle={90}
-        >
-          <PolarRadiusAxis
-            axisLine={false}
-            domain={[0, 100]}
-            tick={false}
-          />
-          <RadialBar
-            animationDuration={800}
-            background={{ fill: "var(--muted)" }}
-            cornerRadius={999}
-            dataKey="score"
-            fill="var(--brand)"
-            isAnimationActive={!reducedMotion}
-          />
-        </RadialBarChart>
-      </ResponsiveContainer>
-      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-        <strong className="text-3xl font-semibold tracking-tight tabular-nums text-foreground">
-          {displayScore}
-        </strong>
-        <span className="text-xs text-muted-foreground">满分 100</span>
-      </div>
-    </div>
-  );
-}
-
+/** 每题的维度得分：横向条 + 证据文本；不用雷达图，读数更直接。 */
 export function QuestionDimensionScores({
   dimensions,
 }: {
   dimensions: QuestionDimension[];
 }) {
-  const reducedMotion = useReducedMotion();
-
-  if (dimensions.length >= 3) {
-    return (
-      <div className="grid gap-3 lg:grid-cols-[minmax(260px,0.8fr)_minmax(0,1.2fr)]">
-        <div
-          aria-label={dimensions
-            .map((dimension) => `${dimension.name} ${Math.round(dimension.score)} 分`)
-            .join("，")}
-          className="h-64 rounded-xl border border-border bg-surface-subtle p-2"
-          role="img"
-        >
-          <ResponsiveContainer height="100%" width="100%">
-            <RadarChart data={dimensions} outerRadius="68%">
-              <PolarGrid stroke="var(--border)" />
-              <PolarAngleAxis
-                dataKey="name"
-                tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
-              />
-              <PolarRadiusAxis
-                axisLine={false}
-                domain={[0, 100]}
-                tick={false}
-              />
-              <Radar
-                animationDuration={600}
-                dataKey="score"
-                fill="var(--brand)"
-                fillOpacity={0.2}
-                isAnimationActive={!reducedMotion}
-                stroke="var(--brand)"
-                strokeWidth={2}
-              />
-            </RadarChart>
-          </ResponsiveContainer>
-        </div>
-        <DimensionEvidenceList dimensions={dimensions} />
-      </div>
-    );
-  }
-
-  return <DimensionBars dimensions={dimensions} />;
-}
-
-function DimensionBars({ dimensions }: { dimensions: QuestionDimension[] }) {
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      {dimensions.map((dimension) => (
-        <div className="rounded-lg border border-border p-3" key={dimension.name}>
-          <div className="flex items-center justify-between gap-2 text-sm">
-            <span className="font-medium text-foreground">{dimension.name}</span>
-            <span className="font-semibold text-foreground">
-              {Math.round(dimension.score)} 分
-            </span>
-          </div>
-          <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
+    <div className="grid gap-2 sm:grid-cols-2">
+      {dimensions.map((dimension) => {
+        const score = Math.max(0, Math.min(100, Math.round(dimension.score)));
+        return (
+          <div className="rounded-control border border-border p-3" key={dimension.name}>
+            <div className="flex items-center justify-between gap-2 text-[0.8125rem]">
+              <span className="font-medium text-foreground">{dimension.name}</span>
+              <span className="font-mono text-xs tabular-nums text-foreground">{score}</span>
+            </div>
             <div
-              className="h-full rounded-full bg-brand"
-              style={{ width: `${Math.max(0, Math.min(100, dimension.score))}%` }}
-            />
+              aria-label={`${dimension.name} ${score} 分`}
+              aria-valuemax={100}
+              aria-valuemin={0}
+              aria-valuenow={score}
+              className="mt-2 h-1 overflow-hidden rounded-full bg-muted"
+              role="progressbar"
+            >
+              <div
+                className="h-full rounded-full bg-brand transition-[width] duration-500 ease-app"
+                style={{ width: `${score}%` }}
+              />
+            </div>
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">{dimension.evidence}</p>
           </div>
-          <p className="mt-2 text-xs leading-5 text-muted-foreground">
-            {dimension.evidence}
-          </p>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function DimensionEvidenceList({ dimensions }: { dimensions: QuestionDimension[] }) {
-  return (
-    <div className="grid content-start gap-2">
-      {dimensions.map((dimension) => (
-        <div className="rounded-lg border border-border bg-surface p-3" key={dimension.name}>
-          <div className="flex items-center justify-between gap-3 text-sm">
-            <strong className="text-foreground">{dimension.name}</strong>
-            <span className="font-semibold text-brand">
-              {Math.round(dimension.score)} 分
-            </span>
-          </div>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            {dimension.evidence}
-          </p>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
