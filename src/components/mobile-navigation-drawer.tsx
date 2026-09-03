@@ -1,10 +1,9 @@
 "use client";
 
-import { Settings2, X } from "lucide-react";
-import Link from "next/link";
+import { X } from "lucide-react";
 import { useEffect, useRef, type RefObject } from "react";
 
-import { Navigation, ProductMark } from "@/components/app-navigation";
+import { Navigation, ProductMark, SettingsLink } from "@/components/app-navigation";
 import type { AppSection, InterviewSection } from "@/components/app-shell-types";
 import { Button } from "@/components/ui/button";
 
@@ -84,7 +83,7 @@ export function MobileNavigationDrawer({
         ref={drawerRef}
         role="dialog"
       >
-        <div className="flex h-16 items-center justify-between border-b border-border pr-3">
+        <div className="flex h-12 items-center justify-between border-b border-border pr-2">
           <ProductMark homeHref={homeHref} />
           <Button
             aria-label="关闭主导航"
@@ -93,7 +92,7 @@ export function MobileNavigationDrawer({
             size="icon"
             variant="ghost"
           >
-            <X aria-hidden="true" className="size-5" />
+            <X aria-hidden="true" className="size-4" strokeWidth={1.5} />
           </Button>
         </div>
         <Navigation
@@ -103,14 +102,7 @@ export function MobileNavigationDrawer({
           subActive={subActive}
         />
         <div className="border-t border-border p-3">
-          <Link
-            className="flex h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
-            href="/settings"
-            onClick={onClose}
-          >
-            <Settings2 aria-hidden="true" className="size-[1.125rem]" />
-            设置
-          </Link>
+          <SettingsLink active={active === "settings"} onNavigate={onClose} />
         </div>
       </aside>
     </div>

@@ -14,6 +14,8 @@ const nextConfig: NextConfig = {
     ],
   },
   experimental: {
+    // 页面切换走浏览器原生 View Transitions，不支持的浏览器自动退化为硬切。
+    viewTransition: true,
     serverActions: {
       bodySizeLimit: "11mb",
     },
