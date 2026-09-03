@@ -384,16 +384,39 @@ html[data-theme="dark"] {
   to { stroke-dashoffset: 0; }
 }
 
-@keyframes sc-bar {
+@keyframes sc-grow-x {
   from { transform: scaleX(0); }
   to { transform: scaleX(1); }
 }
 
-.sc-rise { animation: sc-rise 520ms var(--app-ease-out) both; }
-.sc-bar {
-  transform-origin: left;
-  animation: sc-bar 700ms var(--app-ease-out) 900ms both;
+@keyframes sc-pop {
+  from { opacity: 0; transform: scale(0.6); }
+  to { opacity: 1; transform: scale(1); }
 }
+
+@keyframes sc-slide-down {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes sc-ticker {
+  to { transform: translateX(-50%); }
+}
+
+@keyframes sc-ticker-reverse {
+  from { transform: translateX(-50%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes sc-orbit {
+  to { stroke-dashoffset: -1; }
+}
+
+@keyframes sc-spin {
+  to { transform: rotate(360deg); }
+}
+
+.sc-rise { animation: sc-rise 520ms var(--app-ease-out) both; }
 
 .sc-chartline path {
   stroke-dasharray: 1;
@@ -401,6 +424,58 @@ html[data-theme="dark"] {
   animation: sc-draw 800ms var(--app-ease-out) 500ms both;
 }
 .sc-chartline circle { animation: sc-rise 300ms var(--app-ease-out) 1200ms both; }
+
+/* ---- 闭环演示：每幕元素先隐藏，加上 -in 后按各自 delay 进场 ---- */
+.sc-row,
+.sc-rise-soft,
+.sc-type { opacity: 0; }
+.sc-row-in,
+.sc-rise-soft-in { animation: sc-rise 420ms var(--app-ease-out) both; }
+.sc-type-in { animation: sc-rise 600ms var(--app-ease-out) 200ms both; }
+
+.sc-toast { opacity: 0; }
+.sc-toast-in { animation: sc-slide-down 420ms var(--app-ease-out) 900ms both; }
+
+.sc-bar { transform: scaleX(0); transform-origin: left; }
+.sc-bar-in { animation: sc-grow-x 700ms var(--app-ease-out) both; }
+
+.sc-edge { stroke-dasharray: 1; stroke-dashoffset: 1; }
+.sc-edge-in { animation: sc-draw 600ms var(--app-ease-out) both; }
+
+.sc-node { opacity: 0; }
+.sc-node-in { animation: sc-pop 420ms var(--app-ease-out) both; }
+
+@keyframes sc-blink {
+  50% { opacity: 0; }
+}
+.sc-caret { animation: sc-blink 1s steps(1) infinite; }
+
+/* 底部四个 tab 的自动播放进度 */
+.sc-progress { animation: sc-grow-x linear both; }
+
+/* 技能包主题带：两行反向滚动，悬停暂停 */
+.sc-ticker {
+  width: max-content;
+  animation: sc-ticker 28s linear infinite;
+}
+.sc-ticker[data-reverse] { animation-name: sc-ticker-reverse; }
+.sc-ticker:hover { animation-play-state: paused; }
+
+/* 暗色闭环环：一段弧沿环行进，光点同步绕圈 */
+.sc-orbit {
+  stroke-dasharray: 0.16 0.84;
+  animation: sc-orbit 6s linear infinite;
+}
+.sc-orbit-dot {
+  transform-origin: 160px 160px;
+  animation: sc-spin 6s linear infinite;
+}
+
+.sc-dots-dark {
+  background-image: radial-gradient(rgb(255 255 255 / 0.12) 0.8px, transparent 0.8px);
+  background-size: 24px 24px;
+  mask-image: radial-gradient(60% 80% at 75% 50%, #000, transparent);
+}
 
 /* 滚动进入视口后显示；reduced-motion 时直接可见 */
 .sc-reveal {
