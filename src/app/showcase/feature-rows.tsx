@@ -118,8 +118,8 @@ function FeatureRow({ copy, index }: { copy: ShowcaseCopy; index: number }) {
     >
       <div className={cn("border-l-2 border-brand pl-6", reversed && "lg:order-2")}>
         <span className="font-mono text-xs text-muted-foreground">0{index + 1}</span>
-        <h3 className="mt-3 text-xl font-semibold tracking-tight sm:text-2xl">{feature.title}</h3>
-        <p className="mt-3 max-w-md text-[15px] leading-7 text-muted-foreground">{feature.description}</p>
+        <h3 className="mt-3 text-2xl font-semibold tracking-tight sm:text-[28px]">{feature.title}</h3>
+        <p className="mt-4 max-w-lg text-base leading-7 text-muted-foreground">{feature.description}</p>
       </div>
       <div className={cn(reversed && "lg:order-1")}>
         <FeatureVisual active={revealed} copy={copy} index={index} />
@@ -134,7 +134,7 @@ function FeatureRow({ copy, index }: { copy: ShowcaseCopy; index: number }) {
  */
 export function FeatureRows({ copy }: { copy: ShowcaseCopy }) {
   return (
-    <ol className="grid gap-20 lg:gap-28">
+    <ol className="grid gap-16 lg:gap-20">
       {copy.features.map((feature, index) => (
         <FeatureRow copy={copy} index={index} key={feature.title} />
       ))}

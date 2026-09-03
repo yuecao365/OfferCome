@@ -19,11 +19,11 @@ function Fact({ value, suffix, label }: ShowcaseCopy["facts"][number]) {
   const display = useCountUp(revealed ? value : 0, 900);
   return (
     <div className="px-6 first:pl-0 last:pr-0" ref={ref}>
-      <p className="text-4xl font-medium tracking-tight tabular-nums text-foreground sm:text-5xl">
+      <p className="text-5xl font-medium tracking-tight tabular-nums text-foreground sm:text-6xl">
         {display}
         <span className="ml-1 text-base font-normal text-muted-foreground">{suffix}</span>
       </p>
-      <p className="mt-2 text-[13px] text-muted-foreground">{label}</p>
+      <p className="mt-2 text-sm text-muted-foreground">{label}</p>
     </div>
   );
 }
@@ -41,10 +41,10 @@ function SectionHeading({
     <div className="grid gap-6 border-b border-border pb-10 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:items-end">
       <div>
         <p className="font-mono text-xs text-muted-foreground">{eyebrow}</p>
-        <h2 className="mt-3 text-[28px] font-semibold leading-tight tracking-tight sm:text-4xl">{title}</h2>
+        <h2 className="mt-3 text-3xl font-semibold leading-tight tracking-tight sm:text-[40px]">{title}</h2>
       </div>
       {description ? (
-        <p className="max-w-xl text-[15px] leading-7 text-muted-foreground lg:justify-self-end">{description}</p>
+        <p className="max-w-xl text-base leading-7 text-muted-foreground lg:justify-self-end">{description}</p>
       ) : null}
     </div>
   );
@@ -110,7 +110,7 @@ export function ShowcaseContent({ displayFontVariable }: { displayFontVariable: 
       <div aria-hidden="true" className="sc-dots pointer-events-none absolute inset-x-0 top-0 h-[760px]" />
 
       <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-5 sm:px-8">
+        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-5 sm:px-8">
           <Link className="flex items-center gap-1.5 text-sm font-semibold tracking-tight" href="/showcase">
             OfferLai
             <span aria-hidden="true" className="size-1.5 rounded-full bg-brand" />
@@ -156,12 +156,12 @@ export function ShowcaseContent({ displayFontVariable }: { displayFontVariable: 
 
       {/* ============ Hero ============ */}
       <section
-        className="relative mx-auto grid max-w-6xl gap-14 px-5 pb-20 pt-16 sm:px-8 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:items-center lg:gap-16 lg:pb-24 lg:pt-24"
+        className="relative mx-auto grid max-w-7xl gap-12 px-5 pb-16 pt-12 sm:px-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-center lg:gap-20 lg:pb-20 lg:pt-16"
         data-shot="hero"
       >
         <div>
           <h1
-            className="text-[52px] font-black leading-[1.12] tracking-tight sm:text-[64px] xl:text-[72px]"
+            className="text-[52px] font-black leading-[1.12] tracking-tight sm:text-[68px] xl:text-[80px]"
             style={{ fontFamily: "var(--font-sc-display), var(--font-sans, inherit)" }}
           >
             <span className="sc-rise block">{content.heroTitle[0]}</span>
@@ -188,7 +188,7 @@ export function ShowcaseContent({ displayFontVariable }: { displayFontVariable: 
             </span>
           </h1>
 
-          <p className="sc-rise mt-10 max-w-lg text-[17px] leading-8 text-muted-foreground [animation-delay:220ms] [&_b]:font-medium [&_b]:text-foreground">
+          <p className="sc-rise mt-9 max-w-xl text-lg leading-8 text-muted-foreground [animation-delay:220ms] [&_b]:font-medium [&_b]:text-foreground">
             {content.heroDescription}
           </p>
 
@@ -203,7 +203,7 @@ export function ShowcaseContent({ displayFontVariable }: { displayFontVariable: 
             </Link>
           </div>
 
-          <ul className="sc-rise mt-6 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted-foreground [animation-delay:440ms]">
+          <ul className="sc-rise mt-6 flex flex-wrap gap-x-4 gap-y-1.5 text-[13px] text-muted-foreground [animation-delay:440ms]">
             {content.trustPoints.map((point, index) => (
               <li className="inline-flex items-center gap-1.5" key={point}>
                 {index === 0 ? (
@@ -221,7 +221,7 @@ export function ShowcaseContent({ displayFontVariable }: { displayFontVariable: 
       </section>
 
       {/* ============ 三个事实 ============ */}
-      <section className="relative mx-auto max-w-6xl px-5 pb-24 sm:px-8 lg:pb-32">
+      <section className="relative mx-auto max-w-7xl px-5 pb-20 sm:px-8 lg:pb-24">
         <Reveal>
           <div className="flex flex-col divide-y divide-border border-y border-border py-8 sm:flex-row sm:divide-x sm:divide-y-0">
             {content.facts.map((fact) => (
@@ -232,7 +232,7 @@ export function ShowcaseContent({ displayFontVariable }: { displayFontVariable: 
       </section>
 
       {/* ============ 功能：一个闭环，五个环节 ============ */}
-      <section className="relative mx-auto max-w-6xl px-5 pb-24 sm:px-8 lg:pb-32">
+      <section className="relative mx-auto max-w-7xl px-5 pb-20 sm:px-8 lg:pb-24">
         <Reveal>
           <SectionHeading
             description={content.highlightsDescription}
@@ -246,7 +246,7 @@ export function ShowcaseContent({ displayFontVariable }: { displayFontVariable: 
             }
           />
         </Reveal>
-        <div className="mt-12">
+        <div className="mt-14">
           <FeatureRows copy={content} />
         </div>
       </section>
@@ -254,11 +254,11 @@ export function ShowcaseContent({ displayFontVariable }: { displayFontVariable: 
       {/* ============ 闭环（暗色带） ============ */}
       <section className="relative border-y border-border bg-[#0c0c0d] text-[#ededef]">
         <div className="sc-dots-dark pointer-events-none absolute inset-0" aria-hidden="true" />
-        <div className="relative mx-auto grid max-w-6xl gap-12 px-5 py-20 sm:px-8 lg:grid-cols-2 lg:items-center lg:py-28">
+        <div className="relative mx-auto grid max-w-7xl gap-12 px-5 py-16 sm:px-8 lg:grid-cols-2 lg:items-center lg:py-24">
           <Reveal>
             <p className="font-mono text-xs text-[#8a8a91]">{content.loopEyebrow}</p>
-            <h2 className="mt-3 text-[28px] font-semibold leading-tight tracking-tight sm:text-4xl">{content.loopTitle}</h2>
-            <p className="mt-5 max-w-lg text-[15px] leading-7 text-[#8a8a91]">{content.loopDescription}</p>
+            <h2 className="mt-3 text-3xl font-semibold leading-tight tracking-tight sm:text-[40px]">{content.loopTitle}</h2>
+            <p className="mt-5 max-w-lg text-base leading-7 text-[#8a8a91]">{content.loopDescription}</p>
             <Link
               className={buttonClassName({ className: "mt-8 h-10 px-5 text-sm" })}
               href="/interviews/mock"
@@ -274,7 +274,7 @@ export function ShowcaseContent({ displayFontVariable }: { displayFontVariable: 
       </section>
 
       {/* ============ 边界 ============ */}
-      <section className="relative mx-auto max-w-6xl px-5 py-24 sm:px-8 lg:py-32">
+      <section className="relative mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:py-24">
         <Reveal>
           <p className="font-mono text-xs text-muted-foreground">{content.privacyEyebrow}</p>
           <div className="mt-4 grid gap-10 border-t border-border pt-8 md:grid-cols-2">
@@ -285,7 +285,7 @@ export function ShowcaseContent({ displayFontVariable }: { displayFontVariable: 
                   <Icon aria-hidden="true" className="mt-1 size-4 shrink-0 text-muted-foreground" strokeWidth={1.5} />
                   <div>
                     <h2 className="text-base font-semibold tracking-tight">{item.title}</h2>
-                    <p className="mt-2 max-w-md text-[15px] leading-7 text-muted-foreground">{item.description}</p>
+                    <p className="mt-2 max-w-md text-base leading-7 text-muted-foreground">{item.description}</p>
                   </div>
                 </div>
               );
@@ -295,7 +295,7 @@ export function ShowcaseContent({ displayFontVariable }: { displayFontVariable: 
       </section>
 
       {/* ============ CTA ============ */}
-      <section className="relative mx-auto max-w-6xl px-5 pb-24 sm:px-8">
+      <section className="relative mx-auto max-w-7xl px-5 pb-20 sm:px-8">
         <Reveal>
           <div className="dot-grid flex flex-col gap-8 rounded-panel border border-border bg-surface p-8 sm:p-12 lg:flex-row lg:items-end lg:justify-between">
             <div>
@@ -320,7 +320,7 @@ export function ShowcaseContent({ displayFontVariable }: { displayFontVariable: 
       </section>
 
       <footer className="relative border-t border-border">
-        <div className="mx-auto flex max-w-6xl flex-col gap-2 px-5 py-6 font-mono text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-8">
+        <div className="mx-auto flex max-w-7xl flex-col gap-2 px-5 py-6 font-mono text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-8">
           <span>OfferLai · {content.footerNote}</span>
           <Link className="hover:text-foreground" href="https://github.com/yuecao365/OfferLai">
             github.com/yuecao365/OfferLai

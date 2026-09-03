@@ -21,7 +21,7 @@ function StageBadge({ label, tone }: { label: string; tone: "neutral" | "brand" 
   return (
     <span
       className={cn(
-        "inline-flex h-5 items-center gap-1 rounded-control border border-border bg-surface px-1.5 text-[11px] text-foreground transition-colors duration-300",
+        "inline-flex h-5 items-center gap-1 rounded-control border border-border bg-surface px-1.5 text-xs text-foreground transition-colors duration-300",
         tone === "success" && "border-success/25 bg-success-soft text-success-strong",
       )}
     >
@@ -38,13 +38,13 @@ function StageBadge({ label, tone }: { label: string; tone: "neutral" | "brand" 
 
 function SceneApply({ copy, active }: { copy: ShowcaseCopy["demo"]; active: boolean }) {
   return (
-    <div className="relative p-4">
+    <div className="relative p-5">
       <div className="mb-3 flex items-center justify-between">
         <span className="h-6 w-28 rounded-control border border-border-strong bg-surface" />
-        <span className="font-mono text-[11px] text-muted-foreground">12 / 16</span>
+        <span className="font-mono text-xs text-muted-foreground">12 / 16</span>
       </div>
       <ul className="divide-y divide-border rounded-control border border-border">
-        <li className="flex items-center justify-between px-3 py-1.5 text-[11px] text-muted-foreground">
+        <li className="flex items-center justify-between px-3 py-1.5 text-xs text-muted-foreground">
           <span>{copy.tableHead[0]}</span>
           <span>{copy.tableHead[1]}</span>
         </li>
@@ -55,8 +55,8 @@ function SceneApply({ copy, active }: { copy: ShowcaseCopy["demo"]; active: bool
             style={{ animationDelay: `${200 + index * 140}ms` }}
           >
             <span className="min-w-0">
-              <span className="block text-[12px] font-medium text-foreground">{company}</span>
-              <span className="block truncate text-[11px] text-muted-foreground">{title}</span>
+              <span className="block text-[13px] font-medium text-foreground">{company}</span>
+              <span className="block truncate text-xs text-muted-foreground">{title}</span>
             </span>
             <StageBadge
               label={stage}
@@ -65,10 +65,10 @@ function SceneApply({ copy, active }: { copy: ShowcaseCopy["demo"]; active: bool
           </li>
         ))}
       </ul>
-      <p className="mt-2 font-mono text-[11px] text-muted-foreground">{copy.tableFooter}</p>
+      <p className="mt-2 font-mono text-xs text-muted-foreground">{copy.tableFooter}</p>
       <div
         className={cn(
-          "absolute right-4 top-3 inline-flex items-center gap-2 rounded-control border border-border bg-surface px-2.5 py-1.5 font-mono text-[11px] text-foreground shadow-raised sc-toast",
+          "absolute right-4 top-3 inline-flex items-center gap-2 rounded-control border border-border bg-surface px-2.5 py-1.5 font-mono text-xs text-foreground shadow-raised sc-toast",
           active && "sc-toast-in",
         )}
       >
@@ -81,9 +81,9 @@ function SceneApply({ copy, active }: { copy: ShowcaseCopy["demo"]; active: bool
 
 function SceneInterview({ copy, active }: { copy: ShowcaseCopy["demo"]; active: boolean }) {
   return (
-    <div className="p-4">
+    <div className="p-5">
       <div className="mb-3 flex items-center gap-2">
-        <span className="font-mono text-[11px] tabular-nums text-foreground">3 / 8</span>
+        <span className="font-mono text-xs tabular-nums text-foreground">3 / 8</span>
         <div className="grid flex-1 grid-cols-8 gap-1">
           {Array.from({ length: 8 }, (_, index) => (
             <span
@@ -97,12 +97,12 @@ function SceneInterview({ copy, active }: { copy: ShowcaseCopy["demo"]; active: 
         </div>
       </div>
       <div className="border-l-2 border-brand pl-3">
-        <p className={cn("text-[13px] font-medium leading-5 text-foreground sc-type", active && "sc-type-in")}>
+        <p className={cn("text-[15px] font-medium leading-5 text-foreground sc-type", active && "sc-type-in")}>
           {copy.question}
         </p>
         <p
           className={cn(
-            "mt-2 flex items-start gap-1 text-[11px] leading-4 text-muted-foreground sc-rise-soft",
+            "mt-2 flex items-start gap-1 text-xs leading-4 text-muted-foreground sc-rise-soft",
             active && "sc-rise-soft-in",
           )}
           style={{ animationDelay: "1600ms" }}
@@ -116,9 +116,9 @@ function SceneInterview({ copy, active }: { copy: ShowcaseCopy["demo"]; active: 
         style={{ animationDelay: "2400ms" }}
       >
         <div className="flex items-baseline justify-between">
-          <span className="text-[11px] text-muted-foreground">{copy.scoreLabel}</span>
+          <span className="text-xs text-muted-foreground">{copy.scoreLabel}</span>
           <span className="text-lg font-medium tabular-nums text-foreground">
-            84<span className="ml-0.5 text-[11px] font-normal text-muted-foreground">/ 100</span>
+            84<span className="ml-0.5 text-xs font-normal text-muted-foreground">/ 100</span>
           </span>
         </div>
         <div className="mt-2 h-1 overflow-hidden rounded-full bg-muted">
@@ -129,7 +129,7 @@ function SceneInterview({ copy, active }: { copy: ShowcaseCopy["demo"]; active: 
         </div>
       </div>
       <div
-        className={cn("mt-3 rounded-control border border-border-strong bg-surface-sunken px-3 py-2.5 text-[11px] leading-4 text-muted-foreground sc-rise-soft", active && "sc-rise-soft-in")}
+        className={cn("mt-3 rounded-control border border-border-strong bg-surface-sunken px-3 py-2.5 text-xs leading-4 text-muted-foreground sc-rise-soft", active && "sc-rise-soft-in")}
         style={{ animationDelay: "600ms" }}
       >
         {copy.answerPlaceholder}
@@ -139,10 +139,10 @@ function SceneInterview({ copy, active }: { copy: ShowcaseCopy["demo"]; active: 
         className={cn("mt-3 flex items-center gap-2 sc-rise-soft", active && "sc-rise-soft-in")}
         style={{ animationDelay: "800ms" }}
       >
-        <span className="rounded-control bg-brand px-2.5 py-1 text-[11px] font-medium text-brand-foreground">
+        <span className="rounded-control bg-brand px-2.5 py-1 text-xs font-medium text-brand-foreground">
           {copy.answerActions[0]}
         </span>
-        <span className="rounded-control px-2 py-1 text-[11px] text-muted-foreground">{copy.answerActions[1]}</span>
+        <span className="rounded-control px-2 py-1 text-xs text-muted-foreground">{copy.answerActions[1]}</span>
       </div>
     </div>
   );
@@ -151,12 +151,12 @@ function SceneInterview({ copy, active }: { copy: ShowcaseCopy["demo"]; active: 
 function SceneReview({ copy, active }: { copy: ShowcaseCopy["demo"]; active: boolean }) {
   const total = copy.reviewRows.reduce((sum, [, count]) => sum + count, 0);
   return (
-    <div className="p-4">
+    <div className="p-5">
       <div className="mb-3 inline-flex items-center gap-0.5 rounded-control bg-surface-sunken p-0.5">
         {copy.reviewSources.map((source, index) => (
           <span
             className={cn(
-              "rounded-[4px] px-2 py-1 text-[11px]",
+              "rounded-[4px] px-2 py-1 text-xs",
               index === 0 ? "bg-surface font-medium text-foreground shadow-card" : "text-muted-foreground",
             )}
             key={source}
@@ -167,14 +167,14 @@ function SceneReview({ copy, active }: { copy: ShowcaseCopy["demo"]; active: boo
       </div>
       <div className="grid gap-3 sm:grid-cols-[auto_1fr]">
       <div className="pr-4 sm:border-r sm:border-border">
-        <p className="text-[11px] text-muted-foreground">{copy.reviewTotal}</p>
-        <p className="mt-1 text-4xl font-medium tabular-nums leading-none text-foreground">
+        <p className="text-xs text-muted-foreground">{copy.reviewTotal}</p>
+        <p className="mt-1 text-5xl font-medium tabular-nums leading-none text-foreground">
           <CountUp active={active} value={total} />
         </p>
         <dl className="mt-4 grid gap-1.5">
           {copy.reviewGroups.map(([group, count], index) => (
             <div
-              className={cn("flex items-center justify-between gap-4 text-[11px] sc-row", active && "sc-row-in")}
+              className={cn("flex items-center justify-between gap-4 text-xs sc-row", active && "sc-row-in")}
               key={group}
               style={{ animationDelay: `${900 + index * 120}ms` }}
             >
@@ -194,8 +194,8 @@ function SceneReview({ copy, active }: { copy: ShowcaseCopy["demo"]; active: boo
             key={question}
             style={{ animationDelay: `${300 + index * 160}ms` }}
           >
-            <span className="truncate text-[12px] text-foreground">{question}</span>
-            <span className="shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">× {count}</span>
+            <span className="truncate text-[13px] text-foreground">{question}</span>
+            <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">× {count}</span>
           </li>
         ))}
       </ul>
@@ -222,8 +222,8 @@ const graphEdges = [
 
 function SceneProfile({ copy, active }: { copy: ShowcaseCopy["demo"]; active: boolean }) {
   return (
-    <div className="dot-grid grid gap-3 p-4 sm:grid-cols-[1fr_auto] sm:items-end">
-      <svg aria-hidden="true" className="h-56 w-full" viewBox="0 0 260 180">
+    <div className="dot-grid grid gap-3 p-5 sm:grid-cols-[1fr_auto] sm:items-end">
+      <svg aria-hidden="true" className="h-64 w-full" viewBox="0 0 260 180">
         {graphEdges.map(([from, to], index) => (
           <line
             className={cn("sc-edge", active && "sc-edge-in")}
@@ -272,13 +272,13 @@ function SceneProfile({ copy, active }: { copy: ShowcaseCopy["demo"]; active: bo
         className={cn("rounded-control border border-border bg-surface-subtle px-3 py-2 sc-rise-soft", active && "sc-rise-soft-in")}
         style={{ animationDelay: "1300ms" }}
       >
-        <p className="text-[11px] text-muted-foreground">{copy.insightKind}</p>
-        <p className="mt-0.5 max-w-44 text-[12px] leading-4 text-foreground">{copy.insight}</p>
+        <p className="text-xs text-muted-foreground">{copy.insightKind}</p>
+        <p className="mt-0.5 max-w-44 text-[13px] leading-4 text-foreground">{copy.insight}</p>
         <div className="mt-2.5 flex gap-1.5">
-          <span className="rounded-control bg-brand px-2 py-1 text-[11px] font-medium text-brand-foreground">
+          <span className="rounded-control bg-brand px-2 py-1 text-xs font-medium text-brand-foreground">
             {copy.insightActions[0]}
           </span>
-          <span className="rounded-control px-2 py-1 text-[11px] text-muted-foreground">{copy.insightActions[1]}</span>
+          <span className="rounded-control px-2 py-1 text-xs text-muted-foreground">{copy.insightActions[1]}</span>
         </div>
       </div>
     </div>
@@ -352,11 +352,11 @@ export function LoopDemo({ copy, scenes, label }: DemoProps) {
           <span className="size-2 rounded-full bg-border-strong" />
           <span className="size-2 rounded-full bg-border-strong" />
           <span className="size-2 rounded-full bg-border-strong" />
-          <span className="ml-2 font-mono text-[11px] text-muted-foreground">
+          <span className="ml-2 font-mono text-xs text-muted-foreground">
             {copy.address} / {scenes[scene].label}
           </span>
         </div>
-        <div className="relative min-h-[320px] bg-surface" aria-live="polite">
+        <div className="relative min-h-[380px] bg-surface" aria-live="polite">
           {panels.map((Panel, index) => {
             const active = index === scene;
             return (
@@ -383,7 +383,7 @@ export function LoopDemo({ copy, scenes, label }: DemoProps) {
               <button
                 aria-selected={active}
                 className={cn(
-                  "group relative flex-1 rounded-control px-2 py-1.5 text-left text-xs transition-colors duration-150",
+                  "group relative flex-1 rounded-control px-2 py-1.5 text-left text-[13px] transition-colors duration-150 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
                   active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
                 )}
                 key={item.label}
@@ -392,7 +392,7 @@ export function LoopDemo({ copy, scenes, label }: DemoProps) {
                 type="button"
               >
                 <span className="block font-medium">
-                  <span className="mr-1.5 font-mono text-[11px] text-muted-foreground">0{index + 1}</span>
+                  <span className="mr-1.5 font-mono text-xs text-muted-foreground">0{index + 1}</span>
                   {item.label}
                 </span>
                 <span className="mt-1.5 block h-0.5 overflow-hidden rounded-full bg-border">
@@ -409,7 +409,7 @@ export function LoopDemo({ copy, scenes, label }: DemoProps) {
             );
           })}
         </div>
-        <p className="mt-3 min-h-5 text-xs text-muted-foreground">{scenes[scene].caption}</p>
+        <p className="mt-3 min-h-5 text-[13px] text-muted-foreground">{scenes[scene].caption}</p>
       </div>
     </div>
   );
