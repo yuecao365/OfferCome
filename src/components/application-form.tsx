@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import {
   FieldLabel,
   Input,
+  RequiredMark,
   Select,
   Textarea,
 } from "@/components/ui/form-controls";
@@ -97,7 +98,7 @@ export function ApplicationForm(props: ApplicationFormProps) {
     <form action={formAction} className="grid gap-5">
       <div className="grid gap-4 md:grid-cols-2">
         <FieldLabel>
-          公司名称 *
+          <span>公司名称<RequiredMark /></span>
           <Input
             defaultValue={initial?.companyName ?? ""}
             name="companyName"
@@ -105,7 +106,7 @@ export function ApplicationForm(props: ApplicationFormProps) {
           />
         </FieldLabel>
         <FieldLabel>
-          岗位名称 *
+          <span>岗位名称<RequiredMark /></span>
           <Input
             defaultValue={initial?.jobTitle ?? ""}
             name="jobTitle"
@@ -113,7 +114,7 @@ export function ApplicationForm(props: ApplicationFormProps) {
           />
         </FieldLabel>
         <FieldLabel>
-          投递时间 *
+          <span>投递时间<RequiredMark /></span>
           <Input
             defaultValue={toDatetimeLocal(initial?.appliedAt ?? new Date())}
             name="appliedAt"
@@ -122,7 +123,7 @@ export function ApplicationForm(props: ApplicationFormProps) {
           />
         </FieldLabel>
         <FieldLabel>
-          当前流程状态 *
+          <span>当前流程状态<RequiredMark /></span>
           <Select
             defaultValue={initial?.stage ?? "applied"}
             name="stage"

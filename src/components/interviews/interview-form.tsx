@@ -5,7 +5,13 @@ import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { FieldLabel, Input, Select, Textarea } from "@/components/ui/form-controls";
+import {
+  FieldLabel,
+  Input,
+  RequiredMark,
+  Select,
+  Textarea,
+} from "@/components/ui/form-controls";
 
 import {
   createInterview,
@@ -185,10 +191,16 @@ export function InterviewForm(props: InterviewFormProps) {
           transcriptionConfigured={props.transcriptionConfigured}
         />
       ) : null}
+      <p className="text-xs text-muted-foreground">
+        带 <RequiredMark /> 的为必填项。
+      </p>
       <div className="grid gap-3 md:grid-cols-2">
         <div>
           <FieldLabel>
-            公司名称
+            <span>
+              公司名称
+              <RequiredMark />
+            </span>
             <Input
               name="companyName"
               onChange={(event) => setCompanyName(event.target.value)}
@@ -199,7 +211,10 @@ export function InterviewForm(props: InterviewFormProps) {
         </div>
         <div>
           <FieldLabel>
-            工作岗位
+            <span>
+              工作岗位
+              <RequiredMark />
+            </span>
             <Input
               name="jobTitle"
               onChange={(event) => setJobTitle(event.target.value)}
@@ -210,7 +225,10 @@ export function InterviewForm(props: InterviewFormProps) {
         </div>
         <div>
           <FieldLabel>
-            面试时间
+            <span>
+              面试时间
+              <RequiredMark />
+            </span>
             <Input
               name="interviewedAt"
               onChange={(event) => setInterviewedAt(event.target.value)}

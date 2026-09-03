@@ -23,6 +23,15 @@ export function FieldLabel({
   );
 }
 
+/** 必填标记，与控件的 required 属性配套使用；语义由 required 承担，标记本身只是视觉提示。 */
+export function RequiredMark() {
+  return (
+    <span aria-hidden="true" className="ml-0.5 text-danger">
+      *
+    </span>
+  );
+}
+
 export const Input = forwardRef<
   HTMLInputElement,
   InputHTMLAttributes<HTMLInputElement>

@@ -9,7 +9,7 @@ import {
 } from "@/lib/interviews/types";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Select, Textarea } from "@/components/ui/form-controls";
+import { RequiredMark, Select, Textarea } from "@/components/ui/form-controls";
 
 type InterviewQuestionsEditorProps = {
   onChange: (questions: InterviewQuestionInput[]) => void;
@@ -101,6 +101,7 @@ export function InterviewQuestionsEditor({
             <div className="flex items-center justify-between gap-3">
               <p className="text-sm font-medium text-zinc-800">
                 问题 {index + 1}
+                {questions.length === 1 ? <RequiredMark /> : null}
                 {typeof question.confidence === "number" ? (
                   <span className="ml-2 font-normal text-zinc-500">
                     识别置信度 {Math.round(question.confidence * 100)}%

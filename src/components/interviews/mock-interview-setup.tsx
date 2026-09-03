@@ -16,7 +16,13 @@ import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { FieldLabel, Input, Select, Textarea } from "@/components/ui/form-controls";
+import {
+  FieldLabel,
+  Input,
+  RequiredMark,
+  Select,
+  Textarea,
+} from "@/components/ui/form-controls";
 import { INTERVIEW_ROUND_LABELS, INTERVIEW_ROUNDS } from "@/lib/interviews/types";
 import {
   MOCK_INTERVIEW_DIFFICULTIES,
@@ -158,7 +164,7 @@ export function MockInterviewSetup({
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           <FieldLabel>
-            公司名称 *
+            <span>公司名称<RequiredMark /></span>
             <Input
               defaultValue={application?.companyName ?? ""}
               name="companyName"
@@ -167,7 +173,7 @@ export function MockInterviewSetup({
             />
           </FieldLabel>
           <FieldLabel>
-            岗位名称 *
+            <span>岗位名称<RequiredMark /></span>
             <Input
               defaultValue={application?.jobTitle ?? ""}
               name="jobTitle"
@@ -227,7 +233,7 @@ export function MockInterviewSetup({
           <div className="mt-5 border-t border-border pt-4">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <FieldLabel>
-            使用简历 *
+            <span>使用简历<RequiredMark /></span>
             <Select defaultValue={resumes.find((resume) => resume.isDefault)?.id ?? resumes[0]?.id} name="resumeId" required>
               {resumes.map((resume) => (
                 <option key={resume.id} value={resume.id}>

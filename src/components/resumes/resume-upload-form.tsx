@@ -6,7 +6,7 @@ import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
-import { FieldLabel, Select } from "@/components/ui/form-controls";
+import { FieldLabel, RequiredMark, Select } from "@/components/ui/form-controls";
 import {
   confirmResumeExperiences,
   discardResumePreview,
@@ -307,6 +307,7 @@ function ResumeParseForm({
           <div className="min-w-0">
             <label className="text-sm font-semibold text-foreground" htmlFor="resume">
               选择简历文件
+              <RequiredMark />
             </label>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">
               支持 PDF、DOC、DOCX、JPG、PNG、WebP，单文件不超过 10MB。
