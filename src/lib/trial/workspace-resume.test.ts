@@ -4,6 +4,7 @@ import test from "node:test";
 import { createEmptyWorkspace, setWorkspaceResume, type TrialWorkspace } from "./workspace";
 import { upsertInterview } from "./workspace-interviews";
 import {
+  applyTrialResumeConfirmations,
   deleteTrialResumeProject,
   saveTrialResumeProject,
   trialResumeListItems,
@@ -95,6 +96,123 @@ test("deleteTrialResumeProject 同时解开题目关联", () => {
   workspace = deleteTrialResumeProject(workspace, "project-1");
   assert.equal(workspace.resume?.projects.length, 0);
   assert.equal(workspace.interviews[0].questions[0].resumeProjectId, null);
+});
+
+test("applyTrialResumeConfirmations 保留关联条目的 id、新建其余条目并解开被丢弃条目的题目关联", () => {
+  const workspace = upsertInterview(
+    saveTrialResumeProject(withResume(), {
+      id: null,
+      name: "已删除的项目",
+      type: "project",
+      organization: null,
+      description: null,
+    }),
+    {
+      companyName: "云帆科技",
+      jobTitle: "后端开发工程师",
+      interviewedAt: new Date("2026-08-01T14:00:00"),
+      round: "first_interview",
+      note: "",
+      questions: [
+        {
+          question: "介绍订单系统",
+          answer: "……",
+          category: "resume_project",
+          resumeProjectId: "project-1",
+          sortOrder: 0,
+        },
+      ],
+    },
+  );
+  const droppedId = workspace.resume!.projects[1].id;
+  const withDroppedLink = {
+    ...workspace,
+    interviews: workspace.interviews.map((interview) => ({
+      ...interview,
+      questions: [
+        ...interview.questions,
+        { ...interview.questions[0], id: "q-dropped", resumeProjectId: droppedId },
+      ],
+    })),
+  };
+
+  const next = applyTrialResumeConfirmations(withDroppedLink, {
+    text: "新简历全文",
+    meta: { fileName: "new.pdf", fileSize: 10, mimeType: "application/pdf" },
+    items: [
+      {
+        clientId: "a",
+        type: "internship",
+        extractedName: "汽车行业研究实习生",
+        finalName: "汽车行业研究实习生",
+        existingItemId: null,
+        organization: "华泰证券",
+        description: "撰写周报",
+        startDate: "2025.06",
+        endDate: "2025.09",
+        sourceText: "华泰证券 汽车行业研究实习生",
+        sortOrder: 0,
+      },
+      {
+        clientId: "b",
+        type: "project",
+        extractedName: "订单系统（识别名）",
+        finalName: "订单系统",
+        existingItemId: "project-1",
+        organization: null,
+        description: "新描述",
+        startDate: null,
+        endDate: null,
+        sourceText: "订单系统",
+        sortOrder: 1,
+      },
+    ],
+  });
+
+  assert.equal(next.resume?.text, "新简历全文");
+  assert.equal(next.resumeMeta?.fileName, "new.pdf");
+  assert.deepEqual(
+    next.resume?.projects.map((project) => [project.id === "project-1", project.name, project.type]),
+    [
+      [false, "汽车行业研究实习生", "internship"],
+      [true, "订单系统", "project"],
+    ],
+  );
+  assert.equal(next.resume?.projects[1].organization, "云帆科技");
+  assert.equal(next.resume?.projects[1].description, "新描述");
+  assert.deepEqual(
+    next.interviews[0].questions.map((question) => question.resumeProjectId),
+    ["project-1", null],
+  );
+});
+
+test("applyTrialResumeConfirmations 名称完全相同时即使没手动选择也复用已有条目", () => {
+  const next = applyTrialResumeConfirmations(withResume(), {
+    text: "新简历全文",
+    meta: null,
+    items: [
+      {
+        clientId: "a",
+        type: "project",
+        extractedName: "订单 系统",
+        finalName: "订单 系统",
+        existingItemId: null,
+        organization: null,
+        description: null,
+        startDate: null,
+        endDate: null,
+        sourceText: "",
+        sortOrder: 0,
+      },
+    ],
+  });
+
+  assert.deepEqual(
+    next.resume?.projects.map((project) => project.id),
+    ["project-1"],
+  );
+  assert.equal(next.resume?.projects[0].description, "高并发订单链路");
+  assert.equal(next.resumeMeta?.fileName, null);
 });
 
 test("复盘按项目聚焦，并支持归类到具体项目", () => {

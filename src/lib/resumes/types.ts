@@ -1,6 +1,7 @@
 import type {
   ExistingResumeProjectOption,
   PendingResumeExperienceConfirmation,
+  ResumeExperienceExtractionSource,
 } from "./confirmation";
 import type { ResumeExperienceType } from "./extract";
 
@@ -29,6 +30,7 @@ export type ResumeActionState = {
   isDefault?: boolean;
   pendingExperiences?: PendingResumeExperienceConfirmation[];
   existingProjects?: ExistingResumeProjectOption[];
+  extractionSource?: ResumeExperienceExtractionSource;
 };
 
 export const initialResumeActionState: ResumeActionState = {

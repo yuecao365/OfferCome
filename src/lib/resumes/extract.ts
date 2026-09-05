@@ -17,52 +17,95 @@ export type ExtractedResumeExperience = {
   sortOrder: number;
 };
 
-const SECTION_STARTS: {
-  type: ResumeExperienceType;
-  patterns: RegExp[];
-}[] = [
+/**
+ * 基于章节标题的规则抽取：没有模型可用时的降级路径。
+ *
+ * 只认"实习/项目"章节里的条目。识别不到章节就返回空——宁可让用户手动补充，
+ * 也不把教育经历、荣誉奖项这类带日期的块硬凑成项目。
+ */
+
+const MAX_EXPERIENCES = 50;
+
+const SECTION_HEADINGS: { type: ResumeExperienceType | "end"; headings: string[] }[] = [
   {
     type: "internship",
-    patterns: [
-      /^实习经历$/,
-      /^实习经验$/,
-      /^工作经历$/,
-      /^实践经历$/,
-      /^瀹炰範缁忓巻$/,
-      /^瀹炰範缁忛獙$/,
-      /^宸ヤ綔缁忓巻$/,
-      /^瀹炶返缁忓巻$/,
-      /^experience$/i,
-      /^work experience$/i,
-      /^internship$/i,
-      /^internships$/i,
-      /^professional experience$/i,
-      /^research experience$/i,
+    headings: [
+      "实习经历",
+      "实习经验",
+      "工作经历",
+      "工作经验",
+      "实践经历",
+      "experience",
+      "work experience",
+      "internship",
+      "internships",
+      "internship experience",
+      "professional experience",
+      "research experience",
     ],
   },
   {
     type: "project",
-    patterns: [
-      /^个人项目$/,
-      /^项目经历$/,
-      /^项目经验$/,
-      /^项目$/,
-      /^科研项目$/,
-      /^涓汉椤圭洰$/,
-      /^椤圭洰缁忓巻$/,
-      /^椤圭洰缁忛獙$/,
-      /^椤圭洰$/,
-      /^绉戠爺椤圭洰$/,
-      /^projects$/i,
-      /^project experience$/i,
-      /^selected projects$/i,
-      /^personal projects$/i,
+    headings: [
+      "个人项目",
+      "项目经历",
+      "项目经验",
+      "项目",
+      "科研项目",
+      "科研经历",
+      "projects",
+      "project experience",
+      "selected projects",
+      "personal projects",
+    ],
+  },
+  {
+    type: "end",
+    headings: [
+      "教育经历",
+      "教育背景",
+      "专业技能",
+      "技能",
+      "技能清单",
+      "获奖经历",
+      "荣誉奖项",
+      "荣誉",
+      "证书",
+      "自我评价",
+      "个人评价",
+      "校园经历",
+      "社团经历",
+      "联系方式",
+      "主修课程",
+      "education",
+      "skills",
+      "technical skills",
+      "awards",
+      "honors",
+      "certifications",
+      "contact",
+      "summary",
     ],
   },
 ];
 
-const SECTION_END_PATTERN =
-  /^(教育经历|教育背景|专业技能|技能|技能清单|获奖经历|荣誉奖项|证书|自我评价|个人评价|校园经历|社团经历|联系方式|鏁欒偛缁忓巻|鏁欒偛鑳屾櫙|涓撲笟鎶€鑳絴鎶€鑳絴鎶€鑳芥竻鍗晐鑾峰缁忓巻|鑽ｈ獕濂栭」|璇佷功|鑷垜璇勪环|涓汉璇勪环|鏍″洯缁忓巻|绀惧洟缁忓巻|鑱旂郴鏂瑰紡|education|skills|technical skills|awards|certifications|contact|summary)$/i;
+/**
+ * 长标题优先，避免"项目"抢先匹配"项目经历 …"这种行。
+ * PDF 常把标题排成"S KILLS"这样的字距样式，字符之间允许一个空格。
+ */
+const HEADING_CANDIDATES = SECTION_HEADINGS.flatMap((section) =>
+  section.headings.map((heading) => ({
+    type: section.type,
+    pattern: new RegExp(
+      `^${[...heading].map((char) => (char === " " ? "\\s?" : char)).join("\\s?")}`,
+      "i",
+    ),
+  })),
+).sort((left, right) => right.pattern.source.length - left.pattern.source.length);
+
+/** 标题前后常见的装饰与分隔：图标、冒号、竖线、破折号。 */
+const HEADING_DECORATION_PATTERN = /^[\s■●◆▶►▪•·#|｜\-–—:：/]+/;
+
 const DATE_TOKEN_PATTERN =
   "(?:20\\d{2}|19\\d{2})(?:[./年\\s]*(?:0?[1-9]|1[0-2]))?|至今|present|now";
 const DATE_RANGE_PATTERN = new RegExp(
@@ -84,12 +127,6 @@ const ENGLISH_COMPACT_TRAILING_DATE_PATTERN = new RegExp(
   "i",
 );
 
-export function normalizeResumeExperienceType(
-  value: string | null | undefined,
-): ResumeExperienceType {
-  return value === "internship" || value === "project" ? value : "project";
-}
-
 function normalizeLines(text: string): string[] {
   return text
     .replace(/\r/g, "\n")
@@ -107,35 +144,33 @@ function isLikelyPdfBinaryText(text: string): boolean {
   );
 }
 
-function getSectionType(line: string): ResumeExperienceType | null {
-  const normalized = line.replace(/[：:]/g, "").trim();
-  for (const section of SECTION_STARTS) {
-    if (section.patterns.some((pattern) => pattern.test(normalized))) {
-      return section.type;
-    }
+type HeadingMatch = {
+  type: ResumeExperienceType | "end";
+  /** 标题之后同一行剩下的内容；标题独占一行时为空串。 */
+  rest: string;
+};
+
+/**
+ * 标题只要出现在行首就算，后面的内容归入该章节的第一行。
+ * 简历常把标题和首条经历排在同一行，或者中英双语标题并列。
+ */
+function matchHeading(line: string): HeadingMatch | null {
+  const stripped = line.replace(HEADING_DECORATION_PATTERN, "");
+
+  for (const candidate of HEADING_CANDIDATES) {
+    const matched = stripped.match(candidate.pattern);
+    if (!matched) continue;
+    const remainder = stripped.slice(matched[0].length);
+    // 行首恰好是标题词，但后面紧跟别的字（如"项目经理实习生"）不算标题。
+    if (remainder && !HEADING_DECORATION_PATTERN.test(remainder)) continue;
+
+    const rest = remainder.replace(HEADING_DECORATION_PATTERN, "").trim();
+    const bilingual = rest ? matchHeading(rest) : null;
+    return bilingual && bilingual.type === candidate.type
+      ? bilingual
+      : { type: candidate.type, rest };
   }
   return null;
-}
-
-function normalizeSectionHeading(line: string): string {
-  return line.replace(/[：:\s]/g, "").trim().toLowerCase();
-}
-
-function isSectionEnd(line: string): boolean {
-  const normalized = line.replace(/[：:]/g, "");
-  const compact = normalizeSectionHeading(line);
-  return (
-    SECTION_END_PATTERN.test(normalized) ||
-    [
-      "education",
-      "skills",
-      "technicalskills",
-      "awards",
-      "certifications",
-      "contact",
-      "summary",
-    ].includes(compact)
-  );
 }
 
 function hasDateRange(line: string): boolean {
@@ -186,7 +221,7 @@ function splitSectionItems(lines: string[]): string[][] {
   return items;
 }
 
-function cleanDate(value: string | null | undefined): string | null {
+export function cleanResumeDate(value: string | null | undefined): string | null {
   return value
     ? value
         .replace(/\s+/g, "")
@@ -208,38 +243,8 @@ function isNoiseTitle(title: string, sourceText: string): boolean {
   return /^[\d\s./[\]<>%-]+$/.test(title);
 }
 
-function normalizeProjectTitle(
-  title: string,
-  description: string,
-  sourceText: string,
-): string {
-  const combined = `${title}\n${description}\n${sourceText}`;
-  const lower = combined.toLowerCase();
-  const cleanedTitle = title.replace(/\s*[–—]\s*/g, " - ").replace(/\s+/g, " ").trim();
-
-  if (/^study\s*assistant/i.test(cleanedTitle)) {
-    if (/local personal assistant/i.test(cleanedTitle)) {
-      return "Study Assistant - Local Personal Assistant Based on LLM Agents";
-    }
-    if (lower.includes("llm") && lower.includes("agent")) {
-      return "Study Assistant ——基于 LLM Agent 的本地化个人助手系统";
-    }
-  }
-
-  if (/^persona-driven\s+llm\s+agents/i.test(cleanedTitle)) {
-    return "Persona-Driven LLM Agents for Social Media Community Engagement";
-  }
-
-  if (
-    /^llm\b/i.test(cleanedTitle) &&
-    /(multi[-\s]?agent|langgraph|agentic|social simulation|多智能体|社交仿真)/i.test(
-      combined,
-    )
-  ) {
-    return "LLM 多智能体社交仿真与评估系统";
-  }
-
-  return cleanedTitle;
+function cleanTitle(title: string): string {
+  return title.replace(/\s*[–—]\s*/g, " - ").replace(/\s+/g, " ").trim();
 }
 
 function parseItem(
@@ -262,19 +267,16 @@ function parseItem(
     .map((part) => part.trim())
     .filter(Boolean);
   const organization = type === "internship" && parts.length > 1 ? parts[0] : null;
-  const rawTitle =
+  const title = cleanTitle(
     type === "internship" && parts.length > 1
       ? parts.slice(1).join(" ")
-      : headingWithoutDate || heading;
+      : headingWithoutDate || heading,
+  );
   const description = lines
     .slice(1)
     .map((line) => line.replace(/^[-•·]\s*/, "").trim())
     .filter(Boolean)
     .join("\n");
-  const title =
-    type === "project"
-      ? normalizeProjectTitle(rawTitle, description, sourceText)
-      : rawTitle;
 
   if (!title || title.length < 2 || isNoiseTitle(title, sourceText)) {
     return null;
@@ -285,42 +287,11 @@ function parseItem(
     type,
     organization,
     description: description ? description.slice(0, 2000) : null,
-    startDate: cleanDate(dateMatch?.[1]),
-    endDate: cleanDate(dateMatch?.[2]),
+    startDate: cleanResumeDate(dateMatch?.[1]),
+    endDate: cleanResumeDate(dateMatch?.[2]),
     sourceText,
     sortOrder,
   };
-}
-
-function extractDateBasedProjectItems(lines: string[]): ExtractedResumeExperience[] {
-  const items: ExtractedResumeExperience[] = [];
-  let current: string[] = [];
-
-  for (const line of lines) {
-    if (hasDateRange(line)) {
-      if (current.length > 0) {
-        const item = parseItem(current, "project", items.length);
-        if (item) {
-          items.push(item);
-        }
-      }
-      current = [line];
-      continue;
-    }
-
-    if (current.length > 0) {
-      current.push(line);
-    }
-  }
-
-  if (current.length > 0) {
-    const item = parseItem(current, "project", items.length);
-    if (item) {
-      items.push(item);
-    }
-  }
-
-  return items;
 }
 
 export function extractResumeExperiencesFromText(
@@ -330,7 +301,6 @@ export function extractResumeExperiencesFromText(
     return [];
   }
 
-  const lines = normalizeLines(text);
   const extracted: ExtractedResumeExperience[] = [];
   let currentType: ResumeExperienceType | null = null;
   let sectionLines: string[] = [];
@@ -347,19 +317,12 @@ export function extractResumeExperiencesFromText(
     }
   }
 
-  for (const line of lines) {
-    const nextType = getSectionType(line);
-    if (nextType) {
+  for (const line of normalizeLines(text)) {
+    const heading = matchHeading(line);
+    if (heading) {
       flushSection();
-      currentType = nextType;
-      sectionLines = [];
-      continue;
-    }
-
-    if (currentType && isSectionEnd(line)) {
-      flushSection();
-      currentType = null;
-      sectionLines = [];
+      currentType = heading.type === "end" ? null : heading.type;
+      sectionLines = currentType && heading.rest ? [heading.rest] : [];
       continue;
     }
 
@@ -369,10 +332,7 @@ export function extractResumeExperiencesFromText(
   }
 
   flushSection();
-  const results =
-    extracted.length > 0 ? extracted : extractDateBasedProjectItems(lines);
-
-  return results.slice(0, 50).map((item, index) => ({
+  return extracted.slice(0, MAX_EXPERIENCES).map((item, index) => ({
     ...item,
     sortOrder: index,
   }));

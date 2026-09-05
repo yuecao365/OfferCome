@@ -39,6 +39,18 @@ function errorResponse(error: unknown) {
   );
 }
 
+async function respond(run: () => Promise<unknown>): Promise<Response> {
+  try {
+    return NextResponse.json(await run());
+  } catch (error) {
+    console.warn(
+      "[trial] request failed:",
+      error instanceof Error ? error.message : "unknown error",
+    );
+    return errorResponse(error);
+  }
+}
+
 /** 需要访客 AI Key 的接口。 */
 export function withTrialAi<T>(handler: TrialHandler<T>) {
   return async (request: Request): Promise<Response> => {
@@ -61,20 +73,14 @@ export function withTrialAi<T>(handler: TrialHandler<T>) {
       return NextResponse.json({ error: "请求格式不正确。" }, { status: 400 });
     }
 
-    try {
-      const result = await runWithTrialAiConfig(config, () => handler(body));
-      return NextResponse.json(result);
-    } catch (error) {
-      console.warn(
-        "[trial] request failed:",
-        error instanceof Error ? error.message : "unknown error",
-      );
-      return errorResponse(error);
-    }
+    return respond(() => runWithTrialAiConfig(config, () => handler(body)));
   };
 }
 
-/** 不需要 AI Key 的接口（例如简历解析）。 */
+/**
+ * 不强制 AI Key 的接口（例如简历解析）：访客带了 Key 就绑进上下文，
+ * 让处理过程里的 agent 能用上；没带也照常走不依赖模型的路径。
+ */
 export function withTrial(
   handler: (request: Request) => Promise<unknown>,
 ) {
@@ -82,10 +88,11 @@ export function withTrial(
     if (!isTrialMode()) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
-    try {
-      return NextResponse.json(await handler(request));
-    } catch (error) {
-      return errorResponse(error);
-    }
+    const config = readTrialAiConfig(request);
+    return respond(() =>
+      config
+        ? runWithTrialAiConfig(config, () => handler(request))
+        : handler(request),
+    );
   };
 }

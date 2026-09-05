@@ -3,6 +3,17 @@ import type {
   ResumeExperienceType,
 } from "./extract";
 
+/** 识别结果来自模型抽取还是章节规则；确认面板据此提示用户。 */
+export type ResumeExperienceExtractionSource = "model" | "rules";
+
+export function resumeExtractionSourceNote(
+  source: ResumeExperienceExtractionSource | undefined,
+): string | null {
+  return source === "rules"
+    ? "本次按简历章节规则识别，连接模型服务后识别会更准确。"
+    : null;
+}
+
 export type ExistingResumeProjectOption = {
   id: string;
   name: string;
@@ -230,6 +241,25 @@ export function buildPendingResumeExperienceConfirmations(
       sourceText: experience.sourceText,
     };
   });
+}
+
+/** 确认面板里的草稿 → 提交给保存动作的输入。 */
+export function toResumeExperienceConfirmationInput(
+  item: PendingResumeExperienceConfirmation,
+): ResumeExperienceConfirmationInput {
+  return {
+    clientId: item.clientId,
+    type: item.type,
+    extractedName: item.extractedName,
+    finalName: item.finalName,
+    existingItemId: item.selectedExistingItemId,
+    organization: item.organization,
+    description: item.description,
+    startDate: item.startDate,
+    endDate: item.endDate,
+    sourceText: item.sourceText,
+    sortOrder: item.sortOrder,
+  };
 }
 
 function findExactExistingProject(

@@ -3,11 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 
-import {
-  extractResumeExperiencesFromText,
-  extractResumeTextFromFile,
-  normalizeResumeExperienceType,
-} from "./extract";
+import { extractResumeExperiencesFromText, extractResumeTextFromFile } from "./extract";
 import { RESUME_UPLOAD_DIR } from "./storage";
 
 test("extracts internships and projects from resume section text", () => {
@@ -53,9 +49,7 @@ test("does not extract resume projects from raw PDF object text", () => {
 3 0 obj << /Type /XRef /Length 119 /Filter /FlateDecode /DecodeParms << /Columns 4 /Predictor 12 >> >> stream
 xref trailer startxref`;
 
-  const experiences = extractResumeExperiencesFromText(text);
-
-  assert.equal(experiences.length, 0);
+  assert.equal(extractResumeExperiencesFromText(text).length, 0);
 });
 
 test("returns no extracted text for uploaded resume images", async () => {
@@ -72,34 +66,6 @@ test("returns no extracted text for uploaded resume images", async () => {
   } finally {
     await fs.unlink(imagePath).catch(() => undefined);
   }
-});
-
-test("recognizes multiple local assistant and LLM simulation projects without section headings", () => {
-  const text = `
-Study Assistant LLM Agent 2026 4 -
-Built a localized personal assistant system with Agent Harness, memory, tool calling, prompt tracing, and observation loops.
-The system connects LLM reasoning with local workflows.
-
-LLM 2025 9 - 2026 1
-Built a multi-agent social simulation and evaluation system with LangGraph, Agentic Workflow, AgentState, Memory, Observation, Action, Environment, Tool Calling, and JSON actions.
-`;
-
-  const experiences = extractResumeExperiencesFromText(text);
-
-  assert.equal(experiences.length, 2);
-  assert.deepEqual(
-    experiences.map((item) => item.title),
-    [
-      "Study Assistant ——基于 LLM Agent 的本地化个人助手系统",
-      "LLM 多智能体社交仿真与评估系统",
-    ],
-  );
-});
-
-test("normalizes unknown resume experience types to project", () => {
-  assert.equal(normalizeResumeExperienceType("internship"), "internship");
-  assert.equal(normalizeResumeExperienceType("project"), "project");
-  assert.equal(normalizeResumeExperienceType("other"), "project");
 });
 
 test("extracts English experience and project sections", () => {
@@ -126,67 +92,68 @@ Career Agent 2026.01-2026.03
   assert.equal(experiences[1].title, "Career Agent");
 });
 
-test("extracts only project headings from English project sections", () => {
+test("keeps project titles verbatim apart from whitespace and dash cleanup", () => {
   const text = `
 PROJECTS
-Study Assistant - Local Personal Assistant Based on LLM Agents Apr. 2026 - Present
-Built a local assistant with LLM agent workflows, memory, tools, and proactive study guidance.
-Generated personalized review plans and proactive study guidance.
-
-Persona-Driven LLM Agents for Social Media Community Engagement Sep. 2025 - Jun. 2026
-Built persona-driven agents for community engagement simulation and evaluation.
-Improved realistic interaction patterns than direct message passing.
+Study Assistant – Local  Personal Assistant Apr. 2026 - Present
+Built a local assistant with LLM agent workflows.
 
 S KILLS
-Python, TypeScript, Next.js, DPO, and GRPO.
+Python, TypeScript.
 `;
 
   const experiences = extractResumeExperiencesFromText(text);
 
-  assert.equal(experiences.length, 2);
   assert.deepEqual(
     experiences.map((item) => item.title),
+    ["Study Assistant - Local Personal Assistant"],
+  );
+});
+
+test("recognizes headings that share a line with content or a bilingual label", () => {
+  const text = `
+■ 实习经历 Internship Experience
+华泰证券 汽车行业研究实习生 2025.06-2025.09
+撰写行业周报与公司深度报告。
+
+项目经历：OfferCome 求职助手 2026.01-至今
+基于 Next.js 的本地求职管理工具。
+
+教育背景：武汉大学 硕士 2028 年毕业
+`;
+
+  const experiences = extractResumeExperiencesFromText(text);
+
+  assert.deepEqual(
+    experiences.map((item) => [item.type, item.title, item.organization]),
     [
-      "Study Assistant - Local Personal Assistant Based on LLM Agents",
-      "Persona-Driven LLM Agents for Social Media Community Engagement",
+      ["internship", "汽车行业研究实习生", "华泰证券"],
+      ["project", "OfferCome 求职助手", null],
     ],
   );
 });
-test("falls back to date-based project extraction without section headings", () => {
-  const text = `
-Career Agent 2026.01-2026.03
-Built a local job tracking dashboard with Next.js and Prisma.
 
-LLM Agent Harness 2025.09-2026.01
-Designed an agent runtime for prompt and tool orchestration.
+test("does not treat dated education or award lines as projects without a section heading", () => {
+  const text = `
+武汉大学经济管理学院硕士：国际商务 2026.09-2028.06
+主修课程：海关实务（97）、概率论（93）
+
+荣誉奖项 2025.10 校级一等奖学金
 `;
 
-  const experiences = extractResumeExperiencesFromText(text);
-
-  assert.equal(experiences.length, 2);
-  assert.deepEqual(
-    experiences.map((item) => item.type),
-    ["project", "project"],
-  );
-  assert.equal(experiences[0].title, "Career Agent");
-  assert.equal(experiences[1].title, "LLM Agent Harness");
+  assert.equal(extractResumeExperiencesFromText(text).length, 0);
 });
 
-test("recognizes project headings with incomplete PDF date ranges", () => {
+test("stops an internship section when a heading-like keyword starts a longer word", () => {
   const text = `
-Study Assistant LLM Agent 2026 4 –
-Built an agent workflow with memory and prompt tracing.
-
-LLM 2025 9 – 2026 1
-Agentic Workflow with LangGraph.
+实习经历
+美团 项目经理实习生 2025.03-2025.06
+项目经理实习生负责需求评审与排期。
 `;
 
   const experiences = extractResumeExperiencesFromText(text);
 
-  assert.equal(experiences.length, 2);
-  assert.equal(
-    experiences[0].title,
-    "Study Assistant ——基于 LLM Agent 的本地化个人助手系统",
-  );
-  assert.equal(experiences[1].title, "LLM 多智能体社交仿真与评估系统");
+  assert.equal(experiences.length, 1);
+  assert.equal(experiences[0].type, "internship");
+  assert.equal(experiences[0].title, "项目经理实习生");
 });

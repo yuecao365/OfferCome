@@ -3,12 +3,19 @@
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
 
+import { ResumeExperienceConfirmationPanel } from "@/components/resumes/resume-experience-confirmation-panel";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FieldLabel, Input, Select, Textarea } from "@/components/ui/form-controls";
+import {
+  buildPendingResumeExperienceConfirmations,
+  toResumeExperienceConfirmationInput,
+  type ExistingResumeProjectOption,
+  type ResumeExperienceConfirmationInput,
+} from "@/lib/resumes/confirmation";
 import { parseResumeFile, parseResumeForm } from "@/lib/trial/client";
 import { deleteStoredFile, putStoredFile } from "@/lib/trial/file-store";
-import type { TrialResumeInput } from "@/lib/trial/interview";
+import type { TrialResumeParseResult } from "@/lib/trial/resume";
 import { TRIAL_RESUME_FILE_KEY } from "@/lib/trial/workspace-resume";
 import type { TrialResumeMeta } from "@/lib/trial/workspace";
 
@@ -16,9 +23,14 @@ import type { TrialResumeMeta } from "@/lib/trial/workspace";
  * 网页版的简历录入表单：上传文件或手动填写。
  * 文本解析在服务端做完即弃（服务器不存文件），原件另存进浏览器的
  * 文件仓库，供简历中心像本地版一样内嵌预览与下载。
+ * 上传识别出的实习/项目先进与本地版相同的确认面板，再交给调用方保存。
  */
 
-type RequestState = "idle" | "busy" | "done" | "error";
+export type TrialResumeSaveInput = {
+  text: string;
+  items: ResumeExperienceConfirmationInput[];
+  meta: Omit<TrialResumeMeta, "savedAt"> | null;
+};
 
 type ExperienceDraft = {
   name: string;
@@ -27,6 +39,17 @@ type ExperienceDraft = {
   description: string;
 };
 
+type Phase =
+  | { kind: "idle" }
+  | { kind: "busy" }
+  | { kind: "error"; message: string }
+  | {
+      kind: "confirm";
+      parsed: TrialResumeParseResult;
+      file: File;
+      meta: Omit<TrialResumeMeta, "savedAt">;
+    };
+
 const EMPTY_EXPERIENCE: ExperienceDraft = {
   name: "",
   type: "project",
@@ -34,45 +57,67 @@ const EMPTY_EXPERIENCE: ExperienceDraft = {
   description: "",
 };
 
+function fileMeta(file: File): Omit<TrialResumeMeta, "savedAt"> {
+  return { fileName: file.name, fileSize: file.size, mimeType: file.type || null };
+}
+
 export function TrialResumeEditor({
+  existingProjects,
   onSaved,
 }: {
-  onSaved: (
-    resume: TrialResumeInput,
-    meta: Omit<TrialResumeMeta, "savedAt"> | null,
-  ) => void;
+  existingProjects: ExistingResumeProjectOption[];
+  onSaved: (input: TrialResumeSaveInput) => void;
 }) {
   const [tab, setTab] = useState<"upload" | "form">("upload");
-  const [state, setState] = useState<RequestState>("idle");
-  const [message, setMessage] = useState("");
+  const [phase, setPhase] = useState<Phase>({ kind: "idle" });
   const [summary, setSummary] = useState("");
   const [experiences, setExperiences] = useState<ExperienceDraft[]>([
     { ...EMPTY_EXPERIENCE },
   ]);
 
-  async function submit(
-    request: Promise<TrialResumeInput>,
-    meta: Omit<TrialResumeMeta, "savedAt"> | null,
-    file?: File,
-  ) {
-    setState("busy");
-    setMessage("");
+  // 原件留在浏览器里，简历中心才能像本地版那样直接预览；
+  // 存不下（隐私模式、配额不足）就只保留解析文本。
+  async function storeOriginal(file: File | null) {
+    const stored = file ? await putStoredFile(TRIAL_RESUME_FILE_KEY, file) : false;
+    if (!stored) await deleteStoredFile(TRIAL_RESUME_FILE_KEY);
+  }
+
+  async function handleUpload(file: File) {
+    setPhase({ kind: "busy" });
     try {
-      const parsed = await request;
-      // 原件留在浏览器里，简历中心才能像本地版那样直接预览；
-      // 存不下（隐私模式、配额不足）就只保留解析文本。
-      const storedFile = file ? await putStoredFile(TRIAL_RESUME_FILE_KEY, file) : false;
-      if (!storedFile) await deleteStoredFile(TRIAL_RESUME_FILE_KEY);
-      setState("done");
-      setMessage(
-        parsed.projects.length > 0
-          ? `已识别 ${parsed.projects.length} 段经历：${parsed.projects.map((p) => p.name).join("、")}`
-          : "已读取简历内容（未识别到独立经历，将只用全文出题）。",
-      );
-      onSaved(parsed, meta);
+      const parsed = await parseResumeFile(file);
+      setPhase({ kind: "confirm", parsed, file, meta: fileMeta(file) });
     } catch (error) {
-      setState("error");
-      setMessage(error instanceof Error ? error.message : "简历处理失败。");
+      setPhase({
+        kind: "error",
+        message: error instanceof Error ? error.message : "简历处理失败。",
+      });
+    }
+  }
+
+  async function handleForm() {
+    setPhase({ kind: "busy" });
+    try {
+      const parsed = await parseResumeForm({
+        summary,
+        experiences: experiences.filter(
+          (item) => item.name.trim() || item.description.trim(),
+        ),
+      });
+      await storeOriginal(null);
+      // 手动填写的经历由用户亲手写成，不必再确认一遍。
+      onSaved({
+        text: parsed.text,
+        items: buildPendingResumeExperienceConfirmations(parsed.experiences, []).map(
+          toResumeExperienceConfirmationInput,
+        ),
+        meta: null,
+      });
+    } catch (error) {
+      setPhase({
+        kind: "error",
+        message: error instanceof Error ? error.message : "简历处理失败。",
+      });
     }
   }
 
@@ -81,6 +126,35 @@ export function TrialResumeEditor({
       current.map((item, i) => (i === index ? { ...item, ...patch } : item)),
     );
   }
+
+  if (phase.kind === "confirm") {
+    const { parsed, file, meta } = phase;
+    return (
+      <ResumeExperienceConfirmationPanel
+        cancelNote="取消不会改动当前简历。"
+        existingProjects={existingProjects}
+        extractionSource={parsed.source === "manual" ? undefined : parsed.source}
+        fileName={file.name}
+        onCancel={() => setPhase({ kind: "idle" })}
+        onConfirm={async (items) => {
+          await storeOriginal(file);
+          onSaved({ text: parsed.text, items, meta });
+          return {
+            status: "success",
+            message: "简历已保存。",
+            createdCount: items.length,
+            linkedCount: 0,
+          };
+        }}
+        pendingExperiences={buildPendingResumeExperienceConfirmations(
+          parsed.experiences,
+          existingProjects,
+        )}
+      />
+    );
+  }
+
+  const busy = phase.kind === "busy";
 
   return (
     <div className="grid gap-4">
@@ -107,20 +181,10 @@ export function TrialResumeEditor({
           简历文件
           <Input
             accept=".pdf,.doc,.docx"
-            disabled={state === "busy"}
+            disabled={busy}
             onChange={(event) => {
               const file = event.target.files?.[0];
-              if (file) {
-                void submit(
-                  parseResumeFile(file),
-                  {
-                    fileName: file.name,
-                    fileSize: file.size,
-                    mimeType: file.type || null,
-                  },
-                  file,
-                );
-              }
+              if (file) void handleUpload(file);
             }}
             type="file"
           />
@@ -196,34 +260,16 @@ export function TrialResumeEditor({
                 再加一段经历
               </Button>
             ) : null}
-            <Button
-              disabled={state === "busy"}
-              onClick={() =>
-                void submit(
-                  parseResumeForm({
-                    summary,
-                    experiences: experiences.filter(
-                      (item) => item.name.trim() || item.description.trim(),
-                    ),
-                  }),
-                  null,
-                )
-              }
-            >
-              {state === "busy" ? (
-                <Loader2 aria-hidden="true" className="size-4 animate-spin" />
-              ) : null}
+            <Button disabled={busy} onClick={() => void handleForm()}>
+              {busy ? <Loader2 aria-hidden="true" className="size-4 animate-spin" /> : null}
               保存简历内容
             </Button>
           </div>
         </div>
       )}
 
-      {state === "busy" && tab === "upload" ? (
-        <Alert tone="info">正在解析简历文本…</Alert>
-      ) : null}
-      {state === "done" && message ? <Alert tone="success">{message}</Alert> : null}
-      {state === "error" && message ? <Alert tone="danger">{message}</Alert> : null}
+      {busy && tab === "upload" ? <Alert tone="info">正在解析简历…</Alert> : null}
+      {phase.kind === "error" ? <Alert tone="danger">{phase.message}</Alert> : null}
     </div>
   );
 }

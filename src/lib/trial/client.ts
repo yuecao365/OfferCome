@@ -9,6 +9,7 @@ import type {
   TrialQuestion,
   TrialResumeInput,
 } from "./interview";
+import type { TrialResumeParseResult } from "./resume";
 
 /**
  * 体验版接口的浏览器端封装。
@@ -69,10 +70,16 @@ export async function connectAiConfig(input: {
   return { token: data.token, provider: data.provider!, model: data.model! };
 }
 
-async function parseResume(init: RequestInit): Promise<TrialResumeInput> {
-  const response = await fetch("/api/trial/resume", { method: "POST", ...init });
+/** 简历解析不强制 Key：带上就走模型抽取，没有就按规则识别。 */
+async function parseResume(init: RequestInit): Promise<TrialResumeParseResult> {
+  const token = readAiToken();
+  const response = await fetch("/api/trial/resume", {
+    method: "POST",
+    ...init,
+    headers: { ...init.headers, ...(token ? { [TRIAL_AI_HEADER]: token } : {}) },
+  });
   const data = (await response.json()) as {
-    resume?: TrialResumeInput;
+    resume?: TrialResumeParseResult;
     error?: string;
   };
   if (!response.ok || !data.resume) {
@@ -81,7 +88,7 @@ async function parseResume(init: RequestInit): Promise<TrialResumeInput> {
   return data.resume;
 }
 
-export function parseResumeFile(file: File): Promise<TrialResumeInput> {
+export function parseResumeFile(file: File): Promise<TrialResumeParseResult> {
   const formData = new FormData();
   formData.append("file", file);
   return parseResume({ body: formData });
@@ -95,7 +102,7 @@ export function parseResumeForm(input: {
     organization: string;
     description: string;
   }[];
-}): Promise<TrialResumeInput> {
+}): Promise<TrialResumeParseResult> {
   return parseResume({
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),

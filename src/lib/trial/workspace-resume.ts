@@ -1,11 +1,15 @@
 import {
+  resolveResumeExperienceConfirmations,
+  type ResumeExperienceConfirmationInput,
+} from "@/lib/resumes/confirmation";
+import {
   resumePreviewKind,
   type ResumeListItem,
   type ResumeProjectListItem,
 } from "@/lib/resumes/types";
 import type { ResumeProjectOption } from "@/lib/interviews/types";
 
-import type { TrialWorkspace } from "./workspace";
+import { setWorkspaceResume, type TrialResumeMeta, type TrialWorkspace } from "./workspace";
 
 /**
  * 网页版的简历中心适配层（纯函数）。
@@ -105,24 +109,22 @@ export function saveTrialResumeProject(
   return { ...workspace, resume: { ...workspace.resume, projects } };
 }
 
-/** 与本地版 deleteResumeProject 同责；同时解开面试题目上的关联。 */
-export function deleteTrialResumeProject(
+/** 解开面试题目对这些实习/项目的关联；题目本身保留。 */
+function unlinkProjectsFromInterviews(
   workspace: TrialWorkspace,
-  id: string,
+  ids: Set<string>,
 ): TrialWorkspace {
-  if (!workspace.resume) return workspace;
+  if (ids.size === 0) return workspace;
   return {
     ...workspace,
-    resume: {
-      ...workspace.resume,
-      projects: workspace.resume.projects.filter((project) => project.id !== id),
-    },
     interviews: workspace.interviews.map((interview) =>
-      interview.questions.some((question) => question.resumeProjectId === id)
+      interview.questions.some(
+        (question) => question.resumeProjectId && ids.has(question.resumeProjectId),
+      )
         ? {
             ...interview,
             questions: interview.questions.map((question) =>
-              question.resumeProjectId === id
+              question.resumeProjectId && ids.has(question.resumeProjectId)
                 ? { ...question, resumeProjectId: null }
                 : question,
             ),
@@ -130,4 +132,74 @@ export function deleteTrialResumeProject(
         : interview,
     ),
   };
+}
+
+/** 与本地版 deleteResumeProject 同责；同时解开面试题目上的关联。 */
+export function deleteTrialResumeProject(
+  workspace: TrialWorkspace,
+  id: string,
+): TrialWorkspace {
+  if (!workspace.resume) return workspace;
+  return unlinkProjectsFromInterviews(
+    {
+      ...workspace,
+      resume: {
+        ...workspace.resume,
+        projects: workspace.resume.projects.filter((project) => project.id !== id),
+      },
+    },
+    new Set([id]),
+  );
+}
+
+/**
+ * 用确认面板的结果替换体验简历（与本地版 confirmResumeExperiences 同责）。
+ * 关联到已有条目的沿用原 id，面试题目上的关联不断；新条目发新 id；
+ * 没被保留的旧条目连同题目关联一起清掉。
+ */
+export function applyTrialResumeConfirmations(
+  workspace: TrialWorkspace,
+  input: {
+    text: string;
+    items: ResumeExperienceConfirmationInput[];
+    meta: Omit<TrialResumeMeta, "savedAt"> | null;
+  },
+): TrialWorkspace {
+  const previous = workspace.resume?.projects ?? [];
+  const resolved = resolveResumeExperienceConfirmations(
+    input.items,
+    trialResumeProjects(workspace),
+  );
+  const previousById = new Map(previous.map((project) => [project.id, project]));
+
+  const ordered = [
+    ...resolved.links.map((link) => {
+      const kept = previousById.get(link.resumeProjectId)!;
+      return {
+        sortOrder: link.sortOrder,
+        project: {
+          ...kept,
+          organization: link.organization ?? kept.organization,
+          description: link.description ?? kept.description,
+        },
+      };
+    }),
+    ...resolved.creates.map((create) => ({
+      sortOrder: create.sortOrder,
+      project: {
+        id: crypto.randomUUID(),
+        name: create.name,
+        type: create.type,
+        organization: create.organization ?? "",
+        description: create.description ?? "",
+      },
+    })),
+  ].sort((left, right) => left.sortOrder - right.sortOrder);
+  const projects = ordered.map((entry) => entry.project);
+
+  const keptIds = new Set(projects.map((project) => project.id));
+  return unlinkProjectsFromInterviews(
+    setWorkspaceResume(workspace, { text: input.text, projects }, input.meta),
+    new Set(previous.map((project) => project.id).filter((id) => !keptIds.has(id))),
+  );
 }

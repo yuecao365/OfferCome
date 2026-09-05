@@ -5,15 +5,11 @@ import { prisma } from "@/lib/db";
 import {
   buildPendingResumeExperienceConfirmations,
   resolveResumeExperienceConfirmations,
-  resumeExperienceTypeLabel,
   type ExistingResumeProjectOption,
   type ResumeExperienceConfirmationInput,
 } from "./confirmation";
-import {
-  extractResumeExperiencesFromText,
-  extractResumeTextFromFile,
-  type ExtractedResumeExperience,
-} from "./extract";
+import { extractResumeExperiences } from "./experience-agent";
+import { extractResumeTextFromFile } from "./extract";
 import { revalidateResumeDependents } from "./revalidate";
 import {
   deleteStoredResumeFile,
@@ -29,28 +25,6 @@ import type {
 function getString(formData: FormData, name: string): string {
   const value = formData.get(name);
   return typeof value === "string" ? value : "";
-}
-
-function logExtractedResumeExperiences(
-  originalName: string,
-  experiences: ExtractedResumeExperience[],
-): void {
-  console.log(
-    `[resumes] extracted ${experiences.length} experience(s) from ${originalName}`,
-  );
-
-  if (experiences.length === 0) {
-    console.log("[resumes] no internship/project items recognized");
-    return;
-  }
-
-  for (const experience of experiences) {
-    const value =
-      experience.type === "internship"
-        ? experience.organization?.trim() || experience.title.trim()
-        : experience.title.trim();
-    console.log(`[resumes] ${resumeExperienceTypeLabel(experience.type)}+${value}`);
-  }
 }
 
 async function getExistingResumeProjectOptions(): Promise<
@@ -80,15 +54,19 @@ export async function parseResumePreview(
     const temporary = await saveTemporaryResumeFile(file);
     const isDefault = getString(formData, "isDefault") === "on";
 
-    let experiences: ExtractedResumeExperience[] = [];
+    let extraction: Awaited<ReturnType<typeof extractResumeExperiences>> = {
+      experiences: [],
+      source: "rules",
+    };
     try {
       const resumeText = await extractResumeTextFromFile(
         temporary.filePath,
         temporary.mimeType,
       );
-      console.log(`[resumes] extracted text length=${resumeText.length}`);
-      experiences = extractResumeExperiencesFromText(resumeText);
-      logExtractedResumeExperiences(temporary.originalName, experiences);
+      extraction = await extractResumeExperiences(resumeText);
+      console.log(
+        `[resumes] ${temporary.originalName}: text=${resumeText.length} chars, ${extraction.experiences.length} experience(s) via ${extraction.source}`,
+      );
     } catch (error) {
       console.warn(
         "[resumes] resume experience extraction failed:",
@@ -98,7 +76,7 @@ export async function parseResumePreview(
 
     const existingProjects = await getExistingResumeProjectOptions();
     const pendingExperiences = buildPendingResumeExperienceConfirmations(
-      experiences,
+      extraction.experiences,
       existingProjects,
     );
 
@@ -113,6 +91,7 @@ export async function parseResumePreview(
       isDefault,
       pendingExperiences,
       existingProjects,
+      extractionSource: extraction.source,
     };
   } catch (error) {
     return {

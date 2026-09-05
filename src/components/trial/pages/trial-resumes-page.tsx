@@ -12,6 +12,7 @@ import { formatFileSize, resumeTypeLabel } from "@/lib/resumes/types";
 import { deleteStoredFile, readStoredFile } from "@/lib/trial/file-store";
 import {
   TRIAL_RESUME_FILE_KEY,
+  applyTrialResumeConfirmations,
   deleteTrialResumeProject,
   saveTrialResumeProject,
   trialResumeListItems,
@@ -56,6 +57,7 @@ export function TrialResumesPage() {
 
   const resumes = trialResumeListItems(workspace, fileUrl);
   const selected = resumes[0] ?? null;
+  const projects = trialResumeProjects(workspace);
 
   return (
     <ResumesView
@@ -100,7 +102,7 @@ export function TrialResumesPage() {
           )
         ) : null
       }
-      projects={trialResumeProjects(workspace)}
+      projects={projects}
       projectsPanel={{
         saveAction: async (input) => {
           if (!workspace.resume) {
@@ -131,9 +133,10 @@ export function TrialResumesPage() {
         >
           {(close) => (
             <TrialResumeEditor
-              onSaved={(resume, meta) => {
+              existingProjects={projects}
+              onSaved={(input) => {
                 mutateWorkspace((current) =>
-                  setWorkspaceResume(current, resume, meta),
+                  applyTrialResumeConfirmations(current, input),
                 );
                 close();
               }}
