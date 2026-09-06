@@ -9,42 +9,54 @@ import type {
   TrialQuestion,
   TrialResumeInput,
 } from "./interview";
+import { readTrialResponse, TrialRequestError, isTrialRequestError } from "./response";
 import type { TrialResumeParseResult } from "./resume";
+
+export { isTrialRequestError } from "./response";
 
 /**
  * 体验版接口的浏览器端封装。
  *
- * 所有需要模型的请求都要带上访客的配置串，集中在这里加，
- * 调用方就不必各自记得。服务端是无状态的：请求里带什么就用什么。
+ * 所有请求都经 request() 发出：需要模型的接口在这里带上访客的配置串，
+ * 响应统一交给 readTrialResponse 解读，调用方拿到的要么是数据，
+ * 要么是带 kind 的 TrialRequestError。服务端是无状态的：请求里带什么就用什么。
  */
 
-class TrialRequestError extends Error {
-  readonly status: number;
-  constructor(message: string, status: number) {
-    super(message);
-    this.name = "TrialRequestError";
-    this.status = status;
-  }
-}
-
 export function isMissingAiConfig(error: unknown): boolean {
-  return error instanceof TrialRequestError && error.status === 401;
+  return isTrialRequestError(error) && error.kind === "not_configured";
 }
 
-async function postWithAi<T>(path: string, body: unknown): Promise<T> {
-  const token = readAiToken();
-  if (!token) throw new TrialRequestError("请先连接你自己的模型服务。", 401);
+/** required：没有 Key 直接拦下；optional：有就带上，让服务端能用模型。 */
+type AiTokenPolicy = "required" | "optional" | "none";
+
+async function request<T>(
+  path: string,
+  init: { body: BodyInit; json?: boolean; ai?: AiTokenPolicy },
+  fallbackMessage: string,
+): Promise<T> {
+  const policy = init.ai ?? "none";
+  const token = policy === "none" ? null : readAiToken();
+  if (policy === "required" && !token) {
+    throw new TrialRequestError({
+      message: "请先连接你自己的模型服务。",
+      status: 401,
+      kind: "not_configured",
+    });
+  }
 
   const response = await fetch(path, {
     method: "POST",
-    headers: { "Content-Type": "application/json", [TRIAL_AI_HEADER]: token },
-    body: JSON.stringify(body),
+    headers: {
+      ...(init.json === false ? {} : { "Content-Type": "application/json" }),
+      ...(token ? { [TRIAL_AI_HEADER]: token } : {}),
+    },
+    body: init.body,
   });
-  const data = (await response.json()) as T & { error?: string };
-  if (!response.ok) {
-    throw new TrialRequestError(data.error ?? "请求失败，请重试。", response.status);
-  }
-  return data;
+  return readTrialResponse<T>(response, fallbackMessage);
+}
+
+function postWithAi<T>(path: string, body: unknown): Promise<T> {
+  return request<T>(path, { body: JSON.stringify(body), ai: "required" }, "请求失败，请重试。");
 }
 
 export async function connectAiConfig(input: {
@@ -53,45 +65,29 @@ export async function connectAiConfig(input: {
   baseURL: string | null;
   apiKey: string;
 }): Promise<{ token: string; provider: string; model: string }> {
-  const response = await fetch("/api/trial/ai-config", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-  });
-  const data = (await response.json()) as {
-    token?: string;
-    provider?: string;
-    model?: string;
-    error?: string;
-  };
-  if (!response.ok || !data.token) {
-    throw new Error(data.error ?? "连接失败，请重试。");
-  }
-  return { token: data.token, provider: data.provider!, model: data.model! };
+  const { token, provider, model } = await request<{
+    token: string;
+    provider: string;
+    model: string;
+  }>("/api/trial/ai-config", { body: JSON.stringify(input) }, "连接失败，请重试。");
+  return { token, provider, model };
 }
 
 /** 简历解析不强制 Key：带上就走模型抽取，没有就按规则识别。 */
-async function parseResume(init: RequestInit): Promise<TrialResumeParseResult> {
-  const token = readAiToken();
-  const response = await fetch("/api/trial/resume", {
-    method: "POST",
-    ...init,
-    headers: { ...init.headers, ...(token ? { [TRIAL_AI_HEADER]: token } : {}) },
-  });
-  const data = (await response.json()) as {
-    resume?: TrialResumeParseResult;
-    error?: string;
-  };
-  if (!response.ok || !data.resume) {
-    throw new Error(data.error ?? "简历解析失败。");
-  }
-  return data.resume;
+async function parseResume(init: { body: BodyInit; json?: boolean }): Promise<TrialResumeParseResult> {
+  const { resume } = await request<{ resume: TrialResumeParseResult }>(
+    "/api/trial/resume",
+    { ...init, ai: "optional" },
+    "简历解析失败。",
+  );
+  return resume;
 }
 
 export function parseResumeFile(file: File): Promise<TrialResumeParseResult> {
   const formData = new FormData();
   formData.append("file", file);
-  return parseResume({ body: formData });
+  // multipart 的 Content-Type 要由浏览器带 boundary 生成，不能手写。
+  return parseResume({ body: formData, json: false });
 }
 
 export function parseResumeForm(input: {
@@ -103,10 +99,7 @@ export function parseResumeForm(input: {
     description: string;
   }[];
 }): Promise<TrialResumeParseResult> {
-  return parseResume({
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-  });
+  return parseResume({ body: JSON.stringify(input) });
 }
 
 export async function startInterview(input: {
