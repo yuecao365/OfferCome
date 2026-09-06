@@ -47,6 +47,8 @@ export type ResumeProjectListItem = {
   organization: string | null;
   description: string | null;
   sourceResumeName: string | null;
+  /** 出题前自动识别写入、用户尚未编辑确认。 */
+  autoExtracted: boolean;
 };
 
 export type ResumeExperienceConfirmState = {

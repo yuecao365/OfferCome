@@ -89,6 +89,8 @@ model ResumeProject {
   endDate      String?
   sourceText   String?
   sortOrder    Int                   @default(0)
+  /// 出题前自动识别写入、尚未经用户确认；用户编辑过即清空。
+  autoExtractedAt DateTime?
   sources      ResumeProjectSource[]
   questions    InterviewQuestion[]
   createdAt    DateTime              @default(now())

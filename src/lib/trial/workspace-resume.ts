@@ -69,6 +69,7 @@ export function trialResumeProjects(
     organization: project.organization || null,
     description: project.description || null,
     sourceResumeName: meta?.fileName ?? null,
+    autoExtracted: false,
   }));
 }
 

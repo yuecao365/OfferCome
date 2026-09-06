@@ -18,9 +18,10 @@ export async function saveResumeProject(input: {
     const fields = normalizeResumeExperienceFields(input);
 
     if (input.id) {
+      // 用户亲手改过，就不再是"自动识别、未确认"的条目。
       await prisma.resumeProject.update({
         where: { id: input.id },
-        data: fields,
+        data: { ...fields, autoExtractedAt: null },
       });
     } else {
       const { _max } = await prisma.resumeProject.aggregate({

@@ -5,10 +5,13 @@ import { prisma } from "@/lib/db";
 import {
   buildPendingResumeExperienceConfirmations,
   resolveResumeExperienceConfirmations,
-  type ExistingResumeProjectOption,
   type ResumeExperienceConfirmationInput,
 } from "./confirmation";
 import { extractResumeExperiences } from "./experience-agent";
+import {
+  getExistingResumeProjectOptions,
+  persistResumeExperiences,
+} from "./experience-store";
 import { extractResumeTextFromFile } from "./extract";
 import { revalidateResumeDependents } from "./revalidate";
 import {
@@ -25,20 +28,6 @@ import type {
 function getString(formData: FormData, name: string): string {
   const value = formData.get(name);
   return typeof value === "string" ? value : "";
-}
-
-async function getExistingResumeProjectOptions(): Promise<
-  ExistingResumeProjectOption[]
-> {
-  return prisma.resumeProject.findMany({
-    orderBy: [{ type: "asc" }, { updatedAt: "desc" }, { name: "asc" }],
-    select: {
-      id: true,
-      name: true,
-      type: true,
-      organization: true,
-    },
-  });
 }
 
 export async function parseResumePreview(
@@ -134,50 +123,12 @@ export async function confirmResumeExperiences(input: {
         });
       }
 
-      for (const item of resolved.creates) {
-        const project = await tx.resumeProject.create({
-          data: {
-            resumeId: resume.id,
-            name: item.name,
-            type: item.type,
-            organization: item.organization,
-            description: item.description,
-            startDate: item.startDate,
-            endDate: item.endDate,
-            sourceText: item.sourceText,
-            sortOrder: item.sortOrder,
-          },
-          select: { id: true },
-        });
-
-        await tx.resumeProjectSource.create({
-          data: {
-            resumeId: resume.id,
-            resumeProjectId: project.id,
-            extractedName: item.extractedName,
-            finalName: item.finalName,
-            sourceText: item.sourceText,
-          },
-        });
-      }
-
-      for (const item of resolved.links) {
-        await tx.resumeProjectSource.create({
-          data: {
-            resumeId: resume.id,
-            resumeProjectId: item.resumeProjectId,
-            extractedName: item.extractedName,
-            finalName: item.finalName,
-            sourceText: item.sourceText,
-          },
-        });
-      }
-
-      return {
+      const persisted = await persistResumeExperiences(tx, {
         resumeId: resume.id,
-        createdCount: resolved.creates.length,
-        linkedCount: resolved.links.length,
-      };
+        resolved,
+      });
+
+      return { resumeId: resume.id, ...persisted };
     });
 
     revalidateResumeDependents();

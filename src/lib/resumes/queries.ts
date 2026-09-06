@@ -49,6 +49,7 @@ const RESUME_PROJECT_SELECT = {
   type: true,
   organization: true,
   description: true,
+  autoExtractedAt: true,
   resume: { select: { originalName: true } },
 } satisfies Prisma.ResumeProjectSelect;
 
@@ -65,5 +66,6 @@ export async function getResumeProjects(): Promise<ResumeProjectListItem[]> {
     organization: row.organization,
     description: row.description,
     sourceResumeName: row.resume?.originalName ?? null,
+    autoExtracted: row.autoExtractedAt !== null,
   }));
 }

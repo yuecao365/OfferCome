@@ -237,6 +237,14 @@ export function ResumeProjectsPanel({
                     <Badge tone={project.type === "internship" ? "brand" : "neutral"}>
                       {resumeExperienceTypeLabel(project.type)}
                     </Badge>
+                    {project.autoExtracted ? (
+                      <Badge
+                        title="出题前由系统从简历自动识别，尚未经你确认；编辑一次即视为确认。"
+                        tone="warning"
+                      >
+                        自动识别，未确认
+                      </Badge>
+                    ) : null}
                     <h3 className="truncate text-sm font-semibold text-foreground">
                       {project.name}
                     </h3>

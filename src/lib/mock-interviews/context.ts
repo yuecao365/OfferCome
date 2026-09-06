@@ -3,6 +3,7 @@ import "server-only";
 import { getCandidateProfileContext } from "@/lib/candidate-profile/queries";
 import { normalizeProfileDimension } from "@/lib/candidate-profile/types";
 import { prisma } from "@/lib/db";
+import { ensureResumeExperiences } from "@/lib/resumes/experience-store";
 import { extractResumeTextFromFile } from "@/lib/resumes/extract";
 
 import type { RelevantPersonalizationContext } from "./relevance";
@@ -85,6 +86,26 @@ export async function buildMockInterviewContext(input: {
   );
   if (!resumeText.trim()) throw new Error("没有从所选简历中提取到文本。");
 
+  // 出题只考察这份简历上的实习/项目，以关联表为准。简历从没识别过
+  // （识别功能接通前上传、或项目随别的版本被删掉）就先自动识别一次并落库；
+  // 识别失败不拦路，没有项目时提示词会声明本场不出 resume 题。
+  let projectSources = resume.projectSources;
+  if (projectSources.length === 0) {
+    try {
+      await ensureResumeExperiences({ resumeId: resume.id, resumeText });
+      projectSources = await prisma.resumeProjectSource.findMany({
+        where: { resumeId: resume.id },
+        include: { resumeProject: true },
+        orderBy: { createdAt: "asc" },
+      });
+    } catch (error) {
+      console.warn(
+        "[mock-interviews] auto resume experience extraction failed:",
+        error instanceof Error ? error.message : "unknown error",
+      );
+    }
+  }
+
   const normalizedJobTitle = input.jobTitle.trim().toLocaleLowerCase();
   const sortedHistory = historyRows.toSorted((left, right) => {
     const leftMatch = left.jobTitle.trim().toLocaleLowerCase() === normalizedJobTitle;
@@ -144,7 +165,7 @@ export async function buildMockInterviewContext(input: {
     string,
     MockInterviewContext["projects"][number]
   >();
-  for (const source of resume.projectSources) {
+  for (const source of projectSources) {
     const project = source.resumeProject;
     projectsById.set(project.id, {
       id: project.id,
