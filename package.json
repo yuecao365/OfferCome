@@ -13,7 +13,8 @@
     "db:push": "prisma db push",
     "boss:login": "tsx scripts/boss-login.ts",
     "boss:sync": "tsx scripts/boss-sync.ts",
-    "agent:runs": "tsx scripts/agent-runs.ts"
+    "agent:runs": "tsx scripts/agent-runs.ts",
+    "eval:replay": "tsx scripts/eval-replay.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.7",

@@ -269,8 +269,8 @@ export async function generateMockInterviewPlan(input: {
   const logSelection = (
     stage: QuestionBatchStage,
     batch: QuestionBatchResult,
-    counts: { requested: number; accepted: number },
-    rejected: QuestionSelectionResult["rejected"],
+    requested: number,
+    selection: QuestionSelectionResult,
   ) => {
     logAgentRun({
       runId: input.generationId,
@@ -284,13 +284,17 @@ export async function generateMockInterviewPlan(input: {
       finishReason: batch.finishReason,
       usage: batch.usage,
       metrics: {
-        requestedCount: counts.requested,
+        requestedCount: requested,
         returnedCount: batch.questions.length,
-        acceptedCount: counts.accepted,
-        rejectedCount: rejected.length,
+        acceptedCount: selection.accepted.length,
+        rejectedCount: selection.rejected.length,
       },
-      // 拒收原因是评测最想看的：哪类伪造引用最常见、随提示词版本怎么变。
-      output: { rejected, loadedSkillNames: batch.loadedSkillNames },
+      // 采纳清单与拒收原因是评测判分的输入：补货阶段的 accepted 是累计的最终清单。
+      output: {
+        accepted: selection.accepted,
+        rejected: selection.rejected,
+        loadedSkillNames: batch.loadedSkillNames,
+      },
     });
   };
 
@@ -344,12 +348,7 @@ export async function generateMockInterviewPlan(input: {
     personalization,
     seedSourceId,
   });
-  logSelection(
-    "questions_initial",
-    initial,
-    { requested: input.questionCount, accepted: initialSelection.accepted.length },
-    initialSelection.rejected,
-  );
+  logSelection("questions_initial", initial, input.questionCount, initialSelection);
 
   let accepted = initialSelection.accepted;
   if (
@@ -384,12 +383,7 @@ export async function generateMockInterviewPlan(input: {
       seedSourceId,
     });
     accepted = topUpSelection.accepted;
-    logSelection(
-      "questions_top_up",
-      topUp,
-      { requested: missingCount, accepted: accepted.length },
-      topUpSelection.rejected,
-    );
+    logSelection("questions_top_up", topUp, missingCount, topUpSelection);
   }
 
   // 数量软化：达到下限就开场，差额由房间如实说明；只有连底线都凑不齐才失败。
