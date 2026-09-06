@@ -82,8 +82,16 @@ export function pdfTextItemsToLines(items: PdfTextItem[]): string[] {
     .filter(Boolean);
 }
 
-function directoryUrl(...segments: string[]): string {
-  return `${pathToFileURL(path.join(...segments)).href}/`;
+/**
+ * Node 下 pdfjs 用 fs.readFile(baseUrl + 文件名) 读 CMap 与标准字体，
+ * 所以这里必须是文件系统路径而不是 file:// 地址。此前传的是 URL，
+ * 中文字体依赖的 Adobe-GB1 等预定义 CMap 全部加载失败，汉字被整体丢掉，
+ * 而英文不依赖 CMap 所以看起来一切正常。
+ *
+ * pdfjs 要求以正斜杠结尾；Windows 上 fs 同样接受正斜杠。
+ */
+export function pdfjsAssetDirectory(name: "cmaps" | "standard_fonts"): string {
+  return `${path.join(process.cwd(), "node_modules", "pdfjs-dist", name)}/`;
 }
 
 async function importPdfjsRuntime(): Promise<PdfJsModule> {
@@ -122,14 +130,9 @@ async function extractPdfText(bytes: Buffer): Promise<string> {
     data: new Uint8Array(bytes),
     isEvalSupported: false,
     useWorkerFetch: false,
-    cMapUrl: directoryUrl(process.cwd(), "node_modules", "pdfjs-dist", "cmaps"),
+    cMapUrl: pdfjsAssetDirectory("cmaps"),
     cMapPacked: true,
-    standardFontDataUrl: directoryUrl(
-      process.cwd(),
-      "node_modules",
-      "pdfjs-dist",
-      "standard_fonts",
-    ),
+    standardFontDataUrl: pdfjsAssetDirectory("standard_fonts"),
     verbosity: 0,
   });
   const document = await loadingTask.promise;

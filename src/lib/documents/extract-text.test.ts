@@ -1,7 +1,29 @@
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
 import test from "node:test";
 
-import { extractDocumentText, pdfTextItemsToLines } from "./extract-text";
+import {
+  extractDocumentText,
+  pdfjsAssetDirectory,
+  pdfTextItemsToLines,
+} from "./extract-text";
+
+/**
+ * pdfjs 在 Node 下用 fs.readFile(目录 + 文件名) 读 CMap。传 file:// 地址会让
+ * 中文字体依赖的预定义 CMap 全部加载失败，汉字整体丢失而英文完好，很难察觉。
+ * 这里按 pdfjs 的读取方式验证目录真的可读。
+ */
+test("pdfjs asset directories are filesystem paths pdfjs can read", () => {
+  for (const name of ["cmaps", "standard_fonts"] as const) {
+    const directory = pdfjsAssetDirectory(name);
+    assert.ok(directory.endsWith("/"), "pdfjs 要求以正斜杠结尾");
+    assert.ok(!/^[a-z]+:\/\//i.test(directory), "必须是路径而不是 URL");
+  }
+  assert.ok(
+    existsSync(`${pdfjsAssetDirectory("cmaps")}Adobe-GB1-UCS2.bcmap`),
+    "简体中文字体依赖的 Adobe-GB1 CMap 必须能按此路径读到",
+  );
+});
 
 test("extracts UTF-8 text and markdown uploads", async () => {
   const text = await extractDocumentText({

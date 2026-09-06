@@ -7,8 +7,15 @@ const root = path.dirname(fileURLToPath(import.meta.url));
 const nextConfig: NextConfig = {
   serverExternalPackages: ["@ffmpeg-installer/ffmpeg"],
   outputFileTracingIncludes: {
-    // 技能包是运行时用 fs 读取的 SKILL.md，构建裁剪时必须显式带上。
-    "/*": ["./prisma/demo.db", "./src/lib/mock-interviews/skills/**/SKILL.md"],
+    // 运行时用 fs 读取、静态分析看不见的文件，构建裁剪时必须显式带上：
+    // 技能包 SKILL.md；pdfjs 的 legacy 构建（经 new Function 动态 import 加载）、
+    // CMap 与标准字体（中文简历没有 CMap 就会整体丢字）。
+    "/*": [
+      "./src/lib/mock-interviews/skills/**/SKILL.md",
+      "./node_modules/pdfjs-dist/legacy/build/**",
+      "./node_modules/pdfjs-dist/cmaps/**",
+      "./node_modules/pdfjs-dist/standard_fonts/**",
+    ],
     "/api/interviews/draft": [
       "./node_modules/@ffmpeg-installer/*/ffmpeg*",
     ],
