@@ -1,0 +1,12 @@
+{
+  "id": "edge-thin-jd",
+  "company": "合成",
+  "title": "AI应用开发实习生（极简 JD）",
+  "direction": "edge",
+  "source": "synthetic",
+  "postedAt": "2026-09-07",
+  "status": "synthetic",
+  "resumes": ["synthetic-backend"],
+  "expect": { "maxBlueprintLevel": 2, "minCompetencies": 3, "minVerbatimEvidenceRate": 0.5 },
+  "jobDescription": "职位描述\n参与 AI Agent 应用的开发与落地，负责后端接口与 Prompt 优化。\n职位要求\n本科在读，熟悉 Python 或 Go，了解 LLM 应用开发。"
+}

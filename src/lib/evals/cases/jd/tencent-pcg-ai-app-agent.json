@@ -1,0 +1,10 @@
+{
+  "id": "tencent-pcg-ai-app-agent",
+  "company": "腾讯",
+  "title": "AI应用开发工程师-Agent方向（PCG）",
+  "direction": "agent",
+  "source": "https://careers.tencent.com/jobdesc.html?postId=2026845083588001792",
+  "postedAt": "2026-08-26",
+  "status": "active",
+  "jobDescription": "职位描述\n1.设计并实现社交产品中的 AI Agent 核心系统，包括：任务规划（Planning）、长期记忆系统（Long-term Memory）、意图识别与多 Agent 协同、RAG 架构与效果优化；\n2.构建 Agent 基础设施，包括：Durable Execution 长任务执行框架、沙箱与安全执行环境、Skills 编排与 MCP 协议集成；\n3.建立模型效果评测与优化飞轮，推动效果持续迭代；\n4.跟进主流 Agent 框架并结合业务落地；\n5.参与模型推理加速、微调与强化学习等性能优化工作。\n职位要求\n1.深刻理解 Transformer 与 LLM 原理；\n2.有Agent实战项目经验；\n3.有扎实的编程能力，并熟练使用 AI 进行研发；\n4.具备良好的系统设计与工程能力。"
+}

@@ -1,0 +1,10 @@
+{
+  "id": "alibaba-vlm-training-intern-2027",
+  "company": "阿里巴巴",
+  "title": "算法工程师-VLM训练-2027届实习生",
+  "direction": "algorithm",
+  "source": "https://www.nowcoder.com/jobs/detail/439332",
+  "postedAt": "2026-07",
+  "status": "active",
+  "jobDescription": "职位描述\n1. 设计并实现文本、图像、视频等多模态对齐与融合的长程训练策略，操控万卡级 GPU 集群，协同 Pretrain / CPT / SFT / RLVR / RLHF 全链路，对超大参数基座模型进行高效分布式优化；\n2. 深入探索 MoE 稀疏化、训练算法与对齐范式创新、可解释性与质量监控、多模态推理、mRAG、百万 Token 级长文处理、Agent&工具链机制等底层原理与技术；\n3. 与系统团队共建张量并行、流水并行、混合精度等高性能训练框架，持续提升训练吞吐与稳定性；\n4. 学术与行业影响力打造：快速跟踪 NeurIPS / CVPR / ACL 等顶会成果及开源项目，输出专利与论文，树立行业技术标杆。\n职位要求\n1. 精通 Python / C++ 等，熟悉深度学习主流框架（如 PyTorch）、混合精度、分布式训练与部署；\n2. 在计算机视觉、跨模态理解或通用 AI 领域具备扎实的研究与落地经验；\n3. 主导或深度参与过 >10B 参数模型的训练 / 推理优化，并产生显著业务影响；\n4. 在 ACL、CVPR、NeurIPS、ICLR 等顶会发表论文者优先；\n5. 对新技术保持敏锐，能在未知领域迅速学习、实验并产品化。"
+}
