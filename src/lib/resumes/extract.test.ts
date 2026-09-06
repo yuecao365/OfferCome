@@ -3,8 +3,31 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 
-import { extractResumeExperiencesFromText, extractResumeTextFromFile } from "./extract";
+import {
+  extractResumeExperiencesFromText,
+  extractResumeTextFromFile,
+  stripResumeTitleDates,
+} from "./extract";
 import { RESUME_UPLOAD_DIR } from "./storage";
+
+test("strips date ranges and trailing dates from experience titles", () => {
+  const cases: Array<[string, string]> = [
+    [
+      "Study Assistant ——基于LLM Agent的本地化个人助手系统2026年4月–现在",
+      "Study Assistant ——基于LLM Agent的本地化个人助手系统",
+    ],
+    ["LLM多智能体社交仿真与评估系统2025年9月– 2026年1月", "LLM多智能体社交仿真与评估系统"],
+    ["计算机科学学士&应用数学学士2023年9月– 2027年6月（预计）", "计算机科学学士&应用数学学士"],
+    ["Backend Intern | Sep 2025 – Jan 2026", "Backend Intern"],
+    ["推荐系统项目 2025.06-2025.09", "推荐系统项目"],
+    ["数据平台实习生（2024）", "数据平台实习生"],
+    ["CVPR 2024 Challenge", "CVPR 2024 Challenge"],
+    ["Study Assistant ——基于LLM Agent的本地化个人助手系统", "Study Assistant ——基于LLM Agent的本地化个人助手系统"],
+  ];
+  for (const [input, expected] of cases) {
+    assert.equal(stripResumeTitleDates(input), expected, input);
+  }
+});
 
 test("extracts internships and projects from resume section text", () => {
   const text = `

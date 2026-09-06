@@ -2,14 +2,18 @@ import { z } from "zod";
 
 import { normalizedText } from "@/lib/text/similarity";
 
-import { cleanResumeDate, type ExtractedResumeExperience } from "./extract";
+import {
+  cleanResumeDate,
+  stripResumeTitleDates,
+  type ExtractedResumeExperience,
+} from "./extract";
 
 /**
  * 模型抽取实习/项目的 schema 与领域校验（纯函数，便于测试）。
  * 模型调用本身在 experience-agent.ts。
  */
 
-export const RESUME_EXTRACTION_PROMPT_VERSION = "resume-experience-v1";
+export const RESUME_EXTRACTION_PROMPT_VERSION = "resume-experience-v2-title-only";
 
 /** 严格模式：所有字段必填、可空用 nullable。 */
 export const resumeExperienceOutputSchema = z.object({
@@ -52,7 +56,8 @@ export function validateExtractedResumeExperiences(
   const experiences: ExtractedResumeExperience[] = [];
 
   for (const item of output.experiences) {
-    const title = item.title.replace(/\s+/g, " ").trim();
+    // 名称只留名称：模型偶尔会把标题行连同时间段一起抄进来。
+    const title = stripResumeTitleDates(item.title);
     const key = `${item.type}:${normalizedText(title)}`;
     if (title.length < 2 || seen.has(key)) continue;
 

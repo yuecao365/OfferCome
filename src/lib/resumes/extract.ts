@@ -127,6 +127,35 @@ const ENGLISH_COMPACT_TRAILING_DATE_PATTERN = new RegExp(
   "i",
 );
 
+/** 标题里的时间写法：2026年4月、2025.06、2023-09、2024、Sep 2025、至今。 */
+const TITLE_DATE_TOKEN = `(?:(?:19|20)\\d{2}\\s*(?:年\\s*(?:0?[1-9]|1[0-2])\\s*月?|[./-]\\s*(?:0?[1-9]|1[0-2])(?:[./-]\\d{1,2})?|年)?|${ENGLISH_MONTH_PATTERN}\\.?\\s*(?:19|20)\\d{2}|至今|现在|目前|present|now|current)`;
+const TITLE_DATE_SEPARATOR = "(?:\\s*(?:[-~–—]|至|到|to)\\s*)";
+/** 时间段可以出现在标题任意位置；后面紧跟的短括号（预计）一并去掉。 */
+const TITLE_DATE_RANGE_PATTERN = new RegExp(
+  `[（(]?\\s*${TITLE_DATE_TOKEN}${TITLE_DATE_SEPARATOR}${TITLE_DATE_TOKEN}\\s*[）)]?(?:\\s*[（(][^（）()]{0,12}[）)])?`,
+  "gi",
+);
+/** 单个时间只在结尾时去掉，避免误伤 "CVPR 2024 Challenge" 这类名字。 */
+const TITLE_TRAILING_DATE_PATTERN = new RegExp(
+  `[（(]?\\s*${TITLE_DATE_TOKEN}\\s*[）)]?\\s*$`,
+  "i",
+);
+const TITLE_EDGE_NOISE_PATTERN = /^[\s|｜:：,，;；\-–—~]+|[\s|｜:：,，;；\-–—~]+$/g;
+
+/**
+ * 实习/项目的名称不该带时间段：时间已经单独存在 startDate / endDate 里，
+ * 留在名称里会让项目库、题目和关联匹配都变脏。模型抽取与章节规则两条
+ * 路径共用这一处清理。
+ */
+export function stripResumeTitleDates(title: string): string {
+  return title
+    .replace(TITLE_DATE_RANGE_PATTERN, " ")
+    .replace(TITLE_TRAILING_DATE_PATTERN, " ")
+    .replace(/\s+/g, " ")
+    .replace(TITLE_EDGE_NOISE_PATTERN, "")
+    .trim();
+}
+
 function normalizeLines(text: string): string[] {
   return text
     .replace(/\r/g, "\n")
@@ -259,9 +288,9 @@ function parseItem(
   }
 
   const dateMatch = heading.match(DATE_RANGE_PATTERN);
-  const headingWithoutDate = stripTrailingDateText(heading)
-    .replace(DATE_RANGE_PATTERN, "")
-    .trim();
+  const headingWithoutDate = stripResumeTitleDates(
+    stripTrailingDateText(heading).replace(DATE_RANGE_PATTERN, ""),
+  );
   const parts = headingWithoutDate
     .split(/\s{1,}|[|｜]/)
     .map((part) => part.trim())

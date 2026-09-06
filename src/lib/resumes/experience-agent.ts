@@ -63,6 +63,7 @@ export async function extractResumeExperiences(
 - 以下内容不是实习或项目，一律不要输出：教育经历与学位、主修课程与成绩、荣誉奖项与奖学金、证书与语言成绩、技能清单、自我评价、社团职务本身（社团里做过的具体项目可以算 project）。
 
 字段要求：
+- title 只写这段经历本身的名称：project 是项目名，internship 是岗位名。不要带时间段、地点、状态说明或括号补充；时间只放 startDate / endDate。例如原文"Study Assistant ——基于LLM Agent的本地化个人助手系统 2026年4月–现在"，title 是"Study Assistant ——基于LLM Agent的本地化个人助手系统"。
 - sourceText 必须从简历原文中连续逐字复制该条经历的标题行（可附上紧随其后的一两句原文），不得改写、翻译或概括。
 - description 用简历原文概括该经历做了什么（职责、技术、结果），不要编造原文没有的信息。
 - startDate / endDate 使用原文里的时间，格式如 2025.06、2025、至今；原文没有则为 null。
