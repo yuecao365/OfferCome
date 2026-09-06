@@ -1,0 +1,10 @@
+{
+  "id": "tencent-ai-backend-gameagent",
+  "company": "腾讯",
+  "title": "AI后台开发工程师（GameAgent，TEG）",
+  "direction": "backend",
+  "source": "https://careers.tencent.com/jobdesc.html?postId=2066810094796058624",
+  "postedAt": "2026-09-01",
+  "status": "active",
+  "jobDescription": "职位描述\n1.参与游戏 AI 应用的基础设施建设，负责 GameAgent 后台系统核心框架组件开发；支持游戏智能 NPC、UGC 等 LLM 驱动的 GameAgent 业务落地，并完善 GameAgent 统一基础设施；\n2.负责大模型应用的全链路工程化与开发运营体系建设，通过自动化、平台化、智能化（AI 提效）推动团队研发效能系统性提升；\n3.负责后台架构和性能优化工作，保障服务高并发、低延迟、高可用，与算法、产品团队协作，完成游戏AI产品的预研探索、工程化落地与实际上线。\n职位要求\n1.计算机及相关专业本科以上学历，2年以上开发经验，具备扎实的计算机基础；\n2.精通 Go/Python/C++ 中至少一种语言，熟练使用 Linux + Shell 开发环境；\n3.熟悉分布式系统与微服务架构，有高并发、大规模后台服务开发及性能优化经验；\n4.掌握大模型应用及 Agent 系统架构原理，理解 Agent Infra 核心概念与技术范式（如 RAG、Agent Runtime、记忆管理、编排管理、多智能体协作等），有相关场景实战经验者优先；\n5.熟练运用 Agent 工作流和智能化工具链驱动日常工作，有 AI 提效实践经验者优先；\n6.熟悉常见 Agent 开发框架与工程工具（如 LangChain / Eino / Hermes Agent），有工程化实践经验者优先；\n7.工作认真负责，自驱力强，逻辑清晰，具备良好的问题解决能力与跨团队沟通协作能力。"
+}

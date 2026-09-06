@@ -1,0 +1,10 @@
+{
+  "id": "alibaba-ai-infra-container",
+  "company": "阿里巴巴",
+  "title": "AI Infra工程师-容器方向（实习）",
+  "direction": "infra",
+  "source": "https://www.nowcoder.com/jobs/detail/445822",
+  "postedAt": "2026",
+  "status": "closed",
+  "jobDescription": "职位描述\n你将成为大模型技术落地的\"算力内核设计者\"。你将深入 Kubernetes 生态，参与构建支撑超大规模 AI 集群的容器化基础设施，通过对调度、存储、网络等核心组件的深度定制与优化，打破大模型训练与推理的工程瓶颈。你的代码将直接优化 Agent 的冷启动速度，提升 GPU 集群的吞吐量与资源利用率，为 AI 时代的算力底座注入极致性能。\n具体职责包括：\n1. AI 容器调度与编排优化\n2. AI 高性能存储与网络底座\n3. AI 工程平台架构设计与效率提升\n4. AI 基础设施极致加速\n职位要求\n1. 基础条件：计算机、软件工程等相关专业优先；热衷于数据结构和算法；有 K8s 或容器相关开源社区贡献或高性能存储/网络开发经验者加分\n2. 专业能力：扎实的 Linux 系统底层基础、Go/Java/Python/C++ 语言能力、Kubernetes 架构深入理解、AI 推理/训练资源特征理解\n3. 能力特质：极致的性能追求、工程化思维、跨域协同、极客精神"
+}

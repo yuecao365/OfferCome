@@ -1,0 +1,10 @@
+{
+  "id": "tencent-youkeai-ai-fullstack",
+  "company": "腾讯",
+  "title": "游可爱-AI全栈开发工程师（IEG）",
+  "direction": "frontend",
+  "source": "https://careers.tencent.com/jobdesc.html?postId=2090336234487595008",
+  "postedAt": "2026-09-01",
+  "status": "active",
+  "jobDescription": "职位描述\n1.负责游可爱双域及小程序端的前端功能开发，实现B端中后台与C端业务页面的高质量交付；\n2.参与前端Monorepo架构建设与模块化演进，维护跨端复用的组件库与业务组件，提升代码复用率与开发效率；\n3.对接后端（Golang/trpc）接口，基于PB协议参与前后端协议自动化实践，确保联调效率与类型安全的数据交互；\n4.主导或参与构建工具链优化（如Vite/Rspack迁移、pnpm依赖管理），改善团队开发与构建体验；\n5.负责将业务场景 AI 化 Agent 化 Workflow 化，基于大模型构建 Agent RAG Workflow / MCP 能力，完成 Prompt 设计、工具与技能编排、知识库问答、异常兜底与效果验收；\n6.攻坚前端性能优化与复杂交互场景（如达人智选、数据看板、Agent应用），提升用户体验与系统响应能力；\n7.践行团队AI工程化（Harness/CodeBuddy），通过AI Agent覆盖需求拆解、页面生产、接口对接、自测发布全流程，并与TAPD需求/缺陷联动提效；\n8.严格遵循团队代码规范、分支提交规范，按内网工蜂+蓝盾+Tenc+gopass网关的标准研发发布流程推进项目。\n职位要求\n1.本科及以上学历，计算机相关专业，3年以上前端开发经验（可根据能力适当调整）；\n2.精通JavaScript/TypeScript、HTML5、CSS3，具备扎实的计算机基础与工程化能力；\n3.熟练掌握Vue框架（含响应式原理、组件化设计），有大型中后台/B端复杂业务前端开发经验者优先；\n4.熟悉Monorepo+pnpm工程组织模式，掌握Vite/Rspack等现代构建工具的使用与优化；\n5.具备良好的接口对接能力，理解前后端协议协作逻辑（了解Protobuf/PB协议自动化实践者优先）；\n6.拥有主人翁意识与需求模块负责人心态，能独立负责一个业务模块的全流程开发；具备良好的产研沟通能力，可与产品、后端、测试团队高效协同推进项目；\n7.具备大模型应用开发经验，理解 Agent RAG Function Calling MCP Workflow 的原理与工程实现，能围绕业务场景独立设计并落地 AI 能力；\n8.对 AI 能力边界、事实校验、幻觉风险、敏感动作控制、结果可解释性有基本认知，能在实现中设计相应校验与约束机制；\n9.认可并实践「AI 工程化提效」，对 AI 辅助研发（Cursor CodeBuddy Harness Agent 工作流 MCP）有实践或强烈兴趣。"
+}
