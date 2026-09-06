@@ -11,6 +11,7 @@ import {
   assertAiConfigured,
   isAgentTimeout,
   runAgent,
+  setAgentRunSink,
   type AgentLogRecord,
 } from "./run-agent";
 
@@ -92,6 +93,49 @@ test("returns structured output and logs a successful model call", async () => {
     assert.equal(logs.records[0].agent, "test_agent");
     assert.equal(logs.records[0].usage?.totalTokens, 15);
   } finally {
+    logs.restore();
+  }
+});
+
+test("hands the full record to the sink but keeps payload out of the console", async () => {
+  const logs = captureLogs();
+  const sunk: AgentLogRecord[] = [];
+  setAgentRunSink((record) => {
+    sunk.push(record);
+  });
+  try {
+    await run(respondingModel(JSON.stringify({ answer: "ok" })));
+    assert.equal(sunk.length, 1);
+    assert.deepEqual(sunk[0].payload, { input: "data" });
+    assert.deepEqual(sunk[0].output, { answer: "ok" });
+    assert.equal(sunk[0].rawText, JSON.stringify({ answer: "ok" }));
+    assert.equal("payload" in logs.records[0], false);
+    assert.equal("rawText" in logs.records[0], false);
+  } finally {
+    setAgentRunSink(null);
+    logs.restore();
+  }
+});
+
+test("a failing sink never breaks the agent call", async () => {
+  const logs = captureLogs();
+  const originalWarn = console.warn;
+  const warnings: unknown[] = [];
+  console.warn = (...args: unknown[]) => {
+    warnings.push(args[0]);
+  };
+  setAgentRunSink(async () => {
+    throw new Error("db down");
+  });
+  try {
+    const result = await run(respondingModel(JSON.stringify({ answer: "ok" })));
+    assert.deepEqual(result.output, { answer: "ok" });
+    // 落点的 Promise 在下一轮微任务里才拒绝。
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(warnings.length, 1);
+  } finally {
+    setAgentRunSink(null);
+    console.warn = originalWarn;
     logs.restore();
   }
 });

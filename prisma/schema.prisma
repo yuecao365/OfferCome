@@ -446,3 +446,31 @@ model CandidateProfileRun {
   @@index([status])
   @@index([startedAt])
 }
+
+/// 每次模型调用与每次代码裁决落一行，按 runId 串成一次生成的完整链路。
+/// payload / output / rawText 供离线回放；网页版无状态，不写这张表。
+model AgentRun {
+  id            String   @id @default(cuid())
+  runId         String
+  agent         String
+  event         String
+  status        String
+  provider      String
+  model         String
+  promptVersion String
+  durationMs    Int
+  finishReason  String?
+  inputTokens   Int?
+  outputTokens  Int?
+  totalTokens   Int?
+  errorKind     String?
+  metricsJson   String?
+  payloadJson   String?
+  outputJson    String?
+  rawText       String?
+  createdAt     DateTime @default(now())
+
+  @@index([runId])
+  @@index([agent, createdAt])
+  @@index([status, createdAt])
+}

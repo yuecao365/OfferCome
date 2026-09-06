@@ -33,6 +33,7 @@ test("reuses only Prisma clients with all required model delegates", () => {
     candidateProfileMetric: { findMany() {} },
     candidateProfileSnapshot: { findMany() {} },
     candidateProfileRun: { findMany() {} },
+    agentRun: { findMany() {} },
   };
   const replacementClient = {
     appSetting: { findMany() {} },
@@ -54,6 +55,7 @@ test("reuses only Prisma clients with all required model delegates", () => {
     candidateProfileMetric: { findMany() {} },
     candidateProfileSnapshot: { findMany() {} },
     candidateProfileRun: { findMany() {} },
+    agentRun: { findMany() {} },
   };
 
   assert.equal(hasRequiredPrismaDelegates(freshClient), true);

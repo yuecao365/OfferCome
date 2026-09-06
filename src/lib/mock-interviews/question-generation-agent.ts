@@ -24,6 +24,7 @@ import {
   buildQuestionPlan,
   getQuestionSourceAllocation,
   selectValidQuestions,
+  type QuestionSelectionResult,
 } from "./planning";
 import {
   selectRelevantPersonalization,
@@ -132,7 +133,9 @@ async function requestQuestionBatch(input: {
     input.context.jobBlueprint,
   );
   const packsByName = new Map(input.skills.packs.map((pack) => [pack.name, pack]));
-  const loadedSkillNames: string[] = [];
+  // 记录真正进入提示词的包：注入模式下就是推荐清单，工具模式下由 load_skill 逐个登记。
+  const loadedSkillNames: string[] =
+    input.skills.mode === "injected" ? [...input.skills.recommended] : [];
   const loadSkillTool = tool({
     description:
       "加载一个面试技能包的全文出题指导。按上文技能包清单的 description 判断相关性，出题前先加载 2-3 个最相关的包（含推荐标记的）。",
@@ -265,7 +268,8 @@ export async function generateMockInterviewPlan(input: {
   const logSelection = (
     stage: QuestionBatchStage,
     batch: QuestionBatchResult,
-    counts: { requested: number; accepted: number; rejected: number },
+    counts: { requested: number; accepted: number },
+    rejected: QuestionSelectionResult["rejected"],
   ) => {
     logAgentRun({
       runId: input.generationId,
@@ -282,8 +286,10 @@ export async function generateMockInterviewPlan(input: {
         requestedCount: counts.requested,
         returnedCount: batch.questions.length,
         acceptedCount: counts.accepted,
-        rejectedCount: counts.rejected,
+        rejectedCount: rejected.length,
       },
+      // 拒收原因是评测最想看的：哪类伪造引用最常见、随提示词版本怎么变。
+      output: { rejected, loadedSkillNames: batch.loadedSkillNames },
     });
   };
 
@@ -337,11 +343,12 @@ export async function generateMockInterviewPlan(input: {
     personalization,
     seedSourceId,
   });
-  logSelection("questions_initial", initial, {
-    requested: input.questionCount,
-    accepted: initialSelection.accepted.length,
-    rejected: initialSelection.rejected.length,
-  });
+  logSelection(
+    "questions_initial",
+    initial,
+    { requested: input.questionCount, accepted: initialSelection.accepted.length },
+    initialSelection.rejected,
+  );
 
   let accepted = initialSelection.accepted;
   if (
@@ -376,11 +383,12 @@ export async function generateMockInterviewPlan(input: {
       seedSourceId,
     });
     accepted = topUpSelection.accepted;
-    logSelection("questions_top_up", topUp, {
-      requested: missingCount,
-      accepted: accepted.length,
-      rejected: topUpSelection.rejected.length,
-    });
+    logSelection(
+      "questions_top_up",
+      topUp,
+      { requested: missingCount, accepted: accepted.length },
+      topUpSelection.rejected,
+    );
   }
 
   // 数量软化：达到下限就开场，差额由房间如实说明；只有连底线都凑不齐才失败。

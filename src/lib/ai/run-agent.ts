@@ -61,13 +61,34 @@ export type AgentLogRecord = {
   usage?: LanguageModelUsage;
   errorKind?: AgentRunErrorKind | string;
   metrics?: Record<string, number>;
+  /** 发给模型的不可信输入、模型产出与原始文本：只进持久化落点，不进控制台。 */
+  payload?: unknown;
+  output?: unknown;
+  rawText?: string;
 };
 
+export type AgentRunSink = (record: AgentLogRecord) => Promise<void> | void;
+
+/**
+ * 落点挂在 globalThis 上：instrumentation 与路由处理器可能不在同一个模块图里，
+ * 模块级变量在开发态热更新后也会丢，和 prisma 单例的处理方式一致。
+ */
+const globalForSink = globalThis as unknown as { __agentRunSink?: AgentRunSink | null };
+
+/** 注册持久化落点。本地版在 instrumentation 里装上；测试与网页版不装。 */
+export function setAgentRunSink(sink: AgentRunSink | null): void {
+  globalForSink.__agentRunSink = sink;
+}
+
 export function logAgentRun(record: AgentLogRecord): void {
+  // JSON.stringify 会丢掉 undefined 键：大块字段不进控制台。
   console.info(
     "[ai-agent]",
     JSON.stringify({
       ...record,
+      payload: undefined,
+      output: undefined,
+      rawText: undefined,
       usage: record.usage
         ? {
             inputTokens: record.usage.inputTokens,
@@ -77,6 +98,17 @@ export function logAgentRun(record: AgentLogRecord): void {
         : undefined,
     }),
   );
+
+  const sink = globalForSink.__agentRunSink;
+  if (!sink) return;
+  // 记账失败不能反过来打断模型调用。
+  try {
+    void Promise.resolve(sink(record)).catch((error: unknown) => {
+      console.warn("[ai-agent] 持久化失败：", error);
+    });
+  } catch (error) {
+    console.warn("[ai-agent] 持久化失败：", error);
+  }
 }
 
 export class AgentRunError extends Error {
@@ -267,6 +299,9 @@ export async function runAgent<T>(
       durationMs,
       finishReason,
       usage,
+      payload: options.payload,
+      output,
+      rawText,
     });
     return {
       output,
@@ -293,6 +328,9 @@ export async function runAgent<T>(
         durationMs,
         finishReason,
         usage,
+        payload: options.payload,
+        output: rescued,
+        rawText,
       });
       return {
         output: rescued,
@@ -314,6 +352,8 @@ export async function runAgent<T>(
       finishReason,
       usage,
       errorKind: kind,
+      payload: options.payload,
+      rawText,
     });
     throw new AgentRunError({
       kind,

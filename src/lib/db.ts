@@ -33,6 +33,7 @@ const REQUIRED_PRISMA_DELEGATES = [
   "candidateProfileMetric",
   "candidateProfileSnapshot",
   "candidateProfileRun",
+  "agentRun",
 ] as const;
 
 function createPrismaClient(): PrismaClient {
