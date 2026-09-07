@@ -1,13 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import type { InterviewerAction, CandidateIntent } from "./actions";
-import {
-  canAct,
-  coverageComplete,
-  IDLE_TURNS_BEFORE_FORCE,
-  nextAreaToOpen,
-  timeExhausted,
-} from "./budget";
+import { atMaximum, canAct, IDLE_TURNS_BEFORE_FORCE, nextAreaToOpen } from "./budget";
 import { applyMemoryPatch, type MemoryPatch } from "./memory";
 import { threadSegment, type ThreadSegment } from "./segments";
 import {
@@ -29,6 +23,8 @@ import {
 export type TurnDecision = {
   speech: string;
   action: InterviewerAction | null;
+  /** close_thread 之后模型紧接着做的下一步（open_thread / close_interview）。 */
+  followUp?: InterviewerAction | null;
   memoryPatch: MemoryPatch | null;
   /** 模型失败时为 true：speech 为空，由代码生成。 */
   failed?: boolean;
@@ -104,8 +100,8 @@ export function fallbackAction(state: InterviewerState): InterviewerAction {
   if (active) {
     return { name: "close_thread", input: { note: "（由系统推进）" } };
   }
-  if (coverageComplete(state) || timeExhausted(state)) {
-    return { name: "close_interview", input: { reason: "覆盖完成或时间用尽" } };
+  if (atMaximum(state)) {
+    return { name: "close_interview", input: { reason: "回合已到上限" } };
   }
   const areaId = nextAreaToOpen(state);
   const area = areaId ? areaById(state, areaId) : null;
@@ -303,12 +299,22 @@ export function applyTurn(
         state = closed.state;
         if (closed.effect) effects.push(closed.effect);
         // 关掉一段之后紧接着开下一段或收尾，候选人不用面对一句"到这里"却没有下文。
-        const next = fallbackAction(state);
+        // 优先用模型自己紧接着做的下一步；没有或不被允许时由代码决定。
+        const wanted = decision.followUp;
+        const next: InterviewerAction =
+          wanted && canAct(state, wanted.name, "areaId" in wanted.input ? { areaId: wanted.input.areaId } : {}).ok
+            ? wanted
+            : fallbackAction(state);
+        if (wanted && next !== wanted) {
+          effects.push({ type: "action_replaced", requested: wanted.name, applied: next.name, reason: "接续动作不被允许" });
+        }
         if (next.name === "open_thread") {
+          // 代码兜底开线程时，模型的话里若已带着问句，就以它为切入问题，不重复简报里的那句。
+          const asked = wanted === next || !/[?？]/.test(speech) ? next.input.question : speech;
           const thread: ThreadState = {
             id: randomUUID(),
             areaId: next.input.areaId,
-            entryQuestion: next.input.question,
+            entryQuestion: asked.trim(),
             status: "active",
             depth: 0,
             rescues: 0,
@@ -324,11 +330,12 @@ export function applyTurn(
             }),
           );
         } else {
-          newMessages.push(
-            message(state, "interviewer", "closing", utterance(speech, FALLBACK_SPEECH.closeInterview), {
-              toolName: "close_interview",
-            }),
-          );
+          // 被迫收尾时模型的话往往还在提问，不能让面试停在一个问句上。
+          const closing =
+            wanted === next || !/[?？]/.test(speech)
+              ? utterance(speech, FALLBACK_SPEECH.closeInterview)
+              : FALLBACK_SPEECH.closeInterview;
+          newMessages.push(message(state, "interviewer", "closing", closing, { toolName: "close_interview" }));
           state = { ...state, phase: "ended" };
           effects.push({ type: "interview_ended" });
         }

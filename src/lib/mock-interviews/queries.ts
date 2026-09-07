@@ -61,14 +61,16 @@ function buildConversation(session: SessionWithConversation): MockInterviewConve
   const ended = session.status !== "in_progress";
   return {
     phase: ended ? "ended" : session.messages.length === 0 ? "opening" : "running",
-    durationMinutes: session.durationMinutes,
+    pace: brief.pace,
+    turnRange: brief.turnRange,
     areas: brief.areas.map((area) => {
       const threads = session.threads.filter((thread) => thread.areaId === area.id);
       return {
         id: area.id,
         name: area.name,
         kind: area.kind,
-        minutes: area.minutes,
+        depth: area.depth,
+        depthReached: Math.max(0, ...threads.map((thread) => thread.depth)),
         status: threads.some((thread) => thread.status === "active")
           ? "active"
           : threads.length > 0

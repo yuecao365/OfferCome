@@ -64,7 +64,7 @@ export async function POST(request: Request) {
       jdOriginalName: jobDescription.originalName,
       round: stringValue(formData, "round") || null,
       interactionMode: stringValue(formData, "interactionMode") || "text",
-      durationMinutes: Number(stringValue(formData, "durationMinutes") || 30),
+      pace: stringValue(formData, "pace"),
       seedQuestionId: stringValue(formData, "seedQuestionId") || null,
       seedInsightId: stringValue(formData, "seedInsightId") || null,
       applicationId: stringValue(formData, "applicationId") || null,

@@ -57,6 +57,7 @@ function areaStatuses(
     const own = threads.filter((thread) => thread.areaId === area.id);
     return {
       ...area,
+      depthReached: Math.max(0, ...own.map((thread) => thread.depth)),
       status: own.some((thread) => thread.status === "active")
         ? "active"
         : own.length > 0
@@ -296,7 +297,8 @@ export function MockInterviewChat({
                 className="ml-auto text-danger hover:bg-danger-soft hover:text-danger-strong"
                 disabled={busy}
                 onClick={() => {
-                  if (window.confirm("确定结束这场面试吗？结束后进入评分。")) send("", "end");
+                  const covered = areas.filter((area) => area.status === "covered").length;
+                  if (window.confirm(`确定现在结束吗？已考察 ${covered}/${areas.length} 个领域，未考察的不计分，结束后进入评分。`)) send("", "end");
                 }}
                 size="sm"
                 type="button"
@@ -318,7 +320,7 @@ export function MockInterviewChat({
                 <div className="min-w-0">
                   <p className="break-words font-medium leading-5 text-foreground">{area.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {AREA_KIND_LABELS[area.kind] ?? area.kind} · 约 {area.minutes} 分钟
+                    {AREA_KIND_LABELS[area.kind] ?? area.kind} · 追问 {area.depthReached}/{area.depth} 层
                   </p>
                 </div>
                 <span
@@ -338,7 +340,7 @@ export function MockInterviewChat({
         </Card>
         <Card className="p-4 text-xs leading-5 text-muted-foreground">
           <p>
-            已进行 {turnsUsed} 个回合，计划 {conversation.durationMinutes} 分钟。
+            第 {turnsUsed} 回合 · 预计 {conversation.turnRange.min}–{conversation.turnRange.max} 回合。面试官觉得考察够了会主动收尾，你也可以随时结束。
           </p>
           <p className="mt-1">面试官的笔记与假设在报告页可见。</p>
         </Card>

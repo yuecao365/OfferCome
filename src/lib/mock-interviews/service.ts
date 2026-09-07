@@ -9,10 +9,7 @@ import {
   buildMockInterviewContext,
   serializeMockInterviewContext,
 } from "./context";
-import {
-  DEFAULT_INTERVIEW_DURATION,
-  isInterviewDuration,
-} from "./interviewer/brief";
+import { DEFAULT_INTERVIEW_PACE, isInterviewPace } from "./interviewer/brief";
 import { INTERVIEWER_PROMPT_VERSION } from "./interviewer/prompt";
 import { resolveMockInterviewSeed } from "./seeds";
 import { parseGenerationSnapshot } from "./session-state";
@@ -44,7 +41,7 @@ export type CreateMockInterviewInput = {
   jdOriginalName: string | null;
   round: string | null;
   interactionMode: string;
-  durationMinutes: number;
+  pace: string;
   seedQuestionId?: string | null;
   seedInsightId?: string | null;
   applicationId?: string | null;
@@ -79,14 +76,14 @@ function validateCreateInput(input: CreateMockInterviewInput) {
   const companyName = input.companyName.trim();
   const jobTitle = input.jobTitle.trim();
   const jobDescription = input.jobDescription.trim();
-  const durationMinutes = Math.trunc(input.durationMinutes || DEFAULT_INTERVIEW_DURATION);
+  const pace = input.pace || DEFAULT_INTERVIEW_PACE;
   if (!companyName || companyName.length > 120) throw new Error("请输入有效的公司名称。");
   if (!jobTitle || jobTitle.length > 120) throw new Error("请输入有效的岗位名称。");
   if (!jobDescription || jobDescription.length > 100_000) {
     throw new Error("请上传或粘贴有效的 Job Description。");
   }
-  if (!isInterviewDuration(durationMinutes)) {
-    throw new Error("请选择有效的面试时长。");
+  if (!isInterviewPace(pace)) {
+    throw new Error("请选择有效的面试节奏。");
   }
   if (!isMockInterviewMode(input.interactionMode)) {
     throw new Error("请选择有效的作答方式。");
@@ -96,7 +93,7 @@ function validateCreateInput(input: CreateMockInterviewInput) {
     jobTitle,
     jobDescription,
     interactionMode: input.interactionMode as MockInterviewMode,
-    durationMinutes,
+    pace,
   };
 }
 
@@ -149,7 +146,7 @@ export async function createMockInterview(input: CreateMockInterviewInput) {
           status: "generating",
           generationPhase: "job_blueprint",
           interactionMode: validated.interactionMode,
-          durationMinutes: validated.durationMinutes,
+          pace: validated.pace,
           provider: config.provider,
           model: config.model,
           promptVersion: INTERVIEWER_PROMPT_VERSION,

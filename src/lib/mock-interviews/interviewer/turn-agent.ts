@@ -32,8 +32,11 @@ function isProgressAction(name: string): name is ActionName {
  * 工具的 execute 只回答"预算允不允许"，不改状态：模型看到拒绝理由可以换一个动作，
  * 真正的状态变更由 reducer 在流结束后统一应用（保证原子，也保证不越权）。
  */
-function buildTools(state: InterviewerState): ToolSet {
+function buildTools(initial: InterviewerState): ToolSet {
   const tools: ToolSet = {};
+  // close_thread 之后允许在同一回合紧接着 open_thread / close_interview（"这块到这里，接下来聊 X"），
+  // 所以接受 close_thread 后，后续检查按"当前线程已关闭"的状态来算。
+  let state = initial;
   for (const name of PROGRESS_ACTIONS) {
     tools[name] = tool({
       description: ACTION_DESCRIPTIONS[name],
@@ -44,9 +47,20 @@ function buildTools(state: InterviewerState): ToolSet {
             ? String((input as { areaId: unknown }).areaId)
             : undefined;
         const check = canAct(state, name, { areaId });
-        return check.ok
-          ? { accepted: true, next: "本回合的推进动作已用完，不要再调用其他推进动作；把要对候选人说的话说出来。" }
-          : { accepted: false, reason: check.reason };
+        if (!check.ok) return { accepted: false, reason: check.reason };
+        if (name === "close_thread") {
+          state = {
+            ...state,
+            threads: state.threads.map((thread) =>
+              thread.status === "active" ? { ...thread, status: "closed" as const } : thread,
+            ),
+          };
+          return {
+            accepted: true,
+            next: "这一段已结束。如果你已经想好下一段，紧接着调用 open_thread 或 close_interview；然后把要对候选人说的话说出来。",
+          };
+        }
+        return { accepted: true, next: "本回合的推进动作已用完，不要再调用其他推进动作；把要对候选人说的话说出来。" };
       },
     });
   }
@@ -64,7 +78,8 @@ function wasAccepted(output: unknown): boolean {
 
 /**
  * 从流的结果里提取决定：第一个被预算接受的推进动作（模型偶尔会在一回合里连做两步，
- * 后面的作废）、最后一次记忆更新、最后一步的话。全被拒绝时交最后一个给 reducer 兜底。
+ * 后面的作废；唯一例外是 close_thread 之后紧接的 open_thread / close_interview，作为
+ * followUp 一起应用）、最后一次记忆更新、最后一步的话。全被拒绝时交最后一个给 reducer 兜底。
  */
 export function decisionFromOutcome(outcome: AgentStreamOutcome): TurnDecision {
   let memoryPatch: TurnDecision["memoryPatch"] = null;
@@ -84,11 +99,17 @@ export function decisionFromOutcome(outcome: AgentStreamOutcome): TurnDecision {
     if (wasAccepted(call.output)) accepted.push(action);
   }
   const action = accepted[0] ?? progress[progress.length - 1] ?? null;
+  const second = accepted[1];
+  const followUp =
+    action?.name === "close_thread" && second && (second.name === "open_thread" || second.name === "close_interview")
+      ? second
+      : null;
   // 推理型模型常在工具调用之后再单独说一步，且会把前一步的话复述一遍：只取最后一步。
   const speech = [...outcome.stepTexts].reverse().find((text) => text.trim()) ?? outcome.text;
   return {
     speech: speech.trim(),
     action,
+    followUp,
     memoryPatch,
     failed: outcome.error !== null && outcome.text.trim().length === 0,
   };

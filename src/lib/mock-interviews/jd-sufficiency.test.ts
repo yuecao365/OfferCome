@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { needsJobDescriptionReview, requiredCompetenciesForDuration } from "./jd-sufficiency";
+import { needsJobDescriptionReview, requiredCompetenciesForPace } from "./jd-sufficiency";
 import type { MockInterviewJobBlueprint } from "./types";
 
 function blueprint(
@@ -39,7 +39,7 @@ test("requires enough competencies for the interview length", () => {
 });
 
 test("longer interviews demand more competencies, never fewer than two", () => {
-  assert.equal(requiredCompetenciesForDuration(15), 2);
-  assert.equal(requiredCompetenciesForDuration(30), 3);
-  assert.equal(requiredCompetenciesForDuration(45), 5);
+  assert.equal(requiredCompetenciesForPace("quick"), 2);
+  assert.equal(requiredCompetenciesForPace("standard"), 3);
+  assert.equal(requiredCompetenciesForPace("deep"), 5);
 });

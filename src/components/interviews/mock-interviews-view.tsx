@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { INTERVIEW_PACE_LABELS, type InterviewPace } from "@/lib/mock-interviews/interviewer/brief";
 import { mockInterviewDeleteConfirmMessage } from "@/lib/mock-interviews/types";
 
 export type MockInterviewListItem = {
@@ -19,13 +20,13 @@ export type MockInterviewListItem = {
   totalScore: number | null;
   companyName: string;
   jobTitle: string;
-  /** 对话式会话带时长；旧的分步会话与体验版没有。 */
-  durationMinutes?: number | null;
+  /** 对话式会话带节奏；旧的分步会话与体验版没有。 */
+  pace?: InterviewPace | null;
 };
 
 function progressLabel(session: MockInterviewListItem): string {
-  if (session.durationMinutes) {
-    return `已考察 ${session.questionCount} 个话题 · ${session.durationMinutes} 分钟`;
+  if (session.pace) {
+    return `已考察 ${session.questionCount} 个话题 · ${INTERVIEW_PACE_LABELS[session.pace]}`;
   }
   return `已回答 ${Math.min(session.currentQuestionIndex, session.questionCount)}/${session.questionCount} 题`;
 }

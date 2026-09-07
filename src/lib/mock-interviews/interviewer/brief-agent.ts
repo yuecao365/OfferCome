@@ -12,8 +12,10 @@ import {
   briefOutputSchema,
   buildBriefFromOutput,
   fallbackBrief,
-  maxAreasForDuration,
+  MAX_AREA_DEPTH,
+  turnRangeForPace,
   type InterviewBrief,
+  type InterviewPace,
 } from "./brief";
 import { INTERVIEWER_PROMPT_VERSION } from "./prompt";
 
@@ -41,7 +43,7 @@ export async function generateInterviewBrief(input: {
   jobTitle: string;
   blueprint: MockInterviewJobBlueprint;
   context: MockInterviewContext;
-  durationMinutes: number;
+  pace: InterviewPace;
   round: string | null;
 }): Promise<InterviewBrief> {
   const config = await getAiTaskConfig("text");
@@ -57,10 +59,10 @@ export async function generateInterviewBrief(input: {
   );
   const packsByName = new Map(packs.map((pack) => [pack.name, pack]));
   const askIntro = true;
-  const maxAreas = maxAreasForDuration(input.durationMinutes);
+  const range = turnRangeForPace(input.pace);
   const base = {
     blueprint: input.blueprint,
-    durationMinutes: input.durationMinutes,
+    pace: input.pace,
     round: input.round,
     askIntro,
     skillPacks: recommended,
@@ -99,12 +101,12 @@ export async function generateInterviewBrief(input: {
       timeoutMs: BRIEF_TIMEOUT_MS,
       rescue: rescueBrief,
       untrustedInputs: "岗位描述、简历、项目和历史反馈",
-      system: `你是资深技术面试官，正在为一场 ${input.durationMinutes} 分钟的模拟面试备课。目标岗位：${input.jobTitle}。
+      system: `你是资深技术面试官，正在为一场模拟面试备课。目标岗位：${input.jobTitle}。这场面试预计 ${range.min}–${range.max} 个回合（一个回合 = 你问一次），开场自我介绍占 1 个回合。
 
 备课的产物不是题目清单，而是：
-1. 考察领域（${Math.min(3, maxAreas)}–${maxAreas} 个，时长只够这么多，多出的会被丢弃）：从岗位能力蓝图归并而来，每个领域写明 kind（technical / project / behavioral）、绑定的 competencyIds、权重（1–3，越重要越大）。候选人简历上有具体项目时，至少一个 project 领域围绕它深挖。
+1. 考察领域：从岗位能力蓝图归并而来，每个领域写明 kind（technical / project / behavioral）、绑定的 competencyIds、权重（1–3，越重要越大）和 depth（打算追问几层，1–${MAX_AREA_DEPTH}）。领域数量和深度由你分配：一个领域花费 depth + 2 个回合，全部领域加起来控制在 ${range.max - 1} 回合以内，超出的会按权重被丢弃。少而深、多而浅都可以——最重要的领域深挖，次要的浅问一层或不问；但要把预算用满，总花费尽量接近上限，至少两个领域。候选人简历上有具体项目时，至少一个 project 领域围绕它深挖。
 2. 每个领域一道切入问题：必须从具体场景切入，能让"背过但不懂"的人答错；禁止"谈谈你对 X 的理解"这类空洞问法。
-3. 每个领域的深度阶梯（2–4 级）：入门问法 → 原理 → 场景排查 → 权衡取舍，每级一句"接下来往下追什么"。参考技能包里的阶梯与追问链。
+3. 每个领域的深度阶梯（与 depth 同长）：入门问法 → 原理 → 场景排查 → 权衡取舍，每级一句"接下来往下追什么"。参考技能包里的阶梯与追问链。
 4. 期望信号：好回答会出现的要点，用于面试后评价，不会给候选人看。
 5. 简历假设（最多 6 条）：要在面试里验证的具体点——写了数字的成果、只写框架名的经历、时间线的空洞。每条 evidence 必须逐字复制简历原文片段，不得改写；没有依据的假设不要写。
 

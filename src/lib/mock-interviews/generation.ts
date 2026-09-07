@@ -11,12 +11,13 @@ import {
 } from "./context";
 import { isMockInterviewGenerationError } from "./errors";
 import { generateInterviewBrief } from "./interviewer/brief-agent";
+import { isInterviewPace } from "./interviewer/brief";
 import { emptyMemory } from "./interviewer/memory";
 import { enrichMockInterviewJob } from "./jd-enrichment-agent";
 import {
   MIN_JD_CHARS_FOR_AUTO_ENRICH,
   needsJobDescriptionReview,
-  requiredCompetenciesForDuration,
+  requiredCompetenciesForPace,
 } from "./jd-sufficiency";
 import { analyzeMockInterviewJob } from "./job-analysis-agent";
 import {
@@ -49,10 +50,10 @@ async function loadGeneratingSession(sessionId: string) {
       interview: { select: { companyName: true, jobTitle: true } },
     },
   });
-  if (!session || session.status !== "generating" || !session.resumeId) {
+  if (!session || session.status !== "generating" || !session.resumeId || !isInterviewPace(session.pace)) {
     return null;
   }
-  return session;
+  return { ...session, pace: session.pace };
 }
 
 type GenerationRequest = {
@@ -133,7 +134,7 @@ async function resolveJobDescriptionGap(
     !request.jdStrategy &&
     needsJobDescriptionReview(
       blueprint,
-      requiredCompetenciesForDuration(session.durationMinutes),
+      requiredCompetenciesForPace(session.pace),
     );
 
   if (
@@ -292,7 +293,7 @@ export async function prepareMockInterview(sessionId: string): Promise<void> {
       jobTitle: session.interview.jobTitle,
       blueprint,
       context,
-      durationMinutes: session.durationMinutes,
+      pace: session.pace,
       round: request.round,
     });
 

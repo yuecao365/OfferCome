@@ -5,7 +5,7 @@ import {
   type InterviewStatus,
 } from "@/lib/interviews/types";
 
-import type { InterviewHypothesis } from "./interviewer/brief";
+import type { InterviewHypothesis, InterviewPace, TurnRange } from "./interviewer/brief";
 import type { InterviewMemory } from "./interviewer/memory";
 
 /** 题目生成完成、房间可以开始作答时，关联的 Interview 记录进入这个状态。 */
@@ -186,12 +186,15 @@ export type MockInterviewConversationMessage = {
 /** 对话式面试的房间视图。 */
 export type MockInterviewConversation = {
   phase: "opening" | "running" | "ended";
-  durationMinutes: number;
+  pace: InterviewPace;
+  turnRange: TurnRange;
   areas: {
     id: string;
     name: string;
     kind: string;
-    minutes: number;
+    /** 简报里的目标追问层数与实际追到的层数。 */
+    depth: number;
+    depthReached: number;
     status: "pending" | "active" | "covered";
   }[];
   threads: {

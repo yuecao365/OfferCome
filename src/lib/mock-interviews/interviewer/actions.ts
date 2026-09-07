@@ -49,7 +49,7 @@ export const ACTION_DESCRIPTIONS: Record<keyof typeof actionSchemas, string> = {
     "顺着候选人刚才的回答往下追问，必须仍在当前线程的领域内，按深度阶梯往下走一级；不要复述评分标准或期望信号。",
   rescue: "候选人明显卡住时给一次台阶：一个不泄露答案的提示或更具体的场景。每个线程只能用一次。",
   close_thread:
-    "这一段问够了（答得充分、或已失守、或时间用尽）：给一句你对这段的判断。之后再决定 open_thread 或 close_interview。",
+    "这一段问够了（答得充分、或已失守、或回合用尽）：给一句你对这段的判断。可以在同一回合紧接着 open_thread 或 close_interview。",
   close_interview: "所有领域都考察过或时间用尽时收尾。",
   note: "更新你的工作记忆：本回合新确认的、存疑的、失守的要点，以及简历假设的验证状态。可与一个推进动作同时使用。",
 };

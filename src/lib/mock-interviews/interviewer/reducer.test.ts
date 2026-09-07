@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { detectCandidateIntent } from "./actions";
-import { allocateMinutes, fallbackBrief, type InterviewBrief } from "./brief";
-import { canAct, coverageComplete, LADDER_MAX_DEPTH } from "./budget";
+import { areaTurnCost, fallbackBrief, plannedTurns, turnRangeForPace, type InterviewBrief } from "./brief";
+import { canAct, coverageComplete, probeLimit } from "./budget";
 import { applyMemoryPatch, emptyMemory } from "./memory";
-import { applyTurn, fallbackAction, utterance, type TurnDecision } from "./reducer";
+import { applyTurn, FALLBACK_SPEECH, fallbackAction, utterance, type TurnDecision } from "./reducer";
 import { threadSegment } from "./segments";
 import { activeThread, createInterviewerState, type InterviewerState } from "./state";
 
@@ -28,7 +28,7 @@ function brief(): InterviewBrief {
   return fallbackBrief({
     blueprint,
     projects: [{ id: "p1", name: "Study Assistant" }],
-    durationMinutes: 30,
+    pace: "standard",
     round: "first_interview",
     askIntro: true,
     skillPacks: ["project-deep-dive"],
@@ -46,11 +46,18 @@ const say = (speech: string, action: TurnDecision["action"] = null): TurnDecisio
   memoryPatch: null,
 });
 
-test("minutes are allocated by weight with a floor and exact total", () => {
-  const minutes = allocateMinutes([3, 2, 2], 30);
-  assert.equal(minutes.reduce((a, b) => a + b, 0), 27);
-  assert.ok(minutes[0] >= minutes[1]);
-  assert.ok(minutes.every((value) => value >= 5));
+test("fallback brief fits the pace's turn budget and keeps the project area first", () => {
+  const quick = fallbackBrief({
+    blueprint,
+    projects: [{ id: "p1", name: "Study Assistant" }],
+    pace: "quick",
+    round: null,
+    askIntro: true,
+    skillPacks: [],
+  });
+  assert.ok(plannedTurns(quick.areas, true) <= turnRangeForPace("quick").max);
+  assert.equal(quick.areas[0].kind, "project");
+  assert.equal(areaTurnCost(3), 5);
 });
 
 test("opening turn asks for an intro even if the model says nothing useful", () => {
@@ -69,14 +76,16 @@ test("open_thread then probe climbs the ladder; probing past the cap is replaced
   ).state;
   assert.equal(activeThread(state)?.areaId, "area-project");
 
-  for (let index = 0; index < LADDER_MAX_DEPTH; index += 1) {
+  // 追问上限 = 领域目标深度 + 1 层余量。
+  const limit = probeLimit(state, "area-project");
+  for (let index = 0; index < limit; index += 1) {
     state = applyTurn(
       state,
       { id: `a${index}`, content: "我负责后端接口和记忆系统的设计。", intent: null },
       say("明白", { name: "probe", input: { question: `再往下一层 ${index}` } }),
     ).state;
   }
-  assert.equal(activeThread(state)?.depth, LADDER_MAX_DEPTH);
+  assert.equal(activeThread(state)?.depth, limit);
   assert.equal(canAct(state, "probe").ok, false);
 
   const over = applyTurn(
@@ -180,4 +189,71 @@ test("utterance keeps the model's paraphrased question and only appends a missin
   // 只有过渡语：把问句接上。
   assert.equal(utterance("好，这一块先到这里，我们换个话题。", question), `好，这一块先到这里，我们换个话题。\n\n${question}`);
   assert.equal(utterance("", question), question);
+});
+
+test("close_thread followed by the model's own open_thread opens that area with the model's question", () => {
+  let state = applyTurn(fresh(), null, say("", { name: "ask_intro", input: {} })).state;
+  state = applyTurn(
+    state,
+    { id: "m1", content: "自我介绍", intent: null },
+    say("先聊项目？", { name: "open_thread", input: { areaId: "area-project", question: "先聊项目？" } }),
+  ).state;
+  const result = applyTurn(
+    state,
+    { id: "m2", content: "我负责后端。", intent: null },
+    {
+      speech: "这段先到这里。接下来聊工具调用：你们的工具是怎么注册的？",
+      action: { name: "close_thread", input: { note: "职责清楚" } },
+      followUp: { name: "open_thread", input: { areaId: "area-1", question: "你们的工具是怎么注册的？" } },
+      memoryPatch: null,
+    },
+  );
+  const active = activeThread(result.state);
+  assert.equal(active?.areaId, "area-1");
+  assert.equal(active?.entryQuestion, "你们的工具是怎么注册的？");
+  assert.equal(result.newMessages.at(-1)?.kind, "question");
+  assert.ok(!result.effects.some((e) => e.type === "action_replaced"));
+});
+
+test("a forced close never ends the interview on a dangling question", () => {
+  let state = applyTurn(fresh(), null, say("", { name: "ask_intro", input: {} })).state;
+  // 用满每个领域的两条线程，让代码没有领域可开。
+  for (let round = 0; round < 2; round += 1) {
+    for (const area of state.brief.areas) {
+      state = applyTurn(
+        state,
+        { id: `o${round}${area.id}`, content: "嗯", intent: null },
+        say("问题？", { name: "open_thread", input: { areaId: area.id, question: "问题？" } }),
+      ).state;
+      state = applyTurn(
+        state,
+        { id: `c${round}${area.id}`, content: "回答", intent: null },
+        say("好。", { name: "close_thread", input: { note: "ok" } }),
+      ).state;
+      if (state.phase === "ended") break;
+    }
+    if (state.phase === "ended") break;
+  }
+  assert.equal(state.phase, "ended");
+});
+
+test("a forced close drops the model's dangling question and says goodbye", () => {
+  let state = applyTurn(fresh(), null, say("", { name: "ask_intro", input: {} })).state;
+  state = applyTurn(
+    state,
+    { id: "m1", content: "自我介绍", intent: null },
+    say("问题？", { name: "open_thread", input: { areaId: "area-project", question: "问题？" } }),
+  ).state;
+  // 模型每回合都"收住这段、顺口再问一个"：代码替它开下一个领域时，以它的问句为切入问题；
+  // 领域用尽后被迫收尾，最后一条消息只能是告别语，不能停在问句上。
+  const speech = "好，这段先到这里。接下来聊聊别的：你怎么看 X？";
+  let result = applyTurn(state, { id: "c0", content: "回答", intent: null }, say(speech, { name: "close_thread", input: { note: "ok" } }));
+  assert.equal(activeThread(result.state)?.entryQuestion, speech);
+  let guard = 0;
+  while (result.state.phase !== "ended" && guard < 12) {
+    guard += 1;
+    result = applyTurn(result.state, { id: `c${guard}`, content: "回答", intent: null }, say(speech, { name: "close_thread", input: { note: "ok" } }));
+  }
+  assert.equal(result.state.phase, "ended");
+  assert.equal(result.newMessages.at(-1)?.content, FALLBACK_SPEECH.closeInterview);
 });

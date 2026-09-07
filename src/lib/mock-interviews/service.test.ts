@@ -50,7 +50,8 @@ function defaultBlueprint() {
 
 function testBrief(): InterviewBrief {
   return {
-    durationMinutes: 30,
+    pace: "standard",
+    turnRange: { min: 12, max: 20 },
     round: "first_interview",
     askIntro: true,
     source: "model",
@@ -63,7 +64,7 @@ function testBrief(): InterviewBrief {
         kind: "technical",
         description: "缓存一致性与消息队列",
         competencyIds: ["bp-1"],
-        minutes: 14,
+        depth: 3,
         entryQuestion: "缓存和数据库双写时你怎么保证一致性？",
         ladder: ["先说做法", "追问失效顺序", "追问故障排查", "追问取舍"],
         expectedSignals: ["延迟双删", "订阅 binlog"],
@@ -75,7 +76,7 @@ function testBrief(): InterviewBrief {
         kind: "project",
         description: "简历项目",
         competencyIds: ["bp-2"],
-        minutes: 13,
+        depth: 3,
         entryQuestion: "介绍你负责的部分。",
         ladder: ["职责", "决策", "问题", "数字"],
         expectedSignals: ["个人职责"],
@@ -232,7 +233,7 @@ async function seedGeneratingSession(
           status: overrides.status ?? "generating",
           generationPhase:
             overrides.generationPhase === undefined ? "job_blueprint" : overrides.generationPhase,
-          durationMinutes: 30,
+          pace: "standard",
           provider: "openai",
           model: "gpt-test",
           promptVersion: "test",

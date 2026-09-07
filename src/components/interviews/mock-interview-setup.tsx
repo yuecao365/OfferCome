@@ -17,8 +17,9 @@ import {
 } from "@/components/ui/form-controls";
 import { INTERVIEW_ROUND_LABELS, INTERVIEW_ROUNDS } from "@/lib/interviews/types";
 import {
-  DEFAULT_INTERVIEW_DURATION,
-  INTERVIEW_DURATIONS,
+  DEFAULT_INTERVIEW_PACE,
+  INTERVIEW_PACE_LABELS,
+  INTERVIEW_PACES,
 } from "@/lib/mock-interviews/interviewer/brief";
 import {
   MOCK_INTERVIEW_DIFFICULTIES,
@@ -210,7 +211,7 @@ export function MockInterviewSetup({
           <summary className="flex cursor-pointer select-none flex-wrap items-baseline gap-x-3 gap-y-1 [&::-webkit-details-marker]:hidden">
             <h2 className="text-sm font-semibold text-foreground">面试设置</h2>
             <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground group-open:hidden">
-              {resumes.find((resume) => resume.isDefault)?.name ?? resumes[0]?.name} · 第一轮 · {questionCounts ? `${questionCounts.defaultValue} 题` : `${DEFAULT_INTERVIEW_DURATION} 分钟`} · 文字作答
+              {resumes.find((resume) => resume.isDefault)?.name ?? resumes[0]?.name} · 第一轮 · {questionCounts ? `${questionCounts.defaultValue} 题` : `${INTERVIEW_PACE_LABELS[DEFAULT_INTERVIEW_PACE]}节奏`} · 文字作答
             </span>
             <span className="text-xs text-muted-foreground group-open:hidden">调整</span>
             <span className="w-full text-[0.8125rem] text-muted-foreground group-open:block hidden">选择面试使用的简历、轮次、时长和作答方式。面试官会根据岗位和简历备课，题目在对话中临场提出。</span>
@@ -256,10 +257,10 @@ export function MockInterviewSetup({
             </>
           ) : (
             <FieldLabel>
-              面试时长
-              <Select defaultValue={String(DEFAULT_INTERVIEW_DURATION)} name="durationMinutes">
-                {INTERVIEW_DURATIONS.map((minutes) => (
-                  <option key={minutes} value={minutes}>{minutes} 分钟</option>
+              面试节奏
+              <Select defaultValue={DEFAULT_INTERVIEW_PACE} name="pace">
+                {INTERVIEW_PACES.map((pace) => (
+                  <option key={pace} value={pace}>{INTERVIEW_PACE_LABELS[pace]}</option>
                 ))}
               </Select>
             </FieldLabel>
