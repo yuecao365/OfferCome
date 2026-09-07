@@ -19,9 +19,7 @@ export type GenerationSnapshot = {
     round?: unknown;
     seedQuestionId?: unknown;
     seedInsightId?: unknown;
-    jdStrategy?: unknown;
   };
-  jdReviewCount?: unknown;
   generationErrorContext?: unknown;
   [key: string]: unknown;
 };

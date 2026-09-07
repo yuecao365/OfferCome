@@ -10,15 +10,9 @@ import {
   type MockInterviewContext,
 } from "./context";
 import { isMockInterviewGenerationError } from "./errors";
-import { generateInterviewBrief } from "./interviewer/brief-agent";
 import { isInterviewPace } from "./interviewer/brief";
+import { generateInterviewBrief } from "./interviewer/brief-agent";
 import { emptyMemory } from "./interviewer/memory";
-import { enrichMockInterviewJob } from "./jd-enrichment-agent";
-import {
-  MIN_JD_CHARS_FOR_AUTO_ENRICH,
-  needsJobDescriptionReview,
-  requiredCompetenciesForPace,
-} from "./jd-sufficiency";
 import { analyzeMockInterviewJob } from "./job-analysis-agent";
 import {
   claimSession,
@@ -32,7 +26,10 @@ import {
 } from "./types";
 
 /**
- * 备课流水线：蓝图 → JD 补全 → 面试简报 → 落库开房。
+ * 备课流水线：上下文 → 岗位蓝图 → 面试简报 → 落库开房。
+ *
+ * JD 是必填的第一依据；JD 没写到的部分由备课 agent 从技能包补齐，
+ * 所以这里不再判断 JD 够不够、也不联网补全。
  *
  * 两条贯穿全程的规则：
  * 1. 每一步推进状态都用乐观锁，写不中就安静放弃——说明用户已经重试或删除了会话。
@@ -60,7 +57,6 @@ type GenerationRequest = {
   round: string | null;
   seedQuestionId: string | null;
   seedInsightId: string | null;
-  jdStrategy: "enrich" | "proceed" | null;
 };
 
 /** 创建会话时写进快照的生成参数。历史数据字段可能缺失，逐个兜底。 */
@@ -72,22 +68,7 @@ function readGenerationRequest(snapshot: GenerationSnapshot): GenerationRequest 
       typeof request.seedQuestionId === "string" ? request.seedQuestionId : null,
     seedInsightId:
       typeof request.seedInsightId === "string" ? request.seedInsightId : null,
-    jdStrategy:
-      request.jdStrategy === "enrich" || request.jdStrategy === "proceed"
-        ? request.jdStrategy
-        : null,
   };
-}
-
-/** 会话被别的流程改动时，各阶段统一用它表示"安静放弃"。 */
-const ABANDONED = Symbol("abandoned");
-type Abandoned = typeof ABANDONED;
-
-function saveSnapshot(sessionId: string, snapshot: GenerationSnapshot) {
-  return claimSession(prisma, {
-    where: { id: sessionId, status: "generating" },
-    data: { contextSnapshotJson: JSON.stringify(snapshot) },
-  });
 }
 
 /**
@@ -98,7 +79,7 @@ async function ensureBlueprint(
   session: GenerationSessionRow,
   snapshot: GenerationSnapshot,
   generationId: string,
-): Promise<MockInterviewJobBlueprint | Abandoned> {
+): Promise<MockInterviewJobBlueprint | null> {
   const stored = storedJobBlueprintSchema.safeParse(snapshot.jobBlueprint);
   if (stored.success) return stored.data;
 
@@ -114,80 +95,14 @@ async function ensureBlueprint(
   });
   snapshot.jobBlueprint = blueprint;
 
-  return (await saveSnapshot(session.id, snapshot)) ? blueprint : ABANDONED;
-}
-
-/**
- * 阶段二：处理 JD 信息不足。
- *
- * JD 偏薄不再打断用户：只有 JD 几乎为空（连补全都没有素材）才暂停询问；
- * 一般偏薄直接自动补全通用要求继续，补全内容带 origin=inferred 标注可回溯。
- */
-async function resolveJobDescriptionGap(
-  session: GenerationSessionRow,
-  snapshot: GenerationSnapshot,
-  blueprint: MockInterviewJobBlueprint,
-  request: GenerationRequest,
-  generationId: string,
-): Promise<MockInterviewJobBlueprint | Abandoned> {
-  const needsReview =
-    !request.jdStrategy &&
-    needsJobDescriptionReview(
-      blueprint,
-      requiredCompetenciesForPace(session.pace),
-    );
-
-  if (
-    needsReview &&
-    session.jdTextSnapshot.trim().length < MIN_JD_CHARS_FOR_AUTO_ENRICH
-  ) {
-    snapshot.jdReviewCount =
-      (typeof snapshot.jdReviewCount === "number" ? snapshot.jdReviewCount : 0) + 1;
-    await claimSession(prisma, {
-      where: { id: session.id, status: "generating" },
-      data: {
-        status: "awaiting_jd_review",
-        generationPhase: null,
-        contextSnapshotJson: JSON.stringify(snapshot),
-      },
-    });
-    return ABANDONED;
-  }
-
-  if (request.jdStrategy !== "enrich" && !needsReview) return blueprint;
-
-  // 失败重试会把 phase 重置回 job_blueprint，JD 审查路径则停在 brief；
-  // 两条入口都必须能认领，否则重试会静默丢失、会话永远停在 generating。
-  const claimed = await claimSession(prisma, {
-    where: {
-      id: session.id,
-      status: "generating",
-      generationPhase: { in: ["job_blueprint", "brief", "job_enrichment"] },
-    },
-    data: { generationPhase: "job_enrichment" },
+  const saved = await claimSession(prisma, {
+    where: { id: session.id, status: "generating" },
+    data: { contextSnapshotJson: JSON.stringify(snapshot) },
   });
-  if (!claimed) return ABANDONED;
-
-  try {
-    const enriched = await enrichMockInterviewJob({
-      generationId,
-      jobTitle: session.interview.jobTitle,
-      jobDescription: session.jdTextSnapshot,
-      blueprint,
-    });
-    snapshot.jobBlueprint = enriched;
-    return (await saveSnapshot(session.id, snapshot)) ? enriched : ABANDONED;
-  } catch (error) {
-    // 补全是锦上添花：失败就带着现有蓝图继续备课，不作为终态错误。
-    console.warn(
-      "[mock-interviews] enrich failed, continuing with existing blueprint:",
-      error instanceof Error ? error.message : "unknown error",
-    );
-    return blueprint;
-  }
+  return saved ? blueprint : null;
 }
 
-/** 阶段三：简报连同空的工作记忆一起落库，并把房间打开。 */
+/** 阶段二：简报连同空的工作记忆一起落库，并把房间打开。 */
 async function persistBrief(
   session: GenerationSessionRow,
   snapshot: GenerationSnapshot,
@@ -202,7 +117,6 @@ async function persistBrief(
         contextSnapshotJson: JSON.stringify({
           ...parseGenerationSnapshot(serializeMockInterviewContext(context, { blueprint })),
           generationRequest: snapshot.generationRequest,
-          jdReviewCount: snapshot.jdReviewCount,
         }),
         briefJson: JSON.stringify(brief),
         memoryJson: JSON.stringify(emptyMemory(brief)),
@@ -269,17 +183,8 @@ export async function prepareMockInterview(sessionId: string): Promise<void> {
       seedInsightId: request.seedInsightId,
     });
 
-    const analyzed = await ensureBlueprint(session, snapshot, generationId);
-    if (analyzed === ABANDONED) return;
-
-    const blueprint = await resolveJobDescriptionGap(
-      session,
-      snapshot,
-      analyzed,
-      request,
-      generationId,
-    );
-    if (blueprint === ABANDONED) return;
+    const blueprint = await ensureBlueprint(session, snapshot, generationId);
+    if (!blueprint) return;
 
     const advanced = await claimSession(prisma, {
       where: { id: sessionId, status: "generating" },
@@ -303,10 +208,7 @@ export async function prepareMockInterview(sessionId: string): Promise<void> {
   }
 }
 
-export async function claimMockInterviewGenerationRetry(
-  sessionId: string,
-  strategy?: "enrich",
-): Promise<boolean> {
+export async function claimMockInterviewGenerationRetry(sessionId: string): Promise<boolean> {
   const session = await prisma.mockInterviewSession.findUnique({
     where: { id: sessionId },
     select: { status: true, contextSnapshotJson: true },
@@ -314,8 +216,6 @@ export async function claimMockInterviewGenerationRetry(
   if (!session || session.status !== "generation_failed") return false;
 
   const snapshot = parseGenerationSnapshot(session.contextSnapshotJson);
-  snapshot.generationRequest ??= {};
-  snapshot.generationRequest.jdStrategy = strategy;
   snapshot.generationErrorContext = null;
 
   return claimSession(prisma, {
@@ -326,59 +226,6 @@ export async function claimMockInterviewGenerationRetry(
       generationErrorCode: null,
       generationError: null,
       contextSnapshotJson: JSON.stringify(snapshot),
-    },
-  });
-}
-
-export type JobDescriptionStrategy = "supplement" | "enrich" | "proceed";
-
-export async function applyJobDescriptionStrategy(input: {
-  sessionId: string;
-  strategy: JobDescriptionStrategy;
-  additionalText?: string;
-}): Promise<boolean> {
-  const session = await prisma.mockInterviewSession.findUnique({
-    where: { id: input.sessionId },
-    select: {
-      status: true,
-      jdTextSnapshot: true,
-      contextSnapshotJson: true,
-    },
-  });
-  if (!session || session.status !== "awaiting_jd_review") return false;
-
-  const snapshot = parseGenerationSnapshot(session.contextSnapshotJson);
-  const reviewCount =
-    typeof snapshot.jdReviewCount === "number" ? snapshot.jdReviewCount : 1;
-  const additionalText = input.additionalText?.trim() ?? "";
-  const supplementedJobDescription = `${session.jdTextSnapshot.trim()}\n\n${additionalText}`;
-  if (
-    input.strategy === "supplement" &&
-    (reviewCount >= 2 ||
-      !additionalText ||
-      additionalText.length > 30_000 ||
-      supplementedJobDescription.length > 100_000)
-  ) {
-    return false;
-  }
-
-  snapshot.generationRequest ??= {};
-  snapshot.generationRequest.jdStrategy =
-    input.strategy === "supplement" ? undefined : input.strategy;
-  // 用户补了原文，蓝图必须按新 JD 重算。
-  if (input.strategy === "supplement") snapshot.jobBlueprint = undefined;
-
-  return claimSession(prisma, {
-    where: { id: input.sessionId, status: "awaiting_jd_review" },
-    data: {
-      status: "generating",
-      generationPhase: input.strategy === "supplement" ? "job_blueprint" : "brief",
-      contextSnapshotJson: JSON.stringify(snapshot),
-      generationErrorCode: null,
-      generationError: null,
-      ...(input.strategy === "supplement"
-        ? { jdTextSnapshot: supplementedJobDescription }
-        : {}),
     },
   });
 }

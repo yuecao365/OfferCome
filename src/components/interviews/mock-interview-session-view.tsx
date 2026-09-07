@@ -1,7 +1,6 @@
 import { InterviewDeleteButton } from "@/components/interviews/interview-delete-button";
 import { MockInterviewBubble } from "@/components/interviews/mock-interview-chat";
 import { MockInterviewGenerationProgress } from "@/components/interviews/mock-interview-generation-progress";
-import { MockInterviewJdReview } from "@/components/interviews/mock-interview-jd-review";
 import { MockInterviewReport } from "@/components/interviews/mock-interview-report";
 import {
   MockInterviewRoom,
@@ -19,7 +18,7 @@ import {
  * 单场模拟面试页的呈现层。本地版与体验版渲染同一棵组件树，
  * 差别只在注入的删除动作与房间数据通道。
  *
- * 进行中的对话式面试不经过这里（页面直接渲染全屏房间）；这里只负责备课中、待补 JD、
+ * 进行中的对话式面试不经过这里（页面直接渲染全屏房间）；这里只负责备课中、
  * 已完成（报告 + 对话记录）这几种带导航的状态。体验版在 P2 同构前仍走旧的分步房间（transport 注入）。
  * 旧的分步会话没有简报：已完成的照常看报告，未完成的不再支持继续。
  */
@@ -52,22 +51,12 @@ export function MockInterviewSessionView({
         description="像真实面试一样对话：面试官会追问、给提示、切换话题；结束后生成基于证据的评估。"
         title={`${session.companyName} · ${session.jobTitle}`}
       />
-      {session.status === "awaiting_jd_review" && session.jobDescriptionReview ? (
-        <MockInterviewJdReview
-          jobTitle={session.jobTitle}
-          review={session.jobDescriptionReview}
-          sessionId={session.id}
-        />
-      ) : session.status === "generating" || session.status === "generation_failed" ? (
+      {session.status === "generating" || session.status === "generation_failed" ? (
         <MockInterviewGenerationProgress
           initial={{
             status: session.status,
             generationPhase: session.generationPhase,
-            errorCode: session.generationErrorCode,
             error: session.generationError,
-            errorContext: session.generationErrorContext,
-            questionCount: session.questionCount,
-            jobTitle: session.jobTitle,
           }}
           sessionId={session.id}
         />

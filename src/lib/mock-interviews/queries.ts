@@ -11,7 +11,6 @@ import {
   type MockInterviewConversation,
   type MockInterviewReport,
   type MockInterviewView,
-  storedJobBlueprintSchema,
   type MockInterviewGenerationErrorContext,
 } from "./types";
 
@@ -104,9 +103,6 @@ export async function getMockInterviewView(id: string): Promise<MockInterviewVie
   const session = await loadSessionForView(id);
   if (!session) return null;
   const snapshot = parseJsonObject(session.contextSnapshotJson);
-  const blueprint = storedJobBlueprintSchema.safeParse(snapshot.jobBlueprint);
-  const reviewCount =
-    typeof snapshot.jdReviewCount === "number" ? snapshot.jdReviewCount : 0;
   const generationErrorContext =
     snapshot.generationErrorContext &&
     typeof snapshot.generationErrorContext === "object"
@@ -127,14 +123,6 @@ export async function getMockInterviewView(id: string): Promise<MockInterviewVie
     generationErrorCode: session.generationErrorCode,
     generationError: session.generationError,
     generationErrorContext,
-    jobDescriptionReview:
-      session.status === "awaiting_jd_review" && blueprint.success
-        ? {
-            completeness: blueprint.data.completeness,
-            missingInformation: blueprint.data.missingInformation,
-            canSupplement: reviewCount < 2,
-          }
-        : null,
     interactionMode: isMockInterviewMode(session.interactionMode)
       ? session.interactionMode
       : "text",

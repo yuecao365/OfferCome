@@ -20,16 +20,11 @@ import { isMockInterviewMode, type MockInterviewMode } from "./types";
  *
  * 创建之后的流程各自独立成文件，这里统一转出，调用方（API 路由、后台任务）
  * 不必关心内部怎么分的：
- *   generation.ts        —— 备课流水线（蓝图 → 补全 → 简报）与失败重试
+ *   generation.ts        —— 备课流水线（蓝图 → 简报）与失败重试
  *   interviewer/session  —— 对话回合的装配、裁决与落库
  *   completion.ts        —— 交卷评分与报告
  */
-export {
-  applyJobDescriptionStrategy,
-  claimMockInterviewGenerationRetry,
-  prepareMockInterview,
-  type JobDescriptionStrategy,
-} from "./generation";
+export { claimMockInterviewGenerationRetry, prepareMockInterview } from "./generation";
 export { startInterviewerTurn } from "./interviewer/session";
 export { completeMockInterview } from "./completion";
 

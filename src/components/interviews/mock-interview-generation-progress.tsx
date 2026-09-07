@@ -7,16 +7,11 @@ import { useCallback, useEffect, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import type { MockInterviewGenerationErrorContext } from "@/lib/mock-interviews/types";
 
 type GenerationState = {
   status: string;
   generationPhase: string | null;
-  errorCode: string | null;
   error: string | null;
-  errorContext?: MockInterviewGenerationErrorContext | null;
-  questionCount: number;
-  jobTitle: string;
 };
 
 function phaseLabel(phase: string | null): string {
@@ -26,6 +21,7 @@ function phaseLabel(phase: string | null): string {
   return "正在分析岗位能力";
 }
 
+/** 备课进度卡：轮询状态；失败时只有一个动作——从头重新备课。 */
 export function MockInterviewGenerationProgress({
   sessionId,
   initial,
@@ -55,30 +51,13 @@ export function MockInterviewGenerationProgress({
     return () => window.clearInterval(interval);
   }, [refreshStatus, state.status]);
 
-  const retry = async (questionCount?: number, strategy?: "enrich") => {
+  const retry = async () => {
     setRetrying(true);
     try {
-      const response = await fetch(
-        `/api/interviews/mock/${sessionId}/retry-generation`,
-        {
-          method: "POST",
-          headers: questionCount || strategy ? { "Content-Type": "application/json" } : undefined,
-          body: questionCount || strategy
-            ? JSON.stringify({ questionCount, strategy })
-            : undefined,
-        },
-      );
+      const response = await fetch(`/api/interviews/mock/${sessionId}/retry-generation`, { method: "POST" });
       const result = (await response.json()) as { error?: string };
       if (!response.ok) throw new Error(result.error ?? "重试生成失败。");
-      setState({
-        status: "generating",
-        generationPhase: "job_blueprint",
-        errorCode: null,
-        error: null,
-        errorContext: null,
-        questionCount: questionCount ?? state.questionCount,
-        jobTitle: state.jobTitle,
-      });
+      setState({ status: "generating", generationPhase: "job_blueprint", error: null });
     } catch (error) {
       setState((current) => ({
         ...current,
@@ -95,39 +74,13 @@ export function MockInterviewGenerationProgress({
         <div className="grid gap-4">
           <Alert tone="danger">
             <div>
-              <p className="font-semibold">{state.error ?? "面试题生成没有完成。"}</p>
-              {state.errorContext?.competencyCount !== undefined &&
-              state.errorContext.requiredCount !== undefined ? (
-                <p className="mt-1">
-                  已识别 {state.errorContext.competencyCount} 项岗位能力，当前至少需要 {state.errorContext.requiredCount} 项。
-                </p>
-              ) : null}
-              <p className="mt-1">你可以选择下面的操作继续，不需要反复提交相同内容。</p>
+              <p className="font-semibold">{state.error ?? "面试准备没有完成。"}</p>
+              <p className="mt-1">可以直接重试，不需要重新提交内容。</p>
             </div>
           </Alert>
           <div className="flex flex-wrap gap-3">
-            <Button disabled={retrying} onClick={() => retry()} type="button">
-              {retrying ? "正在重新分析…" : "重新分析岗位描述"}
-            </Button>
-            {/* “AI 补全”只在缺题类失败时才真正有用：补全发生在出题之前，
-                其他阶段的失败它救不了，展示出来只会造成无效的重复点击。 */}
-            {state.errorCode === "question_validation_failed" ? (
-              <Button
-                disabled={retrying}
-                onClick={() => retry(undefined, "enrich")}
-                type="button"
-                variant="outline"
-              >
-                让 AI 按“{state.jobTitle}”的常见要求补全
-              </Button>
-            ) : null}
-            <Button
-              disabled={retrying}
-              onClick={() => retry(Math.max(3, Math.min(5, state.questionCount - 1)))}
-              type="button"
-              variant="outline"
-            >
-              减少到 {Math.max(3, Math.min(5, state.questionCount - 1))} 题重试
+            <Button disabled={retrying} onClick={retry} type="button">
+              {retrying ? "正在重新备课…" : "重新备课"}
             </Button>
             <Button
               disabled={retrying}

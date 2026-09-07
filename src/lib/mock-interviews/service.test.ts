@@ -19,7 +19,6 @@ process.env.DATABASE_URL = database.url;
 
 const stubs = {
   blueprint: null as unknown,
-  enrichError: null as Error | null,
   briefError: null as Error | null,
   contextError: null as Error | null,
   decisions: [] as TurnDecision[],
@@ -94,19 +93,6 @@ mock.module("./job-analysis-agent", {
   },
 });
 
-mock.module("./jd-enrichment-agent", {
-  namedExports: {
-    enrichMockInterviewJob: async (input: { blueprint: ReturnType<typeof defaultBlueprint> }) => {
-      if (stubs.enrichError) throw stubs.enrichError;
-      return {
-        ...input.blueprint,
-        completeness: "complete",
-        competencies: [...input.blueprint.competencies, { ...competency("inferred-1"), origin: "inferred" }],
-      };
-    },
-  },
-});
-
 mock.module("./interviewer/brief-agent", {
   namedExports: {
     generateInterviewBrief: async () => {
@@ -175,7 +161,6 @@ after(async () => {
 
 beforeEach(async () => {
   stubs.blueprint = null;
-  stubs.enrichError = null;
   stubs.briefError = null;
   stubs.contextError = null;
   stubs.decisions = [];
@@ -285,24 +270,6 @@ test("preparation persists the brief with an empty memory and opens the room", a
   assert.equal(interview.status, "in_progress");
 });
 
-test("pauses for review instead of failing when the job description is nearly empty", async () => {
-  stubs.blueprint = { ...defaultBlueprint(), completeness: "minimal", competencies: [competency("bp-1")] };
-  const { sessionId } = await seedGeneratingSession({ jdTextSnapshot: "后端" });
-  await service.prepareMockInterview(sessionId);
-  const session = await readSession(sessionId);
-  assert.equal(session.status, "awaiting_jd_review");
-  assert.equal(JSON.parse(session.contextSnapshotJson).jdReviewCount, 1);
-});
-
-test("a thin but usable job description is enriched automatically and enrichment failure is not fatal", async () => {
-  stubs.blueprint = { ...defaultBlueprint(), completeness: "partial", competencies: [competency("bp-1"), competency("bp-2")] };
-  stubs.enrichError = new Error("search down");
-  // 超过 80 字的偏薄 JD 走自动补全而不是暂停询问。
-  const { sessionId } = await seedGeneratingSession({ jdTextSnapshot: `${LONG_JD}${LONG_JD}` });
-  await service.prepareMockInterview(sessionId);
-  assert.equal((await readSession(sessionId)).status, "in_progress");
-});
-
 test("unexpected failures land in generation_failed with a message, never in a stuck generating state", async () => {
   stubs.contextError = new Error("简历文件损坏");
   const { sessionId } = await seedGeneratingSession();
@@ -320,37 +287,11 @@ test("ignores preparation requests for sessions that are no longer generating", 
 
 test("retry is only claimed from the failed state and restarts at the blueprint", async () => {
   const { sessionId } = await seedGeneratingSession({ status: "generation_failed", generationPhase: null });
-  assert.equal(await service.claimMockInterviewGenerationRetry(sessionId, "enrich"), true);
+  assert.equal(await service.claimMockInterviewGenerationRetry(sessionId), true);
   const session = await readSession(sessionId);
   assert.equal(session.status, "generating");
   assert.equal(session.generationPhase, "job_blueprint");
   assert.equal(await service.claimMockInterviewGenerationRetry(sessionId), false);
-});
-
-test("job description strategies restart at the right phase", async () => {
-  const seeded = await seedGeneratingSession({
-    status: "awaiting_jd_review",
-    generationPhase: null,
-    snapshot: { generationRequest: {}, jdReviewCount: 1, jobBlueprint: defaultBlueprint() },
-  });
-  assert.equal(await service.applyJobDescriptionStrategy({ sessionId: seeded.sessionId, strategy: "proceed" }), true);
-  const proceeded = await readSession(seeded.sessionId);
-  assert.equal(proceeded.status, "generating");
-  assert.equal(proceeded.generationPhase, "brief");
-
-  const supplemented = await seedGeneratingSession({
-    status: "awaiting_jd_review",
-    generationPhase: null,
-    snapshot: { generationRequest: {}, jdReviewCount: 1, jobBlueprint: defaultBlueprint() },
-  });
-  assert.equal(
-    await service.applyJobDescriptionStrategy({ sessionId: supplemented.sessionId, strategy: "supplement", additionalText: "补充：需要熟悉 Kafka。" }),
-    true,
-  );
-  const restarted = await readSession(supplemented.sessionId);
-  assert.equal(restarted.generationPhase, "job_blueprint");
-  assert.match(restarted.jdTextSnapshot, /Kafka/);
-  assert.equal(JSON.parse(restarted.contextSnapshotJson).jobBlueprint, undefined);
 });
 
 // —— 对话回合

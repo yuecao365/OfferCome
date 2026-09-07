@@ -222,11 +222,6 @@ export type MockInterviewView = {
   generationErrorCode: string | null;
   generationError: string | null;
   generationErrorContext?: MockInterviewGenerationErrorContext | null;
-  jobDescriptionReview?: {
-    completeness: "complete" | "partial" | "minimal";
-    missingInformation: string[];
-    canSupplement: boolean;
-  } | null;
   interactionMode: MockInterviewMode;
   currentQuestionIndex: number;
   questionCount: number;
