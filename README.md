@@ -4,122 +4,39 @@
 
 **A local-first workspace that turns every application and interview into better preparation for the next one.**
 
-[简体中文](README_CN.md) · [Product Site](https://offercome.yuecao.dev) · [Live Preview](https://offercome.yuecao.dev/homepage)
+[简体中文](README_CN.md) · [Product Site](https://offercome.yuecao.dev) · [Try in Browser](https://offercome.yuecao.dev/homepage)
 
 ![Next.js](https://img.shields.io/badge/Next.js-16-000000?style=flat-square&logo=nextdotjs)
-![React](https://img.shields.io/badge/React-19-149ECA?style=flat-square&logo=react)
-![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white)
-![Prisma](https://img.shields.io/badge/Prisma-7-2D3748?style=flat-square&logo=prisma)
 ![SQLite](https://img.shields.io/badge/SQLite-Local-003B57?style=flat-square&logo=sqlite)
 ![Agent Skills](https://img.shields.io/badge/Agent%20Skills-SKILL.md-8A63D2?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
-[Introduction](#introduction) · [Preview](#project-preview) · [How It Works](#how-it-works) · [Features](#features) · [Under the Hood](#under-the-hood) · [Quick Start](#quick-start)
-
-<a href="https://offercome.yuecao.dev/showcase"><img src="docs/images/hero-en.png" alt="OfferCome — every interview counts" width="820"></a>
+[How It Works](#how-it-works) · [Quick Start](#quick-start) · [Features](#features) · [Preview](#project-preview) · [Under the Hood](#under-the-hood)
 
 </div>
 
-## Introduction
-
-Job hunting scatters your effort: applications live in one platform, resumes in a folder, interview memories in your head, and the lessons from a bad answer disappear before the next interview. OfferCome connects applications, resumes, real interviews, AI mock practice, review, and a long-term capability profile into one workspace, so each round feeds the next.
-
-> **Local-first by design.** Your SQLite database, resume files, and Boss Zhipin browser session stay on your own machine. AI providers are contacted only after you configure a model service yourself, and only with the content that task requires.
-
-## Project Preview
-
-The [live preview](https://offercome.yuecao.dev/homepage) runs on fictional data in read-only mode. It never accepts or stores resumes, interview records, API keys, or Boss Zhipin credentials. Run it locally for the complete, writable product.
-
-<table>
-  <tr>
-    <td width="50%" align="center"><strong>Dashboard</strong><br><img src="docs/images/dashboard.png" alt="OfferCome dashboard"></td>
-    <td width="50%" align="center"><strong>Applications</strong><br><img src="docs/images/applications.png" alt="OfferCome applications"></td>
-  </tr>
-  <tr>
-    <td width="50%" align="center"><strong>AI Mock Interview</strong><br><img src="docs/images/mock-interview.png" alt="OfferCome AI mock interview"></td>
-    <td width="50%" align="center"><strong>Interview History</strong><br><img src="docs/images/interview-history.png" alt="OfferCome interview history"></td>
-  </tr>
-  <tr>
-    <td width="50%" align="center"><strong>Interview Review</strong><br><img src="docs/images/interview-review.png" alt="OfferCome interview review"></td>
-    <td width="50%" align="center"><strong>Capability Profile</strong><br><img src="docs/images/ability-profile.png" alt="OfferCome capability profile"></td>
-  </tr>
-</table>
-
 ## How It Works
 
-OfferCome is built around one loop. Every stage produces evidence that makes the next stage sharper.
+OfferCome connects applications, resumes, interviews, and review in one workspace. Past answers and capability insights help shape your next practice session.
 
-```
+```text
 Applications ──▶ Resume & projects ──▶ AI mock interview ──▶ Real interview
      ▲                                        │                     │
      │                                        ▼                     ▼
      └──────────── Capability profile ◀── Review & scoring ◀── Import & transcribe
 ```
 
-1. **Import your applications** so the workspace knows which roles you are actually chasing.
-2. **Upload a resume**; OfferCome indexes your internships and projects as reusable interview material.
-3. **Run a mock interview** grounded in interview skill packs, that resume, and everything you have answered before.
-4. **Record the real interview** afterwards — drop in audio, a transcript, or your own notes.
-5. **Review by project or question bank**, where repeated questions gather all your past answers side by side.
-6. **Watch the capability profile update**, then practise the weak spots it names with one click.
-
-## Features
-
-### Applications
-
-Import your existing Boss Zhipin records with one click: OfferCome drives a local browser through the Chrome DevTools Protocol, walks the pages, deduplicates stable job identities, and highlights what is new or changed. Applications idle for 30 days are flagged as rejected during a sync — a judgement made only while syncing, never behind your back. Login, QR codes, CAPTCHAs, and security checks are always completed by you; OfferCome reads your records and never applies or messages anyone on your behalf. Records you delete stay deleted and are not resurrected by the next sync. Applications can also be created and edited by hand, and every stage change flows into the dashboard.
-
-### Resumes
-
-Upload a PDF, Word, or image resume and OfferCome extracts your internships and projects. A confirmation step lets you correct, merge, or complete what the parser found before anything is written, which keeps the review index free of near-duplicate projects. Extraction is a starting point rather than a verdict: the index stays editable afterwards, so one bad parse never locks your project list into the wrong shape. The parsed experiences become the material that mock interviews and project deep-dive questions draw on.
-
-### AI mock interviews
-
-Each session is generated from **interview skill packs** (see below), your selected resume and projects, relevant answers from past interviews, and current profile insights — not from a generic question bank. Because real job descriptions are so often vague or stale, the JD is treated as a hint about role direction and stack rather than the source of truth.
-
-Answer by typing or by voice: the browser reads each question aloud, records up to ten minutes through the microphone, transcribes it with your configured speech model, and lets you edit the transcript before submitting. Raw answer audio is used for transcription only and never stored. The interviewer follows up when an answer leaves an obvious gap, and you can skip a question you would rather not answer.
-
-Every question is scored against a rubric generated when the question was written, so scoring stays consistent across answers. The report shows a total score, per-question evidence, strengths, improvements, an action plan, and how many questions came from the job description versus generic role requirements.
-
-### Interview history and import
-
-Record a completed interview by hand, or simply drop in what you already have: audio, a verbatim transcript, a written summary, PDF, Word, or plain text. OfferCome works out the rest — whether the file is audio or text, whether a recording contains the interviewer, which speaker is you, and whether text is a transcript or a summary. It also extracts the company, role, round, and date to prefill the form. Recording and question recognition run as a single action, and long recordings are chunked automatically for upload and transcription. Questions arrive as an editable draft, classified and linked to the right project; nothing is saved until you confirm.
-
-Interviews scheduled in the future become preparation targets: a dedicated page gathers what that company has asked before and which of your abilities are currently weakest.
-
-### Interview review
-
-Review questions through the lens of a single internship or project, or through the technical and general question banks. Repeated questions are merged — including near-duplicate phrasings — so you can see every answer you have given to the same question across companies, newest first, with the source interview attached. Filtering and pagination happen on the server, and any question you answered in a real interview can be practised again with one click. The grouping itself is yours to correct: a question filed under the wrong project can be moved to the right one, or out into the general question bank, and the project index is editable from the review page.
-
-### Capability profile
-
-Completing any interview, real or mock, schedules a profile refresh in the background. From your very first interview you get a qualitative card of what to keep doing and what to practise, with each weak point linking straight into targeted practice. As evidence accumulates, eight ability dimensions — grouped into **content**, **evidence**, and **delivery** — gain levels, trends, and confidence ratings, weighted so that real interviews count for more than mock ones and recent evidence counts for more than old.
-
-Insights are written as coaching, not verdicts: every one must land on something you can act on, and each is backed by verbatim excerpts from your own answers. You can inspect the evidence behind any insight, exclude a piece of evidence you disagree with, reassign a dimension, or lock an insight so refreshes leave it alone. Spoken delivery is measured from voice metrics rather than guessed from text, and is simply omitted when a recording cannot be attributed reliably.
-
-## Under the Hood
-
-Some design choices that shape how the product behaves:
-
-**Layered interview skill packs.** Interview know-how lives in `SKILL.md` files — YAML frontmatter plus markdown, following the Agent Skills convention — organised in three layers: a **base** pack for project deep-dive questioning, **domain** packs for architecture-level questioning, and **stack** packs for language-specific depth. Ten packs ship by default (backend, frontend, AI/LLM, CS fundamentals, algorithms, plus Java, Go, React and Vue stacks). Each pack encodes high-frequency topics, depth ladders, good-versus-bad question examples, and project follow-up chains, which is what keeps generated questions concrete instead of asking you to "talk about your understanding of X".
-
-**Progressive disclosure with a safety net.** Only pack names and descriptions stay in the agent's context; the question generator calls a `load_skill` tool to pull the full text of whatever it judges relevant, and loading a stack pack automatically brings in its parent domain pack. If a weaker model never calls the tool, a keyword selector deterministically injects the recommended packs on a retry — question quality does not depend on a model's tool-calling ability.
-
-**Verified generation.** The model proposes; deterministic code decides. Citations must be real: a competency claiming to quote the job description is checked against the original text, and profile evidence must appear verbatim in your own answer. Everything the model reads — job descriptions, resumes, your answers, web results — is treated as untrusted data, and instructions embedded in it are ignored.
-
-**Tiered verification, so you are never left empty-handed.** Hard gates are limited to injection defence, citation authenticity, and write atomicity. Everything else degrades or ranks rather than refusing: job analysis has a four-level fallback chain and cannot fail outright, question counts are a range instead of an exact number, and duplicates or weak relevance lower a question's rank instead of discarding it. When something genuinely cannot be produced, the product says what it did instead — it does not hand you a dead end.
-
-**A single agent runtime.** Every AI call goes through one `runAgent()` entry point that handles timeouts, structured output, rescue parsing of truncated responses, retry and degradation policy, error classification, prompt versioning, and structured per-call logging with token usage and accept/reject counts.
-
-**Provider-flexible.** Text understanding and speech-to-text are configured independently — provider, model, API key, and custom OpenAI-compatible endpoints — so you can pair a strong reasoning model with a cheap transcription one, or point both at a local server. Only the AI tasks you configure ever send data anywhere.
-
 ## Quick Start
 
-### 1. Live preview
+### Try in your browser
 
-Open the **[OfferCome live preview](https://offercome.yuecao.dev/homepage)**. Read-only; nothing you do there is saved.
+Open [OfferCome](https://offercome.yuecao.dev/homepage), add your resume, and connect your own text model to practise. The web app starts with an empty workspace and saves your work and resume files in your browser.
 
-### 2. Local Docker deployment (recommended)
+Model connections, including API keys, are remembered in the browser by default; you can choose session-only storage. The server processes uploaded content and AI requests using your configuration without saving workspace data or keys to its database or files. Clearing site data removes your local copy.
+
+**Boss Zhipin sync, voice answers, interview material import, and web search require local deployment.**
+
+### Docker (recommended for local use)
 
 **Requirements:** Docker Desktop or Docker Engine with Docker Compose.
 
@@ -129,18 +46,13 @@ cd OfferCome
 docker compose up -d --build
 ```
 
-Open **[http://localhost:3000](http://localhost:3000)**. SQLite data and uploaded files persist in the `offercome-data` and `offercome-local` Docker volumes.
+Open [http://localhost:3000](http://localhost:3000) and configure your model providers under **Settings**.
 
-```bash
-docker compose logs -f offercome
-docker compose down
-```
+Your database and uploaded files persist in Docker volumes on your machine. Configured AI tasks send the relevant input to your chosen provider. Use `docker compose down` to stop; adding `-v` permanently deletes the data volumes.
 
-> `docker compose down` preserves the volumes. `docker compose down -v` permanently deletes them.
+### Run from source
 
-### 3. Run from source
-
-**Requirements:** Node.js 22+, npm, and Chrome or Edge for Boss Zhipin login.
+**Requirements:** Node.js 22+ and npm; Chrome or Edge for Boss Zhipin login. Windows PowerShell:
 
 ```powershell
 git clone https://github.com/yuecao365/OfferCome.git
@@ -151,21 +63,59 @@ npm run db:push
 npm run dev
 ```
 
-Open **[http://localhost:3000](http://localhost:3000)**, then configure your model providers under **Settings** before using any AI feature. For Boss Zhipin synchronization:
+Open [http://localhost:3000](http://localhost:3000) and configure **Settings**. For browser login and sync, see the [deployment guide](docs/deployment.md#boss-zhipin-sync).
 
-```powershell
-npm run boss:login
-npm run boss:sync -- --dry-run
-npm run boss:sync
-```
+## Features
 
-> Boss Zhipin login, QR codes, CAPTCHAs, and security checks must be completed manually by the account owner. A standard Docker container cannot open a headed browser on the host desktop, so login and sync work best when running from source.
+| Feature | What you can do |
+| --- | --- |
+| **Applications** | Import existing Boss Zhipin records or add applications manually. Track stages and changes in the dashboard. Sync reads your records; it never applies or messages on your behalf. |
+| **Resumes** | Extract internships and projects from PDF, Word, or image resumes. Review and edit the extracted experiences, then use them as interview material. |
+| **AI mock interviews** | Practise with questions grounded in skill packs, your resume, past answers, and profile insights. Get follow-up questions, rubric-based scoring, and an action plan. Voice answers are available locally. |
+| **Interview history** | Record interviews manually, or import recordings, transcripts, and notes locally. Review extracted questions before saving. Upcoming interviews have a preparation page. |
+| **Review** | Group similar questions across interviews, compare your previous answers, and practise again. Browse by project or question bank and correct classifications. |
+| **Capability profile** | Track strengths and gaps across eight dimensions, with feedback supported by excerpts from your answers. Inspect or exclude evidence, protect insights, and launch targeted practice. |
+
+> **Sync rule:** During a Boss sync, applications still at “Applied” with at least 30 days since their last recorded activity can be marked “Rejected.” Deleted applications stay excluded. See [sync behavior](docs/deployment.md#boss-zhipin-sync).
+
+## Project Preview
+
+Screenshots use fictional data from a local deployment.
+
+<table>
+  <tr>
+    <td width="50%" align="center"><strong>AI Mock Interview</strong><br><img src="docs/images/mock-interview.png" alt="OfferCome AI mock interview"></td>
+    <td width="50%" align="center"><strong>Capability Profile</strong><br><img src="docs/images/ability-profile.png" alt="OfferCome capability profile"></td>
+  </tr>
+</table>
+
+<details>
+<summary>More screenshots and product overview</summary>
+
+<table>
+  <tr>
+    <td width="50%" align="center"><strong>Dashboard</strong><br><img src="docs/images/dashboard.png" alt="OfferCome dashboard"></td>
+    <td width="50%" align="center"><strong>Applications</strong><br><img src="docs/images/applications.png" alt="OfferCome applications"></td>
+  </tr>
+  <tr>
+    <td width="50%" align="center"><strong>Interview History</strong><br><img src="docs/images/interview-history.png" alt="OfferCome interview history"></td>
+    <td width="50%" align="center"><strong>Interview Review</strong><br><img src="docs/images/interview-review.png" alt="OfferCome interview review"></td>
+  </tr>
+</table>
+
+<a href="https://offercome.yuecao.dev/showcase"><img src="docs/images/hero-en.png" alt="OfferCome — every interview counts" width="820"></a>
+
+</details>
+
+## Under the Hood
+
+- **Layered interview skills.** Ten `SKILL.md` packs organise questioning guidance into base, domain, and stack layers. The generator loads relevant packs on demand, with a keyword-based fallback. [Explore the packs](src/lib/mock-interviews/skills).
+- **Traceable evidence.** Job-description citations and profile excerpts are checked against their source text. Questions are scored against rubrics created during generation. [Profile implementation](src/lib/candidate-profile).
+- **Shared AI runtime.** `runAgent()` centralises structured output, timeouts, retries, and logging. Local deployments can configure text and speech models separately, including OpenAI-compatible and local endpoints. [Runtime implementation](src/lib/ai/run-agent.ts).
 
 ## Deployment Notes
 
-OfferCome is designed as a local-first application. Several workflows depend on long-running tasks or local resources: LLM calls may run for 60 seconds or longer, audio transcription can run for up to 10 minutes, large recordings are chunked and may be split with ffmpeg, mock-interview generation and profile refreshes use Next.js `after()` background work, Boss synchronization drives a local browser over the Chrome DevTools Protocol, and resume files plus browser session state live on the local filesystem.
-
-Deploying the writable product to a serverless platform such as Vercel therefore requires your own answers for function timeouts, an ffmpeg runtime, durable background execution, and persistent file and database storage. The hosted Vercel site in this repository is a read-only preview; for the complete product, use the local Docker Compose deployment described above.
+The local app uses SQLite, persistent files, and background tasks. The web app uses browser storage and stateless request processing. See the [deployment guide](docs/deployment.md) for storage, Boss sync, and hosting requirements.
 
 ## License
 
