@@ -2,6 +2,7 @@
 
 > 基于 [interview-flow-before.md](interview-flow-before.md) 描述的现状。面试中、面试后另起计划，本篇不动它们，但本篇定下的数据结构要给后两阶段留好位置。
 > 修订：2026-09-08 第二稿——JD 是必填的主要依据而不是弱信号；技能包按 Agent Skills 的渐进式披露由模型自行加载；取消联网补全。
+> 执行状态：第 1、2、4 步已完成（提交 4739619、44e5318、a74812a）；第 3 步技能包内容进行中；第 5 步评测待做。已定：fundamentals 评分表 60/25/15，索引上限 12，岗位包加 product-manager。
 
 ## 0. 三条原则
 
@@ -63,7 +64,7 @@ kind 只有 technical / project / behavioral；technical 被要求从场景切�
 | 层 | 包（草稿，待调研后增删） |
 |---|---|
 | base | project-deep-dive（项目深挖通用追问）、behavioral（行为面）、system-design（系统设计通用） |
-| domain | backend、frontend、mobile、fullstack、data-engineering、data-science、machine-learning、ai-llm（大模型应用 / Agent）、algorithm（算法岗）、infra-sre（运维 / SRE / DevOps / 云）、security、test-qa、embedded、game、database、cs-fundamentals（操作系统 / 网络 / 数据结构 / 数据库原理） |
+| domain | backend、frontend、mobile、fullstack、data-engineering、data-science、machine-learning、ai-llm（大模型应用 / Agent）、algorithm（算法岗）、infra-sre（运维 / SRE / DevOps / 云）、security、test-qa、embedded、game、database、cs-fundamentals（操作系统 / 网络 / 数据结构 / 数据库原理）、product-manager（产品经理） |
 | stack | backend-java、backend-go、backend-python、backend-cpp、backend-node、frontend-react、frontend-vue、mobile-android、mobile-ios、mobile-flutter、ml-pytorch、data-spark、infra-k8s |
 
 每个包的 SKILL.md 固定结构：
