@@ -27,6 +27,9 @@ const generationMetadataSchema = z.object({
   rationale: z.string().optional(),
   areaName: z.string().nullable().optional(),
   areaKind: z.string().nullable().optional(),
+  areaStyle: z.string().nullable().optional(),
+  competencyOrigin: z.enum(["jd", "baseline"]).nullable().optional(),
+  skillPack: z.string().nullable().optional(),
   note: z.string().nullable().optional(),
 });
 
@@ -61,7 +64,9 @@ export function buildQuestionTeaching(
   const areaName = metadata.success ? metadata.data.areaName ?? null : null;
   return {
     competencyName: competency?.name ?? areaName,
-    competencyOrigin: competency?.origin ?? null,
+    competencyOrigin: competency?.origin ?? (metadata.success ? metadata.data.competencyOrigin ?? null : null),
+    skillPack: metadata.success ? metadata.data.skillPack ?? null : null,
+    areaStyle: metadata.success ? metadata.data.areaStyle ?? null : null,
     sourceUrl: competency?.sourceUrl ?? null,
     jdEvidence: metadata.success ? metadata.data.jdEvidence ?? null : null,
     expectedSignals: expectedSignals.success ? expectedSignals.data : [],

@@ -31,7 +31,6 @@ function brief(): InterviewBrief {
     pace: "standard",
     round: "first_interview",
     askIntro: true,
-    skillPacks: ["project-deep-dive"],
   });
 }
 
@@ -53,7 +52,6 @@ test("fallback brief fits the pace's turn budget and keeps the project area firs
     pace: "quick",
     round: null,
     askIntro: true,
-    skillPacks: [],
   });
   assert.ok(plannedTurns(quick.areas, true) <= turnRangeForPace("quick").max);
   assert.equal(quick.areas[0].kind, "project");

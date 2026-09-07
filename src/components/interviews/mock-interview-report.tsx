@@ -3,6 +3,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { MetaText } from "@/components/ui/data-table";
 import { cn } from "@/lib/cn";
+import { AREA_STYLE_LABELS, type AreaStyle } from "@/lib/mock-interviews/interviewer/brief";
 import {
   MOCK_INTERVIEW_DIFFICULTY_LABELS,
   type MockInterviewView,
@@ -183,12 +184,23 @@ export function MockInterviewReport({ session }: { session: MockInterviewView })
                     ) : null}
                     <Badge>{SOURCE_LABELS[question.teaching.sourceKind] ?? "综合出题"}</Badge>
                     <Badge>
-                      {MOCK_INTERVIEW_DIFFICULTY_LABELS[
-                        question.teaching.difficulty as keyof typeof MOCK_INTERVIEW_DIFFICULTY_LABELS
-                      ] ?? question.teaching.difficulty}
+                      {question.teaching.areaStyle
+                        ? AREA_STYLE_LABELS[question.teaching.areaStyle as AreaStyle] ?? question.teaching.areaStyle
+                        : MOCK_INTERVIEW_DIFFICULTY_LABELS[
+                            question.teaching.difficulty as keyof typeof MOCK_INTERVIEW_DIFFICULTY_LABELS
+                          ] ?? question.teaching.difficulty}
                     </Badge>
                   </div>
-                  {question.teaching.competencyOrigin === "inferred" ? (
+                  {question.teaching.competencyOrigin === "baseline" ? (
+                    <div className="rounded-control border border-border bg-surface p-3">
+                      <p className="font-medium text-foreground">岗位常见要求</p>
+                      <p className="mt-1">
+                        这道题来自这个岗位通常会考察的方向
+                        {question.teaching.skillPack ? "（技能包 " + question.teaching.skillPack + "）" : ""}，
+                        不是你提供的岗位描述里写明的。
+                      </p>
+                    </div>
+                  ) : question.teaching.competencyOrigin === "inferred" ? (
                     <div className="rounded-control border border-border bg-surface p-3">
                       <p className="font-medium text-foreground">
                         该岗位的常见要求（非你提供的岗位描述）

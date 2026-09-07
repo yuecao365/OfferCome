@@ -11,7 +11,7 @@ import { activeThread, areaById, type InterviewerState } from "./state";
  * 工作记忆、本回合允许的动作。对话只带最近几回合原文，远处的靠记忆与线程摘要。
  */
 
-export const INTERVIEWER_PROMPT_VERSION = "interviewer-v2";
+export const INTERVIEWER_PROMPT_VERSION = "interviewer-v3";
 const RECENT_TURNS = 6;
 const MAX_RESUME_CHARS = 6_000;
 const MAX_JD_CHARS = 4_000;
@@ -59,7 +59,7 @@ export function buildInterviewerSystemPrompt(
         : threads.length > 0
           ? "已考察"
           : "未考察";
-      return `- [${area.id}] ${area.name}（${area.kind}，目标深度 ${area.depth} 层，${status}）：${area.description}\n  切入问题：${area.entryQuestion}\n  深度阶梯：${area.ladder.map((rung, index) => `${index + 1}.${rung}`).join(" → ")}`;
+      return `- [${area.id}] ${area.name}（${area.kind}${area.style ? ` · ${area.style}` : ""}，目标深度 ${area.depth} 层，${status}）：${area.description}\n  切入问题：${area.entryQuestion}\n  深度阶梯：${area.ladder.map((rung, index) => `${index + 1}.${rung.text}${rung.style ? `（${rung.style}）` : ""}`).join(" → ")}`;
     })
     .join("\n");
   const closed = state.threads
@@ -82,7 +82,7 @@ export function buildInterviewerSystemPrompt(
 考察领域（深度是目标，最多多追一层）：
 ${areas}
 
-${active ? `当前线程：领域 [${active.areaId}] ${activeArea?.name ?? ""}，切入问题「${active.entryQuestion}」，已追问 ${active.depth} 层（目标 ${activeArea?.depth ?? 1}，最多 ${probeLimit(state, active.areaId)}），已提示 ${active.rescues} 次（上限 1）。下一级阶梯：${activeArea?.ladder[Math.min(active.depth, activeArea.ladder.length - 1)] ?? ""}` : "当前没有进行中的线程。"}
+${active ? `当前线程：领域 [${active.areaId}] ${activeArea?.name ?? ""}，切入问题「${active.entryQuestion}」，已追问 ${active.depth} 层（目标 ${activeArea?.depth ?? 1}，最多 ${probeLimit(state, active.areaId)}），已提示 ${active.rescues} 次（上限 1）。下一级阶梯：${(() => { const rung = activeArea?.ladder[Math.min(active.depth, activeArea.ladder.length - 1)]; return rung ? `${rung.text}${rung.style ? `（${rung.style}）` : ""}` : ""; })()}` : "当前没有进行中的线程。"}
 
 已结束的线程：
 ${closed || "（无）"}

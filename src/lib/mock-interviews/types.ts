@@ -156,7 +156,12 @@ export type MockInterviewReport = {
 
 export type MockInterviewQuestionTeaching = {
   competencyName: string | null;
-  competencyOrigin: "jd" | "inferred" | null;
+  /** jd：JD 明确要求；inferred：兜底蓝图推断；baseline：技能包补的岗位常见要求。 */
+  competencyOrigin: "jd" | "inferred" | "baseline" | null;
+  /** baseline 来源时是哪个技能包。 */
+  skillPack: string | null;
+  /** 对话式面试的领域风格（scenario / fundamentals），旧流程为 null。 */
+  areaStyle: string | null;
   sourceUrl: string | null;
   jdEvidence: string | null;
   expectedSignals: string[];

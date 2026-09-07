@@ -195,6 +195,10 @@ export async function persistTurn(
                 areaId: effect.thread.areaId,
                 areaName: area?.name ?? null,
                 areaKind: area?.kind ?? null,
+                areaStyle: area?.style ?? null,
+                // 溯源：这段考的是 JD 明确要求的，还是技能包补的岗位常见要求。
+                competencyOrigin: !area ? null : area.competencyIds.length > 0 ? "jd" : area.baseline ? "baseline" : null,
+                skillPack: area?.baseline?.skill ?? null,
                 note: effect.thread.note,
                 depth: effect.thread.depth,
                 probeCount: effect.segment.probeCount,

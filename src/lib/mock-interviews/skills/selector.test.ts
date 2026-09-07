@@ -2,33 +2,40 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { loadSkillPacks } from "./loader";
-import { recommendSkillPacks } from "./selector";
+import { rankSkillPacks, recommendSkillPacks, selectSkillIndex, SKILL_INDEX_LIMIT } from "./selector";
 
-test("resume tech stack drives stack selection and pulls in the parent domain", async () => {
+const javaBackend = {
+  jobTitle: "后端开发工程师",
+  jobDescription: "负责业务系统开发。",
+  resumeText: "熟悉 Java、Spring Boot、MySQL，做过订单系统。",
+};
+
+test("index keeps base packs first, puts the resume's stack right after its domain, and respects the limit", async () => {
   const packs = await loadSkillPacks();
-  const recommended = recommendSkillPacks(
-    {
-      jobTitle: "后端开发工程师",
-      jobDescription: "负责业务系统开发。",
-      resumeText: "熟悉 Java、Spring Boot、MySQL，做过订单系统。",
-    },
-    packs,
+  const index = selectSkillIndex(javaBackend, packs);
+  const names = index.map((pack) => pack.name);
+  const baseCount = packs.filter((pack) => pack.layer === "base").length;
+  assert.ok(index.length <= SKILL_INDEX_LIMIT);
+  assert.deepEqual(
+    names.slice(0, baseCount),
+    packs.filter((pack) => pack.layer === "base").map((pack) => pack.name),
   );
-  assert.deepEqual(recommended, ["project-deep-dive", "backend", "backend-java"]);
+  assert.ok(names.indexOf("backend") < names.indexOf("backend-java"), "父级领域包排在栈包前面");
+  assert.ok(names.indexOf("backend-java") < baseCount + 3, "简历命中的栈包靠前");
 });
 
-test("falls back to cs-fundamentals when nothing matches", async () => {
+test("ranking never drops packs, so the agent can still load a pack the keywords missed", async () => {
   const packs = await loadSkillPacks();
-  const recommended = recommendSkillPacks(
-    { jobTitle: "产品经理", jobDescription: "无", resumeText: "无" },
-    packs,
-  );
-  assert.deepEqual(recommended, ["project-deep-dive", "cs-fundamentals"]);
+  assert.equal(rankSkillPacks(javaBackend, packs).length, packs.length);
 });
 
-test("caps stacks at two even when many keywords hit", async () => {
+test("legacy recommendation: resume stack pulls in its parent domain and caps stacks at two", async () => {
   const packs = await loadSkillPacks();
-  const recommended = recommendSkillPacks(
+  const recommended = recommendSkillPacks(javaBackend, packs);
+  assert.ok(recommended.includes("backend"));
+  assert.ok(recommended.includes("backend-java"));
+
+  const mixed = recommendSkillPacks(
     {
       jobTitle: "全栈工程师",
       jobDescription: "React 前端 + Go 服务端 + Java 中间件维护",
@@ -36,9 +43,16 @@ test("caps stacks at two even when many keywords hit", async () => {
     },
     packs,
   );
-  const stacks = recommended.filter((name) =>
-    ["backend-java", "backend-go", "frontend-react", "frontend-vue"].includes(name),
-  );
+  const stacks = mixed.filter((name) => packs.find((pack) => pack.name === name)?.layer === "stack");
   assert.equal(stacks.length, 2);
-  assert.equal(recommended.includes("project-deep-dive"), true);
+});
+
+test("legacy recommendation falls back to cs-fundamentals when nothing matches", async () => {
+  const packs = await loadSkillPacks();
+  const recommended = recommendSkillPacks(
+    { jobTitle: "xyzzy", jobDescription: "无", resumeText: "无" },
+    packs,
+  );
+  assert.ok(recommended.includes("cs-fundamentals"));
+  assert.equal(recommended.some((name) => packs.find((pack) => pack.name === name)?.layer === "stack"), false);
 });

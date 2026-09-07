@@ -27,6 +27,8 @@ test("buildQuestionTeaching resolves competency and persisted generation evidenc
   assert.deepEqual(teaching, {
     competencyName: "系统设计",
     competencyOrigin: "jd",
+    skillPack: null,
+    areaStyle: null,
     sourceUrl: null,
     jdEvidence: "负责高并发系统设计",
     expectedSignals: ["说明取舍", "给出验证方式"],
