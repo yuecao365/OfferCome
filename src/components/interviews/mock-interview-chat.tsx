@@ -219,9 +219,10 @@ export function MockInterviewChat({
   }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_16rem]">
-      <Card className="flex min-h-[32rem] flex-col p-0">
-        <div className="flex-1 space-y-3 overflow-y-auto p-4" ref={scrollRef}>
+    <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_16rem]">
+      {/* 聊天窗口固定为视口高度：消息在窗口内滚动，输入框始终可见。 */}
+      <Card className="flex h-[calc(100dvh-13.5rem)] min-h-[26rem] min-w-0 flex-col p-0">
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4" ref={scrollRef}>
           {transcript.map((message) => (
             <Bubble key={message.id} message={message} />
           ))}
@@ -308,14 +309,14 @@ export function MockInterviewChat({
         )}
       </Card>
 
-      <aside className="grid content-start gap-3">
-        <Card className="p-4">
+      <aside className="grid min-w-0 content-start gap-3">
+        <Card className="min-w-0 p-4">
           <p className="text-xs font-semibold text-muted-foreground">考察领域</p>
           <ol className="mt-3 grid gap-2">
             {areas.map((area) => (
-              <li className="flex items-start justify-between gap-2 text-sm" key={area.id}>
+              <li className="flex min-w-0 items-start justify-between gap-2 text-sm" key={area.id}>
                 <div className="min-w-0">
-                  <p className="truncate font-medium text-foreground">{area.name}</p>
+                  <p className="break-words font-medium leading-5 text-foreground">{area.name}</p>
                   <p className="text-xs text-muted-foreground">
                     {AREA_KIND_LABELS[area.kind] ?? area.kind} · 约 {area.minutes} 分钟
                   </p>
