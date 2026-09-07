@@ -2,10 +2,10 @@
 import "server-only";
 
 import { isStepCount, tool, type LanguageModelUsage } from "ai";
-import { z } from "zod";
 
 import { loadSkillPacks } from "./skills/loader";
 import { recommendSkillPacks } from "./skills/selector";
+import { createSkillTools } from "./skills/tools";
 import type { SkillPack } from "./skills/types";
 
 import { createTextModel } from "@/lib/ai/providers";
@@ -135,31 +135,10 @@ async function requestQuestionBatch(input: {
     Boolean(input.seedSourceId),
     input.context.jobBlueprint,
   );
-  const packsByName = new Map(input.skills.packs.map((pack) => [pack.name, pack]));
   // 记录真正进入提示词的包：注入模式下就是推荐清单，工具模式下由 load_skill 逐个登记。
+  const skillTools = createSkillTools(input.skills.packs);
   const loadedSkillNames: string[] =
-    input.skills.mode === "injected" ? [...input.skills.recommended] : [];
-  const loadSkillTool = tool({
-    description:
-      "加载一个面试技能包的全文出题指导。按上文技能包清单的 description 判断相关性，出题前先加载 2-3 个最相关的包（含推荐标记的）。",
-    inputSchema: z.object({ name: z.string().min(1).max(64) }),
-    execute: async ({ name }) => {
-      const pack = packsByName.get(name);
-      if (!pack) return `技能包 ${name} 不存在。可用：${[...packsByName.keys()].join(", ")}`;
-      const parts: string[] = [];
-      // 栈包自动附带父级领域包，架构方法论不缺席。
-      if (pack.parent && !loadedSkillNames.includes(pack.parent)) {
-        const parent = packsByName.get(pack.parent);
-        if (parent) {
-          loadedSkillNames.push(parent.name);
-          parts.push(`### 技能包：${parent.name}\n${parent.body}`);
-        }
-      }
-      if (!loadedSkillNames.includes(pack.name)) loadedSkillNames.push(pack.name);
-      parts.push(`### 技能包：${pack.name}\n${pack.body}`);
-      return parts.join("\n\n");
-    },
-  });
+    input.skills.mode === "injected" ? [...input.skills.recommended] : skillTools.loaded;
   const skillSection =
     input.skills.mode === "tools"
       ? `可用的出题技能包（可信指导，先用 load_skill 工具加载相关包的全文再出题）：\n${skillCatalog(input.skills)}`
@@ -179,7 +158,7 @@ async function requestQuestionBatch(input: {
       maxOutputTokens: 6_000,
       timeoutMs: MOCK_INTERVIEW_GENERATION_TIMEOUT_MS,
       ...(input.skills.mode === "tools"
-        ? { tools: { load_skill: loadSkillTool }, stopWhen: isStepCount(4) }
+        ? { tools: skillTools.tools, stopWhen: isStepCount(4) }
         : {}),
       rescue: (rawText) => {
         const rescued = parsePartialQuestions(rawText);

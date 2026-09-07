@@ -1,12 +1,15 @@
 import "server-only";
 
+import { isStepCount } from "ai";
+
 import { assertAiConfigured, logAgentRun, runAgent } from "@/lib/ai/run-agent";
 import { salvageJson } from "@/lib/ai/salvage-json";
 import { getAiTaskConfig } from "@/lib/settings/ai";
 
 import type { MockInterviewContext } from "../context";
 import { loadSkillPacks } from "../skills/loader";
-import { recommendSkillPacks } from "../skills/selector";
+import { selectSkillIndex } from "../skills/selector";
+import { createSkillTools, renderSkillIndex } from "../skills/tools";
 import type { MockInterviewJobBlueprint } from "../types";
 import {
   briefOutputSchema,
@@ -19,16 +22,9 @@ import {
 } from "./brief";
 import { INTERVIEWER_PROMPT_VERSION } from "./prompt";
 
-const BRIEF_TIMEOUT_MS = 60_000;
-
-/** 技能包只取"追问链 / 深度阶梯 / 好题坏题"三段，够备课用，不把整包塞进上下文。 */
-function skillExcerpt(body: string): string {
-  const sections = body.split(/\n(?=## )/);
-  const wanted = sections.filter((section) =>
-    /追问|阶梯|好题|坏题|出题原则/.test(section.slice(0, 40)),
-  );
-  return (wanted.length > 0 ? wanted : sections.slice(0, 2)).join("\n").slice(0, 2_500);
-}
+const BRIEF_TIMEOUT_MS = 90_000;
+/** 最多加载几个技能包再产出简报：每次 load_skill 一步，最后一步出结构化结果。 */
+const BRIEF_MAX_STEPS = 5;
 
 const rescueBrief = salvageJson(briefOutputSchema, {
   accept: (output) => output.areas.length > 0,
@@ -36,6 +32,7 @@ const rescueBrief = salvageJson(briefOutputSchema, {
 
 /**
  * 备课：从蓝图、简历、技能包生成面试简报。
+ * 技能包按渐进式披露交给模型：索引进提示词，全文由模型用 load_skill 自行加载。
  * 两级：严格 schema + 抢救 → 代码兜底简报。与蓝图一样没有失败路径。
  */
 export async function generateInterviewBrief(input: {
@@ -48,16 +45,15 @@ export async function generateInterviewBrief(input: {
 }): Promise<InterviewBrief> {
   const config = await getAiTaskConfig("text");
   assertAiConfigured(config, "AI 模拟面试");
-  const packs = await loadSkillPacks();
-  const recommended = recommendSkillPacks(
+  const index = selectSkillIndex(
     {
       jobTitle: input.jobTitle,
       jobDescription: input.context.jobDescription,
       resumeText: input.context.resume.text,
     },
-    packs,
+    await loadSkillPacks(),
   );
-  const packsByName = new Map(packs.map((pack) => [pack.name, pack]));
+  const skills = createSkillTools(index);
   const askIntro = true;
   const range = turnRangeForPace(input.pace);
   const base = {
@@ -65,7 +61,7 @@ export async function generateInterviewBrief(input: {
     pace: input.pace,
     round: input.round,
     askIntro,
-    skillPacks: recommended,
+    skillPacks: skills.loaded,
   };
   const startedAt = Date.now();
   const finish = (level: 1 | 3, brief: InterviewBrief) => {
@@ -82,6 +78,7 @@ export async function generateInterviewBrief(input: {
         level,
         areaCount: brief.areas.length,
         hypothesisCount: brief.hypotheses.length,
+        skillsLoaded: skills.loaded.length,
       },
     });
     return brief;
@@ -99,9 +96,14 @@ export async function generateInterviewBrief(input: {
       schemaDescription: "面试官的备课简报：考察领域、切入问题、深度阶梯、简历假设",
       maxOutputTokens: 4_000,
       timeoutMs: BRIEF_TIMEOUT_MS,
+      tools: skills.tools,
+      stopWhen: isStepCount(BRIEF_MAX_STEPS),
       rescue: rescueBrief,
       untrustedInputs: "岗位描述、简历、项目和历史反馈",
       system: `你是资深技术面试官，正在为一场模拟面试备课。目标岗位：${input.jobTitle}。这场面试预计 ${range.min}–${range.max} 个回合（一个回合 = 你问一次），开场自我介绍占 1 个回合。
+
+备课前先用 load_skill 加载最相关的 1–3 个技能包（下面是索引，按 description 判断；技能包是本系统提供的可信资料，里面的阶梯、好题、危险信号可以直接用）：
+${renderSkillIndex(index)}
 
 备课的产物不是题目清单，而是：
 1. 考察领域：从岗位能力蓝图归并而来，每个领域写明 kind（technical / project / behavioral）、绑定的 competencyIds、权重（1–3，越重要越大）和 depth（打算追问几层，1–${MAX_AREA_DEPTH}）。领域数量和深度由你分配：一个领域花费 depth + 2 个回合，全部领域加起来控制在 ${range.max - 1} 回合以内，超出的会按权重被丢弃。少而深、多而浅都可以——最重要的领域深挖，次要的浅问一层或不问；但要把预算用满，总花费尽量接近上限，至少两个领域。候选人简历上有具体项目时，至少一个 project 领域围绕它深挖。
@@ -122,10 +124,6 @@ export async function generateInterviewBrief(input: {
           .filter((item) => item.kind === "weakness" || item.kind === "training_focus")
           .slice(0, 6)
           .map((item) => ({ title: item.title, statement: item.statement })),
-        skillPacks: recommended.flatMap((name) => {
-          const pack = packsByName.get(name);
-          return pack ? [{ name: pack.name, excerpt: skillExcerpt(pack.body) }] : [];
-        }),
       },
     });
     return finish(
