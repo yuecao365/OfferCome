@@ -188,6 +188,8 @@ export type MockInterviewConversation = {
   phase: "opening" | "running" | "ended";
   pace: InterviewPace;
   turnRange: TurnRange;
+  /** 第一回合落库的时间；房间顶栏据此显示已用时。 */
+  startedAt: string | null;
   areas: {
     id: string;
     name: string;

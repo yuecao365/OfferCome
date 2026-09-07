@@ -63,6 +63,7 @@ function buildConversation(session: SessionWithConversation): MockInterviewConve
     phase: ended ? "ended" : session.messages.length === 0 ? "opening" : "running",
     pace: brief.pace,
     turnRange: brief.turnRange,
+    startedAt: session.startedAt?.toISOString() ?? null,
     areas: brief.areas.map((area) => {
       const threads = session.threads.filter((thread) => thread.areaId === area.id);
       return {

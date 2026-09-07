@@ -21,7 +21,7 @@ import type {
  * 面试官的话经流式返回，流结束时服务端把真正落库的消息以 data-turn 数据块交回，
  * 前端用它替换流中的临时内容——真相始终在服务端。
  *
- * 候选人看不到考察领域和面试官的计划，只知道大致回合数；计划与笔记在报告页揭晓。
+ * 候选人看不到考察领域和面试官的计划，顶栏只有一个已用时的钟；计划与笔记在报告页揭晓。
  */
 
 type Intent = "skip" | "hint" | "repeat" | "end";
@@ -55,6 +55,27 @@ export function MockInterviewBubble({ message }: { message: MockInterviewConvers
   );
 }
 
+/** 面试室的钟：从第一回合开始计时，结束后停住。 */
+function ElapsedClock({ startedAt, running }: { startedAt: string | null; running: boolean }) {
+  // 只在浏览器里读时钟：服务端渲染没有"现在"，否则首屏会 hydration 不一致。
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    setNow(Date.now());
+    if (!running) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1_000);
+    return () => window.clearInterval(timer);
+  }, [running]);
+  if (!startedAt || now === null) return null;
+  const seconds = Math.max(0, Math.floor((now - new Date(startedAt).getTime()) / 1_000));
+  const mm = String(Math.floor(seconds / 60)).padStart(2, "0");
+  const ss = String(seconds % 60).padStart(2, "0");
+  return (
+    <p aria-label="已用时" className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
+      {mm}:{ss}
+    </p>
+  );
+}
+
 export function MockInterviewChat({
   session,
 }: {
@@ -69,6 +90,8 @@ export function MockInterviewChat({
   const [completing, setCompleting] = useState(false);
   const startedRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // 开场回合落库前服务端还没有开始时间，先按进入房间的时刻计时。
+  const [openedAt] = useState(() => new Date().toISOString());
 
   const transport = useMemo(
     () => new DefaultChatTransport({ api: `/api/interviews/mock/${session.id}/turn` }),
@@ -171,9 +194,7 @@ export function MockInterviewChat({
         <p className="min-w-0 flex-1 truncate text-sm font-medium">
           {session.companyName} · {session.jobTitle}
         </p>
-        <p className="hidden shrink-0 text-xs text-muted-foreground sm:block">
-          第 {Math.max(1, turnsUsed)} 回合 · 预计 {conversation.turnRange.min}–{conversation.turnRange.max} 回合
-        </p>
+        <ElapsedClock startedAt={conversation.startedAt ?? openedAt} running={!ended} />
         <ThemeButton />
       </header>
 
