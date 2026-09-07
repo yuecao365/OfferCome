@@ -1,5 +1,5 @@
 import { InterviewDeleteButton } from "@/components/interviews/interview-delete-button";
-import { MockInterviewChat } from "@/components/interviews/mock-interview-chat";
+import { MockInterviewBubble } from "@/components/interviews/mock-interview-chat";
 import { MockInterviewGenerationProgress } from "@/components/interviews/mock-interview-generation-progress";
 import { MockInterviewJdReview } from "@/components/interviews/mock-interview-jd-review";
 import { MockInterviewReport } from "@/components/interviews/mock-interview-report";
@@ -19,7 +19,8 @@ import {
  * 单场模拟面试页的呈现层。本地版与体验版渲染同一棵组件树，
  * 差别只在注入的删除动作与房间数据通道。
  *
- * 本地版走对话式房间；体验版在 P2 同构前仍走旧的分步房间（transport 注入）。
+ * 进行中的对话式面试不经过这里（页面直接渲染全屏房间）；这里只负责备课中、待补 JD、
+ * 已完成（报告 + 对话记录）这几种带导航的状态。体验版在 P2 同构前仍走旧的分步房间（transport 注入）。
  * 旧的分步会话没有简报：已完成的照常看报告，未完成的不再支持继续。
  */
 export function MockInterviewSessionView({
@@ -70,8 +71,18 @@ export function MockInterviewSessionView({
           }}
           sessionId={session.id}
         />
-      ) : session.conversation ? (
-        <MockInterviewChat session={{ ...session, conversation: session.conversation }} />
+      ) : session.conversation && session.report ? (
+        <div className="grid gap-6">
+          <MockInterviewReport session={session} />
+          <details>
+            <summary className="cursor-pointer text-sm font-semibold text-foreground">对话记录</summary>
+            <div className="mt-4 grid gap-3">
+              {session.conversation.messages.map((message) => (
+                <MockInterviewBubble key={message.id} message={message} />
+              ))}
+            </div>
+          </details>
+        </div>
       ) : transport ? (
         <MockInterviewRoom initial={session} transport={transport} />
       ) : session.status === "completed" && session.report ? (
