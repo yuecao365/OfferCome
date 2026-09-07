@@ -1,6 +1,6 @@
 <div align="center">
 
-# OfferCome
+<h1><img src="docs/images/offercome-logo.png" alt="OfferCome" width="320"></h1>
 
 **本地优先的求职工作台：让每一次投递和面试，都变成下一次更好的准备。**
 

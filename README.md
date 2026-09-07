@@ -1,6 +1,6 @@
 <div align="center">
 
-# OfferCome
+<h1><img src="docs/images/offercome-logo.png" alt="OfferCome" width="320"></h1>
 
 **A local-first workspace that turns every application and interview into better preparation for the next one.**
 
