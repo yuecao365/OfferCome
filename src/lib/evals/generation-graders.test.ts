@@ -174,6 +174,32 @@ test("injection canary leaking into any returned question fails, even if later r
   assert.equal(verdict?.status, "fail");
 });
 
+test("a batch dominated by resume questions fails the resume quota", () => {
+  const resumeQuestion = (text: string) =>
+    question({
+      question: text,
+      category: "resume_project",
+      sourceKind: "resume",
+      resumeProjectId: "p1",
+      jdEvidence: "工具调用",
+    });
+  const batch = [
+    resumeQuestion("你在 Study Assistant 里怎么做工具参数校验？"),
+    resumeQuestion("Subagent 的上下文隔离是怎么实现的？"),
+    resumeQuestion("MCP Server 动态注入时怎么处理版本不兼容？"),
+    resumeQuestion("分层记忆里 pinned memory 怎么决定淘汰？"),
+  ];
+  const record = assembleGenerationRecord(rows({ returned: batch, requested: 4 }))!;
+  const verdict = gradeGeneration(record).find((item) => item.grader === "resume_quota");
+  // ⌊4 × 0.3⌋ + 1 = 2，4 道 resume 题超限。
+  assert.equal(verdict?.status, "fail");
+  assert.equal(verdict?.value, 4);
+  assert.equal(
+    gradeGeneration(record, { maxResume: 4 }).find((item) => item.grader === "resume_quota")?.status,
+    "pass",
+  );
+});
+
 test("records without an accepted list skip the graders that need it", () => {
   const record = assembleGenerationRecord(rows({ returned: goodBatch, accepted: null }))!;
   assert.equal(record.accepted, null);
@@ -181,6 +207,21 @@ test("records without an accepted list skip the graders that need it", () => {
   assert.deepEqual(summary.failed, []);
   assert.ok(summary.skipped.includes("accepted_count"));
   assert.ok(summary.skipped.includes("resume_question_grounded"));
+});
+
+test("a question rejected in both the strict and the final selection counts once", () => {
+  const base = rows({
+    returned: goodBatch,
+    accepted: [goodBatch[0], goodBatch[2]],
+    rejected: [{ question: goodBatch[1].question, reason: "invalid_resume_project" }],
+  });
+  const finalSelection = {
+    ...base[2],
+    agent: "questions_top_up",
+    createdAt: new Date(base[2].createdAt.getTime() + 1_000),
+  };
+  const record = assembleGenerationRecord([...base, finalSelection])!;
+  assert.equal(record.rejected.length, 1);
 });
 
 test("runs without any question call are not generation records", () => {

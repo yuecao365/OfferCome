@@ -79,6 +79,11 @@ export function selectValidQuestions(input: {
   blueprint: MockInterviewJobBlueprint;
   personalization: RelevantPersonalizationContext;
   seedSourceId?: string | null;
+  /**
+   * 不够数时是否放宽配额补位。首轮筛选传 false：先严格，不够先补货要 JD 题，
+   * 补货之后再放宽——否则模型多出的 resume 题会直接填满整场，补货永远触发不了。
+   */
+  relax?: boolean;
 }): QuestionSelectionResult {
   const accepted = [...(input.existing ?? [])];
   const rejected: QuestionSelectionResult["rejected"] = [];
@@ -200,10 +205,12 @@ export function selectValidQuestions(input: {
     }
     accepted.push(candidate);
   }
-  for (const entry of deferred) {
-    if (accepted.length >= input.questionCount) break;
-    if (isDuplicate(entry.candidate, NEAR_EXACT_DUPLICATE_THRESHOLD)) continue;
-    accepted.push(entry.candidate);
+  if (input.relax !== false) {
+    for (const entry of deferred) {
+      if (accepted.length >= input.questionCount) break;
+      if (isDuplicate(entry.candidate, NEAR_EXACT_DUPLICATE_THRESHOLD)) continue;
+      accepted.push(entry.candidate);
+    }
   }
 
   return { accepted, rejected };

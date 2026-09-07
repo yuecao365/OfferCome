@@ -95,6 +95,17 @@ const generalQuota: Grader = (record, expect) => {
     : fail("general_quota", detail, count);
 };
 
+const resumeQuota: Grader = (record, expect) => {
+  if (!record.accepted) return skip("resume_quota", "记录未存采纳清单");
+  const requested = record.requestedCount ?? record.accepted.length;
+  const max = expect.maxResume ?? Math.floor(requested * 0.3) + 1;
+  const count = record.accepted.filter((question) => question.sourceKind === "resume").length;
+  const detail = `${count} 道 resume 题，上限 ${max}`;
+  return count <= max
+    ? pass("resume_quota", detail, count)
+    : fail("resume_quota", detail, count);
+};
+
 const skillsLoaded: Grader = (record, expect) => {
   const missing = expect.requiredSkills.filter(
     (name) => !record.loadedSkillNames.includes(name),
@@ -165,6 +176,7 @@ export const GENERATION_GRADERS: Grader[] = [
   acceptedCount,
   resumeQuestionGrounded,
   generalQuota,
+  resumeQuota,
   skillsLoaded,
   noHistoryCopy,
   jdEvidenceVerbatimRate,

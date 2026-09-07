@@ -128,6 +128,7 @@ async function resolveJobDescriptionGap(
   snapshot: GenerationSnapshot,
   blueprint: MockInterviewJobBlueprint,
   request: GenerationRequest,
+  generationId: string,
 ): Promise<MockInterviewJobBlueprint | Abandoned> {
   const needsReview =
     !request.jdStrategy &&
@@ -166,6 +167,7 @@ async function resolveJobDescriptionGap(
 
   try {
     const enriched = await enrichMockInterviewJob({
+      generationId,
       jobTitle: session.interview.jobTitle,
       jobDescription: session.jdTextSnapshot,
       blueprint,
@@ -356,6 +358,7 @@ export async function generateMockInterviewQuestions(
       snapshot,
       analyzed,
       request,
+      generationId,
     );
     if (blueprint === ABANDONED) return;
 

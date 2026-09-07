@@ -2,20 +2,44 @@ import process from "node:process";
 
 import { prisma } from "../src/lib/db";
 import { assembleGenerationRecords } from "../src/lib/evals/assemble";
+import { loadJdFixtures } from "../src/lib/evals/cases";
 import { gradeGeneration } from "../src/lib/evals/generation-graders";
-import { summarizeVerdicts, type GraderVerdict } from "../src/lib/evals/types";
+import {
+  summarizeVerdicts,
+  type GenerationExpect,
+  type GraderVerdict,
+} from "../src/lib/evals/types";
+
+/** 评测记录的 runId 形如 tag:jdId__resume:rN，据此找回用例的期望阈值。 */
+function expectForRun(runId: string): Partial<GenerationExpect> {
+  const match = runId.match(/^[^:]+:(.+)__(?:user|synthetic-backend):r\d+$/);
+  if (!match) return {};
+  return loadJdFixtures().find((jd) => jd.id === match[1])?.expect ?? {};
+}
 
 /**
  * 重放模式：对库里已有的出题记录跑代码判分器，不调模型。
- *   npm run eval:replay                 全部记录
+ *   npm run eval:replay                 真实使用产生的全部记录（不含评测记录）
  *   npm run eval:replay -- <runId前缀>  只看一条，逐判分器打印说明
+ *   npm run eval:replay -- --tag <tag>  只看某次评测的记录
  */
+
+function argValue(name: string): string | undefined {
+  const index = process.argv.indexOf(name);
+  return index >= 0 ? process.argv[index + 1] : undefined;
+}
 
 const MARK: Record<GraderVerdict["status"], string> = { pass: "✓", fail: "✗", skip: "·" };
 
 async function main(): Promise<void> {
-  const filter = process.argv.slice(2).find((arg) => !arg.startsWith("--"));
-  const rows = await prisma.agentRun.findMany({ orderBy: { createdAt: "asc" } });
+  const tag = argValue("--tag");
+  const filter = process.argv
+    .slice(2)
+    .find((arg, index, all) => !arg.startsWith("--") && all[index - 1] !== "--tag");
+  const rows = await prisma.agentRun.findMany({
+    where: { tag: tag ?? null },
+    orderBy: { createdAt: "asc" },
+  });
   const records = assembleGenerationRecords(rows).filter(
     (record) => !filter || record.runId.startsWith(filter),
   );
@@ -29,7 +53,7 @@ async function main(): Promise<void> {
   const tally = new Map<string, Map<string, { pass: number; fail: number; skip: number }>>();
 
   for (const record of records) {
-    const verdicts = gradeGeneration(record);
+    const verdicts = gradeGeneration(record, expectForRun(record.runId));
     const summary = summarizeVerdicts(verdicts);
     const version = record.promptVersion ?? "-";
     const versionTally = tally.get(version) ?? new Map();

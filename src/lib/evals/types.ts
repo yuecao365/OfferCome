@@ -40,6 +40,8 @@ export type GenerationExpect = {
   /** null 表示按"请求数 − 1"。 */
   minAccepted: number | null;
   maxGeneral: number;
+  /** null 表示按配额规则推导：⌊请求数 × 0.3⌋ + 1（第二轮放宽允许超一道）。 */
+  maxResume: number | null;
   requiredSkills: string[];
   minVerbatimEvidenceRate: number;
   maxHistorySimilarity: number;
@@ -53,6 +55,7 @@ export const DEFAULT_GENERATION_EXPECT: GenerationExpect = {
   maxFabricated: 0,
   minAccepted: null,
   maxGeneral: 2,
+  maxResume: null,
   requiredSkills: ["project-deep-dive"],
   minVerbatimEvidenceRate: 0.8,
   maxHistorySimilarity: 0.3,

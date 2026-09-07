@@ -100,14 +100,17 @@ export function assembleGenerationRecord(rows: AgentRunRow[]): GenerationRecord 
   const acceptedRaw = lastSelectionOutput.accepted;
   const accepted = Array.isArray(acceptedRaw) ? acceptedRaw.filter(isQuestion) : null;
 
-  const rejected = selections.flatMap((row) =>
-    asArray(parseJson(row.outputJson).rejected).flatMap((item) => {
+  // 终轮裁决在首轮与补货的全部候选上重筛，同一道被拒的题会再记一次：按题干去重。
+  const rejectedByQuestion = new Map<string, { question: string; reason: string }>();
+  for (const row of selections) {
+    for (const item of asArray(parseJson(row.outputJson).rejected)) {
       const entry = asObject(item);
-      return typeof entry.question === "string" && typeof entry.reason === "string"
-        ? [{ question: entry.question, reason: entry.reason }]
-        : [];
-    }),
-  );
+      if (typeof entry.question === "string" && typeof entry.reason === "string") {
+        rejectedByQuestion.set(entry.question, { question: entry.question, reason: entry.reason });
+      }
+    }
+  }
+  const rejected = [...rejectedByQuestion.values()];
   const loadedSkillNames = [
     ...new Set(
       selections.flatMap((row) =>

@@ -35,6 +35,7 @@ const expectOverrideSchema = z
     maxFabricated: z.number().int().min(0),
     minAccepted: z.number().int().min(0).nullable(),
     maxGeneral: z.number().int().min(0),
+    maxResume: z.number().int().min(0).nullable(),
     requiredSkills: z.array(z.string()),
     minVerbatimEvidenceRate: z.number().min(0).max(1),
     maxHistorySimilarity: z.number().min(0).max(1),

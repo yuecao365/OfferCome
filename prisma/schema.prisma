@@ -470,9 +470,12 @@ model AgentRun {
   payloadJson   String?
   outputJson    String?
   rawText       String?
+  /// 评测跑出来的记录打标签，与真实使用分开；真实使用为 null。
+  tag           String?
   createdAt     DateTime @default(now())
 
   @@index([runId])
   @@index([agent, createdAt])
   @@index([status, createdAt])
+  @@index([tag, createdAt])
 }

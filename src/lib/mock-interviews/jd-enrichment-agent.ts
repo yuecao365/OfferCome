@@ -27,6 +27,8 @@ const enrichedCompetenciesSchema = z.object({
 });
 
 type EnrichmentInput = {
+  /** 与同一次生成的其他调用共用，便于按 runId 串链路。 */
+  generationId?: string;
   jobTitle: string;
   jobDescription: string;
   blueprint: MockInterviewJobBlueprint;
@@ -48,6 +50,7 @@ async function requestEnrichment(input: EnrichmentInput, search: WebSearchFn | n
 
   const { output } = await runAgent({
     agent: "job_enrichment",
+    runId: input.generationId,
     config: await getAiTaskConfig("text"),
     feature: "AI 模拟面试",
     promptVersion: MOCK_INTERVIEW_PROMPT_VERSION,

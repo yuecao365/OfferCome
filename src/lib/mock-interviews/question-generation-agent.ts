@@ -126,6 +126,8 @@ async function requestQuestionBatch(input: {
   existingQuestions: MockInterviewQuestionDraft[];
   seedSourceId?: string | null;
   skills: SkillContext;
+  /** 补货阶段的额外约束，如"resume 题已达上限，只出 JD 题"。 */
+  topUpHint?: string;
 }): Promise<QuestionBatchResult> {
   const allocation = getQuestionSourceAllocation(
     input.totalQuestionCount,
@@ -196,6 +198,7 @@ ${skillSection}
 出题倾向（服务端会按此排序取优，不必精确凑数）：候选人多为计算机/技术背景，题目类别优先 technical（技术八股，按 JD 技术栈深入原理与取舍）和 resume_project（项目深挖，追问职责、决策与结果），general 通用行为题整场最多 1–2 道。优先直接考察 JD 职责（约 ${allocation.directJobDescriptionMin} 题以 job_description 为 sourceKind）；resume 题占少数（约 ${allocation.resumeMax} 题以内）；history/profile 合计不超过 ${allocation.personalizationMax} 题；secondary 能力的题不要挤占核心职责。resume 题必须引用有效 resumeProjectId，其他题的 resumeProjectId 为 null；history/profile 之外的 personalizationSourceId 必须为 null。通用岗位题只能绑定 origin=inferred 的能力。
 ${input.context.projects.length === 0 ? "本场没有可引用的实习/项目（projects 为空），不要生成 sourceKind=resume 的题；简历内容可以作为 job_description 题的切入角度。" : ""}
 ${input.seedSourceId ? `尽量生成一题以 ${input.seedSourceId} 为 personalizationSourceId，围绕该内容进行针对性训练。` : ""}
+${input.topUpHint ?? ""}
 目标 ${input.questionCount} 道；如果岗位信息不足以支撑，宁可少出几道，也不要编造与岗位无关的题。
 
 只生成精简题目计划和期望信号，不生成评分 Rubric。不要向候选人泄露出题理由或期望要点。提示词版本：${MOCK_INTERVIEW_PROMPT_VERSION}`,
@@ -340,17 +343,23 @@ export async function generateMockInterviewPlan(input: {
       skills: { packs, recommended, mode: "injected" },
     });
   }
-  const initialSelection = selectValidQuestions({
-    candidates: initial.questions,
+  const selectionBase = {
     questionCount: input.questionCount,
     context: input.context,
     blueprint: input.blueprint,
     personalization,
     seedSourceId,
+  };
+  // 首轮严格：守住配额与去重。评测发现模型常一次返回 4–5 道 resume 题，
+  // 若此时就放宽补位，整场会被 resume 题填满，补货永远轮不到。
+  const strictSelection = selectValidQuestions({
+    ...selectionBase,
+    candidates: initial.questions,
+    relax: false,
   });
-  logSelection("questions_initial", initial, input.questionCount, initialSelection);
+  logSelection("questions_initial", initial, input.questionCount, strictSelection);
 
-  let accepted = initialSelection.accepted;
+  let accepted = strictSelection.accepted;
   if (
     seedSourceId &&
     accepted.length === input.questionCount &&
@@ -360,11 +369,21 @@ export async function generateMockInterviewPlan(input: {
   }
   if (accepted.length < input.questionCount) {
     const missingCount = input.questionCount - accepted.length;
+    const allocation = getQuestionSourceAllocation(
+      input.questionCount,
+      Boolean(seedSourceId),
+      input.blueprint,
+    );
+    const resumeCount = accepted.filter((question) => question.sourceKind === "resume").length;
     const topUp = await requestQuestionBatch({
       ...batchBase,
       stage: "questions_top_up",
       questionCount: missingCount,
       existingQuestions: accepted,
+      topUpHint:
+        resumeCount >= allocation.resumeMax
+          ? `本轮补货：已有题目里 resume 题已达上限（${resumeCount} 道），本轮只生成 sourceKind=job_description 的题（能力 origin=inferred 时用 general_role），不要再出 resume 题。`
+          : undefined,
       // 补货直接注入首轮用过的包（或推荐包），省一轮工具往返。
       skills: {
         packs,
@@ -373,17 +392,15 @@ export async function generateMockInterviewPlan(input: {
         mode: "injected",
       },
     });
-    const topUpSelection = selectValidQuestions({
-      candidates: topUp.questions,
-      existing: accepted,
-      questionCount: input.questionCount,
-      context: input.context,
-      blueprint: input.blueprint,
-      personalization,
-      seedSourceId,
+    // 补货之后才放宽：在首轮与补货的全部候选上重新筛，JD 题优先占位，
+    // 仍不够数才用首轮推迟的 resume 题补位。
+    const finalSelection = selectValidQuestions({
+      ...selectionBase,
+      candidates: [...initial.questions, ...topUp.questions],
+      relax: true,
     });
-    accepted = topUpSelection.accepted;
-    logSelection("questions_top_up", topUp, missingCount, topUpSelection);
+    accepted = finalSelection.accepted;
+    logSelection("questions_top_up", topUp, missingCount, finalSelection);
   }
 
   // 数量软化：达到下限就开场，差额由房间如实说明；只有连底线都凑不齐才失败。

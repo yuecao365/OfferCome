@@ -170,6 +170,38 @@ test("keeps paraphrased-evidence questions instead of dropping them", () => {
   assert.deepEqual(result.rejected, []);
 });
 
+test("strict selection leaves over-quota resume questions out even when short", () => {
+  const resumeQuestion = (text: string): MockInterviewQuestionDraft => ({
+    question: text,
+    category: "resume_project",
+    difficulty: "standard",
+    sourceKind: "resume",
+    jobCompetencyId: "harness",
+    jdEvidence: "Agent Harness 的规模化验证",
+    relevanceScore: 0.8,
+    resumeProjectId: "project",
+    personalizationSourceId: null,
+    rationale: "项目深挖",
+    expectedSignals: ["Harness"],
+  });
+  const candidates = [
+    resumeQuestion("你在 Agent 项目里怎么做 Harness 的规模化验证？"),
+    resumeQuestion("Harness 里工具失败时的降级链路是怎么设计的？"),
+    resumeQuestion("Trace 数据怎么用来定位 Harness 的长程执行问题？"),
+    resumeQuestion("Harness 的验证用例是怎么生成和维护的？"),
+  ];
+  const base = { candidates, questionCount: 4, context, blueprint, personalization };
+
+  // 4 题的 resume 上限是 ⌊4 × 0.3⌋ = 1：严格轮只收 1 道，把缺口留给补货。
+  const strict = selectValidQuestions({ ...base, relax: false });
+  assert.equal(strict.accepted.length, 1);
+  assert.deepEqual(strict.rejected, []);
+
+  // 放宽轮才用推迟的题补位。
+  const relaxed = selectValidQuestions({ ...base, relax: true });
+  assert.equal(relaxed.accepted.length, 4);
+});
+
 test("defers near-duplicates and only uses them as fillers when short", () => {
   const nearDuplicate = "请设计 Agent Harness 的规模化验证方案和流程。";
   const scarce = selectValidQuestions({

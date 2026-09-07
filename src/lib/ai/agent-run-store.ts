@@ -29,9 +29,30 @@ function toJson(value: unknown): string | null {
   }
 }
 
-export async function persistAgentRun(record: AgentLogRecord): Promise<void> {
+/** 当前进程写入的记录统一带的标签；评测运行器设置，真实服务不设。 */
+let currentTag: string | null = null;
+
+export function setAgentRunTag(tag: string | null): void {
+  currentTag = tag;
+}
+
+/** 落点是 fire-and-forget 的；评测要在跑完后读回记录，需要等它们真的写完。 */
+const pending = new Set<Promise<void>>();
+
+export async function flushAgentRunPersistence(): Promise<void> {
+  await Promise.allSettled([...pending]);
+}
+
+export function persistAgentRun(record: AgentLogRecord): Promise<void> {
+  const write = writeAgentRun(record).finally(() => pending.delete(write));
+  pending.add(write);
+  return write;
+}
+
+async function writeAgentRun(record: AgentLogRecord): Promise<void> {
   await prisma.agentRun.create({
     data: {
+      tag: currentTag,
       runId: record.runId,
       agent: record.agent,
       event: record.event,
@@ -68,12 +89,13 @@ export function getAgentRunChain(runId: string) {
 }
 
 export function listRecentAgentRuns(
-  input: { agent?: string; status?: string; limit?: number } = {},
+  input: { agent?: string; status?: string; tag?: string | null; limit?: number } = {},
 ) {
   return prisma.agentRun.findMany({
     where: {
       ...(input.agent ? { agent: input.agent } : {}),
       ...(input.status ? { status: input.status } : {}),
+      ...(input.tag !== undefined ? { tag: input.tag } : {}),
     },
     orderBy: { createdAt: "desc" },
     take: Math.min(200, Math.max(1, input.limit ?? 50)),
@@ -90,6 +112,7 @@ export function listRecentAgentRuns(
       totalTokens: true,
       errorKind: true,
       metricsJson: true,
+      tag: true,
       createdAt: true,
     },
   });

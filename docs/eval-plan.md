@@ -42,6 +42,7 @@
 | accepted_count | 最终采纳题数 | ≥ 请求数 − 1 |
 | resume_question_grounded | 有项目时至少一道 resume 题引用真实项目 | 是 |
 | general_quota | 通用行为题 | ≤ 2 |
+| resume_quota | resume 题（第二轮放宽后仍不该主导整场） | ≤ ⌊请求数 × 0.3⌋ + 1 |
 | skills_loaded | 加载的技能包 ⊇ 期望包 | 含 project-deep-dive |
 | no_history_copy | 采纳题与历史题相似度 | 全部 < 0.30 |
 | jd_evidence_verbatim_rate | origin=jd 的题证据逐字命中 JD 的比例 | ≥ 0.8 |

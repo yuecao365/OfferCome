@@ -81,6 +81,29 @@ test("accepts usage counters shaped as objects with a total", async () => {
   assert.equal(run.errorKind, "timeout");
 });
 
+test("tagged writes are flushable and separable from real usage", async () => {
+  store.setAgentRunTag("eval-test");
+  try {
+    // 不 await 单次写入，模拟 logAgentRun 的 fire-and-forget；flush 必须等到它落库。
+    void store.persistAgentRun({
+      ...base,
+      runId: "run-tagged",
+      agent: "questions_initial",
+      event: "selection",
+      status: "success",
+    });
+  } finally {
+    store.setAgentRunTag(null);
+  }
+  await store.flushAgentRunPersistence();
+  const [run] = await store.getAgentRunChain("run-tagged");
+  assert.equal(run.tag, "eval-test");
+  const tagged = await store.listRecentAgentRuns({ tag: "eval-test" });
+  assert.deepEqual(tagged.map((item) => item.runId), ["run-tagged"]);
+  const real = await store.listRecentAgentRuns({ tag: null });
+  assert.ok(real.every((item) => item.runId !== "run-tagged"));
+});
+
 test("recent listing filters by agent and status", async () => {
   const failed = await store.listRecentAgentRuns({ status: "failed" });
   assert.deepEqual(

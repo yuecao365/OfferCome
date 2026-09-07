@@ -2,8 +2,19 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { MockInterviewContext } from "./context";
-import { selectRelevantPersonalization } from "./relevance";
+import { isJobDescriptionEvidence, selectRelevantPersonalization } from "./relevance";
 import type { MockInterviewJobBlueprint } from "./types";
+
+test("quote-wrapped and prefixed evidence still counts as verbatim", () => {
+  const jd = "1、负责 AI 应用后端服务建设，包括接口设计、服务开发、数据处理；\n2、熟悉 Prompt、RAG、Function Calling、MCP 者优先。";
+  assert.equal(isJobDescriptionEvidence(jd, "接口设计、服务开发"), true);
+  assert.equal(isJobDescriptionEvidence(jd, "“接口设计、服务开发、数据处理”"), true);
+  assert.equal(isJobDescriptionEvidence(jd, "该岗位需要“熟悉 Prompt、RAG、Function Calling、MCP 者优先”"), true);
+  assert.equal(isJobDescriptionEvidence(jd, "「数据处理」。"), true);
+  // 意译仍然不算逐字。
+  assert.equal(isJobDescriptionEvidence(jd, "“负责智能体后端的搭建”"), false);
+  assert.equal(isJobDescriptionEvidence(jd, "“”"), false);
+});
 
 const jobDescription = `团队结合大模型、Agent 与端侧能力建设客户端基础设施。
 1、面向客户端研发场景，搭建稳定、高效 Agent Harness（移动运行时知识库、Skills&CLI、规模化验证），基于 Trace 优化长程执行。
