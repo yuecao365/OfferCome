@@ -4,12 +4,15 @@ import {
   NoObjectGeneratedError,
   NoOutputGeneratedError,
   Output,
+  streamText,
   type LanguageModel,
   type LanguageModelUsage,
+  type ModelMessage,
+  type FlexibleSchema,
   type StopCondition,
   type ToolSet,
 } from "ai";
-import type { FlexibleSchema } from "@ai-sdk/provider-utils";
+
 import { randomUUID } from "node:crypto";
 
 import type { AiTaskConfig } from "./config";
@@ -219,6 +222,144 @@ function classifyError(error: unknown): AgentRunErrorKind {
     return "invalid_structured_output";
   }
   return "provider_error";
+}
+
+export type AgentStreamOptions = {
+  agent: string;
+  runId?: string;
+  config: AiTaskConfig;
+  feature: string;
+  promptVersion: string;
+  system: string;
+  untrustedInputs?: string;
+  /** 对话历史；最后一条通常是候选人刚说的话。 */
+  messages: ModelMessage[];
+  tools: ToolSet;
+  stopWhen?: StopCondition<ToolSet>;
+  timeoutMs: number;
+  maxOutputTokens?: number;
+  model?: LanguageModel;
+};
+
+export type AgentStreamOutcome = {
+  runId: string;
+  /** 全部文本片段拼接（跨步骤）；日志用。 */
+  text: string;
+  /** 每一步各自的文本；多步时后一步常会复述前一步，调用方按步取用。 */
+  stepTexts: string[];
+  /** 按调用顺序；output 是工具 execute 的返回（未执行时缺省）。 */
+  toolCalls: { toolCallId: string; toolName: string; input: unknown; output?: unknown }[];
+  usage?: LanguageModelUsage;
+  finishReason?: string;
+  durationMs: number;
+  /** 流中途失败（超时、provider 错误）时不为 null；已收到的文本仍在 text 里。 */
+  error: AgentRunError | null;
+};
+
+/**
+ * 流式对话回合的统一入口：与 runAgent 共用防注入基座、超时、错误归类与日志落点。
+ * 返回的 stream 交给 HTTP 响应，outcome 在流结束后解析，供调用方做裁决与落库。
+ * 注意：不消费 stream 就不会有 outcome。
+ */
+export function streamAgent(options: AgentStreamOptions): {
+  stream: ReturnType<typeof streamText>;
+  outcome: Promise<AgentStreamOutcome>;
+} {
+  const runId = options.runId ?? randomUUID();
+  const { config } = options;
+  assertAiConfigured(config, options.feature);
+  const startedAt = Date.now();
+  const logBase = {
+    runId,
+    agent: options.agent,
+    event: "model_call" as const,
+    provider: config.provider,
+    model: config.model,
+    promptVersion: options.promptVersion,
+  };
+  const textParts: string[] = [];
+  const stepTexts: string[] = [];
+  const toolCalls: AgentStreamOutcome["toolCalls"] = [];
+  let settled = false;
+  let resolveOutcome!: (outcome: AgentStreamOutcome) => void;
+  const outcome = new Promise<AgentStreamOutcome>((resolve) => {
+    resolveOutcome = resolve;
+  });
+  const settle = (
+    partial: Omit<AgentStreamOutcome, "runId" | "text" | "stepTexts" | "toolCalls" | "durationMs">,
+  ) => {
+    if (settled) return;
+    settled = true;
+    resolveOutcome({
+      runId,
+      text: textParts.join(""),
+      stepTexts: [...stepTexts],
+      toolCalls: [...toolCalls],
+      durationMs: Date.now() - startedAt,
+      ...partial,
+    });
+  };
+
+  const stream = streamText({
+    model: options.model ?? createTextModel(config),
+    tools: options.tools,
+    ...(options.stopWhen ? { stopWhen: options.stopWhen } : {}),
+    ...(options.maxOutputTokens ? { maxOutputTokens: options.maxOutputTokens } : {}),
+    abortSignal: AbortSignal.timeout(options.timeoutMs),
+    system: buildSystemPrompt(options.system, options.untrustedInputs),
+    messages: options.messages,
+    onChunk: ({ chunk }) => {
+      if (chunk.type === "text-delta") textParts.push(chunk.text);
+      if (chunk.type === "tool-call") {
+        toolCalls.push({ toolCallId: chunk.toolCallId, toolName: chunk.toolName, input: chunk.input });
+      }
+      if (chunk.type === "tool-result") {
+        const call = toolCalls.find((item) => item.toolCallId === chunk.toolCallId);
+        if (call) call.output = chunk.output;
+      }
+    },
+    onStepFinish: (step) => {
+      stepTexts.push(step.text);
+    },
+    onFinish: (event) => {
+      const usage = event.totalUsage ?? event.usage;
+      const durationMs = Date.now() - startedAt;
+      logAgentRun({
+        ...logBase,
+        status: "success",
+        durationMs,
+        finishReason: event.finishReason,
+        usage,
+        payload: options.messages,
+        output: { text: textParts.join(""), toolCalls },
+      });
+      settle({ usage, finishReason: event.finishReason, error: null });
+    },
+    onError: ({ error }) => {
+      const kind = classifyError(error);
+      const durationMs = Date.now() - startedAt;
+      logAgentRun({
+        ...logBase,
+        status: "failed",
+        durationMs,
+        errorKind: kind,
+        payload: options.messages,
+        output: { text: textParts.join(""), toolCalls },
+      });
+      settle({
+        error: new AgentRunError({
+          kind,
+          agent: options.agent,
+          runId,
+          message: error instanceof Error ? error.message : "模型调用失败。",
+          durationMs,
+          cause: error,
+        }),
+      });
+    },
+  });
+
+  return { stream, outcome };
 }
 
 /**

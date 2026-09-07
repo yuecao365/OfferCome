@@ -194,10 +194,17 @@ model MockInterviewSession {
   generationPhase      String?
   generationErrorCode  String?
   generationError      String?
-  followUpsEnabled     Boolean   @default(true)
   interactionMode      String    @default("text")
+  /// 面试时长（分钟）；题目数量不再是输入，而是面试过程的结果。
+  durationMinutes      Int       @default(30)
+  /// 备课产物：考察领域、评分表、简历假设、切入问题。
+  briefJson            String?
+  /// 面试官的工作记忆：已确认 / 存疑 / 失守 / 假设状态。
+  memoryJson           String    @default("{}")
+  /// 已结束的线程数；仅作展示，真相在 InterviewThread。
+  questionCount        Int       @default(0)
+  /// 旧分步流程遗留，只读回放用。
   currentQuestionIndex Int       @default(0)
-  questionCount        Int
   provider             String
   model                String
   promptVersion        String
@@ -205,12 +212,56 @@ model MockInterviewSession {
   reportJson           String?
   startedAt            DateTime?
   completedAt          DateTime?
+  messages             MockInterviewMessage[]
+  threads              InterviewThread[]
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 
   @@index([resumeId])
   @@index([status])
   @@index([updatedAt])
+}
+
+/// 对话式面试的一条消息。候选人消息带 clientId 做幂等。
+model MockInterviewMessage {
+  id               String               @id @default(cuid())
+  sessionId        String
+  session          MockInterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  clientId         String?
+  turnIndex        Int
+  role             String
+  kind             String
+  content          String
+  threadId         String?
+  thread           InterviewThread?     @relation(fields: [threadId], references: [id], onDelete: SetNull)
+  toolName         String?
+  voiceMetricsJson String?
+  createdAt        DateTime             @default(now())
+
+  @@unique([sessionId, clientId])
+  @@index([sessionId, turnIndex])
+}
+
+/// 一段围绕某个考察领域的对话：切入问题 + 追问 + 候选人的全部回答。
+/// 关闭时写一条 InterviewQuestion 作为兼容层，评分、复盘、画像照旧。
+model InterviewThread {
+  id            String               @id @default(cuid())
+  sessionId     String
+  session       MockInterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  areaId        String
+  entryQuestion String
+  status        String               @default("active")
+  depth         Int                  @default(0)
+  rescues       Int                  @default(0)
+  openedAtTurn  Int
+  closedAtTurn  Int?
+  note          String?
+  questionId    String?              @unique
+  messages      MockInterviewMessage[]
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  @@index([sessionId, areaId])
 }
 
 model InterviewQuestionEvaluation {
