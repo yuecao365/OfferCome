@@ -9,31 +9,31 @@ import {
   buildMockInterviewContext,
   serializeMockInterviewContext,
 } from "./context";
+import {
+  DEFAULT_INTERVIEW_DURATION,
+  isInterviewDuration,
+} from "./interviewer/brief";
+import { INTERVIEWER_PROMPT_VERSION } from "./interviewer/prompt";
 import { resolveMockInterviewSeed } from "./seeds";
 import { parseGenerationSnapshot } from "./session-state";
-import {
-  MOCK_INTERVIEW_DIFFICULTIES,
-  MOCK_INTERVIEW_PROMPT_VERSION,
-  isMockInterviewMode,
-  type MockInterviewMode,
-} from "./types";
+import { isMockInterviewMode, type MockInterviewMode } from "./types";
 
 /**
  * 模拟面试的对外入口。
  *
- * 创建之后的三段流程各自独立成文件，这里统一转出，调用方（API 路由、后台任务）
+ * 创建之后的流程各自独立成文件，这里统一转出，调用方（API 路由、后台任务）
  * 不必关心内部怎么分的：
- *   generation.ts —— 出题流水线与失败重试
- *   answering.ts  —— 逐题作答与追问
- *   completion.ts —— 交卷评分与报告
+ *   generation.ts        —— 备课流水线（蓝图 → 补全 → 简报）与失败重试
+ *   interviewer/session  —— 对话回合的装配、裁决与落库
+ *   completion.ts        —— 交卷评分与报告
  */
 export {
   applyJobDescriptionStrategy,
   claimMockInterviewGenerationRetry,
-  generateMockInterviewQuestions,
+  prepareMockInterview,
   type JobDescriptionStrategy,
 } from "./generation";
-export { submitMockInterviewAnswer } from "./answering";
+export { startInterviewerTurn } from "./interviewer/session";
 export { completeMockInterview } from "./completion";
 
 export type CreateMockInterviewInput = {
@@ -43,10 +43,8 @@ export type CreateMockInterviewInput = {
   jobDescription: string;
   jdOriginalName: string | null;
   round: string | null;
-  difficulty: string;
   interactionMode: string;
-  questionCount: number;
-  followUpsEnabled?: boolean;
+  durationMinutes: number;
   seedQuestionId?: string | null;
   seedInsightId?: string | null;
   applicationId?: string | null;
@@ -81,17 +79,14 @@ function validateCreateInput(input: CreateMockInterviewInput) {
   const companyName = input.companyName.trim();
   const jobTitle = input.jobTitle.trim();
   const jobDescription = input.jobDescription.trim();
-  const questionCount = Math.trunc(input.questionCount);
+  const durationMinutes = Math.trunc(input.durationMinutes || DEFAULT_INTERVIEW_DURATION);
   if (!companyName || companyName.length > 120) throw new Error("请输入有效的公司名称。");
   if (!jobTitle || jobTitle.length > 120) throw new Error("请输入有效的岗位名称。");
   if (!jobDescription || jobDescription.length > 100_000) {
     throw new Error("请上传或粘贴有效的 Job Description。");
   }
-  if (questionCount < 3 || questionCount > 12) {
-    throw new Error("题目数量必须在 3 到 12 之间。");
-  }
-  if (!(MOCK_INTERVIEW_DIFFICULTIES as readonly string[]).includes(input.difficulty)) {
-    throw new Error("请选择有效的面试难度。");
+  if (!isInterviewDuration(durationMinutes)) {
+    throw new Error("请选择有效的面试时长。");
   }
   if (!isMockInterviewMode(input.interactionMode)) {
     throw new Error("请选择有效的作答方式。");
@@ -101,7 +96,7 @@ function validateCreateInput(input: CreateMockInterviewInput) {
     jobTitle,
     jobDescription,
     interactionMode: input.interactionMode as MockInterviewMode,
-    questionCount,
+    durationMinutes,
   };
 }
 
@@ -128,7 +123,6 @@ export async function createMockInterview(input: CreateMockInterviewInput) {
   const now = new Date();
   const snapshot = parseGenerationSnapshot(serializeMockInterviewContext(context));
   snapshot.generationRequest = {
-    difficulty: input.difficulty,
     round: input.round,
     seedQuestionId,
     seedInsightId,
@@ -154,12 +148,11 @@ export async function createMockInterview(input: CreateMockInterviewInput) {
           contextSnapshotJson: JSON.stringify(snapshot),
           status: "generating",
           generationPhase: "job_blueprint",
-          followUpsEnabled: input.followUpsEnabled !== false,
           interactionMode: validated.interactionMode,
-          questionCount: validated.questionCount,
+          durationMinutes: validated.durationMinutes,
           provider: config.provider,
           model: config.model,
-          promptVersion: MOCK_INTERVIEW_PROMPT_VERSION,
+          promptVersion: INTERVIEWER_PROMPT_VERSION,
         },
       },
     },

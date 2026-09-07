@@ -1,3 +1,4 @@
+/** @deprecated 旧的分步出题流程，只剩体验版在用；P2 体验版同构后删除。 */
 import "server-only";
 
 import { isStepCount, tool, type LanguageModelUsage } from "ai";

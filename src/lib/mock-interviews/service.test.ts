@@ -3,26 +3,27 @@ import test, { after, before, beforeEach, mock } from "node:test";
 
 import { createTestDatabase } from "@/lib/test-support/prisma-test-db";
 
+import type { InterviewBrief } from "./interviewer/brief";
+import type { TurnDecision } from "./interviewer/reducer";
+
 /**
  * 模拟面试编排的回归测试。
  *
- * 覆盖目标是"流程骨架"而不是模型输出质量：状态机走位、降级路径、乐观锁、
- * 幂等。所有 agent 都被替换成可编程的桩，数据库是真的（见 prisma-test-db）。
+ * 覆盖目标是"流程骨架"而不是模型输出质量：备课的状态机走位与降级、乐观锁、
+ * 回合落库的原子性与幂等、兼容层写题。所有 agent 都被替换成可编程的桩，
+ * 数据库是真的（见 prisma-test-db）。
  */
 
 const database = createTestDatabase();
 process.env.DATABASE_URL = database.url;
 
-// —— 可编程桩：每个用例在 beforeEach 里重置，再按需改写。
 const stubs = {
   blueprint: null as unknown,
-  blueprintError: null as Error | null,
   enrichError: null as Error | null,
-  planErrors: [] as (Error | null)[],
-  questions: [] as { question: string; category: string }[],
-  followUp: null as { question: string; expectedSignals: string[] } | null,
-  summaryCalls: 0,
-  profileRefreshCalls: 0,
+  briefError: null as Error | null,
+  contextError: null as Error | null,
+  decisions: [] as TurnDecision[],
+  turnCalls: 0,
   scheduledEvaluations: [] as string[],
 };
 
@@ -47,20 +48,40 @@ function defaultBlueprint() {
   };
 }
 
-function questionDraft(index: number) {
+function testBrief(): InterviewBrief {
   return {
-    question: `第 ${index + 1} 题`,
-    category: "technical",
-    difficulty: "standard",
-    sourceKind: "job_description",
-    jobCompetencyId: "bp-1",
-    jdEvidence: "JD 原文片段",
-    relevanceScore: 0.9,
-    resumeProjectId: null,
-    personalizationSourceId: null,
-    rationale: "考察点",
-    expectedSignals: ["信号"],
-    rubric: [{ name: "准确性", weight: 1 }],
+    durationMinutes: 30,
+    round: "first_interview",
+    askIntro: true,
+    source: "model",
+    skillPacks: ["project-deep-dive"],
+    hypotheses: [{ id: "h1", text: "验证压测经历", evidence: "压测", areaId: "area-1" }],
+    areas: [
+      {
+        id: "area-1",
+        name: "分布式系统",
+        kind: "technical",
+        description: "缓存一致性与消息队列",
+        competencyIds: ["bp-1"],
+        minutes: 14,
+        entryQuestion: "缓存和数据库双写时你怎么保证一致性？",
+        ladder: ["先说做法", "追问失效顺序", "追问故障排查", "追问取舍"],
+        expectedSignals: ["延迟双删", "订阅 binlog"],
+        rubric: [{ name: "技术正确性", description: "", weight: 50 }, { name: "分析与取舍", description: "", weight: 50 }],
+      },
+      {
+        id: "area-2",
+        name: "项目深挖",
+        kind: "project",
+        description: "简历项目",
+        competencyIds: ["bp-2"],
+        minutes: 13,
+        entryQuestion: "介绍你负责的部分。",
+        ladder: ["职责", "决策", "问题", "数字"],
+        expectedSignals: ["个人职责"],
+        rubric: [{ name: "事实与细节", description: "", weight: 100 }],
+      },
+    ],
   };
 }
 
@@ -68,58 +89,55 @@ mock.module("server-only", { namedExports: {} });
 
 mock.module("./job-analysis-agent", {
   namedExports: {
-    analyzeMockInterviewJob: async () => {
-      if (stubs.blueprintError) throw stubs.blueprintError;
-      return stubs.blueprint ?? defaultBlueprint();
-    },
+    analyzeMockInterviewJob: async () => stubs.blueprint ?? defaultBlueprint(),
   },
 });
 
 mock.module("./jd-enrichment-agent", {
   namedExports: {
-    enrichMockInterviewJob: async ({ blueprint }: { blueprint: unknown }) => {
+    enrichMockInterviewJob: async (input: { blueprint: ReturnType<typeof defaultBlueprint> }) => {
       if (stubs.enrichError) throw stubs.enrichError;
-      return blueprint ?? defaultBlueprint();
+      return {
+        ...input.blueprint,
+        completeness: "complete",
+        competencies: [...input.blueprint.competencies, { ...competency("inferred-1"), origin: "inferred" }],
+      };
     },
   },
 });
 
-mock.module("./question-generation-agent", {
+mock.module("./interviewer/brief-agent", {
   namedExports: {
-    generateMockInterviewPlan: async () => {
-      const failure = stubs.planErrors.shift();
-      if (failure) throw failure;
-      return {
-        plan: {
-          questions: stubs.questions.length
-            ? stubs.questions.map((item, index) => ({
-                ...questionDraft(index),
-                ...item,
-              }))
-            : [questionDraft(0), questionDraft(1), questionDraft(2)],
-        },
-        blueprint: stubs.blueprint ?? defaultBlueprint(),
-        personalization: { history: [], profileInsights: [] },
-      };
+    generateInterviewBrief: async () => {
+      if (stubs.briefError) throw stubs.briefError;
+      return testBrief();
     },
   },
 });
 
 mock.module("./context", {
   namedExports: {
-    buildMockInterviewContext: async () => ({
-      resume: { id: "resume-1", text: "简历正文" },
-      projects: [],
-      history: [],
-      profileInsights: [],
-    }),
-    serializeMockInterviewContext: () => JSON.stringify({ resume: { id: "resume-1" } }),
+    buildMockInterviewContext: async () => {
+      if (stubs.contextError) throw stubs.contextError;
+      return {
+        jobDescription: "JD",
+        resume: { id: "resume-1", name: "简历.pdf", text: "简历正文" },
+        projects: [],
+        history: [],
+        profile: { revision: 0, insights: [] },
+      };
+    },
+    serializeMockInterviewContext: () => JSON.stringify({ resumeId: "resume-1" }),
   },
 });
 
-mock.module("./follow-up-agent", {
+mock.module("./interviewer/turn-agent", {
   namedExports: {
-    generateMockInterviewFollowUp: async () => stubs.followUp,
+    streamInterviewerTurn: async () => {
+      stubs.turnCalls += 1;
+      const decision = stubs.decisions.shift() ?? { speech: "", action: null, memoryPatch: null, failed: true };
+      return { stream: null, decision: Promise.resolve(decision), outcome: Promise.resolve(null) };
+    },
   },
 });
 
@@ -131,32 +149,9 @@ mock.module("./question-evaluation-background", {
   },
 });
 
-mock.module("./question-evaluation-service", {
-  namedExports: {
-    evaluatePersistedMockInterviewQuestion: async () => {},
-    waitForRunningQuestionEvaluations: async () => {},
-  },
-});
-
-mock.module("./summary-agent", {
-  namedExports: {
-    summarizeMockInterview: async () => {
-      stubs.summaryCalls += 1;
-      return {
-        summary: "整体表现总结",
-        strengths: ["优势"],
-        improvements: ["改进"],
-        actionPlan: ["行动"],
-      };
-    },
-  },
-});
-
 mock.module("@/lib/candidate-profile/background", {
   namedExports: {
-    enqueueCandidateProfileRefresh: async () => {
-      stubs.profileRefreshCalls += 1;
-    },
+    enqueueCandidateProfileRefresh: async () => {},
     scheduleCandidateProfileRefresh: () => {},
   },
 });
@@ -179,15 +174,15 @@ after(async () => {
 
 beforeEach(async () => {
   stubs.blueprint = null;
-  stubs.blueprintError = null;
   stubs.enrichError = null;
-  stubs.planErrors = [];
-  stubs.questions = [];
-  stubs.followUp = null;
-  stubs.summaryCalls = 0;
-  stubs.profileRefreshCalls = 0;
+  stubs.briefError = null;
+  stubs.contextError = null;
+  stubs.decisions = [];
+  stubs.turnCalls = 0;
   stubs.scheduledEvaluations = [];
 
+  await prisma.mockInterviewMessage.deleteMany();
+  await prisma.interviewThread.deleteMany();
   await prisma.interviewQuestionEvaluation.deleteMany();
   await prisma.interviewQuestion.deleteMany();
   await prisma.mockInterviewSession.deleteMany();
@@ -195,11 +190,12 @@ beforeEach(async () => {
   await prisma.resume.deleteMany();
 });
 
-/** 造一场停在待生成状态的模拟面试，等价于 createMockInterview 刚写完的样子。 */
+const LONG_JD =
+  "负责服务端开发，熟悉分布式系统、缓存一致性与消息队列，具备高并发系统设计经验，能独立完成模块设计与上线。";
+
 async function seedGeneratingSession(
   overrides: {
     jdTextSnapshot?: string;
-    questionCount?: number;
     snapshot?: Record<string, unknown>;
     status?: string;
     generationPhase?: string | null;
@@ -228,19 +224,15 @@ async function seedGeneratingSession(
       mockSession: {
         create: {
           resumeId: "resume-1",
-          jdTextSnapshot:
-            overrides.jdTextSnapshot ??
-            "负责服务端开发，熟悉分布式系统、缓存一致性与消息队列，具备高并发系统设计经验，能独立完成模块设计与上线。",
+          jdTextSnapshot: overrides.jdTextSnapshot ?? LONG_JD,
           resumeTextSnapshot: "简历正文",
           contextSnapshotJson: JSON.stringify(
-            overrides.snapshot ?? { generationRequest: { difficulty: "standard" } },
+            overrides.snapshot ?? { generationRequest: { round: "first_interview" } },
           ),
           status: overrides.status ?? "generating",
           generationPhase:
-            overrides.generationPhase === undefined
-              ? "job_blueprint"
-              : overrides.generationPhase,
-          questionCount: overrides.questionCount ?? 3,
+            overrides.generationPhase === undefined ? "job_blueprint" : overrides.generationPhase,
+          durationMinutes: 30,
           provider: "openai",
           model: "gpt-test",
           promptVersion: "test",
@@ -257,379 +249,192 @@ async function readSession(sessionId: string) {
   return prisma.mockInterviewSession.findUniqueOrThrow({ where: { id: sessionId } });
 }
 
-test("generation persists the questions and opens the room", async () => {
-  const { sessionId, interviewId } = await seedGeneratingSession();
+/** 造一场已备课、可以开始对话的会话。 */
+async function seedReadySession() {
+  const seeded = await seedGeneratingSession();
+  await service.prepareMockInterview(seeded.sessionId);
+  const session = await readSession(seeded.sessionId);
+  assert.equal(session.status, "in_progress");
+  return seeded;
+}
 
-  await service.generateMockInterviewQuestions(sessionId);
+async function runTurn(sessionId: string, candidate: { clientId: string; content: string; intent?: "skip" | "hint" | "repeat" | "end" | null } | null) {
+  const turn = await service.startInterviewerTurn({
+    sessionId,
+    candidate: candidate ? { clientId: candidate.clientId, content: candidate.content, intent: candidate.intent ?? null } : null,
+  });
+  if (turn.replay) return { replay: true as const, messages: turn.messages };
+  const result = await turn.finalize();
+  return { replay: false as const, result };
+}
+
+// —— 备课流水线
+
+test("preparation persists the brief with an empty memory and opens the room", async () => {
+  const { sessionId, interviewId } = await seedGeneratingSession();
+  await service.prepareMockInterview(sessionId);
 
   const session = await readSession(sessionId);
   assert.equal(session.status, "in_progress");
   assert.equal(session.generationPhase, null);
-  assert.equal(session.questionCount, 3);
-
-  const questions = await prisma.interviewQuestion.findMany({
-    where: { interviewId },
-    include: { evaluation: true },
-    orderBy: { sortOrder: "asc" },
-  });
-  assert.equal(questions.length, 3);
-  assert.equal(questions[0]!.question, "第 1 题");
-  // 出题时就要落下 rubric，逐题评分才有一致的打分依据。
-  assert.ok(questions[0]!.evaluation);
-  assert.equal(questions[0]!.evaluation!.evaluationStatus, "pending");
-
+  assert.equal(JSON.parse(session.briefJson!).areas.length, 2);
+  assert.deepEqual(JSON.parse(session.memoryJson).hypotheses, [{ id: "h1", status: "open", note: null }]);
+  assert.equal(session.questionCount, 0);
   const interview = await prisma.interview.findUniqueOrThrow({ where: { id: interviewId } });
   assert.equal(interview.status, "in_progress");
 });
 
-test("records the real question count when the model returns fewer than requested", async () => {
-  const { sessionId } = await seedGeneratingSession({ questionCount: 6 });
-  stubs.questions = [
-    { question: "少题 1", category: "technical" },
-    { question: "少题 2", category: "technical" },
-    { question: "少题 3", category: "technical" },
-  ];
-
-  await service.generateMockInterviewQuestions(sessionId);
-
-  const session = await readSession(sessionId);
-  assert.equal(session.status, "in_progress");
-  // 数量软化：宁可少几题也要开场，进度条按真实题数走。
-  assert.equal(session.questionCount, 3);
-});
-
 test("pauses for review instead of failing when the job description is nearly empty", async () => {
+  stubs.blueprint = { ...defaultBlueprint(), completeness: "minimal", competencies: [competency("bp-1")] };
   const { sessionId } = await seedGeneratingSession({ jdTextSnapshot: "后端" });
-  stubs.blueprint = {
-    summary: "信息不足",
-    completeness: "partial",
-    missingInformation: ["任职要求"],
-    competencies: [competency("bp-1")],
-  };
-
-  await service.generateMockInterviewQuestions(sessionId);
-
+  await service.prepareMockInterview(sessionId);
   const session = await readSession(sessionId);
   assert.equal(session.status, "awaiting_jd_review");
-  assert.equal(session.generationPhase, null);
+  assert.equal(JSON.parse(session.contextSnapshotJson).jdReviewCount, 1);
 });
 
-test("retries question generation once before surfacing a failure", async () => {
-  const { sessionId } = await seedGeneratingSession();
-  stubs.planErrors = [new Error("第一次失败")];
-
-  await service.generateMockInterviewQuestions(sessionId);
-
-  const session = await readSession(sessionId);
-  assert.equal(session.status, "in_progress");
+test("a thin but usable job description is enriched automatically and enrichment failure is not fatal", async () => {
+  stubs.blueprint = { ...defaultBlueprint(), completeness: "partial", competencies: [competency("bp-1"), competency("bp-2")] };
+  stubs.enrichError = new Error("search down");
+  // 超过 80 字的偏薄 JD 走自动补全而不是暂停询问。
+  const { sessionId } = await seedGeneratingSession({ jdTextSnapshot: `${LONG_JD}${LONG_JD}` });
+  await service.prepareMockInterview(sessionId);
+  assert.equal((await readSession(sessionId)).status, "in_progress");
 });
 
-test("falls back to a failed session instead of throwing when generation keeps failing", async () => {
+test("unexpected failures land in generation_failed with a message, never in a stuck generating state", async () => {
+  stubs.contextError = new Error("简历文件损坏");
   const { sessionId } = await seedGeneratingSession();
-  stubs.planErrors = [new Error("第一次失败"), new Error("第二次失败")];
-
-  // 后台任务不应把异常抛给调用方，只能写进会话状态。
-  await service.generateMockInterviewQuestions(sessionId);
-
+  await service.prepareMockInterview(sessionId);
   const session = await readSession(sessionId);
   assert.equal(session.status, "generation_failed");
-  assert.equal(session.generationErrorCode, "model_unavailable");
-  assert.match(session.generationError ?? "", /第二次失败/);
+  assert.match(session.generationError ?? "", /简历文件损坏/);
 });
 
-test("ignores generation requests for sessions that are no longer generating", async () => {
-  const { sessionId, interviewId } = await seedGeneratingSession({ status: "in_progress" });
-
-  await service.generateMockInterviewQuestions(sessionId);
-
-  const questions = await prisma.interviewQuestion.count({ where: { interviewId } });
-  assert.equal(questions, 0);
+test("ignores preparation requests for sessions that are no longer generating", async () => {
+  const { sessionId } = await seedGeneratingSession({ status: "in_progress", generationPhase: null });
+  await service.prepareMockInterview(sessionId);
+  assert.equal((await readSession(sessionId)).status, "in_progress");
 });
 
-test("only claims a retry from the failed state and within the allowed question range", async () => {
-  const { sessionId } = await seedGeneratingSession({ status: "generation_failed" });
-
-  assert.equal(await service.claimMockInterviewGenerationRetry(sessionId, 2), false);
-  assert.equal(await service.claimMockInterviewGenerationRetry(sessionId, 13), false);
-  assert.equal(await service.claimMockInterviewGenerationRetry(sessionId, 5), true);
-
+test("retry is only claimed from the failed state and restarts at the blueprint", async () => {
+  const { sessionId } = await seedGeneratingSession({ status: "generation_failed", generationPhase: null });
+  assert.equal(await service.claimMockInterviewGenerationRetry(sessionId, "enrich"), true);
   const session = await readSession(sessionId);
   assert.equal(session.status, "generating");
   assert.equal(session.generationPhase, "job_blueprint");
-  assert.equal(session.questionCount, 5);
-  assert.equal(session.generationErrorCode, null);
-
-  // 已经在生成中的会话不能被重复认领。
   assert.equal(await service.claimMockInterviewGenerationRetry(sessionId), false);
 });
 
-test("applies each job description strategy to the right restart point", async () => {
-  const supplement = await seedGeneratingSession({
+test("job description strategies restart at the right phase", async () => {
+  const seeded = await seedGeneratingSession({
     status: "awaiting_jd_review",
     generationPhase: null,
-    snapshot: { jdReviewCount: 1, jobBlueprint: defaultBlueprint() },
+    snapshot: { generationRequest: {}, jdReviewCount: 1, jobBlueprint: defaultBlueprint() },
+  });
+  assert.equal(await service.applyJobDescriptionStrategy({ sessionId: seeded.sessionId, strategy: "proceed" }), true);
+  const proceeded = await readSession(seeded.sessionId);
+  assert.equal(proceeded.status, "generating");
+  assert.equal(proceeded.generationPhase, "brief");
+
+  const supplemented = await seedGeneratingSession({
+    status: "awaiting_jd_review",
+    generationPhase: null,
+    snapshot: { generationRequest: {}, jdReviewCount: 1, jobBlueprint: defaultBlueprint() },
   });
   assert.equal(
-    await service.applyJobDescriptionStrategy({
-      sessionId: supplement.sessionId,
-      strategy: "supplement",
-      additionalText: "补充：需要熟悉 Kafka 与 Redis。",
-    }),
+    await service.applyJobDescriptionStrategy({ sessionId: supplemented.sessionId, strategy: "supplement", additionalText: "补充：需要熟悉 Kafka。" }),
     true,
   );
-  const supplemented = await readSession(supplement.sessionId);
-  assert.equal(supplemented.status, "generating");
-  // 用户补了原文，蓝图必须重算。
-  assert.equal(supplemented.generationPhase, "job_blueprint");
-  assert.match(supplemented.jdTextSnapshot, /Kafka/);
-
-  const proceed = await seedGeneratingSession({
-    status: "awaiting_jd_review",
-    generationPhase: null,
-    snapshot: { jdReviewCount: 1, jobBlueprint: defaultBlueprint() },
-  });
-  assert.equal(
-    await service.applyJobDescriptionStrategy({
-      sessionId: proceed.sessionId,
-      strategy: "proceed",
-    }),
-    true,
-  );
-  const proceeded = await readSession(proceed.sessionId);
-  assert.equal(proceeded.generationPhase, "questions");
+  const restarted = await readSession(supplemented.sessionId);
+  assert.equal(restarted.generationPhase, "job_blueprint");
+  assert.match(restarted.jdTextSnapshot, /Kafka/);
+  assert.equal(JSON.parse(restarted.contextSnapshotJson).jobBlueprint, undefined);
 });
 
-test("refuses a second supplement round and empty supplements", async () => {
-  const { sessionId } = await seedGeneratingSession({
-    status: "awaiting_jd_review",
-    generationPhase: null,
-    snapshot: { jdReviewCount: 2 },
-  });
+// —— 对话回合
 
-  assert.equal(
-    await service.applyJobDescriptionStrategy({
-      sessionId,
-      strategy: "supplement",
-      additionalText: "还是很短",
-    }),
-    false,
-  );
+test("the opening turn asks for an intro and is replayed instead of regenerated", async () => {
+  const { sessionId } = await seedReadySession();
+  stubs.decisions = [{ speech: "你好，欢迎。请先介绍一下自己。", action: { name: "ask_intro", input: {} }, memoryPatch: null }];
+  const first = await runTurn(sessionId, null);
+  assert.equal(first.replay, false);
+  const messages = await prisma.mockInterviewMessage.findMany({ where: { sessionId } });
+  assert.equal(messages.length, 1);
+  assert.equal(messages[0].kind, "intro_request");
 
-  const stillWaiting = await readSession(sessionId);
-  assert.equal(stillWaiting.status, "awaiting_jd_review");
+  const again = await runTurn(sessionId, null);
+  assert.equal(again.replay, true);
+  assert.equal(stubs.turnCalls, 1);
 });
 
-/** 走完生成，返回一场可作答的面试。 */
-async function seedAnswerableSession(questionCount = 3) {
-  const seeded = await seedGeneratingSession({ questionCount });
-  stubs.questions = Array.from({ length: questionCount }, (_, index) => ({
-    question: `第 ${index + 1} 题`,
-    category: "technical",
-  }));
-  await service.generateMockInterviewQuestions(seeded.sessionId);
-  const questions = await prisma.interviewQuestion.findMany({
-    where: { interviewId: seeded.interviewId },
-    orderBy: { sortOrder: "asc" },
-  });
-  return { ...seeded, questions };
-}
+test("closing a thread writes the compat question with the area rubric and schedules its evaluation", async () => {
+  const { sessionId, interviewId } = await seedReadySession();
+  stubs.decisions = [
+    { speech: "你好。", action: { name: "ask_intro", input: {} }, memoryPatch: null },
+    { speech: "好的。", action: { name: "open_thread", input: { areaId: "area-1", question: "缓存和数据库双写时你怎么保证一致性？" } }, memoryPatch: null },
+    { speech: "明白。", action: { name: "probe", input: { question: "先删缓存还是先写库？" } }, memoryPatch: { established: ["知道延迟双删"], doubtful: [], failed: [], hypotheses: [] } },
+    { speech: "这一块够了。", action: { name: "close_thread", input: { note: "机制清楚，取舍偏弱" } }, memoryPatch: null },
+  ];
+  await runTurn(sessionId, null);
+  await runTurn(sessionId, { clientId: "c1", content: "我叫小明。" });
+  await runTurn(sessionId, { clientId: "c2", content: "我们用延迟双删。" });
+  const closed = await runTurn(sessionId, { clientId: "c3", content: "先写库再删缓存。" });
+  assert.equal(closed.replay, false);
 
-test("advances the question index and closes the room after the last answer", async () => {
-  const { sessionId, questions } = await seedAnswerableSession(2);
-
-  await service.submitMockInterviewAnswer({
-    sessionId,
-    questionId: questions[0]!.id,
-    answer: "第一题的回答",
-  });
-  let session = await readSession(sessionId);
-  assert.equal(session.currentQuestionIndex, 1);
-  assert.equal(session.status, "in_progress");
-  assert.ok(session.startedAt);
-
-  await service.submitMockInterviewAnswer({
-    sessionId,
-    questionId: questions[1]!.id,
-    answer: "第二题的回答",
-  });
-  session = await readSession(sessionId);
-  assert.equal(session.status, "ready_to_evaluate");
-  // 每道已作答的题都要排进后台评分。
-  assert.deepEqual(stubs.scheduledEvaluations, [questions[0]!.id, questions[1]!.id]);
-});
-
-test("rejects out-of-order answers and empty answers", async () => {
-  const { sessionId, questions } = await seedAnswerableSession(3);
-
-  await assert.rejects(
-    service.submitMockInterviewAnswer({
-      sessionId,
-      questionId: questions[2]!.id,
-      answer: "跳着答",
-    }),
-    /请按顺序回答当前题目/,
-  );
-
-  await assert.rejects(
-    service.submitMockInterviewAnswer({
-      sessionId,
-      questionId: questions[0]!.id,
-      answer: "   ",
-    }),
-    /回答不能为空/,
-  );
+  const questions = await prisma.interviewQuestion.findMany({ where: { interviewId }, include: { evaluation: true } });
+  assert.equal(questions.length, 1);
+  // 追问消息是面试官整段话（回应 + 问句），切段时原样进入题目文本。
+  assert.match(questions[0].question, /双写[\s\S]*\n追问 1：[\s\S]*先删缓存/);
+  assert.equal(questions[0].answer, "我们用延迟双删。\n\n先写库再删缓存。");
+  assert.equal(questions[0].category, "technical");
+  assert.deepEqual(JSON.parse(questions[0].evaluation!.rubricJson).map((item: { name: string }) => item.name), ["技术正确性", "分析与取舍"]);
+  assert.deepEqual(stubs.scheduledEvaluations, [questions[0].id]);
 
   const session = await readSession(sessionId);
-  assert.equal(session.currentQuestionIndex, 0);
+  assert.equal(session.questionCount, 1);
+  assert.deepEqual(JSON.parse(session.memoryJson).established.map((item: { text: string }) => item.text), ["知道延迟双删"]);
+  const threads = await prisma.interviewThread.findMany({ where: { sessionId }, orderBy: { createdAt: "asc" } });
+  // 关掉 area-1 后代码紧接着开了 area-2，候选人不会面对没有下文的过渡语。
+  assert.deepEqual(threads.map((thread) => [thread.areaId, thread.status]), [["area-1", "closed"], ["area-2", "active"]]);
+  assert.equal(threads[0].questionId, questions[0].id);
 });
 
-test("treats a repeated identical submission as already handled", async () => {
-  const { sessionId, questions } = await seedAnswerableSession(3);
-
-  await service.submitMockInterviewAnswer({
-    sessionId,
-    questionId: questions[0]!.id,
-    answer: "第一题的回答",
-  });
-  // 网络重试打回来同样的内容时不能把进度再推一格。
-  await service.submitMockInterviewAnswer({
-    sessionId,
-    questionId: questions[0]!.id,
-    answer: "第一题的回答",
-  });
-
-  const session = await readSession(sessionId);
-  assert.equal(session.currentQuestionIndex, 1);
+test("a duplicate clientId replays the stored interviewer reply without a second model call", async () => {
+  const { sessionId } = await seedReadySession();
+  stubs.decisions = [
+    { speech: "你好。", action: { name: "ask_intro", input: {} }, memoryPatch: null },
+    { speech: "好。", action: { name: "open_thread", input: { areaId: "area-2", question: "介绍你负责的部分。" } }, memoryPatch: null },
+  ];
+  await runTurn(sessionId, null);
+  await runTurn(sessionId, { clientId: "dup", content: "自我介绍" });
+  const calls = stubs.turnCalls;
+  const replay = await runTurn(sessionId, { clientId: "dup", content: "自我介绍" });
+  assert.equal(replay.replay, true);
+  assert.equal(stubs.turnCalls, calls);
+  assert.deepEqual(replay.replay ? replay.messages.map((message) => message.kind) : [], ["question"]);
 });
 
-test("records skipped questions without scheduling an evaluation", async () => {
-  const { sessionId, questions } = await seedAnswerableSession(2);
-
-  await service.submitMockInterviewAnswer({
-    sessionId,
-    questionId: questions[0]!.id,
-    skip: true,
-  });
-
-  const skipped = await prisma.interviewQuestion.findUniqueOrThrow({
-    where: { id: questions[0]!.id },
-  });
-  assert.ok(skipped.skippedAt);
-  assert.equal(skipped.answer, null);
-  assert.deepEqual(stubs.scheduledEvaluations, []);
+test("a candidate asking to end moves the session to ready_to_evaluate and later turns are refused", async () => {
+  const { sessionId } = await seedReadySession();
+  stubs.decisions = [
+    { speech: "你好。", action: { name: "ask_intro", input: {} }, memoryPatch: null },
+    { speech: "那我们就到这里。", action: null, memoryPatch: null },
+  ];
+  await runTurn(sessionId, null);
+  const ended = await runTurn(sessionId, { clientId: "e1", content: "我们结束吧", intent: "end" });
+  assert.equal(ended.replay, false);
+  assert.equal((await readSession(sessionId)).status, "ready_to_evaluate");
+  await assert.rejects(runTurn(sessionId, { clientId: "e2", content: "还在吗" }), /已经结束/);
 });
 
-test("inserts a follow-up right after the answered question", async () => {
-  const { sessionId, interviewId, questions } = await seedAnswerableSession(3);
-  stubs.followUp = { question: "追问：再展开一下", expectedSignals: ["更具体"] };
-
-  await service.submitMockInterviewAnswer({
-    sessionId,
-    questionId: questions[0]!.id,
-    answer: "一个留有明显缺口的回答",
-  });
-
-  const ordered = await prisma.interviewQuestion.findMany({
-    where: { interviewId },
-    orderBy: { sortOrder: "asc" },
-  });
-  assert.equal(ordered.length, 4);
-  assert.equal(ordered[1]!.question, "追问：再展开一下");
-  assert.equal(ordered[1]!.parentQuestionId, questions[0]!.id);
-  // 后面的题整体后移，题数加一。
-  assert.equal(ordered[2]!.question, "第 2 题");
-  const session = await readSession(sessionId);
-  assert.equal(session.questionCount, 4);
-});
-
-/** 把一场面试推到可交卷状态，并把逐题评分补成已完成。 */
-async function seedCompletableSession() {
-  const seeded = await seedAnswerableSession(2);
-  for (const question of seeded.questions) {
-    await service.submitMockInterviewAnswer({
-      sessionId: seeded.sessionId,
-      questionId: question.id,
-      answer: `${question.question}的回答`,
-    });
-  }
-  await prisma.interviewQuestionEvaluation.updateMany({
-    data: {
-      evaluationStatus: "completed",
-      score: 80,
-      feedback: "回答完整。",
-      evaluatedAt: new Date(),
-    },
-  });
-  return seeded;
-}
-
-test("produces a report, completes the interview and queues a profile refresh", async () => {
-  const { sessionId, interviewId } = await seedCompletableSession();
-
-  const report = await service.completeMockInterview(sessionId);
-  assert.equal(report.totalScore, 80);
-  assert.equal(report.summary, "整体表现总结");
-
-  const session = await readSession(sessionId);
-  assert.equal(session.status, "completed");
-  assert.equal(session.totalScore, 80);
-  assert.ok(session.completedAt);
-
-  const interview = await prisma.interview.findUniqueOrThrow({ where: { id: interviewId } });
-  assert.equal(interview.status, "completed");
-  assert.ok(interview.interviewedAt);
-  assert.equal(stubs.profileRefreshCalls, 1);
-});
-
-test("returns the stored report instead of regenerating it on a repeated submit", async () => {
-  const { sessionId } = await seedCompletableSession();
-
-  const first = await service.completeMockInterview(sessionId);
-  const second = await service.completeMockInterview(sessionId);
-
-  assert.deepEqual(second, first);
-  // 重复交卷不能再花一次模型调用。
-  assert.equal(stubs.summaryCalls, 1);
-  assert.equal(stubs.profileRefreshCalls, 1);
-});
-
-test("refuses to score a session that still has unanswered questions", async () => {
-  const { sessionId, questions } = await seedAnswerableSession(2);
-  await service.submitMockInterviewAnswer({
-    sessionId,
-    questionId: questions[0]!.id,
-    answer: "只答了第一题",
-  });
-
-  await assert.rejects(service.completeMockInterview(sessionId), /请先完成全部题目/);
-});
-
-test("rolls the session back so the user can retry when scoring is incomplete", async () => {
-  const { sessionId } = await seedCompletableSession();
-  await prisma.interviewQuestionEvaluation.updateMany({
-    data: { evaluationStatus: "pending", score: null, feedback: null },
-  });
-
-  await assert.rejects(service.completeMockInterview(sessionId), /仍有题目正在评分/);
-
-  // 关键：失败后必须退回 ready_to_evaluate，否则会话永远卡在 evaluating。
-  const session = await readSession(sessionId);
-  assert.equal(session.status, "ready_to_evaluate");
-});
-
-test("still produces a report when every question was skipped", async () => {
-  const { sessionId, questions } = await seedAnswerableSession(2);
-  for (const question of questions) {
-    await service.submitMockInterviewAnswer({
-      sessionId,
-      questionId: question.id,
-      skip: true,
-    });
-  }
-
-  const report = await service.completeMockInterview(sessionId);
-  assert.equal(report.totalScore, 0);
-  // 全跳过时不调用汇总模型，直接给固定的引导文案。
-  assert.equal(stubs.summaryCalls, 0);
-  assert.match(report.summary, /均已跳过/);
+test("a failed model turn still produces a deterministic interviewer message", async () => {
+  const { sessionId } = await seedReadySession();
+  stubs.decisions = [{ speech: "", action: null, memoryPatch: null, failed: true }];
+  const first = await runTurn(sessionId, null);
+  assert.equal(first.replay, false);
+  const messages = await prisma.mockInterviewMessage.findMany({ where: { sessionId } });
+  assert.equal(messages.length, 1);
+  assert.equal(messages[0].kind, "intro_request");
+  assert.ok(messages[0].content.length > 0);
 });

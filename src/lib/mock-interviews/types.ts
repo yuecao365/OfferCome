@@ -5,6 +5,9 @@ import {
   type InterviewStatus,
 } from "@/lib/interviews/types";
 
+import type { InterviewHypothesis } from "./interviewer/brief";
+import type { InterviewMemory } from "./interviewer/memory";
+
 /** 题目生成完成、房间可以开始作答时，关联的 Interview 记录进入这个状态。 */
 export const ACTIVE_MOCK_INTERVIEW_STATUS: InterviewStatus = "in_progress";
 
@@ -171,6 +174,39 @@ export type MockInterviewPersonalizationUsed = {
   }[];
 };
 
+export type MockInterviewConversationMessage = {
+  id: string;
+  turnIndex: number;
+  role: "interviewer" | "candidate";
+  kind: string;
+  content: string;
+  threadId: string | null;
+};
+
+/** 对话式面试的房间视图。 */
+export type MockInterviewConversation = {
+  phase: "opening" | "running" | "ended";
+  durationMinutes: number;
+  areas: {
+    id: string;
+    name: string;
+    kind: string;
+    minutes: number;
+    status: "pending" | "active" | "covered";
+  }[];
+  threads: {
+    id: string;
+    areaId: string;
+    status: "active" | "closed" | "skipped";
+    depth: number;
+    rescues: number;
+  }[];
+  messages: MockInterviewConversationMessage[];
+  /** 仅已完成的会话带：面试官的工作记忆与简历假设，报告页展示。 */
+  memory: InterviewMemory | null;
+  hypotheses: InterviewHypothesis[];
+};
+
 export type MockInterviewView = {
   id: string;
   interviewId: string;
@@ -193,6 +229,8 @@ export type MockInterviewView = {
   report: MockInterviewReport | null;
   personalizationUsed?: MockInterviewPersonalizationUsed;
   profileContributionCount?: number | null;
+  /** 旧的分步会话没有简报，为 null，房间按只读回放处理。 */
+  conversation?: MockInterviewConversation | null;
   questions: {
     id: string;
     question: string;

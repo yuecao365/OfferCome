@@ -8,19 +8,20 @@ const MIN_PARTIAL_COMPETENCY_COUNT = 4;
  */
 export const MIN_JD_CHARS_FOR_AUTO_ENRICH = 80;
 
-function requiredCompetencyCount(questionCount: number): number {
-  return Math.ceil(questionCount / 2);
+/** 面试越长要覆盖的领域越多：每 10 分钟至少一条能力，最少 2 条。 */
+export function requiredCompetenciesForDuration(durationMinutes: number): number {
+  return Math.max(2, Math.ceil(durationMinutes / 10));
 }
 
 export function needsJobDescriptionReview(
   blueprint: MockInterviewJobBlueprint,
-  questionCount: number,
+  minCompetencies: number,
 ): boolean {
   const competencyCount = blueprint.competencies.length;
   return (
     blueprint.completeness === "minimal" ||
     (blueprint.completeness === "partial" &&
       competencyCount < MIN_PARTIAL_COMPETENCY_COUNT) ||
-    competencyCount < requiredCompetencyCount(questionCount)
+    competencyCount < minCompetencies
   );
 }

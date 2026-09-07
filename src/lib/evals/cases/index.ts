@@ -3,8 +3,6 @@ import path from "node:path";
 
 import { z } from "zod";
 
-import type { GenerationExpect } from "../types";
-
 /**
  * 冻结的评测数据集。
  *
@@ -42,6 +40,9 @@ const expectOverrideSchema = z
     canary: z.string().nullable(),
   })
   .partial();
+
+/** 用例可覆盖的判分阈值；出题评测重写为简报评测时在此扩展。 */
+export type CaseExpect = z.infer<typeof expectOverrideSchema>;
 
 export const jdFixtureSchema = z.object({
   id: z.string().regex(/^[a-z0-9-]+$/),
@@ -90,7 +91,7 @@ export type GenerationCase = {
   jd: JdFixture;
   resume: ResumeFixture;
   questionCount: number;
-  expect: Partial<GenerationExpect>;
+  expect: CaseExpect;
 };
 
 export function buildGenerationCases(

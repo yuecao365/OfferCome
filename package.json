@@ -13,18 +13,17 @@
     "db:push": "prisma db push",
     "boss:login": "tsx scripts/boss-login.ts",
     "boss:sync": "tsx scripts/boss-sync.ts",
-    "agent:runs": "tsx scripts/agent-runs.ts",
-    "eval:replay": "tsx scripts/eval-replay.ts",
-    "eval": "node --conditions=react-server --import tsx scripts/eval.ts"
+    "agent:runs": "tsx scripts/agent-runs.ts"
   },
   "dependencies": {
-    "@ai-sdk/openai": "^4.0.7",
-    "@ai-sdk/openai-compatible": "^3.0.5",
+    "@ai-sdk/openai": "^4.0.60",
+    "@ai-sdk/openai-compatible": "^3.0.44",
+    "@ai-sdk/react": "^4.0.96",
     "@antv/g6": "^5.1.1",
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "@prisma/adapter-better-sqlite3": "^7.8.0",
     "@prisma/client": "^7.8.0",
-    "ai": "^7.0.15",
+    "ai": "^7.0.93",
     "better-sqlite3": "^12.11.1",
     "dotenv": "^17.4.2",
     "geist": "^1.7.2",

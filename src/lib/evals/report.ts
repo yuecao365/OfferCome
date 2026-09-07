@@ -1,4 +1,18 @@
-import { summarizeVerdicts, type GraderVerdict } from "./types";
+/** 判分结果与汇总；判分器随对话式面试官重写，见 docs/eval-plan.md。 */
+export type GraderVerdict = {
+  grader: string;
+  status: "pass" | "fail" | "skip";
+  detail: string;
+  value?: number;
+};
+
+export function summarizeVerdicts(verdicts: GraderVerdict[]) {
+  return {
+    pass: verdicts.every((verdict) => verdict.status !== "fail"),
+    failed: verdicts.filter((v) => v.status === "fail").map((v) => v.grader),
+    skipped: verdicts.filter((v) => v.status === "skip").map((v) => v.grader),
+  };
+}
 
 /**
  * 评测结果的聚合与报告渲染。纯函数：运行器只负责跑，数字都在这里算。

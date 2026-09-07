@@ -20,10 +20,14 @@ const snapshotSchema = z.object({
     .optional(),
 });
 
+/** 旧分步流程写 jobCompetencyId / jdEvidence / rationale；对话式线程写 areaName / areaKind / note。 */
 const generationMetadataSchema = z.object({
   jobCompetencyId: z.string().optional(),
   jdEvidence: z.string().optional(),
   rationale: z.string().optional(),
+  areaName: z.string().nullable().optional(),
+  areaKind: z.string().nullable().optional(),
+  note: z.string().nullable().optional(),
 });
 
 const expectedSignalsSchema = z.array(z.string());
@@ -54,13 +58,14 @@ export function buildQuestionTeaching(
         ) ?? null
       : null;
 
+  const areaName = metadata.success ? metadata.data.areaName ?? null : null;
   return {
-    competencyName: competency?.name ?? null,
+    competencyName: competency?.name ?? areaName,
     competencyOrigin: competency?.origin ?? null,
     sourceUrl: competency?.sourceUrl ?? null,
     jdEvidence: metadata.success ? metadata.data.jdEvidence ?? null : null,
     expectedSignals: expectedSignals.success ? expectedSignals.data : [],
-    rationale: metadata.success ? metadata.data.rationale ?? null : null,
+    rationale: metadata.success ? metadata.data.rationale ?? metadata.data.note ?? null : null,
     sourceKind: evaluation.sourceKind,
     difficulty: evaluation.difficulty,
   };

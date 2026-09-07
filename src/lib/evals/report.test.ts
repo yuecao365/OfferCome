@@ -6,8 +6,9 @@ import {
   percentile,
   renderEvalMarkdown,
   type CaseRunResult,
+  type GraderVerdict,
 } from "./report";
-import type { GraderVerdict } from "./types";
+
 
 function verdict(grader: string, status: GraderVerdict["status"]): GraderVerdict {
   return { grader, status, detail: "" };

@@ -10,13 +10,15 @@ import {
   type MockInterviewContext,
 } from "./context";
 import { isMockInterviewGenerationError } from "./errors";
+import { generateInterviewBrief } from "./interviewer/brief-agent";
+import { emptyMemory } from "./interviewer/memory";
 import { enrichMockInterviewJob } from "./jd-enrichment-agent";
 import {
   MIN_JD_CHARS_FOR_AUTO_ENRICH,
   needsJobDescriptionReview,
+  requiredCompetenciesForDuration,
 } from "./jd-sufficiency";
 import { analyzeMockInterviewJob } from "./job-analysis-agent";
-import { generateMockInterviewPlan } from "./question-generation-agent";
 import {
   claimSession,
   parseGenerationSnapshot,
@@ -29,7 +31,7 @@ import {
 } from "./types";
 
 /**
- * 出题流水线：蓝图 → JD 补全 → 出题 → 落库。
+ * 备课流水线：蓝图 → JD 补全 → 面试简报 → 落库开房。
  *
  * 两条贯穿全程的规则：
  * 1. 每一步推进状态都用乐观锁，写不中就安静放弃——说明用户已经重试或删除了会话。
@@ -54,7 +56,6 @@ async function loadGeneratingSession(sessionId: string) {
 }
 
 type GenerationRequest = {
-  difficulty: string;
   round: string | null;
   seedQuestionId: string | null;
   seedInsightId: string | null;
@@ -65,8 +66,6 @@ type GenerationRequest = {
 function readGenerationRequest(snapshot: GenerationSnapshot): GenerationRequest {
   const request = snapshot.generationRequest ?? {};
   return {
-    difficulty:
-      typeof request.difficulty === "string" ? request.difficulty : "standard",
     round: typeof request.round === "string" ? request.round : null,
     seedQuestionId:
       typeof request.seedQuestionId === "string" ? request.seedQuestionId : null,
@@ -106,7 +105,7 @@ async function ensureBlueprint(
     where: { id: session.id, status: "generating" },
     data: { generationPhase: "job_blueprint" },
   });
-  // analyzeMockInterviewJob 自带四级降级，不会抛出"没有蓝图"这种终态。
+  // analyzeMockInterviewJob 自带降级链，不会抛出"没有蓝图"这种终态。
   const blueprint = await analyzeMockInterviewJob({
     generationId,
     jobTitle: session.interview.jobTitle,
@@ -132,7 +131,10 @@ async function resolveJobDescriptionGap(
 ): Promise<MockInterviewJobBlueprint | Abandoned> {
   const needsReview =
     !request.jdStrategy &&
-    needsJobDescriptionReview(blueprint, session.questionCount);
+    needsJobDescriptionReview(
+      blueprint,
+      requiredCompetenciesForDuration(session.durationMinutes),
+    );
 
   if (
     needsReview &&
@@ -153,13 +155,13 @@ async function resolveJobDescriptionGap(
 
   if (request.jdStrategy !== "enrich" && !needsReview) return blueprint;
 
-  // 失败重试会把 phase 重置回 job_blueprint，JD 审查路径则停在 questions；
+  // 失败重试会把 phase 重置回 job_blueprint，JD 审查路径则停在 brief；
   // 两条入口都必须能认领，否则重试会静默丢失、会话永远停在 generating。
   const claimed = await claimSession(prisma, {
     where: {
       id: session.id,
       status: "generating",
-      generationPhase: { in: ["job_blueprint", "questions", "job_enrichment"] },
+      generationPhase: { in: ["job_blueprint", "brief", "job_enrichment"] },
     },
     data: { generationPhase: "job_enrichment" },
   });
@@ -175,7 +177,7 @@ async function resolveJobDescriptionGap(
     snapshot.jobBlueprint = enriched;
     return (await saveSnapshot(session.id, snapshot)) ? enriched : ABANDONED;
   } catch (error) {
-    // 补全是锦上添花：失败就带着现有蓝图继续出题，不作为终态错误。
+    // 补全是锦上添花：失败就带着现有蓝图继续备课，不作为终态错误。
     console.warn(
       "[mock-interviews] enrich failed, continuing with existing blueprint:",
       error instanceof Error ? error.message : "unknown error",
@@ -184,119 +186,36 @@ async function resolveJobDescriptionGap(
   }
 }
 
-/** 阶段三：出题。偶发失败先静默重试一次，重试再失败才打扰用户。 */
-async function planQuestions(input: {
-  generationId: string;
-  context: MockInterviewContext;
-  blueprint: MockInterviewJobBlueprint;
-  jobTitle: string;
-  questionCount: number;
-  difficulty: string;
-  round: string | null;
-  seedQuestionId: string | null;
-  seedInsightId: string | null;
-}) {
-  try {
-    return await generateMockInterviewPlan(input);
-  } catch (firstError) {
-    console.warn(
-      "[mock-interviews] question generation failed, retrying once:",
-      firstError instanceof Error ? firstError.message : "unknown error",
-    );
-    return generateMockInterviewPlan(input);
-  }
-}
-
-/** 阶段四：题目连同评分 rubric 一起落库，并把房间打开。 */
-async function persistQuestions(
+/** 阶段三：简报连同空的工作记忆一起落库，并把房间打开。 */
+async function persistBrief(
   session: GenerationSessionRow,
   snapshot: GenerationSnapshot,
   context: MockInterviewContext,
-  generated: Awaited<ReturnType<typeof planQuestions>>,
+  blueprint: MockInterviewJobBlueprint,
+  brief: Awaited<ReturnType<typeof generateInterviewBrief>>,
 ): Promise<void> {
-  const projectIds = new Set(context.projects.map((project) => project.id));
-
   await prisma.$transaction(async (tx) => {
     const claimed = await claimSession(tx, {
-      where: {
-        id: session.id,
-        status: "generating",
-        generationPhase: "questions",
-      },
-      data: { generationPhase: "persisting" },
-    });
-    if (!claimed) return;
-
-    const existingQuestionCount = await tx.interviewQuestion.count({
-      where: { interviewId: session.interviewId },
-    });
-    if (existingQuestionCount > 0) {
-      throw new Error("模拟面试题目已经生成，请刷新页面。");
-    }
-
-    for (const [index, question] of generated.plan.questions.entries()) {
-      await tx.interviewQuestion.create({
-        data: {
-          interviewId: session.interviewId,
-          question: question.question.trim(),
-          answer: null,
-          category: question.category,
-          resumeProjectId:
-            question.category === "resume_project" &&
-            question.resumeProjectId &&
-            projectIds.has(question.resumeProjectId)
-              ? question.resumeProjectId
-              : null,
-          sortOrder: index,
-          evaluation: {
-            create: {
-              difficulty: question.difficulty,
-              sourceKind: question.sourceKind,
-              rubricJson: JSON.stringify(question.rubric),
-              expectedSignalsJson: JSON.stringify(question.expectedSignals),
-              generationMetadataJson: JSON.stringify({
-                jobCompetencyId: question.jobCompetencyId,
-                jdEvidence: question.jdEvidence,
-                relevanceScore: question.relevanceScore,
-                personalizationSourceId: question.personalizationSourceId,
-                rationale: question.rationale,
-              }),
-            },
-          },
-        },
-      });
-    }
-
-    const completed = await claimSession(tx, {
-      where: {
-        id: session.id,
-        status: "generating",
-        generationPhase: "persisting",
-      },
+      where: { id: session.id, status: "generating", generationPhase: "brief" },
       data: {
         contextSnapshotJson: JSON.stringify({
-          ...parseGenerationSnapshot(
-            serializeMockInterviewContext(context, {
-              blueprint: generated.blueprint,
-              personalization: generated.personalization,
-            }),
-          ),
+          ...parseGenerationSnapshot(serializeMockInterviewContext(context, { blueprint })),
           generationRequest: snapshot.generationRequest,
           jdReviewCount: snapshot.jdReviewCount,
         }),
+        briefJson: JSON.stringify(brief),
+        memoryJson: JSON.stringify(emptyMemory(brief)),
         status: "in_progress",
         generationPhase: null,
         generationErrorCode: null,
         generationError: null,
-        // 数量软化后实际题数可能少于请求数，按实际数落库，
-        // 房间进度和交卷判定都以此为准。
-        questionCount: generated.plan.questions.length,
+        questionCount: 0,
+        currentQuestionIndex: 0,
       },
     });
-    if (!completed) {
+    if (!claimed) {
       throw new Error("生成状态已变化，请刷新页面。");
     }
-
     await tx.interview.update({
       where: { id: session.interviewId },
       data: { status: ACTIVE_MOCK_INTERVIEW_STATUS },
@@ -325,15 +244,14 @@ async function recordGenerationFailure(
       generationError:
         error instanceof Error
           ? error.message.slice(0, 1_000)
-          : "面试题生成没有完成。生成服务没有返回可用结果。你可以重新分析岗位描述，或减少题目数量。",
+          : "面试准备没有完成。生成服务没有返回可用结果。你可以重新分析岗位描述后重试。",
       contextSnapshotJson: JSON.stringify(snapshot),
     },
   });
 }
 
-export async function generateMockInterviewQuestions(
-  sessionId: string,
-): Promise<void> {
+/** 后台备课入口：创建会话后调度，失败重试时再次调度。 */
+export async function prepareMockInterview(sessionId: string): Promise<void> {
   const session = await loadGeneratingSession(sessionId);
   if (!session) return;
 
@@ -364,23 +282,21 @@ export async function generateMockInterviewQuestions(
 
     const advanced = await claimSession(prisma, {
       where: { id: sessionId, status: "generating" },
-      data: { generationPhase: "questions" },
+      data: { generationPhase: "brief" },
     });
     if (!advanced) return;
 
-    const generated = await planQuestions({
+    // generateInterviewBrief 自带兜底简报，不会抛出"没有简报"这种终态。
+    const brief = await generateInterviewBrief({
       generationId,
-      context,
-      blueprint,
       jobTitle: session.interview.jobTitle,
-      questionCount: session.questionCount,
-      difficulty: request.difficulty,
+      blueprint,
+      context,
+      durationMinutes: session.durationMinutes,
       round: request.round,
-      seedQuestionId: request.seedQuestionId,
-      seedInsightId: request.seedInsightId,
     });
 
-    await persistQuestions(session, snapshot, context, generated);
+    await persistBrief(session, snapshot, context, blueprint, brief);
   } catch (error) {
     await recordGenerationFailure(sessionId, snapshot, error);
   }
@@ -388,18 +304,8 @@ export async function generateMockInterviewQuestions(
 
 export async function claimMockInterviewGenerationRetry(
   sessionId: string,
-  questionCount?: number,
   strategy?: "enrich",
 ): Promise<boolean> {
-  const normalizedQuestionCount =
-    typeof questionCount === "number" ? Math.trunc(questionCount) : null;
-  if (
-    normalizedQuestionCount !== null &&
-    (normalizedQuestionCount < 3 || normalizedQuestionCount > 12)
-  ) {
-    return false;
-  }
-
   const session = await prisma.mockInterviewSession.findUnique({
     where: { id: sessionId },
     select: { status: true, contextSnapshotJson: true },
@@ -419,9 +325,6 @@ export async function claimMockInterviewGenerationRetry(
       generationErrorCode: null,
       generationError: null,
       contextSnapshotJson: JSON.stringify(snapshot),
-      ...(normalizedQuestionCount === null
-        ? {}
-        : { questionCount: normalizedQuestionCount }),
     },
   });
 }
@@ -468,15 +371,13 @@ export async function applyJobDescriptionStrategy(input: {
     where: { id: input.sessionId, status: "awaiting_jd_review" },
     data: {
       status: "generating",
-      generationPhase:
-        input.strategy === "supplement" ? "job_blueprint" : "questions",
-      jdTextSnapshot:
-        input.strategy === "supplement"
-          ? supplementedJobDescription
-          : session.jdTextSnapshot,
+      generationPhase: input.strategy === "supplement" ? "job_blueprint" : "brief",
       contextSnapshotJson: JSON.stringify(snapshot),
       generationErrorCode: null,
       generationError: null,
+      ...(input.strategy === "supplement"
+        ? { jdTextSnapshot: supplementedJobDescription }
+        : {}),
     },
   });
 }

@@ -3,15 +3,17 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import { parseJsonArray, parseJsonObject } from "@/lib/json";
 
+import { parseStoredBrief } from "./interviewer/brief";
+import { parseStoredMemory } from "./interviewer/memory";
+import { buildQuestionTeaching } from "./teaching";
 import {
   isMockInterviewMode,
+  type MockInterviewConversation,
   type MockInterviewReport,
   type MockInterviewView,
   storedJobBlueprintSchema,
   type MockInterviewGenerationErrorContext,
 } from "./types";
-import { buildQuestionTeaching } from "./teaching";
-import { parsePersonalizationSourceIds } from "./personalization";
 
 async function getProfileContributionCount(
   interviewId: string,
@@ -28,59 +30,14 @@ async function getProfileContributionCount(
   });
 }
 
-async function getCompletedReportContext(
-  interviewId: string,
-  contextSnapshotJson: string,
-) {
-  const sourceIds = parsePersonalizationSourceIds(contextSnapshotJson);
-  const [profileRows, historyRows, profileContributionCount] =
-    await Promise.all([
-      prisma.candidateInsight.findMany({
-        where: { id: { in: sourceIds.profileInsightIds } },
-        select: { id: true, title: true, kind: true },
-      }),
-      prisma.interviewQuestion.findMany({
-        where: { id: { in: sourceIds.historyQuestionIds } },
-        select: {
-          id: true,
-          question: true,
-          interview: { select: { companyName: true } },
-        },
-      }),
-      getProfileContributionCount(interviewId),
-    ]);
-  const profileById = new Map(profileRows.map((row) => [row.id, row]));
-  const historyById = new Map(historyRows.map((row) => [row.id, row]));
-
-  return {
-    personalizationUsed: {
-      profileInsights: sourceIds.profileInsightIds.flatMap((id) => {
-        const row = profileById.get(id);
-        return row ? [row] : [];
-      }),
-      historyQuestions: sourceIds.historyQuestionIds.flatMap((id) => {
-        const row = historyById.get(id);
-        return row
-          ? [
-              {
-                id: row.id,
-                question: row.question,
-                companyName: row.interview.companyName,
-              },
-            ]
-          : [];
-      }),
-    },
-    profileContributionCount,
-  };
-}
-
 function parseArray<T>(value: string | null): T[] {
   return parseJsonArray(value) as T[];
 }
 
-export async function getMockInterviewView(id: string): Promise<MockInterviewView | null> {
-  const session = await prisma.mockInterviewSession.findUnique({
+type SessionWithConversation = NonNullable<Awaited<ReturnType<typeof loadSessionForView>>>;
+
+function loadSessionForView(id: string) {
+  return prisma.mockInterviewSession.findUnique({
     where: { id },
     include: {
       interview: {
@@ -91,8 +48,57 @@ export async function getMockInterviewView(id: string): Promise<MockInterviewVie
           },
         },
       },
+      messages: { orderBy: [{ turnIndex: "asc" }, { createdAt: "asc" }] },
+      threads: { orderBy: { createdAt: "asc" } },
     },
   });
+}
+
+/** 对话式会话的视图；旧的分步会话没有简报，返回 null，房间按只读回放处理。 */
+function buildConversation(session: SessionWithConversation): MockInterviewConversation | null {
+  const brief = parseStoredBrief(session.briefJson);
+  if (!brief) return null;
+  const ended = session.status !== "in_progress";
+  return {
+    phase: ended ? "ended" : session.messages.length === 0 ? "opening" : "running",
+    durationMinutes: session.durationMinutes,
+    areas: brief.areas.map((area) => {
+      const threads = session.threads.filter((thread) => thread.areaId === area.id);
+      return {
+        id: area.id,
+        name: area.name,
+        kind: area.kind,
+        minutes: area.minutes,
+        status: threads.some((thread) => thread.status === "active")
+          ? "active"
+          : threads.length > 0
+            ? "covered"
+            : "pending",
+      };
+    }),
+    threads: session.threads.map((thread) => ({
+      id: thread.id,
+      areaId: thread.areaId,
+      status: thread.status as MockInterviewConversation["threads"][number]["status"],
+      depth: thread.depth,
+      rescues: thread.rescues,
+    })),
+    messages: session.messages.map((message) => ({
+      id: message.id,
+      turnIndex: message.turnIndex,
+      role: message.role as "interviewer" | "candidate",
+      kind: message.kind,
+      content: message.content,
+      threadId: message.threadId,
+    })),
+    // 工作记忆面试中不给候选人看，报告页展示"面试官当时的判断"。
+    memory: session.status === "completed" ? parseStoredMemory(session.memoryJson, brief) : null,
+    hypotheses: session.status === "completed" ? brief.hypotheses : [],
+  };
+}
+
+export async function getMockInterviewView(id: string): Promise<MockInterviewView | null> {
+  const session = await loadSessionForView(id);
   if (!session) return null;
   const snapshot = parseJsonObject(session.contextSnapshotJson);
   const blueprint = storedJobBlueprintSchema.safeParse(snapshot.jobBlueprint);
@@ -103,13 +109,10 @@ export async function getMockInterviewView(id: string): Promise<MockInterviewVie
     typeof snapshot.generationErrorContext === "object"
       ? (snapshot.generationErrorContext as MockInterviewGenerationErrorContext)
       : null;
-  const completedReportContext =
+  const profileContributionCount =
     session.status === "completed"
-      ? await getCompletedReportContext(
-          session.interviewId,
-          session.contextSnapshotJson,
-        )
-      : null;
+      ? await getProfileContributionCount(session.interviewId)
+      : undefined;
 
   return {
     id: session.id,
@@ -138,7 +141,8 @@ export async function getMockInterviewView(id: string): Promise<MockInterviewVie
     report: session.reportJson
       ? (JSON.parse(session.reportJson) as MockInterviewReport)
       : null,
-    ...(completedReportContext ?? {}),
+    ...(profileContributionCount !== undefined ? { profileContributionCount } : {}),
+    conversation: buildConversation(session),
     questions: session.interview.questions.map((question) => {
       const completedEvaluation =
         session.status === "completed" ? question.evaluation : null;

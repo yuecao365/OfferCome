@@ -6,7 +6,6 @@ import { prisma } from "@/lib/db";
 import { ensureResumeExperiences } from "@/lib/resumes/experience-store";
 import { extractResumeTextFromFile } from "@/lib/resumes/extract";
 
-import type { RelevantPersonalizationContext } from "./relevance";
 import type { MockInterviewJobBlueprint } from "./types";
 
 export type MockInterviewContext = {
@@ -191,10 +190,7 @@ export async function buildMockInterviewContext(input: {
 
 export function serializeMockInterviewContext(
   context: MockInterviewContext,
-  generation?: {
-    blueprint: MockInterviewJobBlueprint;
-    personalization: RelevantPersonalizationContext;
-  },
+  generation?: { blueprint: MockInterviewJobBlueprint },
 ): string {
   return JSON.stringify({
     resumeId: context.resume.id,
@@ -204,9 +200,5 @@ export function serializeMockInterviewContext(
     profileRevision: context.profile.revision,
     profileInsightIds: context.profile.insights.map((insight) => insight.id),
     jobBlueprint: generation?.blueprint ?? null,
-    selectedHistoryQuestionIds:
-      generation?.personalization.history.map((item) => item.questionId) ?? [],
-    selectedProfileInsightIds:
-      generation?.personalization.profileInsights.map((item) => item.id) ?? [],
   });
 }
