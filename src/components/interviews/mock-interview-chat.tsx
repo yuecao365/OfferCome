@@ -4,7 +4,7 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, isDataUIPart, isTextUIPart } from "ai";
 import { ArrowLeft, Loader2, SendHorizontal } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 import { ThemeButton } from "@/components/theme-button";
 import { Alert } from "@/components/ui/alert";
@@ -57,15 +57,15 @@ export function MockInterviewBubble({ message }: { message: MockInterviewConvers
 
 /** 面试室的钟：从第一回合开始计时，结束后停住。 */
 function ElapsedClock({ startedAt, running }: { startedAt: string | null; running: boolean }) {
-  // 只在浏览器里读时钟：服务端渲染没有"现在"，否则首屏会 hydration 不一致。
-  const [now, setNow] = useState<number | null>(null);
+  // 服务端渲染没有"现在"：首屏（含 hydration）不画钟，挂载后再按秒走。
+  const mounted = useSyncExternalStore(subscribeNoop, () => true, () => false);
+  const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    setNow(Date.now());
     if (!running) return;
     const timer = window.setInterval(() => setNow(Date.now()), 1_000);
     return () => window.clearInterval(timer);
   }, [running]);
-  if (!startedAt || now === null) return null;
+  if (!mounted || !startedAt) return null;
   const seconds = Math.max(0, Math.floor((now - new Date(startedAt).getTime()) / 1_000));
   const mm = String(Math.floor(seconds / 60)).padStart(2, "0");
   const ss = String(seconds % 60).padStart(2, "0");
@@ -74,6 +74,10 @@ function ElapsedClock({ startedAt, running }: { startedAt: string | null; runnin
       {mm}:{ss}
     </p>
   );
+}
+
+function subscribeNoop(): () => void {
+  return () => {};
 }
 
 export function MockInterviewChat({
