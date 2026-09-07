@@ -20,8 +20,8 @@ type GenerationState = {
 };
 
 function phaseLabel(phase: string | null): string {
-  if (phase === "questions" || phase === "persisting") {
-    return "正在生成面试题";
+  if (phase === "brief") {
+    return "面试官正在备课";
   }
   return "正在分析岗位能力";
 }

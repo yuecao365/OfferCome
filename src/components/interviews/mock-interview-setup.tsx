@@ -17,6 +17,10 @@ import {
 } from "@/components/ui/form-controls";
 import { INTERVIEW_ROUND_LABELS, INTERVIEW_ROUNDS } from "@/lib/interviews/types";
 import {
+  DEFAULT_INTERVIEW_DURATION,
+  INTERVIEW_DURATIONS,
+} from "@/lib/mock-interviews/interviewer/brief";
+import {
   MOCK_INTERVIEW_DIFFICULTIES,
   MOCK_INTERVIEW_DIFFICULTY_LABELS,
   MOCK_INTERVIEW_MODES,
@@ -54,7 +58,7 @@ export function MockInterviewSetup({
   application,
   createSession,
   jdFileEnabled = true,
-  questionCounts = { options: [5, 8, 10, 12], defaultValue: 8 },
+  questionCounts,
   voiceDisabledHint = "需先在设置页配置语音转写模型。",
 }: {
   resumes: ResumeOption[];
@@ -66,7 +70,7 @@ export function MockInterviewSetup({
   createSession?: (formData: FormData) => Promise<{ href: string }>;
   /** JD 文件解析依赖服务端落盘，体验版关闭、只留粘贴文本。 */
   jdFileEnabled?: boolean;
-  /** 题量选项；体验版预算更紧，默认更少。 */
+  /** 旧的分步流程按题量创建；只有体验版还在传，P2 同构后删除。 */
   questionCounts?: { options: number[]; defaultValue: number };
   voiceDisabledHint?: string;
 }) {
@@ -206,10 +210,10 @@ export function MockInterviewSetup({
           <summary className="flex cursor-pointer select-none flex-wrap items-baseline gap-x-3 gap-y-1 [&::-webkit-details-marker]:hidden">
             <h2 className="text-sm font-semibold text-foreground">面试设置</h2>
             <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground group-open:hidden">
-              {resumes.find((resume) => resume.isDefault)?.name ?? resumes[0]?.name} · 第一轮 · 标准难度 · {questionCounts.defaultValue} 题 · 文字作答 · 允许追问
+              {resumes.find((resume) => resume.isDefault)?.name ?? resumes[0]?.name} · 第一轮 · {questionCounts ? `${questionCounts.defaultValue} 题` : `${DEFAULT_INTERVIEW_DURATION} 分钟`} · 文字作答
             </span>
             <span className="text-xs text-muted-foreground group-open:hidden">调整</span>
-            <span className="w-full text-[0.8125rem] text-muted-foreground group-open:block hidden">选择用于生成问题的简历、轮次、难度、题目数量和作答方式。</span>
+            <span className="w-full text-[0.8125rem] text-muted-foreground group-open:block hidden">选择面试使用的简历、轮次、时长和作答方式。面试官会根据岗位和简历备课，题目在对话中临场提出。</span>
           </summary>
           <div className="mt-5 border-t border-border pt-4">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -231,22 +235,35 @@ export function MockInterviewSetup({
               ))}
             </Select>
           </FieldLabel>
-          <FieldLabel>
-            难度
-            <Select defaultValue="standard" name="difficulty">
-              {MOCK_INTERVIEW_DIFFICULTIES.map((difficulty) => (
-                <option key={difficulty} value={difficulty}>{MOCK_INTERVIEW_DIFFICULTY_LABELS[difficulty]}</option>
-              ))}
-            </Select>
-          </FieldLabel>
-          <FieldLabel>
-            题目数量
-            <Select defaultValue={String(questionCounts.defaultValue)} name="questionCount">
-              {questionCounts.options.map((count) => (
-                <option key={count} value={count}>{count} 题</option>
-              ))}
-            </Select>
-          </FieldLabel>
+          {questionCounts ? (
+            <>
+              <FieldLabel>
+                难度
+                <Select defaultValue="standard" name="difficulty">
+                  {MOCK_INTERVIEW_DIFFICULTIES.map((difficulty) => (
+                    <option key={difficulty} value={difficulty}>{MOCK_INTERVIEW_DIFFICULTY_LABELS[difficulty]}</option>
+                  ))}
+                </Select>
+              </FieldLabel>
+              <FieldLabel>
+                题目数量
+                <Select defaultValue={String(questionCounts.defaultValue)} name="questionCount">
+                  {questionCounts.options.map((count) => (
+                    <option key={count} value={count}>{count} 题</option>
+                  ))}
+                </Select>
+              </FieldLabel>
+            </>
+          ) : (
+            <FieldLabel>
+              面试时长
+              <Select defaultValue={String(DEFAULT_INTERVIEW_DURATION)} name="durationMinutes">
+                {INTERVIEW_DURATIONS.map((minutes) => (
+                  <option key={minutes} value={minutes}>{minutes} 分钟</option>
+                ))}
+              </Select>
+            </FieldLabel>
+          )}
         </div>
         <fieldset className="mt-5 grid gap-2">
           <legend className="text-xs font-medium text-muted-foreground">

@@ -19,7 +19,16 @@ export type MockInterviewListItem = {
   totalScore: number | null;
   companyName: string;
   jobTitle: string;
+  /** 对话式会话带时长；旧的分步会话与体验版没有。 */
+  durationMinutes?: number | null;
 };
+
+function progressLabel(session: MockInterviewListItem): string {
+  if (session.durationMinutes) {
+    return `已考察 ${session.questionCount} 个话题 · ${session.durationMinutes} 分钟`;
+  }
+  return `已回答 ${Math.min(session.currentQuestionIndex, session.questionCount)}/${session.questionCount} 题`;
+}
 
 function statusLabel(status: string): string {
   if (status === "completed") return "已完成";
@@ -69,7 +78,7 @@ export function MockInterviewsView({
                       {session.companyName} · {session.jobTitle}
                     </p>
                     <p className="mt-0.5 font-mono text-xs text-muted-foreground">
-                      已回答 {Math.min(session.currentQuestionIndex, session.questionCount)}/{session.questionCount} 题
+                      {progressLabel(session)}
                       {session.totalScore !== null ? ` · ${session.totalScore} 分` : ""}
                     </p>
                   </div>

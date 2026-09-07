@@ -90,6 +90,7 @@ export default async function MockInterviewsPage({
           status: session.status,
           currentQuestionIndex: session.currentQuestionIndex,
           questionCount: session.questionCount,
+          durationMinutes: session.briefJson ? session.durationMinutes : null,
           totalScore: session.totalScore,
           companyName: session.interview.companyName,
           jobTitle: session.interview.jobTitle,
