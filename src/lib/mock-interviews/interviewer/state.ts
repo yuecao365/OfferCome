@@ -24,6 +24,10 @@ export type ThreadState = {
 };
 
 export type MessageRole = "interviewer" | "candidate";
+/**
+ * 候选人侧：answer 是实质回答（含线程外的自我介绍），question 是对题目的提问或求提示，
+ * aside 是由代码处理的插话（跳过 / 再说一遍 / 结束）。面试官侧的 aside 是没有推进动作的一句话。
+ */
 export type MessageKind =
   | "intro_request"
   | "question"

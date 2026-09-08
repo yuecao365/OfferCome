@@ -242,13 +242,13 @@ export function applyTurn(
   if (endedByCandidate) action = { name: "close_interview", input: { reason: "候选人要求结束" } };
   record.applied = action?.name ?? null;
 
-  // 3. 候选人消息落进当前线程。求澄清、要提示是提问不是回答；跳过 / 重复 / 结束是插话；
-  //    都不进线程的回答文本，也不算"回答了追问"。
+  // 3. 候选人消息落进当前线程（自我介绍等线程外的话 threadId 为空）。
+  //    求澄清、要提示是提问不是回答；跳过 / 重复 / 结束是插话；都不进线程的回答文本，也不算"回答了追问"。
   if (candidate) {
     const active = activeThread(state);
     const asking =
       action?.name === "clarify" || action?.name === "rescue" || candidate.intent === "hint" || candidate.intent === "clarify";
-    const kind: MessageKind = !active || isHardIntent(candidate.intent) ? "aside" : asking ? "question" : "answer";
+    const kind: MessageKind = isHardIntent(candidate.intent) ? "aside" : asking ? "question" : "answer";
     newMessages.push(
       message(state, "candidate", kind, candidate.content, {
         id: candidate.id,
@@ -271,7 +271,7 @@ export function applyTurn(
 
   // 5. 应用动作。
   if (!action) {
-    if (speech) newMessages.push(message(state, "interviewer", "aside", speech));
+    if (speech) newMessages.push(message(state, "interviewer", "aside", speech, { threadId: activeThread(state)?.id ?? null }));
     state = { ...state, idleTurns: state.idleTurns + 1, phase: "running" };
   } else {
     state = { ...state, idleTurns: 0 };

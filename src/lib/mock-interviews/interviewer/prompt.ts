@@ -1,5 +1,3 @@
-import type { ModelMessage } from "ai";
-
 import { ACTION_NAMES, CANDIDATE_INTENT_SIGNALS, type ActionName, type CandidateIntent } from "./actions";
 import { canAct, CLARIFIES_PER_THREAD, INTERRUPTS_PER_THREAD, probeLimit, RESCUES_PER_THREAD } from "./budget";
 import { evidenceSummary, renderEvidence } from "./evidence";
@@ -10,11 +8,10 @@ import { activeThread, areaById, type InterviewerState } from "./state";
 /**
  * 面试官回合的提示词与对话裁剪。
  * 系统提示词每回合重建：人设、信息量、规则、简报里的领域、当前线程与阶梯位置、
- * 工作记忆、技能包索引、本回合允许的动作。对话只带最近几回合原文，远处的靠记忆与线程摘要。
+ * 工作记忆、技能包索引、本回合允许的动作。对话原文的裁剪见 conversation.ts。
  */
 
 export const INTERVIEWER_PROMPT_VERSION = "interviewer-v4";
-const RECENT_TURNS = 6;
 const MAX_RESUME_CHARS = 6_000;
 const MAX_JD_CHARS = 4_000;
 const MAX_INLINE_CHARS = 120;
@@ -120,15 +117,4 @@ ${context.jobDescription.slice(0, MAX_JD_CHARS)}
 ${context.resumeText.slice(0, MAX_RESUME_CHARS)}
 
 提示词版本：${INTERVIEWER_PROMPT_VERSION}`;
-}
-
-/** 最近几回合的对话原文；更早的内容靠记忆与线程摘要。 */
-export function buildConversation(state: InterviewerState): ModelMessage[] {
-  const fromTurn = Math.max(0, state.turnIndex - RECENT_TURNS);
-  return state.messages
-    .filter((message) => message.turnIndex >= fromTurn)
-    .map((message) => ({
-      role: message.role === "interviewer" ? ("assistant" as const) : ("user" as const),
-      content: message.content,
-    }));
 }

@@ -78,7 +78,7 @@ export const ACTION_DESCRIPTIONS: Record<keyof typeof actionSchemas, string> = {
   interrupt:
     "候选人的回答明显跑题或过长时先打断，说明为什么，再把问题收窄成一句。每线程最多一次。",
   close_thread:
-    "这一段问够了（答得充分、或已失守、或信息够了）：给一句你对这段的判断。可以在同一回合紧接着 open_thread 或 close_interview。",
+    "这一段问够了（答得充分、或已失守、或信息够了）：note 写你对这段的判断——答到了第几层、哪句答得好、哪里失守。之后的回合里这段只剩这句 note，对话原文不再保留。可以在同一回合紧接着 open_thread 或 close_interview。",
   close_interview: "信息够了、所有领域都考察过、或候选人明显无法继续时收尾。",
   note: "更新你的工作记忆：本回合新确认的、存疑的、失守的要点，以及简历假设的验证状态。可与一个推进动作同时使用。",
 };

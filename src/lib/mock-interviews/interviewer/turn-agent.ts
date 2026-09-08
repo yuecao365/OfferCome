@@ -11,7 +11,8 @@ import type { SkillPack } from "../skills/types";
 import { ACTION_DESCRIPTIONS, ACTION_NAMES, actionSchemas, isActionName, type CandidateIntent, type InterviewerAction } from "./actions";
 import { canAct } from "./budget";
 import { memoryPatchSchema } from "./memory";
-import { buildConversation, buildInterviewerSystemPrompt, INTERVIEWER_PROMPT_VERSION } from "./prompt";
+import { buildConversation } from "./conversation";
+import { buildInterviewerSystemPrompt, INTERVIEWER_PROMPT_VERSION } from "./prompt";
 import type { TurnDecision } from "./reducer";
 import type { InterviewerState } from "./state";
 
