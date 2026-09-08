@@ -31,6 +31,7 @@ const generationMetadataSchema = z.object({
   competencyOrigin: z.enum(["jd", "baseline"]).nullable().optional(),
   skillPack: z.string().nullable().optional(),
   note: z.string().nullable().optional(),
+  answerSeconds: z.number().nullable().optional(),
 });
 
 const expectedSignalsSchema = z.array(z.string());
@@ -67,6 +68,7 @@ export function buildQuestionTeaching(
     competencyOrigin: competency?.origin ?? (metadata.success ? metadata.data.competencyOrigin ?? null : null),
     skillPack: metadata.success ? metadata.data.skillPack ?? null : null,
     areaStyle: metadata.success ? metadata.data.areaStyle ?? null : null,
+    answerSeconds: metadata.success ? metadata.data.answerSeconds ?? null : null,
     sourceUrl: competency?.sourceUrl ?? null,
     jdEvidence: metadata.success ? metadata.data.jdEvidence ?? null : null,
     expectedSignals: expectedSignals.success ? expectedSignals.data : [],

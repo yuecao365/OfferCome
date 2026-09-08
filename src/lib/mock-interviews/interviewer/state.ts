@@ -13,8 +13,11 @@ export type ThreadState = {
   areaId: string;
   entryQuestion: string;
   status: ThreadStatus;
+  /** 追问层数（含打断）。 */
   depth: number;
   rescues: number;
+  clarifies: number;
+  interrupts: number;
   openedAtTurn: number;
   closedAtTurn: number | null;
   note: string | null;
@@ -22,15 +25,18 @@ export type ThreadState = {
 
 export type MessageRole = "interviewer" | "candidate";
 export type MessageKind =
-  | "opening"
   | "intro_request"
   | "question"
   | "probe"
   | "rescue"
-  | "repeat"
+  | "clarify"
+  | "interrupt"
   | "closing"
   | "answer"
   | "aside";
+
+/** 候选人这条消息的作答元数据：从面试官上一句落库到候选人发送的时间与字数。 */
+export type MessageMetrics = { composeMs: number | null; chars: number };
 
 export type MessageState = {
   id: string;
@@ -40,6 +46,7 @@ export type MessageState = {
   content: string;
   threadId: string | null;
   toolName: string | null;
+  metrics?: MessageMetrics | null;
 };
 
 export type InterviewPhase = "opening" | "running" | "ended";
@@ -68,17 +75,11 @@ export function threadsOfArea(state: InterviewerState, areaId: string): ThreadSt
   return state.threads.filter((thread) => thread.areaId === areaId);
 }
 
-/** 一个线程占用的回合数：从打开到关闭（未关闭则到当前）。 */
-export function threadTurns(thread: ThreadState, currentTurn: number): number {
-  const end = thread.closedAtTurn ?? currentTurn;
-  return Math.max(0, end - thread.openedAtTurn);
-}
-
-export function areaTurnsUsed(state: InterviewerState, areaId: string): number {
-  return threadsOfArea(state, areaId).reduce(
-    (sum, thread) => sum + threadTurns(thread, state.turnIndex),
-    0,
-  );
+/** 已结束的线程，按关闭顺序。 */
+export function closedThreads(state: InterviewerState): ThreadState[] {
+  return state.threads
+    .filter((thread) => thread.status !== "active")
+    .sort((left, right) => (left.closedAtTurn ?? 0) - (right.closedAtTurn ?? 0));
 }
 
 export function lastInterviewerQuestion(state: InterviewerState): MessageState | null {
@@ -86,7 +87,7 @@ export function lastInterviewerQuestion(state: InterviewerState): MessageState |
     const message = state.messages[index];
     if (
       message.role === "interviewer" &&
-      (message.kind === "question" || message.kind === "probe" || message.kind === "intro_request")
+      (message.kind === "question" || message.kind === "probe" || message.kind === "interrupt" || message.kind === "intro_request")
     ) {
       return message;
     }
@@ -94,7 +95,34 @@ export function lastInterviewerQuestion(state: InterviewerState): MessageState |
   return null;
 }
 
-export function derivePhase(threads: ThreadState[], messages: MessageState[], ended: boolean): InterviewPhase {
+/** 候选人最近一条实质回答（不含澄清提问与插话）。 */
+export function lastCandidateAnswer(state: InterviewerState): MessageState | null {
+  for (let index = state.messages.length - 1; index >= 0; index -= 1) {
+    const message = state.messages[index];
+    if (message.role === "candidate" && message.kind === "answer") return message;
+  }
+  return null;
+}
+
+/**
+ * 连续没有推进动作的回合数：从最后一回合往前数，面试官只"说话"（aside）的回合。
+ * 每回合从数据库重建状态，所以必须从消息推导，否则"连续空转强制推进"永远不会触发。
+ */
+export function deriveIdleTurns(messages: MessageState[]): number {
+  const turns = new Map<number, MessageState[]>();
+  for (const message of messages) {
+    if (message.role !== "interviewer") continue;
+    turns.set(message.turnIndex, [...(turns.get(message.turnIndex) ?? []), message]);
+  }
+  let idle = 0;
+  for (const turnIndex of [...turns.keys()].sort((a, b) => b - a)) {
+    if (turns.get(turnIndex)!.every((message) => message.kind === "aside")) idle += 1;
+    else break;
+  }
+  return idle;
+}
+
+export function derivePhase(messages: MessageState[], ended: boolean): InterviewPhase {
   if (ended) return "ended";
   return messages.length === 0 ? "opening" : "running";
 }
@@ -105,7 +133,6 @@ export function createInterviewerState(input: {
   threads: ThreadState[];
   messages: MessageState[];
   ended: boolean;
-  idleTurns?: number;
 }): InterviewerState {
   const turnIndex = input.messages.reduce((max, message) => Math.max(max, message.turnIndex + 1), 0);
   return {
@@ -114,7 +141,7 @@ export function createInterviewerState(input: {
     threads: input.threads,
     messages: input.messages,
     turnIndex,
-    phase: derivePhase(input.threads, input.messages, input.ended),
-    idleTurns: input.idleTurns ?? 0,
+    phase: derivePhase(input.messages, input.ended),
+    idleTurns: deriveIdleTurns(input.messages),
   };
 }

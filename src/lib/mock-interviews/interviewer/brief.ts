@@ -5,10 +5,11 @@ import { normalizedText } from "@/lib/text/similarity";
 import type { MockInterviewJobBlueprint } from "../types";
 
 /**
- * 面试简报（v3）：面试官的"备课"产物，替代预生成的题目清单。
+ * 面试简报（v4）：面试官的"备课"产物，替代预生成的题目清单。
  *
- * 用户只选节奏（快/中/长），节奏映射成回合区间；领域数量与每个领域的深度由
- * 备课模型在区间内自行分配（少而深、多而浅都行），代码只保证总量不超上限。
+ * 用户只选节奏（快/中/长）。节奏决定两件事：备课时的规划规模（预计回合，用来把
+ * 领域装箱）和面试中的信息量目标（见 evidence.ts）。面试的长短由信息量决定，
+ * 不由回合数决定；预计回合只用于规划和安全上限。
  *
  * 领域的来源有两种：JD（绑定蓝图能力 competencyIds）和岗位基线（baseline：
  * 模型从加载的技能包里补的"这个岗位通常会考的方向"）。基线只补空，不盖 JD。
@@ -16,7 +17,7 @@ import type { MockInterviewJobBlueprint } from "../types";
  * 简历假设逐字引用简历原文（硬门），切入问题与深度阶梯由模型给出。
  */
 
-export const BRIEF_VERSION = 3;
+export const BRIEF_VERSION = 4;
 
 export const INTERVIEW_PACES = ["quick", "standard", "deep"] as const;
 export type InterviewPace = (typeof INTERVIEW_PACES)[number];
@@ -31,20 +32,30 @@ export function isInterviewPace(value: string): value is InterviewPace {
   return (INTERVIEW_PACES as readonly string[]).includes(value);
 }
 
-export type TurnRange = { min: number; max: number };
-
-/**
- * 节奏 → 回合区间（一个回合 = 面试官问一次）。下限之前不许收尾，上限到了强制收尾，
- * 区间内由面试官自己判断"考察够了"。
- */
-export function turnRangeForPace(pace: InterviewPace): TurnRange {
+/** 节奏 → 备课的规划规模（预计回合上限，一个回合 = 面试官问一次）。 */
+export function plannedTurnsForPace(pace: InterviewPace): number {
   switch (pace) {
     case "quick":
-      return { min: 6, max: 10 };
+      return 10;
     case "deep":
-      return { min: 22, max: 32 };
+      return 32;
     default:
-      return { min: 12, max: 20 };
+      return 20;
+  }
+}
+
+/**
+ * 节奏 → 信息量目标：快速是"最重要的领域摸清楚"，深入是"所有领域到目标深度
+ * 且假设基本验证完"。数字是拍的，跑几场再调。
+ */
+export function evidenceTargetForPace(pace: InterviewPace): number {
+  switch (pace) {
+    case "quick":
+      return 0.6;
+    case "deep":
+      return 0.9;
+    default:
+      return 0.75;
   }
 }
 
@@ -59,12 +70,12 @@ export const AREA_STYLE_LABELS: Record<AreaStyle, string> = {
   fundamentals: "基础题",
 };
 
-/** 阶梯每一级的风格：模型备课时标注，面试中按它决定这一级怎么追。 */
+/** 阶梯每一级的风格：模型备课时标注，面试中作为追问风格的参考。 */
 export const LADDER_STYLES = ["fact", "principle", "scenario", "tradeoff"] as const;
 export type LadderStyle = (typeof LADDER_STYLES)[number];
 
 export const MAX_AREA_DEPTH = 4;
-/** 一个领域的回合花费：切入问题 + 追问 + 一次提示余量。 */
+/** 一个领域的预计回合：切入问题 + 追问 + 一次提示余量。 */
 export function areaTurnCost(depth: number): number {
   return depth + 2;
 }
@@ -123,7 +134,7 @@ export const briefOutputSchema = z.object({
             topic: z.string().min(1).max(80),
           })
           .nullable(),
-        /** 1–3，越大越重要；超预算时先砍权重低的。 */
+        /** 1–3，越大越重要；超预算时先砍权重低的，信息量也按它加权。 */
         weight: z.number().min(1).max(3),
         /** 打算追问几层（1–4）：重要的领域深挖，次要的浅问一层。 */
         depth: z.number().int().min(1).max(MAX_AREA_DEPTH),
@@ -160,7 +171,7 @@ export type BriefOutput = z.infer<typeof briefOutputSchema>;
 
 export type LadderRung = { text: string; style: LadderStyle | null };
 
-export type InterviewArea = Omit<BriefOutput["areas"][number], "weight" | "ladder"> & {
+export type InterviewArea = Omit<BriefOutput["areas"][number], "ladder"> & {
   ladder: LadderRung[];
   rubric: RubricItem[];
 };
@@ -169,7 +180,8 @@ export type InterviewHypothesis = BriefOutput["hypotheses"][number];
 export type InterviewBrief = {
   version: typeof BRIEF_VERSION;
   pace: InterviewPace;
-  turnRange: TurnRange;
+  /** 备课的预计回合（开场 + 各领域），只用于安全上限，不是面试的边界。 */
+  plannedTurns: number;
   round: string | null;
   askIntro: boolean;
   areas: InterviewArea[];
@@ -180,7 +192,7 @@ export type InterviewBrief = {
   source: "model" | "fallback";
 };
 
-/** 整份计划的回合花费：开场 + 各领域。 */
+/** 整份计划的预计回合：开场 + 各领域。 */
 export function plannedTurns(areas: { depth: number }[], askIntro: boolean): number {
   return (askIntro ? OPENING_TURNS : 0) + areas.reduce((sum, area) => sum + areaTurnCost(area.depth), 0);
 }
@@ -191,14 +203,10 @@ function isEvidence(haystack: string, excerpt: string): boolean {
 }
 
 /**
- * 把领域装进回合上限：按权重从高到低收，装不下的丢掉（同权保留模型顺序），
+ * 把领域装进规划规模：按权重从高到低收，装不下的丢掉（同权保留模型顺序），
  * 至少保留一个；最后恢复模型给的顺序。
  */
-function fitAreas<T extends { weight: number; depth: number }>(
-  areas: T[],
-  range: TurnRange,
-  askIntro: boolean,
-): T[] {
+function fitAreas<T extends { weight: number; depth: number }>(areas: T[], maxTurns: number, askIntro: boolean): T[] {
   const ranked = areas
     .map((area, index) => ({ area, index }))
     .sort((a, b) => b.area.weight - a.area.weight || a.index - b.index);
@@ -206,7 +214,7 @@ function fitAreas<T extends { weight: number; depth: number }>(
   let used = plannedTurns([], askIntro);
   for (const entry of ranked) {
     const cost = areaTurnCost(entry.area.depth);
-    if (kept.length > 0 && used + cost > range.max) continue;
+    if (kept.length > 0 && used + cost > maxTurns) continue;
     kept.push(entry);
     used += cost;
   }
@@ -236,26 +244,22 @@ export function buildBriefFromOutput(input: {
   const competencyIds = new Set(input.blueprint.competencies.map((item) => item.id));
   const loadedSkills = new Set(input.loadedSkills);
   const resume = normalizedText(input.resumeText);
-  const range = turnRangeForPace(input.pace);
   const seenAreaIds = new Set<string>();
   const unique = input.output.areas.filter((area) => {
     if (seenAreaIds.has(area.id)) return false;
     seenAreaIds.add(area.id);
     return true;
   });
-  const areas: InterviewArea[] = fitAreas(unique, range, input.askIntro).map(
-    ({ weight: _unused, ...area }) => {
-      void _unused;
-      const style = normalizeStyle(area.kind, area.style);
-      return {
-        ...area,
-        style,
-        competencyIds: area.competencyIds.filter((id) => competencyIds.has(id)),
-        baseline: area.baseline && loadedSkills.has(area.baseline.skill) ? area.baseline : null,
-        rubric: rubricForArea(area.kind, style),
-      };
-    },
-  );
+  const areas: InterviewArea[] = fitAreas(unique, plannedTurnsForPace(input.pace), input.askIntro).map((area) => {
+    const style = normalizeStyle(area.kind, area.style);
+    return {
+      ...area,
+      style,
+      competencyIds: area.competencyIds.filter((id) => competencyIds.has(id)),
+      baseline: area.baseline && loadedSkills.has(area.baseline.skill) ? area.baseline : null,
+      rubric: rubricForArea(area.kind, style),
+    };
+  });
   const areaIds = new Set(areas.map((area) => area.id));
   const hypotheses = input.output.hypotheses
     .filter((item) => isEvidence(resume, item.evidence))
@@ -264,7 +268,7 @@ export function buildBriefFromOutput(input: {
   return {
     version: BRIEF_VERSION,
     pace: input.pace,
-    turnRange: range,
+    plannedTurns: plannedTurns(areas, input.askIntro),
     round: input.round,
     askIntro: input.askIntro,
     areas,
@@ -292,7 +296,6 @@ export function fallbackBrief(input: {
   round: string | null;
   askIntro: boolean;
 }): InterviewBrief {
-  const range = turnRangeForPace(input.pace);
   const core = input.blueprint.competencies
     .filter((item) => item.priority === "core")
     .concat(input.blueprint.competencies.filter((item) => item.priority !== "core"))
@@ -336,16 +339,17 @@ export function fallbackBrief(input: {
         ...technical,
       ]
     : technical;
+  const areas = fitAreas(areasRaw, plannedTurnsForPace(input.pace), input.askIntro).map((area) => ({
+    ...area,
+    rubric: rubricForArea(area.kind, area.style),
+  }));
   return {
     version: BRIEF_VERSION,
     pace: input.pace,
-    turnRange: range,
+    plannedTurns: plannedTurns(areas, input.askIntro),
     round: input.round,
     askIntro: input.askIntro,
-    areas: fitAreas(areasRaw, range, input.askIntro).map(({ weight: _unused, ...area }) => {
-      void _unused;
-      return { ...area, rubric: rubricForArea(area.kind, area.style) };
-    }),
+    areas,
     hypotheses: [],
     skillPacks: [],
     source: "fallback",
@@ -353,21 +357,22 @@ export function fallbackBrief(input: {
 }
 
 /**
- * 读库里的简报。v2（无 version：阶梯是字符串数组、没有 style / baseline）只读兼容，
- * 归一化成 v3 的形状；更早的按分钟预算的简报视为没有简报。
+ * 读库里的简报。v3（turnRange、领域无 weight）与 v2（无 version、阶梯是字符串数组）
+ * 只读兼容，归一化成 v4 的形状；更早的按分钟预算的简报视为没有简报。
  */
 export function parseStoredBrief(json: string | null): InterviewBrief | null {
   if (!json) return null;
   try {
     const value = JSON.parse(json) as Partial<InterviewBrief> & {
+      turnRange?: { min?: unknown; max?: unknown };
       areas?: Array<Partial<InterviewArea> & { ladder?: unknown }>;
     };
+    const legacyMax = typeof value.turnRange?.max === "number" ? value.turnRange.max : null;
     const usable =
       Array.isArray(value?.areas) &&
       value.areas.length > 0 &&
       value.areas.every((area) => typeof area.depth === "number") &&
-      typeof value.turnRange?.min === "number" &&
-      typeof value.turnRange?.max === "number";
+      (typeof value.plannedTurns === "number" || legacyMax !== null);
     if (!usable) return null;
     const areas: InterviewArea[] = value.areas!.map((area) => {
       const kind = area.kind ?? "technical";
@@ -383,12 +388,18 @@ export function parseStoredBrief(json: string | null): InterviewBrief | null {
         ...(area as InterviewArea),
         kind,
         style,
+        weight: typeof area.weight === "number" ? area.weight : 2,
         baseline: area.baseline ?? null,
         ladder,
         rubric: area.rubric ?? rubricForArea(kind, style),
       };
     });
-    return { ...(value as InterviewBrief), version: BRIEF_VERSION, areas };
+    return {
+      ...(value as InterviewBrief),
+      version: BRIEF_VERSION,
+      plannedTurns: typeof value.plannedTurns === "number" ? value.plannedTurns : legacyMax!,
+      areas,
+    };
   } catch {
     return null;
   }

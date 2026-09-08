@@ -1,15 +1,16 @@
 import "server-only";
 
 import { prisma } from "@/lib/db";
-import { parseJsonArray, parseJsonObject } from "@/lib/json";
+import { parseJsonArray, parseJsonObject, parseJsonValue } from "@/lib/json";
 
-import { parseStoredBrief } from "./interviewer/brief";
+import { evidenceTargetForPace, parseStoredBrief } from "./interviewer/brief";
 import { parseStoredMemory } from "./interviewer/memory";
 import { buildQuestionTeaching } from "./teaching";
 import {
   isMockInterviewMode,
   type MockInterviewConversation,
   type MockInterviewReport,
+  type MockInterviewTrace,
   type MockInterviewView,
   type MockInterviewGenerationErrorContext,
 } from "./types";
@@ -61,7 +62,7 @@ function buildConversation(session: SessionWithConversation): MockInterviewConve
   return {
     phase: ended ? "ended" : session.messages.length === 0 ? "opening" : "running",
     pace: brief.pace,
-    turnRange: brief.turnRange,
+    plannedTurns: brief.plannedTurns,
     startedAt: session.startedAt?.toISOString() ?? null,
     areas: brief.areas.map((area) => {
       const threads = session.threads.filter((thread) => thread.areaId === area.id);
@@ -192,4 +193,72 @@ export async function getRecentMockInterviews() {
     orderBy: { updatedAt: "desc" },
     take: 8,
   });
+}
+
+/** trace 页面：按回合把候选人的话、面试官的话、决策记录与模型开销拼在一起。 */
+export async function getMockInterviewTrace(id: string): Promise<MockInterviewTrace | null> {
+  const session = await prisma.mockInterviewSession.findUnique({
+    where: { id },
+    include: {
+      interview: { select: { companyName: true, jobTitle: true } },
+      messages: { orderBy: [{ turnIndex: "asc" }, { createdAt: "asc" }] },
+      decisions: { orderBy: { turnIndex: "asc" } },
+    },
+  });
+  if (!session) return null;
+  const brief = parseStoredBrief(session.briefJson);
+  if (!brief) return null;
+  const runs = await prisma.agentRun.findMany({
+    where: { runId: { startsWith: `turn:${id}:` }, event: "model_call" },
+    select: { runId: true, status: true, durationMs: true, totalTokens: true, errorKind: true },
+  });
+  const runByTurn = new Map(runs.map((run) => [Number(run.runId.split(":").pop()), run]));
+  const decisionByTurn = new Map(session.decisions.map((decision) => [decision.turnIndex, decision]));
+  const turnIndexes = [...new Set(session.messages.map((message) => message.turnIndex))].sort((a, b) => a - b);
+
+  return {
+    id: session.id,
+    companyName: session.interview.companyName,
+    jobTitle: session.interview.jobTitle,
+    status: session.status,
+    pace: brief.pace,
+    evidenceTarget: evidenceTargetForPace(brief.pace),
+    areas: brief.areas.map((area) => ({ id: area.id, name: area.name, kind: area.kind, depth: area.depth })),
+    turns: turnIndexes.map((turnIndex) => {
+      const own = session.messages.filter((message) => message.turnIndex === turnIndex);
+      const candidate = own.find((message) => message.role === "candidate");
+      const decision = decisionByTurn.get(turnIndex);
+      const run = runByTurn.get(turnIndex);
+      let composeMs: number | null = null;
+      try {
+        composeMs = candidate?.metricsJson ? ((JSON.parse(candidate.metricsJson) as { composeMs?: number }).composeMs ?? null) : null;
+      } catch {
+        composeMs = null;
+      }
+      return {
+        turnIndex,
+        candidate: candidate ? { kind: candidate.kind, content: candidate.content, composeMs } : null,
+        interviewer: own
+          .filter((message) => message.role === "interviewer")
+          .map((message) => ({ kind: message.kind, content: message.content, toolName: message.toolName })),
+        decision: decision
+          ? {
+              proposedAction: decision.proposedAction,
+              appliedAction: decision.appliedAction,
+              followUp: decision.followUp,
+              replacedReason: decision.replacedReason,
+              anchorHit: decision.anchorHit,
+              memoryPatch: decision.memoryPatchJson ? parseJsonValue(decision.memoryPatchJson) : null,
+              evidenceBefore: decision.evidenceBefore,
+              evidenceAfter: decision.evidenceAfter,
+              skillsLoaded: decision.skillsLoaded,
+              effects: (parseJsonValue(decision.effectsJson) as string[] | null) ?? [],
+            }
+          : null,
+        run: run
+          ? { status: run.status, durationMs: run.durationMs, totalTokens: run.totalTokens, errorKind: run.errorKind }
+          : null,
+      };
+    }),
+  };
 }

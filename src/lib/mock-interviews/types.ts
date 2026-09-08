@@ -5,7 +5,7 @@ import {
   type InterviewStatus,
 } from "@/lib/interviews/types";
 
-import type { InterviewHypothesis, InterviewPace, TurnRange } from "./interviewer/brief";
+import type { InterviewHypothesis, InterviewPace } from "./interviewer/brief";
 import type { InterviewMemory } from "./interviewer/memory";
 
 /** 题目生成完成、房间可以开始作答时，关联的 Interview 记录进入这个状态。 */
@@ -162,6 +162,8 @@ export type MockInterviewQuestionTeaching = {
   skillPack: string | null;
   /** 对话式面试的领域风格（scenario / fundamentals），旧流程为 null。 */
   areaStyle: string | null;
+  /** 候选人在这条线程里的作答总时长（秒），只作辅助信号；没有记录为 null。 */
+  answerSeconds: number | null;
   sourceUrl: string | null;
   jdEvidence: string | null;
   expectedSignals: string[];
@@ -192,7 +194,8 @@ export type MockInterviewConversationMessage = {
 export type MockInterviewConversation = {
   phase: "opening" | "running" | "ended";
   pace: InterviewPace;
-  turnRange: TurnRange;
+  /** 备课的预计回合，只用于安全上限。 */
+  plannedTurns: number;
   /** 第一回合落库的时间；房间顶栏据此显示已用时。 */
   startedAt: string | null;
   areas: {
@@ -265,4 +268,35 @@ export type MockInterviewGenerationErrorContext = {
   requiredCount?: number;
   jobTitle?: string;
   questionCount?: number;
+};
+
+/** trace 页面的一回合：候选人的话、面试官的话、模型提案与代码裁决、信息量变化、模型开销。 */
+export type MockInterviewTraceTurn = {
+  turnIndex: number;
+  candidate: { kind: string; content: string; composeMs: number | null } | null;
+  interviewer: { kind: string; content: string; toolName: string | null }[];
+  decision: {
+    proposedAction: string | null;
+    appliedAction: string | null;
+    followUp: string | null;
+    replacedReason: string | null;
+    anchorHit: boolean | null;
+    memoryPatch: unknown;
+    evidenceBefore: number;
+    evidenceAfter: number;
+    skillsLoaded: number;
+    effects: string[];
+  } | null;
+  run: { status: string; durationMs: number; totalTokens: number | null; errorKind: string | null } | null;
+};
+
+export type MockInterviewTrace = {
+  id: string;
+  companyName: string;
+  jobTitle: string;
+  status: string;
+  pace: InterviewPace;
+  evidenceTarget: number;
+  areas: { id: string; name: string; kind: string; depth: number }[];
+  turns: MockInterviewTraceTurn[];
 };

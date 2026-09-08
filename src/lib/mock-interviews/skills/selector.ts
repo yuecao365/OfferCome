@@ -97,3 +97,18 @@ export function recommendSkillPacks(input: SkillSelectionInput, packs: SkillPack
   const base = packs.filter((pack) => pack.layer === "base").map((pack) => pack.name);
   return [...new Set([...base, ...domains, ...stacks])];
 }
+
+/** 面试中可查的包：备课时加载过的包及其父级领域包，按备课顺序，最多 limit 个。 */
+export function packsForInterview(names: string[], packs: SkillPack[], limit = 6): SkillPack[] {
+  const byName = new Map(packs.map((pack) => [pack.name, pack]));
+  const picked: SkillPack[] = [];
+  const push = (pack: SkillPack | undefined) => {
+    if (pack && !picked.includes(pack)) picked.push(pack);
+  };
+  for (const name of names) {
+    const pack = byName.get(name);
+    if (pack?.parent) push(byName.get(pack.parent));
+    push(pack);
+  }
+  return picked.slice(0, limit);
+}

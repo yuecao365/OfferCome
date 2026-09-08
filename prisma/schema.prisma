@@ -214,6 +214,7 @@ model MockInterviewSession {
   completedAt          DateTime?
   messages             MockInterviewMessage[]
   threads              InterviewThread[]
+  decisions            InterviewTurnDecision[]
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 
@@ -235,7 +236,8 @@ model MockInterviewMessage {
   threadId         String?
   thread           InterviewThread?     @relation(fields: [threadId], references: [id], onDelete: SetNull)
   toolName         String?
-  voiceMetricsJson String?
+  /// 候选人消息的作答元数据：{ composeMs, chars, voice? }；面试官消息为 null。
+  metricsJson      String?
   createdAt        DateTime             @default(now())
 
   @@unique([sessionId, clientId])
@@ -253,6 +255,8 @@ model InterviewThread {
   status        String               @default("active")
   depth         Int                  @default(0)
   rescues       Int                  @default(0)
+  clarifies     Int                  @default(0)
+  interrupts    Int                  @default(0)
   openedAtTurn  Int
   closedAtTurn  Int?
   note          String?
@@ -529,4 +533,27 @@ model AgentRun {
   @@index([agent, createdAt])
   @@index([status, createdAt])
   @@index([tag, createdAt])
+}
+
+
+/// 每回合一条决策记录：模型提了什么、代码用了什么、为什么换、信息量怎么变。trace 页面与评测读它。
+model InterviewTurnDecision {
+  id              String               @id @default(cuid())
+  sessionId       String
+  session         MockInterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  turnIndex       Int
+  runId           String
+  proposedAction  String?
+  appliedAction   String?
+  followUp        String?
+  replacedReason  String?
+  anchorHit       Boolean?
+  memoryPatchJson String?
+  evidenceBefore  Float
+  evidenceAfter   Float
+  skillsLoaded    Int                  @default(0)
+  effectsJson     String
+  createdAt       DateTime             @default(now())
+
+  @@unique([sessionId, turnIndex])
 }

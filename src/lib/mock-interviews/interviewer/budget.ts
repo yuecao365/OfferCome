@@ -1,26 +1,25 @@
+import type { ActionName } from "./actions";
 import { MAX_AREA_DEPTH } from "./brief";
-import { activeThread, areaById, threadsOfArea, type InterviewerState } from "./state";
+import { evidenceSummary, questionTurnsUsed, threadAnswered } from "./evidence";
+import { activeThread, areaById, closedThreads, threadsOfArea, type InterviewerState } from "./state";
 
 /**
  * 预算与不变量：模型不可越过的边界，全部由代码持有。
- * 预算只有一个数：回合区间。下限之前不许收尾，上限到了强制收尾，
- * 区间内由面试官自己判断；每个领域的深度是目标，允许超一层。
+ *
+ * 面试的长短由信息量决定（evidence.ts）：信息够了就允许收尾；回合数只留一个
+ * 远高于正常值的安全上限防止跑飞。每个领域的深度是目标，允许超一层。
  */
 
 export const RESCUES_PER_THREAD = 1;
+export const CLARIFIES_PER_THREAD = 2;
+export const INTERRUPTS_PER_THREAD = 1;
 export const THREADS_PER_AREA = 2;
 /** 追问可以比简报里的目标深度多走一层。 */
 export const DEPTH_SLACK = 1;
 /** 连续这么多回合没有推进动作，代码强制推进。 */
 export const IDLE_TURNS_BEFORE_FORCE = 2;
-
-export type ActionName =
-  | "ask_intro"
-  | "open_thread"
-  | "probe"
-  | "rescue"
-  | "close_thread"
-  | "close_interview";
+/** 连续这么多条线程候选人一句都答不上，允许提前收尾。 */
+const FAILED_THREADS_BEFORE_CLOSE = 2;
 
 export type ActionCheck = { ok: true } | { ok: false; reason: string };
 
@@ -30,12 +29,13 @@ export function probeLimit(state: InterviewerState, areaId: string): number {
   return Math.min(MAX_AREA_DEPTH, target + DEPTH_SLACK);
 }
 
-export function belowMinimum(state: InterviewerState): boolean {
-  return state.turnIndex < state.brief.turnRange.min;
+/** 提问回合的安全上限：备课预计回合的 1.5 倍再加 4，只数面试官提问的回合。 */
+export function safetyCap(state: InterviewerState): number {
+  return Math.round(state.brief.plannedTurns * 1.5) + 4;
 }
 
-export function atMaximum(state: InterviewerState): boolean {
-  return state.turnIndex >= state.brief.turnRange.max;
+export function atSafetyCap(state: InterviewerState): boolean {
+  return questionTurnsUsed(state) >= safetyCap(state);
 }
 
 /** 每个领域至少一个已结束（含跳过）的线程。 */
@@ -60,9 +60,20 @@ export function nextAreaToOpen(state: InterviewerState): string | null {
   return uncovered[0] ?? openable[0] ?? null;
 }
 
-/** 收尾的条件：到上限；或过了下限；或没有线程也没有可开的领域。 */
+/** 最近关闭的几条线程候选人都一句没答上：继续问也拿不到信息。 */
+function recentThreadsFailed(state: InterviewerState): boolean {
+  const recent = closedThreads(state).slice(-FAILED_THREADS_BEFORE_CLOSE);
+  return recent.length === FAILED_THREADS_BEFORE_CLOSE && recent.every((thread) => !threadAnswered(thread, state.messages));
+}
+
+/**
+ * 收尾的条件（任一）：信息量达标；所有领域都考察过；连续两条线程失守；
+ * 到安全上限；没有线程也没有可开的领域。
+ */
 export function canClose(state: InterviewerState): boolean {
-  if (atMaximum(state) || !belowMinimum(state)) return true;
+  const evidence = evidenceSummary(state);
+  if (evidence.total >= evidence.target) return true;
+  if (coverageComplete(state) || recentThreadsFailed(state) || atSafetyCap(state)) return true;
   return !activeThread(state) && areasOpenable(state).length === 0;
 }
 
@@ -73,7 +84,7 @@ export function canAct(
 ): ActionCheck {
   if (state.phase === "ended") return { ok: false, reason: "面试已结束" };
   const active = activeThread(state);
-  const maxed = atMaximum(state);
+  const capped = atSafetyCap(state);
 
   switch (action) {
     case "ask_intro":
@@ -82,7 +93,7 @@ export function canAct(
       return { ok: true };
     case "open_thread": {
       if (active) return { ok: false, reason: "当前线程尚未结束，先 close_thread" };
-      if (maxed) return { ok: false, reason: "回合已到上限，请 close_interview" };
+      if (capped) return { ok: false, reason: "提问次数已到安全上限，请 close_interview" };
       const areaId = args.areaId ?? "";
       if (!areaById(state, areaId)) return { ok: false, reason: "areaId 不在简报里" };
       if (threadsOfArea(state, areaId).length >= THREADS_PER_AREA) {
@@ -91,22 +102,29 @@ export function canAct(
       return { ok: true };
     }
     case "probe":
+    case "interrupt":
       if (!active) return { ok: false, reason: "没有进行中的线程，先 open_thread" };
-      if (maxed) return { ok: false, reason: "回合已到上限，请 close_thread" };
+      if (capped) return { ok: false, reason: "提问次数已到安全上限，请 close_thread" };
       if (active.depth >= probeLimit(state, active.areaId)) {
         return { ok: false, reason: "本线程已到深度上限，请 close_thread" };
+      }
+      if (action === "interrupt" && active.interrupts >= INTERRUPTS_PER_THREAD) {
+        return { ok: false, reason: "本线程已打断过一次" };
       }
       return { ok: true };
     case "rescue":
       if (!active) return { ok: false, reason: "没有进行中的线程" };
-      if (maxed) return { ok: false, reason: "回合已到上限，请 close_thread" };
-      if (active.rescues >= RESCUES_PER_THREAD) return { ok: false, reason: "本线程已给过提示" };
+      if (active.rescues >= RESCUES_PER_THREAD) return { ok: false, reason: "本线程已给过提示，可以 clarify 解释题目或 close_thread" };
+      return { ok: true };
+    case "clarify":
+      if (!active) return { ok: false, reason: "没有进行中的线程" };
+      if (active.clarifies >= CLARIFIES_PER_THREAD) return { ok: false, reason: "本线程已澄清两次，请推进" };
       return { ok: true };
     case "close_thread":
       if (!active) return { ok: false, reason: "没有进行中的线程" };
       return { ok: true };
     case "close_interview":
       if (canClose(state)) return { ok: true };
-      return { ok: false, reason: `还没到本场的回合下限（${state.brief.turnRange.min}），先继续考察` };
+      return { ok: false, reason: "信息量还没达标，继续考察" };
   }
 }

@@ -4,50 +4,61 @@ import { isStepCount, tool, type ModelMessage, type ToolSet } from "ai";
 
 import { streamAgent, type AgentStreamOutcome } from "@/lib/ai/run-agent";
 import { getAiTaskConfig } from "@/lib/settings/ai";
+import { normalizedText } from "@/lib/text/similarity";
 
-import { ACTION_DESCRIPTIONS, actionSchemas, type InterviewerAction } from "./actions";
-import { canAct, type ActionName } from "./budget";
+import { createSkillTools, renderSkillIndex } from "../skills/tools";
+import type { SkillPack } from "../skills/types";
+import { ACTION_DESCRIPTIONS, ACTION_NAMES, actionSchemas, isActionName, type CandidateIntent, type InterviewerAction } from "./actions";
+import { canAct } from "./budget";
 import { memoryPatchSchema } from "./memory";
 import { buildConversation, buildInterviewerSystemPrompt, INTERVIEWER_PROMPT_VERSION } from "./prompt";
 import type { TurnDecision } from "./reducer";
 import type { InterviewerState } from "./state";
 
 const TURN_TIMEOUT_MS = 45_000;
-/** note + 被拒后换一个动作 + 收口，最多三步。 */
-const MAX_STEPS = 3;
-const PROGRESS_ACTIONS: ActionName[] = [
-  "ask_intro",
-  "open_thread",
-  "probe",
-  "rescue",
-  "close_thread",
-  "close_interview",
-];
+/** 查技能包 ≤2 次 + note + 推进动作（被拒后可换一次）+ 收口说话。 */
+const MAX_STEPS = 5;
+/** 追问锚点最多被拒这么多次；再不过就照常应用并记为 anchor_missing。 */
+const ANCHOR_RETRIES = 2;
 
-function isProgressAction(name: string): name is ActionName {
-  return (PROGRESS_ACTIONS as string[]).includes(name);
-}
+type TurnTools = {
+  tools: ToolSet;
+  /** 流结束后读取：追问锚点是否命中（没追问为 null）、本回合加载的技能包数。 */
+  outcome: () => { anchorHit: boolean | null; skillsLoaded: number };
+};
 
 /**
  * 工具的 execute 只回答"预算允不允许"，不改状态：模型看到拒绝理由可以换一个动作，
  * 真正的状态变更由 reducer 在流结束后统一应用（保证原子，也保证不越权）。
+ *
+ * 追问的锚点在这里校验：必须是候选人这条回答里的原话，让追问贴着回答走。
  */
-function buildTools(initial: InterviewerState): ToolSet {
+function buildTools(initial: InterviewerState, candidateContent: string | null, packs: SkillPack[]): TurnTools {
   const tools: ToolSet = {};
   // close_thread 之后允许在同一回合紧接着 open_thread / close_interview（"这块到这里，接下来聊 X"），
   // 所以接受 close_thread 后，后续检查按"当前线程已关闭"的状态来算。
   let state = initial;
-  for (const name of PROGRESS_ACTIONS) {
+  const answer = normalizedText(candidateContent ?? "");
+  let anchorMisses = 0;
+  let anchorHit: boolean | null = null;
+
+  for (const name of ACTION_NAMES) {
     tools[name] = tool({
       description: ACTION_DESCRIPTIONS[name],
       inputSchema: actionSchemas[name],
       execute: async (input: unknown) => {
-        const areaId =
-          input && typeof input === "object" && "areaId" in input
-            ? String((input as { areaId: unknown }).areaId)
-            : undefined;
-        const check = canAct(state, name, { areaId });
+        const fields = (input ?? {}) as { areaId?: unknown; anchor?: unknown };
+        const check = canAct(state, name, { areaId: typeof fields.areaId === "string" ? fields.areaId : undefined });
         if (!check.ok) return { accepted: false, reason: check.reason };
+        if (name === "probe") {
+          const anchor = normalizedText(typeof fields.anchor === "string" ? fields.anchor : "");
+          const hit = anchor.length > 0 && answer.includes(anchor);
+          if (!hit && anchorMisses < ANCHOR_RETRIES) {
+            anchorMisses += 1;
+            return { accepted: false, reason: "anchor 不是候选人这条回答里的原话，请逐字引用回答里的一段再追问" };
+          }
+          anchorHit = hit;
+        }
         if (name === "close_thread") {
           state = {
             ...state,
@@ -69,7 +80,10 @@ function buildTools(initial: InterviewerState): ToolSet {
     inputSchema: actionSchemas.note,
     execute: async () => ({ recorded: true }),
   });
-  return tools;
+  const skills = createSkillTools(packs);
+  Object.assign(tools, skills.tools);
+
+  return { tools, outcome: () => ({ anchorHit, skillsLoaded: skills.loaded.length }) };
 }
 
 function wasAccepted(output: unknown): boolean {
@@ -81,7 +95,7 @@ function wasAccepted(output: unknown): boolean {
  * 后面的作废；唯一例外是 close_thread 之后紧接的 open_thread / close_interview，作为
  * followUp 一起应用）、最后一次记忆更新、最后一步的话。全被拒绝时交最后一个给 reducer 兜底。
  */
-export function decisionFromOutcome(outcome: AgentStreamOutcome): TurnDecision {
+export function decisionFromOutcome(outcome: AgentStreamOutcome, anchorHit: boolean | null = null): TurnDecision {
   let memoryPatch: TurnDecision["memoryPatch"] = null;
   const progress: InterviewerAction[] = [];
   const accepted: InterviewerAction[] = [];
@@ -91,7 +105,7 @@ export function decisionFromOutcome(outcome: AgentStreamOutcome): TurnDecision {
       if (parsed.success) memoryPatch = parsed.data;
       continue;
     }
-    if (!isProgressAction(call.toolName)) continue;
+    if (!isActionName(call.toolName)) continue;
     const parsed = actionSchemas[call.toolName].safeParse(call.input);
     if (!parsed.success) continue;
     const action = { name: call.toolName, input: parsed.data } as InterviewerAction;
@@ -111,27 +125,33 @@ export function decisionFromOutcome(outcome: AgentStreamOutcome): TurnDecision {
     action,
     followUp,
     memoryPatch,
+    anchorHit: action?.name === "probe" ? anchorHit : null,
     failed: outcome.error !== null && outcome.text.trim().length === 0,
   };
 }
+
+export type TurnAgentInput = {
+  runId: string;
+  state: InterviewerState;
+  candidate: { content: string; intent: CandidateIntent } | null;
+  context: { jobTitle: string; jobDescription: string; resumeText: string };
+  /** 本场可查的技能包（备课时加载过的及其父包）。 */
+  skillPacks: SkillPack[];
+};
 
 /**
  * 一个面试官回合。返回流（给 HTTP 响应）与决定（流结束后解析）。
  * 候选人这条消息由调用方追加到 messages 末尾；开场回合没有候选人消息。
  */
-export async function streamInterviewerTurn(input: {
-  runId: string;
-  state: InterviewerState;
-  candidateContent: string | null;
-  context: { jobTitle: string; jobDescription: string; resumeText: string };
-}) {
+export async function streamInterviewerTurn(input: TurnAgentInput) {
   const config = await getAiTaskConfig("text");
   const conversation: ModelMessage[] = buildConversation(input.state);
-  if (input.candidateContent) {
-    conversation.push({ role: "user", content: input.candidateContent });
+  if (input.candidate?.content) {
+    conversation.push({ role: "user", content: input.candidate.content });
   } else if (conversation.length === 0) {
     conversation.push({ role: "user", content: "（候选人已就座，请开场。）" });
   }
+  const turnTools = buildTools(input.state, input.candidate?.content ?? null, input.skillPacks);
 
   const { stream, outcome } = streamAgent({
     agent: "interviewer_turn",
@@ -139,14 +159,22 @@ export async function streamInterviewerTurn(input: {
     config,
     feature: "AI 模拟面试",
     promptVersion: INTERVIEWER_PROMPT_VERSION,
-    system: buildInterviewerSystemPrompt(input.state, input.context),
+    system: buildInterviewerSystemPrompt(input.state, {
+      ...input.context,
+      skillIndex: input.skillPacks.length > 0 ? renderSkillIndex(input.skillPacks) : "",
+      candidateIntent: input.candidate?.intent ?? null,
+    }),
     untrustedInputs: "候选人的回答、简历和岗位描述",
     messages: conversation,
-    tools: buildTools(input.state),
+    tools: turnTools.tools,
     stopWhen: isStepCount(MAX_STEPS),
     timeoutMs: TURN_TIMEOUT_MS,
     maxOutputTokens: 1_200,
   });
 
-  return { stream, decision: outcome.then(decisionFromOutcome), outcome };
+  const settled = outcome.then((result) => {
+    const extras = turnTools.outcome();
+    return { decision: decisionFromOutcome(result, extras.anchorHit), skillsLoaded: extras.skillsLoaded };
+  });
+  return { stream, settled, outcome };
 }

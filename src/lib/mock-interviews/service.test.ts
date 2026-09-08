@@ -49,9 +49,9 @@ function defaultBlueprint() {
 
 function testBrief(): InterviewBrief {
   return {
-    version: 3,
+    version: 4,
     pace: "standard",
-    turnRange: { min: 12, max: 20 },
+    plannedTurns: 11,
     round: "first_interview",
     askIntro: true,
     source: "model",
@@ -66,6 +66,7 @@ function testBrief(): InterviewBrief {
         description: "缓存一致性与消息队列",
         competencyIds: ["bp-1"],
         baseline: null,
+        weight: 2,
         depth: 3,
         entryQuestion: "缓存和数据库双写时你怎么保证一致性？",
         ladder: [
@@ -85,6 +86,7 @@ function testBrief(): InterviewBrief {
         description: "简历项目",
         competencyIds: ["bp-2"],
         baseline: null,
+        weight: 3,
         depth: 3,
         entryQuestion: "介绍你负责的部分。",
         ladder: [
@@ -138,7 +140,7 @@ mock.module("./interviewer/turn-agent", {
     streamInterviewerTurn: async () => {
       stubs.turnCalls += 1;
       const decision = stubs.decisions.shift() ?? { speech: "", action: null, memoryPatch: null, failed: true };
-      return { stream: null, decision: Promise.resolve(decision), outcome: Promise.resolve(null) };
+      return { stream: null, settled: Promise.resolve({ decision, skillsLoaded: 0 }), outcome: Promise.resolve(null) };
     },
   },
 });
@@ -330,7 +332,7 @@ test("closing a thread writes the compat question with the area rubric and sched
   stubs.decisions = [
     { speech: "你好。", action: { name: "ask_intro", input: {} }, memoryPatch: null },
     { speech: "好的。", action: { name: "open_thread", input: { areaId: "area-1", question: "缓存和数据库双写时你怎么保证一致性？" } }, memoryPatch: null },
-    { speech: "明白。", action: { name: "probe", input: { question: "先删缓存还是先写库？" } }, memoryPatch: { established: ["知道延迟双删"], doubtful: [], failed: [], hypotheses: [] } },
+    { speech: "明白。", action: { name: "probe", input: { anchor: "延迟双删", question: "先删缓存还是先写库？" } }, anchorHit: true, memoryPatch: { established: ["知道延迟双删"], doubtful: [], failed: [], hypotheses: [] } },
     { speech: "这一块够了。", action: { name: "close_thread", input: { note: "机制清楚，取舍偏弱" } }, memoryPatch: null },
   ];
   await runTurn(sessionId, null);
@@ -355,6 +357,15 @@ test("closing a thread writes the compat question with the area rubric and sched
   // 关掉 area-1 后代码紧接着开了 area-2，候选人不会面对没有下文的过渡语。
   assert.deepEqual(threads.map((thread) => [thread.areaId, thread.status]), [["area-1", "closed"], ["area-2", "active"]]);
   assert.equal(threads[0].questionId, questions[0].id);
+  // 每回合一条决策记录：追问那回合记下锚点命中与信息量上涨。
+  const decisions = await prisma.interviewTurnDecision.findMany({ where: { sessionId }, orderBy: { turnIndex: "asc" } });
+  assert.equal(decisions.length, 4);
+  assert.equal(decisions[2].appliedAction, "probe");
+  assert.equal(decisions[2].anchorHit, true);
+  assert.ok(decisions[3].evidenceAfter > decisions[1].evidenceBefore);
+  // 候选人消息带作答元数据（字数一定有，时长视时钟而定）。
+  const answers = await prisma.mockInterviewMessage.findMany({ where: { sessionId, role: "candidate" } });
+  assert.ok(answers.every((message) => message.metricsJson && JSON.parse(message.metricsJson).chars > 0));
 });
 
 test("a duplicate clientId replays the stored interviewer reply without a second model call", async () => {

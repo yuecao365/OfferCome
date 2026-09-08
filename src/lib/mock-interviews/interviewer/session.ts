@@ -4,14 +4,18 @@ import { prisma } from "@/lib/db";
 
 import { scheduleMockInterviewQuestionEvaluation } from "../question-evaluation-background";
 import { claimSession } from "../session-state";
+import { loadSkillPacks } from "../skills/loader";
+import { packsForInterview } from "../skills/selector";
 import type { CandidateIntent } from "./actions";
 import { parseStoredBrief, type InterviewArea, type InterviewBrief } from "./brief";
-import { parseStoredMemory } from "./memory";
+import { evidenceSummary } from "./evidence";
+import { parseStoredMemory, type MemoryPatch } from "./memory";
 import { applyTurn, type CandidateInput, type TurnResult } from "./reducer";
 import {
   createInterviewerState,
   type InterviewerState,
   type MessageKind,
+  type MessageMetrics,
   type MessageRole,
   type MessageState,
   type ThreadState,
@@ -21,13 +25,15 @@ import { streamInterviewerTurn } from "./turn-agent";
 
 /**
  * 面试官回合的本地版编排：从数据库装配状态 → 跑回合 → 应用 reducer → 一个事务落库。
- * 线程关闭时写一条 InterviewQuestion 作为兼容层，逐题评分、复盘、画像照旧。
+ * 线程关闭时写一条 InterviewQuestion 作为兼容层，逐题评分、复盘、画像照旧；
+ * 每回合另写一条决策记录（提案、裁决、信息量变化），trace 页面与评测读它。
  */
 
 export type CandidateMessageInput = {
   clientId: string;
   content: string;
   intent: CandidateIntent;
+  /** 语音作答的指标（P2 接入），原样并入消息元数据。 */
   voiceMetricsJson?: string | null;
 };
 
@@ -57,10 +63,25 @@ function toThreadState(row: LoadedSession["session"]["threads"][number]): Thread
     status: row.status as ThreadStatus,
     depth: row.depth,
     rescues: row.rescues,
+    clarifies: row.clarifies,
+    interrupts: row.interrupts,
     openedAtTurn: row.openedAtTurn,
     closedAtTurn: row.closedAtTurn,
     note: row.note,
   };
+}
+
+function parseMetrics(json: string | null): MessageMetrics | null {
+  if (!json) return null;
+  try {
+    const value = JSON.parse(json) as Partial<MessageMetrics>;
+    return {
+      composeMs: typeof value.composeMs === "number" ? value.composeMs : null,
+      chars: typeof value.chars === "number" ? value.chars : 0,
+    };
+  } catch {
+    return null;
+  }
 }
 
 function toMessageState(row: LoadedSession["session"]["messages"][number]): MessageState {
@@ -72,6 +93,7 @@ function toMessageState(row: LoadedSession["session"]["messages"][number]): Mess
     content: row.content,
     threadId: row.threadId,
     toolName: row.toolName,
+    metrics: parseMetrics(row.metricsJson),
   };
 }
 
@@ -105,12 +127,34 @@ function categoryForArea(area: InterviewArea | null): string {
   return "technical";
 }
 
-/** 把一个回合的结果原子写库；线程关闭时同时写兼容层的题目与评分记录。 */
+/** 候选人这条消息的作答元数据：从面试官上一句落库到现在的时间、字数、语音指标。 */
+function candidateMetrics(loaded: LoadedSession, candidate: CandidateMessageInput): MessageMetrics & { voice?: unknown } {
+  const lastInterviewer = [...loaded.session.messages].reverse().find((message) => message.role === "interviewer");
+  const composeMs = lastInterviewer ? Math.max(0, Date.now() - lastInterviewer.createdAt.getTime()) : null;
+  let voice: unknown;
+  if (candidate.voiceMetricsJson) {
+    try {
+      voice = JSON.parse(candidate.voiceMetricsJson) as unknown;
+    } catch {
+      voice = undefined;
+    }
+  }
+  return { composeMs, chars: candidate.content.length, ...(voice !== undefined ? { voice } : {}) };
+}
+
+export type TurnTrace = {
+  runId: string;
+  skillsLoaded: number;
+  memoryPatch: MemoryPatch | null;
+};
+
+/** 把一个回合的结果原子写库；线程关闭时同时写兼容层的题目与评分记录，并落一条决策记录。 */
 export async function persistTurn(
   loaded: LoadedSession,
   before: InterviewerState,
   result: TurnResult,
   candidate: CandidateMessageInput | null,
+  trace: TurnTrace,
 ): Promise<void> {
   const sessionId = loaded.session.id;
   const areas = new Map(loaded.brief.areas.map((area) => [area.id, area]));
@@ -127,6 +171,15 @@ export async function persistTurn(
 
     for (const thread of result.state.threads) {
       const previous = before.threads.find((item) => item.id === thread.id);
+      const counters = {
+        status: thread.status,
+        depth: thread.depth,
+        rescues: thread.rescues,
+        clarifies: thread.clarifies,
+        interrupts: thread.interrupts,
+        closedAtTurn: thread.closedAtTurn,
+        note: thread.note,
+      };
       if (!previous) {
         await tx.interviewThread.create({
           data: {
@@ -134,25 +187,12 @@ export async function persistTurn(
             sessionId,
             areaId: thread.areaId,
             entryQuestion: thread.entryQuestion,
-            status: thread.status,
-            depth: thread.depth,
-            rescues: thread.rescues,
             openedAtTurn: thread.openedAtTurn,
-            closedAtTurn: thread.closedAtTurn,
-            note: thread.note,
+            ...counters,
           },
         });
       } else if (JSON.stringify(previous) !== JSON.stringify(thread)) {
-        await tx.interviewThread.update({
-          where: { id: thread.id },
-          data: {
-            status: thread.status,
-            depth: thread.depth,
-            rescues: thread.rescues,
-            closedAtTurn: thread.closedAtTurn,
-            note: thread.note,
-          },
-        });
+        await tx.interviewThread.update({ where: { id: thread.id }, data: counters });
       }
     }
 
@@ -168,7 +208,7 @@ export async function persistTurn(
           content: message.content,
           threadId: message.threadId,
           toolName: message.toolName,
-          voiceMetricsJson: message.role === "candidate" ? candidate?.voiceMetricsJson ?? null : null,
+          metricsJson: message.metrics ? JSON.stringify(message.metrics) : null,
         },
       });
     }
@@ -202,6 +242,7 @@ export async function persistTurn(
                 note: effect.thread.note,
                 depth: effect.thread.depth,
                 probeCount: effect.segment.probeCount,
+                answerSeconds: effect.segment.answerSeconds,
               }),
             },
           },
@@ -214,6 +255,24 @@ export async function persistTurn(
       });
       if (!effect.segment.skipped) evaluationIds.push(question.id);
     }
+
+    await tx.interviewTurnDecision.create({
+      data: {
+        sessionId,
+        turnIndex: before.turnIndex,
+        runId: trace.runId,
+        proposedAction: result.decision.proposed,
+        appliedAction: result.decision.applied,
+        followUp: result.decision.followUp,
+        replacedReason: result.decision.replacedReason,
+        anchorHit: result.decision.anchorHit,
+        memoryPatchJson: trace.memoryPatch ? JSON.stringify(trace.memoryPatch) : null,
+        evidenceBefore: evidenceSummary(before).total,
+        evidenceAfter: evidenceSummary(result.state).total,
+        skillsLoaded: trace.skillsLoaded,
+        effectsJson: JSON.stringify(result.effects.map((effect) => effect.type)),
+      },
+    });
 
     await tx.mockInterviewSession.update({
       where: { id: sessionId },
@@ -275,21 +334,29 @@ export async function startInterviewerTurn(input: {
   }
 
   const candidateInput: CandidateInput | null = input.candidate
-    ? { id: crypto.randomUUID(), content: input.candidate.content, intent: input.candidate.intent }
+    ? {
+        id: crypto.randomUUID(),
+        content: input.candidate.content,
+        intent: input.candidate.intent,
+        metrics: candidateMetrics(loaded, input.candidate),
+      }
     : null;
-  const { stream, decision } = await streamInterviewerTurn({
-    runId: `turn:${input.sessionId}:${loaded.state.turnIndex}`,
+  const runId = `turn:${input.sessionId}:${loaded.state.turnIndex}`;
+  const { stream, settled } = await streamInterviewerTurn({
+    runId,
     state: loaded.state,
-    candidateContent: input.candidate?.content ?? null,
+    candidate: input.candidate ? { content: input.candidate.content, intent: input.candidate.intent } : null,
     context: loaded.context,
+    skillPacks: packsForInterview(loaded.brief.skillPacks, await loadSkillPacks()),
   });
 
   return {
     replay: false,
     stream,
     finalize: async () => {
-      const result = applyTurn(loaded.state, candidateInput, await decision);
-      await persistTurn(loaded, loaded.state, result, input.candidate);
+      const { decision, skillsLoaded } = await settled;
+      const result = applyTurn(loaded.state, candidateInput, decision);
+      await persistTurn(loaded, loaded.state, result, input.candidate, { runId, skillsLoaded, memoryPatch: decision.memoryPatch });
       return result;
     },
   };
