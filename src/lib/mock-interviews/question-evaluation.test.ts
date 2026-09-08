@@ -54,8 +54,9 @@ test("a low score without any weakness is flagged", () => {
   assert.equal(metrics.unexplainedLowScore, 1);
 });
 
-test("quote matching ignores case and whitespace but needs at least four characters", () => {
+test("quote matching ignores case, whitespace and punctuation but needs at least four characters", () => {
   assert.ok(quoteInAnswer(answer, "llm  推理"));
+  assert.ok(quoteInAnswer(answer, "“主循环是上下文构建，LLM推理”"));
   assert.ok(!quoteInAnswer(answer, "推理"));
   assert.ok(!quoteInAnswer(answer, null));
 });

@@ -230,7 +230,17 @@ export function applyTurn(
   // 2. 预算检查；不允许或连续空转时换成代码的下一步。
   if (action) {
     const check = canDo(state, action);
-    if (!check.ok) action = replace(action.name, check.reason);
+    if (!check.ok) {
+      // 提示 / 澄清的次数用完了不该关线程：这回合只说话，让候选人接着答；连续空转仍由下面的规则推进。
+      const helpExhausted = (action.name === "rescue" || action.name === "clarify") && activeThread(state) && speech;
+      if (helpExhausted && state.idleTurns + 1 < IDLE_TURNS_BEFORE_FORCE) {
+        effects.push({ type: "action_replaced", requested: action.name, applied: "aside", reason: check.reason });
+        record.replacedReason ??= check.reason;
+        action = null;
+      } else {
+        action = replace(action.name, check.reason);
+      }
+    }
   } else if (decision.failed || state.phase === "opening" || !speech || state.idleTurns + 1 >= IDLE_TURNS_BEFORE_FORCE) {
     // 开场必须有动作；一句话都没有的回合没有意义；连续空转也要推进。
     action = replace(

@@ -152,36 +152,13 @@ const ALL_SKIPPED: SummaryOutput = {
   hypotheses: [],
 };
 
-function buildReport(
-  brief: InterviewBrief,
-  session: CompletableSession,
-  areas: AreaOutcome[],
-  summary: SummaryOutput,
-): MockInterviewReport {
-  const memory = parseStoredMemory(session.memoryJson, brief);
-  const verdictByText = new Map(
-    summary.hypotheses.map((item) => [item.text, item.verdict]),
-  );
+function buildReport(areas: AreaOutcome[], summary: SummaryOutput): MockInterviewReport {
   return {
     version: REPORT_VERSION,
     totalScore: computeInterviewTotalScore(
       areas.map((area) => ({ weight: area.summary.weight, scores: area.scores })),
     ),
-    summary: summary.summary,
-    strengths: summary.strengths,
-    weaknesses: summary.weaknesses,
-    advice: summary.advice,
-    hypotheses: brief.hypotheses.map((hypothesis) => {
-      const state = memory.hypotheses.find((item) => item.id === hypothesis.id);
-      const status = state?.status ?? "open";
-      return {
-        text: hypothesis.text,
-        status,
-        verdict:
-          verdictByText.get(hypothesis.text) ??
-          (status === "open" ? "这场没有问到。" : (state?.note ?? "")),
-      };
-    }),
+    ...summary,
   };
 }
 
@@ -250,7 +227,7 @@ export async function completeMockInterview(
             }),
           })
         : ALL_SKIPPED;
-    const report = buildReport(brief, session, areas, summary);
+    const report = buildReport(areas, summary);
     const completedAt = new Date();
 
     await prisma.$transaction(async (tx) => {

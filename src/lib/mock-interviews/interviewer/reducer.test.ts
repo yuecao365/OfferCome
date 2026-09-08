@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { detectCandidateIntent } from "./actions";
-import { areaTurnCost, fallbackBrief, plannedTurns, plannedTurnsForPace, type InterviewBrief } from "./brief";
+import { areaTurnCost, ensureTwoAreas, fallbackBrief, plannedTurns, plannedTurnsForPace, type InterviewBrief } from "./brief";
 import { canAct, canClose, coverageComplete, probeLimit, safetyCap } from "./budget";
 import { evidenceSummary, questionTurnsUsed } from "./evidence";
 import { applyMemoryPatch, emptyMemory } from "./memory";
@@ -123,14 +123,19 @@ test("candidate intents override the model: skip closes, second hint moves on, e
   assert.ok(closedEffect && closedEffect.type === "thread_closed" && closedEffect.thread.status === "skipped");
   assert.ok(!skipped.newMessages.some((m) => m.content.includes("不该出现")));
 
-  // 第一次要提示留给模型（rescue 允许）；第二次提示已到上限，代码直接推进。
+  // 第一次要提示留给模型（rescue 允许）；第二次提示已到上限，面试官只能把话说完，不关线程；
+  // 第三次仍没有推进就由空转规则收住这段。
   let s2 = skipped.state;
   s2 = applyTurn(s2, { id: "m3", content: "能提示一下吗", intent: "hint" }, say("给你个方向", { name: "rescue", input: { hint: "想想超时的情况" } })).state;
   assert.equal(activeThread(s2)?.rescues, 1);
   const secondHint = applyTurn(s2, { id: "m4", content: "再提示一下", intent: "hint" }, say("再给一个", { name: "rescue", input: { hint: "不该出现" } }));
-  assert.ok(secondHint.effects.some((e) => e.type === "thread_closed"));
+  assert.ok(!secondHint.effects.some((e) => e.type === "thread_closed"));
+  assert.ok(!secondHint.newMessages.some((m) => m.content.includes("不该出现")));
+  const thirdHint = applyTurn(secondHint.state, { id: "m4b", content: "再提示一下", intent: "hint" }, say("还是那句", { name: "rescue", input: { hint: "不该出现" } }));
+  assert.ok(thirdHint.effects.some((e) => e.type === "thread_closed"));
+  assert.ok(!thirdHint.newMessages.some((m) => m.content.includes("不该出现")));
 
-  const ended = applyTurn(secondHint.state, { id: "m5", content: "我们结束吧", intent: "end" }, say("好", null));
+  const ended = applyTurn(thirdHint.state, { id: "m5", content: "我们结束吧", intent: "end" }, say("好", null));
   assert.equal(ended.state.phase, "ended");
   assert.ok(ended.effects.some((e) => e.type === "interview_ended"));
   // 结束后再来消息不再产生任何变化。
@@ -357,11 +362,13 @@ test("adversarial candidate messages cannot move budgets, end the interview or l
   // 两万字的回答照常处理，深度只加一层。
   const huge = applyTurn(result.state, { id: "x2", content: "很长".repeat(10_000), intent: null }, probe("很长", "只说重点。"));
   assert.equal(activeThread(huge.state)?.depth, 1);
-  // 反复要提示：第二次 rescue 被拒，代码收住这段而不是无限提示。
+  // 反复要提示：第二次 rescue 被拒只剩一句话，第三次由空转规则收住这段，不会无限提示。
   let s = huge.state;
   s = applyTurn(s, { id: "h1", content: "提示", intent: "hint" }, say("提示一", { name: "rescue", input: { hint: "提示一" } })).state;
   const again = applyTurn(s, { id: "h2", content: "提示", intent: "hint" }, say("提示二", { name: "rescue", input: { hint: "提示二" } }));
-  assert.ok(again.effects.some((e) => e.type === "thread_closed"));
+  assert.ok(activeThread(again.state));
+  const third = applyTurn(again.state, { id: "h3", content: "提示", intent: "hint" }, say("提示三", { name: "rescue", input: { hint: "提示三" } }));
+  assert.ok(third.effects.some((e) => e.type === "thread_closed"));
 });
 
 test("the decision record captures proposal, ruling and anchor hit", () => {
@@ -382,4 +389,25 @@ test("idle turns are derived from persisted messages so the force-progress rule 
   assert.equal(reloaded.idleTurns, 1);
   const forced = applyTurn(reloaded, { id: "a3", content: "按业务分。", intent: null }, say("再具体点？", null));
   assert.ok(forced.effects.some((e) => e.type === "action_replaced" && e.reason === "连续无推进动作"));
+});
+
+test("an exhausted rescue or clarify becomes a plain reply instead of closing the thread", () => {
+  let state = opened();
+  state = applyTurn(state, { id: "a1", content: "能给点提示吗？", intent: "hint" }, say("从工具协议说起。", { name: "rescue", input: { hint: "从工具协议说起。" } })).state;
+  const again = applyTurn(state, { id: "a2", content: "再提示一下呗", intent: "hint" }, say("我再说一遍要点：先讲调用请求里有什么。", { name: "rescue", input: { hint: "再讲一遍" } }));
+  assert.equal(activeThread(again.state)?.status, "active");
+  assert.equal(again.decision.applied, null);
+  assert.ok(again.effects.some((e) => e.type === "action_replaced" && e.applied === "aside"));
+  assert.equal(again.newMessages.at(-1)?.kind, "aside");
+});
+
+test("a single-area brief gets a second area squeezed into the pace budget", () => {
+  const fallback = fallbackBrief({ blueprint, projects: [{ id: "p1", name: "Study Assistant" }], pace: "quick", round: null, askIntro: true });
+  const single: InterviewBrief = { ...fallback, areas: [{ ...fallback.areas[0], depth: 4 }], plannedTurns: plannedTurns([{ depth: 4 }], true) };
+  const fixed = ensureTwoAreas(single, fallback);
+  assert.equal(fixed.areas.length, 2);
+  assert.notEqual(fixed.areas[1].kind, fixed.areas[0].kind);
+  assert.ok(fixed.plannedTurns <= plannedTurnsForPace("quick"));
+  assert.equal(fixed.plannedTurns, plannedTurns(fixed.areas, true));
+  assert.equal(ensureTwoAreas(fallback, fallback), fallback);
 });

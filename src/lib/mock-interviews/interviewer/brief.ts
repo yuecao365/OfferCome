@@ -278,6 +278,28 @@ export function buildBriefFromOutput(input: {
   };
 }
 
+/**
+ * 模型只给了一个领域时补一个兜底领域（不同 kind 优先），深度按剩余预算缩到装得下，必要时先压缩第一个领域。
+ * 一个领域的面试只要一条线程失守就会结束，两个领域是底线。
+ */
+export function ensureTwoAreas(brief: InterviewBrief, fallback: InterviewBrief): InterviewBrief {
+  if (brief.areas.length !== 1) return brief;
+  const first = brief.areas[0];
+  const extra =
+    fallback.areas.find((area) => area.kind !== first.kind && area.id !== first.id) ??
+    fallback.areas.find((area) => area.id !== first.id);
+  if (!extra) return brief;
+  const maxTurns = plannedTurnsForPace(brief.pace);
+  const minimumCost = areaTurnCost(1);
+  let primary = first;
+  if (maxTurns - brief.plannedTurns < minimumCost) {
+    primary = { ...first, depth: Math.max(1, first.depth - (minimumCost - (maxTurns - brief.plannedTurns))) };
+  }
+  const room = maxTurns - plannedTurns([primary], brief.askIntro);
+  const areas = [primary, { ...extra, depth: Math.max(1, Math.min(extra.depth, room - 2)) }];
+  return { ...brief, areas, plannedTurns: plannedTurns(areas, brief.askIntro) };
+}
+
 const FALLBACK_LADDER: LadderRung[] = [
   { text: "先说清楚做了什么", style: "fact" },
   { text: "追问背后的原理和为什么这样选", style: "principle" },

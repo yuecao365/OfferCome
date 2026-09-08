@@ -61,11 +61,16 @@ export function parseQuestionEvaluationInput(input: { rubric: unknown; expectedS
   };
 }
 
-/** 引用必须逐字来自回答（归一化后是子串，且不短于 4 个字符）。 */
+/** 只比字母与数字：模型常给引用加“”、改标点，这些不算改写。 */
+function lettersOnly(value: string): string {
+  return normalizedText(value).replace(/[^\p{L}\p{N}]/gu, "");
+}
+
+/** 引用必须逐字来自回答（去掉标点后是子串，且不短于 4 个字符）。 */
 export function quoteInAnswer(answer: string, quote: string | null): boolean {
   if (!quote) return false;
-  const needle = normalizedText(quote);
-  return needle.length >= 4 && normalizedText(answer).includes(needle);
+  const needle = lettersOnly(quote);
+  return needle.length >= 4 && lettersOnly(answer).includes(needle);
 }
 
 /**

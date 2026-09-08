@@ -14,6 +14,7 @@ import type { MockInterviewJobBlueprint } from "../types";
 import {
   briefOutputSchema,
   buildBriefFromOutput,
+  ensureTwoAreas,
   fallbackBrief,
   MAX_AREA_DEPTH,
   plannedTurnsForPace,
@@ -131,15 +132,13 @@ ${renderSkillIndex(index)}
           .map((item) => ({ title: item.title, statement: item.statement })),
       },
     });
-    return finish(
-      1,
-      buildBriefFromOutput({
-        output,
-        resumeText: input.context.resume.text,
-        loadedSkills: skills.loaded,
-        ...base,
-      }),
-    );
+    const brief = buildBriefFromOutput({
+      output,
+      resumeText: input.context.resume.text,
+      loadedSkills: skills.loaded,
+      ...base,
+    });
+    return finish(1, ensureTwoAreas(brief, fallbackBrief({ ...base, projects: input.context.projects })));
   } catch (error) {
     console.warn(
       "[interviewer] brief generation failed, using fallback brief:",
