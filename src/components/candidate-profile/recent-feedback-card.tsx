@@ -40,8 +40,8 @@ function collect(
  */
 export function RecentFeedbackCard({ items }: { items: RecentFeedbackItem[] }) {
   const strengths = collect(items, (item) => item.strengths, 4);
-  const improvements = collect(items, (item) => item.improvements, 4);
-  if (strengths.length === 0 && improvements.length === 0) return null;
+  const weaknesses = collect(items, (item) => item.weaknesses, 4);
+  if (strengths.length === 0 && weaknesses.length === 0) return null;
 
   return (
     <Card className="grid gap-4 p-5">
@@ -67,10 +67,10 @@ export function RecentFeedbackCard({ items }: { items: RecentFeedbackItem[] }) {
         </div>
         <div className="grid content-start gap-2">
           <Badge tone="warning">值得再练</Badge>
-          {improvements.length === 0 ? (
+          {weaknesses.length === 0 ? (
             <p className="text-sm text-muted-foreground">暂无明显短板。</p>
           ) : (
-            improvements.map((entry) => (
+            weaknesses.map((entry) => (
               <div className="flex items-start justify-between gap-2" key={`${entry.questionId}-${entry.text}`}>
                 <p className="min-w-0 text-sm leading-6 text-foreground">
                   {entry.text}

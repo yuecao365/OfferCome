@@ -24,6 +24,7 @@ const stubs = {
   decisions: [] as TurnDecision[],
   turnCalls: 0,
   scheduledEvaluations: [] as string[],
+  scheduledCompletions: [] as string[],
 };
 
 function competency(id: string) {
@@ -150,6 +151,9 @@ mock.module("./question-evaluation-background", {
     scheduleMockInterviewQuestionEvaluation: (id: string) => {
       stubs.scheduledEvaluations.push(id);
     },
+    scheduleMockInterviewCompletion: (id: string) => {
+      stubs.scheduledCompletions.push(id);
+    },
   },
 });
 
@@ -183,6 +187,7 @@ beforeEach(async () => {
   stubs.decisions = [];
   stubs.turnCalls = 0;
   stubs.scheduledEvaluations = [];
+  stubs.scheduledCompletions = [];
 
   await prisma.mockInterviewMessage.deleteMany();
   await prisma.interviewThread.deleteMany();
@@ -393,6 +398,8 @@ test("a candidate asking to end moves the session to ready_to_evaluate and later
   const ended = await runTurn(sessionId, { clientId: "e1", content: "我们结束吧", intent: "end" });
   assert.equal(ended.replay, false);
   assert.equal((await readSession(sessionId)).status, "ready_to_evaluate");
+  // 面试一结束就安排自动生成报告。
+  assert.deepEqual(stubs.scheduledCompletions, [sessionId]);
   await assert.rejects(runTurn(sessionId, { clientId: "e2", content: "还在吗" }), /已经结束/);
 });
 

@@ -11,7 +11,6 @@ const evaluation = {
     rationale: "验证候选人的架构判断",
   }),
   sourceKind: "job_description",
-  difficulty: "standard",
 };
 
 test("buildQuestionTeaching resolves competency and persisted generation evidence", () => {
@@ -35,7 +34,6 @@ test("buildQuestionTeaching resolves competency and persisted generation evidenc
     expectedSignals: ["说明取舍", "给出验证方式"],
     rationale: "验证候选人的架构判断",
     sourceKind: "job_description",
-    difficulty: "standard",
   });
 });
 

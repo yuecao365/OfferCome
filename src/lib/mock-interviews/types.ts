@@ -7,6 +7,8 @@ import {
 
 import type { InterviewHypothesis, InterviewPace } from "./interviewer/brief";
 import type { InterviewMemory } from "./interviewer/memory";
+import type { AnswerExemplar, EvaluationStrength, EvaluationWeakness } from "./question-evaluation";
+import type { MockInterviewReport } from "./report";
 
 /** 题目生成完成、房间可以开始作答时，关联的 Interview 记录进入这个状态。 */
 export const ACTIVE_MOCK_INTERVIEW_STATUS: InterviewStatus = "in_progress";
@@ -146,14 +148,6 @@ export type MockInterviewQuestionPlan = {
   })[];
 };
 
-export type MockInterviewReport = {
-  totalScore: number;
-  summary: string;
-  strengths: string[];
-  improvements: string[];
-  actionPlan: string[];
-};
-
 export type MockInterviewQuestionTeaching = {
   competencyName: string | null;
   /** jd：JD 明确要求；inferred：兜底蓝图推断；baseline：技能包补的岗位常见要求。 */
@@ -169,7 +163,6 @@ export type MockInterviewQuestionTeaching = {
   expectedSignals: string[];
   rationale: string | null;
   sourceKind: string;
-  difficulty: string;
 };
 
 export type MockInterviewPersonalizationUsed = {
@@ -202,6 +195,7 @@ export type MockInterviewConversation = {
     id: string;
     name: string;
     kind: string;
+    weight: number;
     /** 简报里的目标追问层数与实际追到的层数。 */
     depth: number;
     depthReached: number;
@@ -213,6 +207,9 @@ export type MockInterviewConversation = {
     status: "active" | "closed" | "skipped";
     depth: number;
     rescues: number;
+    /** 面试官关掉这段时的判断；切段后对应的兼容题目。 */
+    note: string | null;
+    questionId: string | null;
   }[];
   messages: MockInterviewConversationMessage[];
   /** 仅已完成的会话带：面试官的工作记忆与简历假设，报告页展示。 */
@@ -251,10 +248,12 @@ export type MockInterviewView = {
     teaching?: MockInterviewQuestionTeaching;
     evaluation: null | {
       score: number | null;
-      dimensions: { name: string; score: number; evidence: string }[];
-      strengths: string[];
-      improvements: string[];
+      dimensions: { name: string; score: number; evidence: string; gap: string | null }[];
+      strengths: EvaluationStrength[];
+      weaknesses: EvaluationWeakness[];
+      advice: string[];
       feedback: string;
+      exemplar: AnswerExemplar | null;
     };
   }[];
 };

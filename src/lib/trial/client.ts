@@ -1,4 +1,5 @@
-import type { MockInterviewJobBlueprint, MockInterviewReport } from "@/lib/mock-interviews/types";
+import type { LegacyMockInterviewReport } from "@/lib/mock-interviews/report";
+import type { MockInterviewJobBlueprint } from "@/lib/mock-interviews/types";
 
 import { TRIAL_AI_HEADER } from "./protocol";
 import { readAiToken } from "./browser-store";
@@ -149,8 +150,8 @@ export async function requestReport(input: {
   jobTitle: string;
   answered: { question: string; score: number; feedback: string }[];
   scores: number[];
-}): Promise<MockInterviewReport> {
-  const { report } = await postWithAi<{ report: MockInterviewReport }>(
+}): Promise<LegacyMockInterviewReport> {
+  const { report } = await postWithAi<{ report: LegacyMockInterviewReport }>(
     "/api/trial/report",
     input,
   );

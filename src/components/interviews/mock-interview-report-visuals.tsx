@@ -2,14 +2,12 @@ type QuestionDimension = {
   name: string;
   score: number;
   evidence: string;
+  /** 这个维度缺了什么、错在哪；没有时为 null。 */
+  gap: string | null;
 };
 
-/** 每题的维度得分：横向条 + 证据文本；不用雷达图，读数更直接。 */
-export function QuestionDimensionScores({
-  dimensions,
-}: {
-  dimensions: QuestionDimension[];
-}) {
+/** 每题的维度得分：横向条 + 证据 + 缺口；不用雷达图，读数更直接。 */
+export function QuestionDimensionScores({ dimensions }: { dimensions: QuestionDimension[] }) {
   return (
     <div className="grid gap-2 sm:grid-cols-2">
       {dimensions.map((dimension) => {
@@ -33,7 +31,12 @@ export function QuestionDimensionScores({
                 style={{ width: `${score}%` }}
               />
             </div>
-            <p className="mt-2 text-xs leading-5 text-muted-foreground">{dimension.evidence}</p>
+            {dimension.evidence ? (
+              <p className="mt-2 text-xs leading-5 text-muted-foreground">{dimension.evidence}</p>
+            ) : null}
+            {dimension.gap ? (
+              <p className="mt-1 text-xs leading-5 text-warning-strong">缺口：{dimension.gap}</p>
+            ) : null}
           </div>
         );
       })}

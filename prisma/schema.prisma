@@ -274,7 +274,6 @@ model InterviewQuestionEvaluation {
   interviewQuestion        InterviewQuestion    @relation(fields: [interviewQuestionId], references: [id], onDelete: Cascade)
   assessmentId             String?
   assessment               InterviewAssessment? @relation(fields: [assessmentId], references: [id], onDelete: SetNull)
-  difficulty               String               @default("standard")
   sourceKind               String               @default("profile")
   rubricJson               String               @default("{}")
   expectedSignalsJson      String               @default("[]")
@@ -284,8 +283,11 @@ model InterviewQuestionEvaluation {
   evaluationError          String?
   dimensionsJson           String?
   score                    Int?
+  /// 评分 v2：strengths / weaknesses 带回答原话引用，advice 是练什么；exemplar 是示范回答（只在有短板时生成）。
   strengthsJson            String?
-  improvementsJson         String?
+  weaknessesJson           String?
+  adviceJson               String?
+  exemplarJson             String?
   feedback                 String?
   evaluatedAt              DateTime?
   createdAt                DateTime             @default(now())

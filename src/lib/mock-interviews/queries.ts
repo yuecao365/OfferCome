@@ -5,11 +5,17 @@ import { parseJsonArray, parseJsonObject, parseJsonValue } from "@/lib/json";
 
 import { evidenceTargetForPace, parseStoredBrief } from "./interviewer/brief";
 import { parseStoredMemory } from "./interviewer/memory";
+import {
+  parseStoredEvaluationList,
+  type AnswerExemplar,
+  type EvaluationStrength,
+  type EvaluationWeakness,
+} from "./question-evaluation";
+import { parseStoredReport } from "./report";
 import { buildQuestionTeaching } from "./teaching";
 import {
   isMockInterviewMode,
   type MockInterviewConversation,
-  type MockInterviewReport,
   type MockInterviewTrace,
   type MockInterviewView,
   type MockInterviewGenerationErrorContext,
@@ -32,6 +38,26 @@ async function getProfileContributionCount(
 
 function parseArray<T>(value: string | null): T[] {
   return parseJsonArray(value) as T[];
+}
+
+/** 评分 v2 的视图；旧记录的 strengths 是字符串数组、没有 gap / 短板 / 示范，读出时补齐。 */
+function buildEvaluationView(
+  evaluation: NonNullable<SessionWithConversation["interview"]["questions"][number]["evaluation"]>,
+): NonNullable<MockInterviewView["questions"][number]["evaluation"]> {
+  const dimensions = parseArray<{ name: string; score: number; evidence: string; gap?: string | null }>(evaluation.dimensionsJson);
+  return {
+    score: evaluation.score,
+    dimensions: dimensions.map((dimension) => ({ ...dimension, gap: dimension.gap ?? null })),
+    strengths: parseStoredEvaluationList<EvaluationStrength>(parseJsonValue(evaluation.strengthsJson), (point) => ({ point, quote: null })),
+    weaknesses: parseStoredEvaluationList<EvaluationWeakness>(parseJsonValue(evaluation.weaknessesJson), (point) => ({
+      point,
+      quote: null,
+      kind: "missing",
+    })),
+    advice: parseArray<string>(evaluation.adviceJson),
+    feedback: evaluation.feedback ?? "",
+    exemplar: (parseJsonValue(evaluation.exemplarJson) as AnswerExemplar | null) ?? null,
+  };
 }
 
 type SessionWithConversation = NonNullable<Awaited<ReturnType<typeof loadSessionForView>>>;
@@ -70,6 +96,7 @@ function buildConversation(session: SessionWithConversation): MockInterviewConve
         id: area.id,
         name: area.name,
         kind: area.kind,
+        weight: area.weight,
         depth: area.depth,
         depthReached: Math.max(0, ...threads.map((thread) => thread.depth)),
         status: threads.some((thread) => thread.status === "active")
@@ -85,6 +112,8 @@ function buildConversation(session: SessionWithConversation): MockInterviewConve
       status: thread.status as MockInterviewConversation["threads"][number]["status"],
       depth: thread.depth,
       rescues: thread.rescues,
+      note: thread.note,
+      questionId: thread.questionId,
     })),
     messages: session.messages.map((message) => ({
       id: message.id,
@@ -130,9 +159,7 @@ export async function getMockInterviewView(id: string): Promise<MockInterviewVie
     currentQuestionIndex: session.currentQuestionIndex,
     questionCount: session.questionCount,
     totalScore: session.totalScore,
-    report: session.reportJson
-      ? (JSON.parse(session.reportJson) as MockInterviewReport)
-      : null,
+    report: parseStoredReport(session.reportJson),
     ...(profileContributionCount !== undefined ? { profileContributionCount } : {}),
     conversation: buildConversation(session),
     questions: session.interview.questions.map((question) => {
@@ -156,21 +183,7 @@ export async function getMockInterviewView(id: string): Promise<MockInterviewVie
               ),
             }
           : {}),
-        evaluation: completedEvaluation
-          ? {
-              score: completedEvaluation.score,
-              dimensions: parseArray<{
-                name: string;
-                score: number;
-                evidence: string;
-              }>(completedEvaluation.dimensionsJson),
-              strengths: parseArray<string>(completedEvaluation.strengthsJson),
-              improvements: parseArray<string>(
-                completedEvaluation.improvementsJson,
-              ),
-              feedback: completedEvaluation.feedback ?? "",
-            }
-          : null,
+        evaluation: completedEvaluation ? buildEvaluationView(completedEvaluation) : null,
       };
     }),
   };

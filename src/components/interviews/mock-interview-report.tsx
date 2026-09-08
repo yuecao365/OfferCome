@@ -4,12 +4,17 @@ import { Card } from "@/components/ui/card";
 import { MetaText } from "@/components/ui/data-table";
 import { cn } from "@/lib/cn";
 import { AREA_STYLE_LABELS, type AreaStyle } from "@/lib/mock-interviews/interviewer/brief";
-import {
-  MOCK_INTERVIEW_DIFFICULTY_LABELS,
-  type MockInterviewView,
-} from "@/lib/mock-interviews/types";
+import type { MockInterviewReport as ReportData } from "@/lib/mock-interviews/report";
+import type { MockInterviewView } from "@/lib/mock-interviews/types";
 
 import { QuestionDimensionScores } from "./mock-interview-report-visuals";
+
+/**
+ * 报告页：骨架是面试官的现场判断（领域追到第几层、关线程时的判断、简历假设验证），
+ * 分数与短板由评分 agent 校准；负面反馈都带候选人的原话。
+ */
+
+type Question = MockInterviewView["questions"][number];
 
 /** 分数只用明暗表达强弱：高分正文色，中分灰，低分用警示色。 */
 function Score({ value }: { value: number }) {
@@ -26,14 +31,13 @@ function Score({ value }: { value: number }) {
   );
 }
 
-function FollowUpTag() {
-  return (
-    <span className="rounded-control border border-border px-1 font-mono text-[0.625rem] leading-4 text-muted-foreground">
-      追问
-    </span>
-  );
-}
-
+const AREA_KIND_LABELS: Record<string, string> = { project: "项目", technical: "技术", behavioral: "行为" };
+const WEAKNESS_KIND_LABELS: Record<string, string> = { error: "说错了", missing: "没答上", pattern: "反复出现" };
+const HYPOTHESIS_STATUS: Record<string, { label: string; tone: "success" | "warning" | "neutral" }> = {
+  confirmed: { label: "已验证", tone: "success" },
+  refuted: { label: "没有讲清楚", tone: "warning" },
+  open: { label: "没问到", tone: "neutral" },
+};
 const SOURCE_LABELS: Record<string, string> = {
   job_description: "岗位描述",
   resume: "简历经历",
@@ -49,16 +53,240 @@ function formatSeconds(seconds: number): string {
   return rest > 0 ? `${minutes} 分 ${rest} 秒` : `${minutes} 分钟`;
 }
 
+function Quote({ text }: { text: string | null }) {
+  if (!text) return null;
+  return <span className="ml-1 text-xs text-muted-foreground">「{text}」</span>;
+}
+
+/** 领域概览：每个问到过的领域追到第几层、面试官的判断、得分。 */
+function AreaOverview({ session }: { session: MockInterviewView }) {
+  const conversation = session.conversation;
+  if (!conversation) return null;
+  const scoreById = new Map(session.questions.map((question) => [question.id, question.evaluation?.score ?? null]));
+  const rows = conversation.areas.flatMap((area) => {
+    const threads = conversation.threads.filter((thread) => thread.areaId === area.id && thread.status !== "active");
+    if (threads.length === 0) return [];
+    const scores = threads.map((thread) => (thread.questionId ? scoreById.get(thread.questionId) ?? null : null));
+    const answered = scores.filter((score): score is number => score !== null);
+    return [
+      {
+        area,
+        note: threads.at(-1)?.note ?? null,
+        depthReached: Math.max(0, ...threads.map((thread) => thread.depth)),
+        score: answered.length > 0 ? Math.max(...answered) : null,
+        skipped: threads.every((thread) => thread.status === "skipped"),
+      },
+    ];
+  });
+  if (rows.length === 0) return null;
+  return (
+    <Card className="p-4">
+      <h3 className="text-sm font-semibold text-foreground">考察领域</h3>
+      <p className="mt-1 text-xs text-muted-foreground">总分按领域权重加权；跳过的领域计 0 分，没问到的领域不计。</p>
+      <div className="mt-3 grid gap-3">
+        {rows.map(({ area, note, depthReached, score, skipped }) => (
+          <div className="grid gap-1 border-t border-border pt-3 first:border-t-0 first:pt-0" key={area.id}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm font-medium text-foreground">{area.name}</span>
+                <Badge>{AREA_KIND_LABELS[area.kind] ?? area.kind}</Badge>
+                <MetaText>权重 {area.weight}</MetaText>
+                <MetaText>
+                  追到第 {depthReached} 层 / 目标 {area.depth} 层
+                </MetaText>
+              </div>
+              {skipped ? <Badge tone="warning">已跳过</Badge> : score !== null ? <Score value={score} /> : null}
+            </div>
+            {note ? <p className="text-sm leading-6 text-muted-foreground">面试官：{note}</p> : null}
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function Hypotheses({ items }: { items: ReportData["hypotheses"] }) {
+  if (items.length === 0) return null;
+  return (
+    <Card className="p-4">
+      <h3 className="text-sm font-semibold text-foreground">简历上的说法经不经得起问</h3>
+      <div className="mt-3 grid gap-3">
+        {items.map((item) => {
+          const status = HYPOTHESIS_STATUS[item.status] ?? HYPOTHESIS_STATUS.open;
+          return (
+            <div className="grid gap-1" key={item.text}>
+              <div className="flex flex-wrap items-start gap-2">
+                <Badge tone={status.tone}>{status.label}</Badge>
+                <p className="text-sm leading-6 text-foreground">{item.text}</p>
+              </div>
+              {item.verdict ? <p className="pl-1 text-sm leading-6 text-muted-foreground">{item.verdict}</p> : null}
+            </div>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
+function Memory({ session }: { session: MockInterviewView }) {
+  const memory = session.conversation?.memory;
+  if (!memory) return null;
+  const groups = [
+    { title: "已确认", entries: memory.established },
+    { title: "存疑", entries: memory.doubtful },
+    { title: "失守", entries: memory.failed },
+  ].filter((group) => group.entries.length > 0);
+  if (groups.length === 0) return null;
+  return (
+    <details className="rounded-control border border-border p-4">
+      <summary className="cursor-pointer text-sm font-semibold text-foreground">面试官的工作记忆</summary>
+      <div className="mt-3 grid gap-3 sm:grid-cols-3">
+        {groups.map((group) => (
+          <div key={group.title}>
+            <p className="text-xs font-medium text-muted-foreground">{group.title}</p>
+            <ul className="mt-1 grid gap-1 text-sm leading-6 text-foreground">
+              {group.entries.map((entry) => (
+                <li key={`${entry.turn}-${entry.text}`}>· {entry.text}</li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </details>
+  );
+}
+
+function Teaching({ question }: { question: Question }) {
+  const teaching = question.teaching;
+  if (!teaching) return null;
+  return (
+    <details className="mt-3 rounded-control border border-border bg-surface-subtle p-3">
+      <summary className="cursor-pointer text-sm font-medium text-foreground">这道题在考察什么</summary>
+      <div className="mt-3 grid gap-3 text-sm leading-6 text-muted-foreground">
+        <div className="flex flex-wrap gap-2">
+          {teaching.competencyName ? <Badge>{teaching.competencyName}</Badge> : null}
+          <Badge>{SOURCE_LABELS[teaching.sourceKind] ?? AREA_KIND_LABELS[teaching.sourceKind] ?? "综合出题"}</Badge>
+          {teaching.areaStyle ? (
+            <Badge>{AREA_STYLE_LABELS[teaching.areaStyle as AreaStyle] ?? teaching.areaStyle}</Badge>
+          ) : null}
+        </div>
+        {teaching.competencyOrigin === "baseline" ? (
+          <div className="rounded-control border border-border bg-surface p-3">
+            <p className="font-medium text-foreground">岗位常见要求</p>
+            <p className="mt-1">
+              这道题来自这个岗位通常会考察的方向
+              {teaching.skillPack ? "（技能包 " + teaching.skillPack + "）" : ""}，不是你提供的岗位描述里写明的。
+            </p>
+          </div>
+        ) : teaching.competencyOrigin === "inferred" ? (
+          <div className="rounded-control border border-border bg-surface p-3">
+            <p className="font-medium text-foreground">该岗位的常见要求（非你提供的岗位描述）</p>
+            {teaching.sourceUrl ? (
+              <a className="mt-1 inline-block font-medium text-foreground underline" href={teaching.sourceUrl} rel="noreferrer" target="_blank">
+                查看公开来源
+              </a>
+            ) : null}
+          </div>
+        ) : teaching.jdEvidence ? (
+          <blockquote className="border-l-2 border-border-strong pl-3">JD 依据：{teaching.jdEvidence}</blockquote>
+        ) : null}
+        {teaching.expectedSignals.length > 0 ? (
+          <div>
+            <p className="font-medium text-foreground">期望信号</p>
+            <ul className="mt-1 grid gap-1">
+              {teaching.expectedSignals.map((signal) => (
+                <li key={signal}>· {signal}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        {teaching.rationale ? (
+          <p>
+            <span className="font-medium text-foreground">面试官的判断：</span>
+            {teaching.rationale}
+          </p>
+        ) : null}
+      </div>
+    </details>
+  );
+}
+
+function Evaluation({ evaluation }: { evaluation: NonNullable<Question["evaluation"]> }) {
+  return (
+    <div className="mt-3 grid gap-3">
+      <p className="text-sm leading-6 text-muted-foreground">{evaluation.feedback}</p>
+      <QuestionDimensionScores dimensions={evaluation.dimensions} />
+      {evaluation.strengths.length > 0 || evaluation.weaknesses.length > 0 ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {evaluation.strengths.length > 0 ? (
+            <div>
+              <p className="text-xs font-medium text-muted-foreground">答得好的</p>
+              <ul className="mt-1 grid gap-1 text-sm leading-6 text-foreground">
+                {evaluation.strengths.map((item) => (
+                  <li key={item.point}>
+                    · {item.point}
+                    <Quote text={item.quote} />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {evaluation.weaknesses.length > 0 ? (
+            <div>
+              <p className="text-xs font-medium text-muted-foreground">短板</p>
+              <ul className="mt-1 grid gap-1 text-sm leading-6 text-foreground">
+                {evaluation.weaknesses.map((item) => (
+                  <li key={item.point}>
+                    <Badge tone="warning">{WEAKNESS_KIND_LABELS[item.kind] ?? item.kind}</Badge>
+                    <span className="ml-1">{item.point}</span>
+                    <Quote text={item.quote} />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+      {evaluation.advice.length > 0 ? (
+        <p className="text-sm leading-6 text-muted-foreground">
+          <span className="font-medium text-foreground">练什么：</span>
+          {evaluation.advice.join("；")}
+        </p>
+      ) : null}
+      {evaluation.exemplar ? (
+        <details className="rounded-control border border-border bg-surface-subtle p-3">
+          <summary className="cursor-pointer text-sm font-medium text-foreground">用你的项目，这段可以这样答</summary>
+          <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{evaluation.exemplar.exemplar}</p>
+          {evaluation.exemplar.degraded ? (
+            <p className="mt-2 text-xs text-muted-foreground">示范里省略了无法在你的简历或回答中核实的数字。</p>
+          ) : null}
+        </details>
+      ) : null}
+    </div>
+  );
+}
+
+function FollowUps({ session, parentId }: { session: MockInterviewView; parentId: string }) {
+  const followUps = session.questions.filter((item) => item.parentQuestionId === parentId);
+  return followUps.map((followUp) => (
+    <div className="mt-4 border-l-2 border-border-strong pl-4" key={followUp.id}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h5 className="text-sm font-medium text-foreground">追问：{followUp.question}</h5>
+        {followUp.skipped ? <Badge tone="warning">已跳过</Badge> : <Score value={followUp.evaluation?.score ?? 0} />}
+      </div>
+      {!followUp.skipped ? (
+        <>
+          <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{followUp.answer}</p>
+          {followUp.evaluation ? <p className="mt-2 text-sm leading-6 text-muted-foreground">{followUp.evaluation.feedback}</p> : null}
+        </>
+      ) : null}
+    </div>
+  ));
+}
+
 export function MockInterviewReport({ session }: { session: MockInterviewView }) {
   const report = session.report;
   if (!report) return null;
-  // 生成来源透明卡：让用户知道多少题直连 JD、多少题是按岗位常见要求补全的。
-  const sourced = session.questions.filter(
-    (question) => !question.isFollowUp && question.teaching,
-  );
-  const generalRoleCount = sourced.filter(
-    (question) => question.teaching?.sourceKind === "general_role",
-  ).length;
 
   return (
     <div className="reveal-group grid gap-6">
@@ -72,27 +300,57 @@ export function MockInterviewReport({ session }: { session: MockInterviewView })
         </div>
         <div>
           <h3 className="text-sm font-semibold text-foreground">总体评价</h3>
-          <p className="mt-2 whitespace-pre-wrap text-[0.8125rem] leading-6 text-muted-foreground">
-            {report.summary}
-          </p>
-          {sourced.length > 0 ? (
-            <p className="mt-2 text-xs text-muted-foreground">
-              本场 {sourced.length} 题：{sourced.length - generalRoleCount} 题来自岗位描述与你的材料
-              {generalRoleCount > 0 ? `，${generalRoleCount} 题按岗位常见要求补全` : ""}。
-            </p>
-          ) : null}
+          <p className="mt-2 whitespace-pre-wrap text-[0.8125rem] leading-6 text-muted-foreground">{report.summary}</p>
         </div>
+      </section>
+
+      <AreaOverview session={session} />
+      <Hypotheses items={report.hypotheses} />
+
+      <section className="grid gap-4 md:grid-cols-3">
+        <Card className="p-4">
+          <h3 className="text-sm font-semibold text-foreground">站得住的</h3>
+          <ul className="mt-3 grid gap-2 text-sm leading-6 text-muted-foreground">
+            {report.strengths.length === 0 ? <li>这场还没有能确认的强项。</li> : null}
+            {report.strengths.map((item) => (
+              <li key={item.point}>
+                · {item.point}
+                {item.areaName ? <MetaText className="ml-1">{item.areaName}</MetaText> : null}
+              </li>
+            ))}
+          </ul>
+        </Card>
+        <Card className="p-4">
+          <h3 className="text-sm font-semibold text-foreground">失守在哪</h3>
+          <ul className="mt-3 grid gap-2 text-sm leading-6 text-muted-foreground">
+            {report.weaknesses.length === 0 ? <li>没有明显短板。</li> : null}
+            {report.weaknesses.map((item) => (
+              <li key={item.point}>
+                <Badge tone="warning">{WEAKNESS_KIND_LABELS[item.kind] ?? item.kind}</Badge>
+                <span className="ml-1">{item.point}</span>
+                {item.areaName ? <MetaText className="ml-1">{item.areaName}</MetaText> : null}
+              </li>
+            ))}
+          </ul>
+        </Card>
+        <Card className="p-4">
+          <h3 className="text-sm font-semibold text-foreground">下一步练什么</h3>
+          <ol className="mt-3 grid gap-2 text-sm leading-6 text-muted-foreground">
+            {report.advice.map((item, index) => (
+              <li key={item}>
+                {index + 1}. {item}
+              </li>
+            ))}
+          </ol>
+        </Card>
       </section>
 
       {session.personalizationUsed ? (
         <Card className="grid gap-5 p-5 md:grid-cols-2">
           <div>
             <h3 className="text-sm font-semibold text-foreground">出题参考</h3>
-            {session.personalizationUsed.profileInsights.length === 0 &&
-            session.personalizationUsed.historyQuestions.length === 0 ? (
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                本场仅根据岗位描述出题。
-              </p>
+            {session.personalizationUsed.profileInsights.length === 0 && session.personalizationUsed.historyQuestions.length === 0 ? (
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">本场仅根据岗位描述出题。</p>
             ) : (
               <div className="mt-3 grid gap-3 text-sm text-muted-foreground">
                 {session.personalizationUsed.profileInsights.map((insight) => (
@@ -119,174 +377,43 @@ export function MockInterviewReport({ session }: { session: MockInterviewView })
                 ? "画像正在吸收本场证据…"
                 : `本场为能力画像新增 ${session.profileContributionCount} 条证据。`}
             </p>
-            <ButtonLink
-              className="mt-3"
-              href="/interviews/profile"
-              size="sm"
-              variant="outline"
-            >
+            <ButtonLink className="mt-3" href="/interviews/profile" size="sm" variant="outline">
               查看能力画像
             </ButtonLink>
           </div>
         </Card>
       ) : null}
 
-      <section className="grid gap-4 md:grid-cols-2">
-        <Card className="p-4">
-          <h3 className="text-sm font-semibold text-foreground">表现较好的部分</h3>
-          <ul className="mt-3 grid gap-2 text-sm leading-6 text-muted-foreground">
-            {report.strengths.map((item) => <li key={item}>· {item}</li>)}
-          </ul>
-        </Card>
-        <Card className="p-4">
-          <h3 className="text-sm font-semibold text-foreground">优先改进</h3>
-          <ul className="mt-3 grid gap-2 text-sm leading-6 text-muted-foreground">
-            {report.improvements.map((item) => <li key={item}>· {item}</li>)}
-          </ul>
-        </Card>
-      </section>
-
-      <Card className="p-4">
-        <h3 className="text-sm font-semibold text-foreground">下一步训练计划</h3>
-        <ol className="mt-3 grid gap-2 text-sm leading-6 text-muted-foreground">
-          {report.actionPlan.map((item, index) => (
-            <li key={item}>{index + 1}. {item}</li>
-          ))}
-        </ol>
-      </Card>
-
       <section className="grid gap-3">
-        <h3 className="text-sm font-semibold text-foreground">逐题反馈</h3>
-        {session.questions.filter((question) => !question.isFollowUp).map((question, index) => (
-          <Card className="p-4" key={question.id}>
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <MetaText>问题 {index + 1}</MetaText>
-                <div className="mt-1 flex items-center gap-2">
-                  {question.isFollowUp ? <FollowUpTag /> : null}
-                  <h4 className="text-sm font-medium text-foreground">{question.question}</h4>
+        <h3 className="text-sm font-semibold text-foreground">逐段反馈</h3>
+        {session.questions
+          .filter((question) => !question.isFollowUp)
+          .map((question, index) => (
+            <Card className="p-4" key={question.id}>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <MetaText>第 {index + 1} 段</MetaText>
+                  <h4 className="mt-1 whitespace-pre-wrap text-sm font-medium text-foreground">{question.question}</h4>
+                </div>
+                <div className="flex items-center gap-3">
+                  {question.teaching?.answerSeconds ? <MetaText>作答约 {formatSeconds(question.teaching.answerSeconds)}</MetaText> : null}
+                  {question.skipped ? <Badge tone="warning">已跳过</Badge> : <Score value={question.evaluation?.score ?? 0} />}
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                {question.teaching?.answerSeconds ? (
-                  <MetaText>作答约 {formatSeconds(question.teaching.answerSeconds)}</MetaText>
-                ) : null}
-                {question.skipped ? (
-                  <Badge tone="warning">已跳过</Badge>
-                ) : (
-                  <Score value={question.evaluation?.score ?? 0} />
-                )}
-              </div>
-            </div>
-            {!question.skipped ? (
-              <details className="mt-3 rounded-control border border-border bg-surface-subtle p-3">
-                <summary className="cursor-pointer text-sm font-medium text-foreground">查看我的回答</summary>
-                <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{question.answer}</p>
-              </details>
-            ) : null}
-            {question.teaching ? (
-              <details className="mt-3 rounded-control border border-border bg-surface-subtle p-3">
-                <summary className="cursor-pointer text-sm font-medium text-foreground">
-                  这道题在考察什么
-                </summary>
-                <div className="mt-3 grid gap-3 text-sm leading-6 text-muted-foreground">
-                  <div className="flex flex-wrap gap-2">
-                    {question.teaching.competencyName ? (
-                      <Badge>{question.teaching.competencyName}</Badge>
-                    ) : null}
-                    <Badge>{SOURCE_LABELS[question.teaching.sourceKind] ?? "综合出题"}</Badge>
-                    <Badge>
-                      {question.teaching.areaStyle
-                        ? AREA_STYLE_LABELS[question.teaching.areaStyle as AreaStyle] ?? question.teaching.areaStyle
-                        : MOCK_INTERVIEW_DIFFICULTY_LABELS[
-                            question.teaching.difficulty as keyof typeof MOCK_INTERVIEW_DIFFICULTY_LABELS
-                          ] ?? question.teaching.difficulty}
-                    </Badge>
-                  </div>
-                  {question.teaching.competencyOrigin === "baseline" ? (
-                    <div className="rounded-control border border-border bg-surface p-3">
-                      <p className="font-medium text-foreground">岗位常见要求</p>
-                      <p className="mt-1">
-                        这道题来自这个岗位通常会考察的方向
-                        {question.teaching.skillPack ? "（技能包 " + question.teaching.skillPack + "）" : ""}，
-                        不是你提供的岗位描述里写明的。
-                      </p>
-                    </div>
-                  ) : question.teaching.competencyOrigin === "inferred" ? (
-                    <div className="rounded-control border border-border bg-surface p-3">
-                      <p className="font-medium text-foreground">
-                        该岗位的常见要求（非你提供的岗位描述）
-                      </p>
-                      <p className="mt-1">
-                        这道题基于该岗位的常见要求，不是你提供的岗位描述。
-                      </p>
-                      {question.teaching.sourceUrl ? (
-                        <a
-                          className="mt-1 inline-block font-medium text-foreground underline"
-                          href={question.teaching.sourceUrl}
-                          rel="noreferrer"
-                          target="_blank"
-                        >
-                          查看公开来源
-                        </a>
-                      ) : null}
-                    </div>
-                  ) : question.teaching.jdEvidence ? (
-                    <blockquote className="border-l-2 border-border-strong pl-3">
-                      JD 依据：{question.teaching.jdEvidence}
-                    </blockquote>
-                  ) : null}
-                  {question.teaching.expectedSignals.length > 0 ? (
-                    <div>
-                      <p className="font-medium text-foreground">期望信号</p>
-                      <ul className="mt-1 grid gap-1">
-                        {question.teaching.expectedSignals.map((signal) => (
-                          <li key={signal}>· {signal}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : null}
-                  {question.teaching.rationale ? (
-                    <p>
-                      <span className="font-medium text-foreground">出题理由：</span>
-                      {question.teaching.rationale}
-                    </p>
-                  ) : null}
-                </div>
-              </details>
-            ) : null}
-            {!question.skipped && question.evaluation ? (
-              <div className="mt-3 grid gap-3">
-                <p className="text-sm leading-6 text-muted-foreground">{question.evaluation.feedback}</p>
-                <QuestionDimensionScores dimensions={question.evaluation.dimensions} />
-              </div>
-            ) : null}
-            {session.questions
-              .filter((followUp) => followUp.parentQuestionId === question.id)
-              .map((followUp) => (
-                <div className="mt-4 border-l-2 border-border-strong pl-4" key={followUp.id}>
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <FollowUpTag />
-                      <h5 className="text-sm font-medium text-foreground">{followUp.question}</h5>
-                    </div>
-                    {followUp.skipped ? (
-                      <Badge tone="warning">已跳过</Badge>
-                    ) : (
-                      <Score value={followUp.evaluation?.score ?? 0} />
-                    )}
-                  </div>
-                  {!followUp.skipped ? (
-                    <>
-                      <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{followUp.answer}</p>
-                      {followUp.evaluation ? <p className="mt-2 text-sm leading-6 text-muted-foreground">{followUp.evaluation.feedback}</p> : null}
-                    </>
-                  ) : null}
-                </div>
-              ))}
-          </Card>
-        ))}
+              {!question.skipped ? (
+                <details className="mt-3 rounded-control border border-border bg-surface-subtle p-3">
+                  <summary className="cursor-pointer text-sm font-medium text-foreground">查看我的回答</summary>
+                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{question.answer}</p>
+                </details>
+              ) : null}
+              <Teaching question={question} />
+              {!question.skipped && question.evaluation ? <Evaluation evaluation={question.evaluation} /> : null}
+              <FollowUps parentId={question.id} session={session} />
+            </Card>
+          ))}
       </section>
+
+      <Memory session={session} />
     </div>
   );
 }

@@ -1,8 +1,8 @@
 import type { MockInterviewContext } from "@/lib/mock-interviews/context";
+import type { LegacyMockInterviewReport } from "@/lib/mock-interviews/report";
 import type {
   MockInterviewJobBlueprint,
   MockInterviewQuestionPlan,
-  MockInterviewReport,
 } from "@/lib/mock-interviews/types";
 
 /**
@@ -109,7 +109,7 @@ export type TrialInterview = {
   evaluations: (TrialEvaluation | null)[];
   currentIndex: number;
   status: TrialInterviewStatus;
-  report: MockInterviewReport | null;
+  report: LegacyMockInterviewReport | null;
 };
 
 /**
@@ -243,7 +243,7 @@ export function recordTrialEvaluation(
 
 export function completeTrialInterview(
   interview: TrialInterview,
-  report: MockInterviewReport,
+  report: LegacyMockInterviewReport,
 ): TrialInterview {
   return { ...interview, status: "completed", report };
 }

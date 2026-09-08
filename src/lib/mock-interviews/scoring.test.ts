@@ -20,14 +20,18 @@ test("computes a normalized weighted score even when rubric weights do not sum t
 });
 
 test("treats missing dimensions and invalid rubrics safely", () => {
-  assert.equal(
-    computeQuestionScore([{ name: "正确性", weight: 100 }], []),
-    0,
-  );
+  assert.equal(computeQuestionScore([{ name: "正确性", weight: 100 }], []), 0);
   assert.equal(computeQuestionScore([], [{ name: "正确性", score: 90 }]), 0);
 });
 
-test("counts skipped questions as zero in the interview total", () => {
-  assert.equal(computeInterviewTotalScore([80, 0, 70]), 50);
-  assert.equal(computeInterviewTotalScore([0, 0]), 0);
+test("total score weights areas, takes the best thread per area and counts skipped threads as zero", () => {
+  assert.equal(
+    computeInterviewTotalScore([
+      { weight: 3, scores: [60, 80] },
+      { weight: 1, scores: [0] },
+      { weight: 2, scores: [] },
+    ]),
+    60,
+  );
+  assert.equal(computeInterviewTotalScore([{ weight: 1, scores: [] }]), 0);
 });

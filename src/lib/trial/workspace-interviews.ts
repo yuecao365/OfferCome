@@ -21,7 +21,7 @@ import {
   type InterviewStatusCount,
 } from "@/lib/interviews/types";
 import type { UpcomingInterviews } from "@/lib/interviews/upcoming";
-import type { MockInterviewReport } from "@/lib/mock-interviews/types";
+import type { LegacyMockInterviewReport } from "@/lib/mock-interviews/report";
 
 import type { TrialWorkspace, TrialWorkspaceInterview } from "./workspace";
 
@@ -104,7 +104,7 @@ export function addCompletedMockInterview(
       feedback: string | null;
     }[];
     totalScore: number;
-    report: MockInterviewReport;
+    report: LegacyMockInterviewReport;
   },
 ): TrialWorkspace {
   const now = new Date().toISOString();

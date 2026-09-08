@@ -42,7 +42,6 @@ export function buildQuestionTeaching(
     expectedSignalsJson: string;
     generationMetadataJson: string;
     sourceKind: string;
-    difficulty: string;
   },
 ): MockInterviewQuestionTeaching {
   const snapshot = snapshotSchema.safeParse(parseJsonValue(contextSnapshotJson));
@@ -74,6 +73,5 @@ export function buildQuestionTeaching(
     expectedSignals: expectedSignals.success ? expectedSignals.data : [],
     rationale: metadata.success ? metadata.data.rationale ?? metadata.data.note ?? null : null,
     sourceKind: evaluation.sourceKind,
-    difficulty: evaluation.difficulty,
   };
 }

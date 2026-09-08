@@ -2,7 +2,7 @@ import "server-only";
 
 import { prisma } from "@/lib/db";
 
-import { scheduleMockInterviewQuestionEvaluation } from "../question-evaluation-background";
+import { scheduleMockInterviewCompletion, scheduleMockInterviewQuestionEvaluation } from "../question-evaluation-background";
 import { claimSession } from "../session-state";
 import { loadSkillPacks } from "../skills/loader";
 import { packsForInterview } from "../skills/selector";
@@ -227,7 +227,6 @@ export async function persistTurn(
           sortOrder: sortOrder < 0 ? closedCount : sortOrder,
           evaluation: {
             create: {
-              difficulty: "standard",
               sourceKind: area?.kind ?? "technical",
               rubricJson: JSON.stringify(area?.rubric ?? []),
               expectedSignalsJson: JSON.stringify(area?.expectedSignals ?? []),
@@ -242,6 +241,7 @@ export async function persistTurn(
                 note: effect.thread.note,
                 depth: effect.thread.depth,
                 probeCount: effect.segment.probeCount,
+                rescues: effect.thread.rescues,
                 answerSeconds: effect.segment.answerSeconds,
               }),
             },
@@ -294,6 +294,7 @@ export async function persistTurn(
   for (const questionId of evaluationIds) {
     scheduleMockInterviewQuestionEvaluation(questionId);
   }
+  if (ended) scheduleMockInterviewCompletion(sessionId);
 }
 
 export type TurnReplay = { replay: true; messages: MessageState[] };

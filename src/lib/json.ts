@@ -33,11 +33,3 @@ export function parseJsonArray(value: string | null | undefined): unknown[] {
   return Array.isArray(parsed) ? parsed : [];
 }
 
-/** 只保留字符串元素，用于 strengths / improvements 这类纯文案列表。 */
-export function parseJsonStringArray(
-  value: string | null | undefined,
-): string[] {
-  return parseJsonArray(value).filter(
-    (item): item is string => typeof item === "string",
-  );
-}

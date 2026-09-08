@@ -46,7 +46,7 @@ export type TrialWorkspaceInterview = {
   note: string;
   questions: TrialWorkspaceQuestion[];
   totalScore: number | null;
-  report: import("@/lib/mock-interviews/types").MockInterviewReport | null;
+  report: import("@/lib/mock-interviews/report").LegacyMockInterviewReport | null;
   createdAt: string;
   updatedAt: string;
 };

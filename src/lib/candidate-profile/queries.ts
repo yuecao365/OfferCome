@@ -1,7 +1,8 @@
 import "server-only";
 
 import { prisma } from "@/lib/db";
-import { parseJsonStringArray } from "@/lib/json";
+import { parseJsonValue } from "@/lib/json";
+import { parseStoredEvaluationList } from "@/lib/mock-interviews/question-evaluation";
 
 import {
   PROFILE_INSIGHT_KINDS,
@@ -52,7 +53,7 @@ export type RecentFeedbackItem = {
   jobTitle: string;
   score: number | null;
   strengths: string[];
-  improvements: string[];
+  weaknesses: string[];
 };
 
 /**
@@ -82,7 +83,7 @@ export async function getRecentQualitativeFeedback(
               evaluationStatus: true,
               score: true,
               strengthsJson: true,
-              improvementsJson: true,
+              weaknessesJson: true,
             },
           },
         },
@@ -90,14 +91,15 @@ export async function getRecentQualitativeFeedback(
     },
   });
 
+  // 评分 v2 的 strengths / weaknesses 带原话引用，这里只取要点；旧记录是字符串数组，同样兼容。
+  const points = (json: string | null) =>
+    parseStoredEvaluationList<{ point: string }>(parseJsonValue(json), (point) => ({ point })).map((item) => item.point);
   return interviews.flatMap((interview) =>
     interview.questions.flatMap((question) => {
       if (question.evaluation?.evaluationStatus !== "completed") return [];
-      const strengths = parseJsonStringArray(question.evaluation.strengthsJson);
-      const improvements = parseJsonStringArray(
-        question.evaluation.improvementsJson,
-      );
-      if (strengths.length === 0 && improvements.length === 0) return [];
+      const strengths = points(question.evaluation.strengthsJson);
+      const weaknesses = points(question.evaluation.weaknessesJson);
+      if (strengths.length === 0 && weaknesses.length === 0) return [];
       return [
         {
           questionId: question.id,
@@ -106,7 +108,7 @@ export async function getRecentQualitativeFeedback(
           jobTitle: interview.jobTitle,
           score: question.evaluation.score,
           strengths,
-          improvements,
+          weaknesses,
         },
       ];
     }),

@@ -26,6 +26,9 @@ import type {
 
 type Intent = "skip" | "hint" | "repeat" | "end";
 
+/** 自动生成报告的等待上限：评分最多等 32 s，汇总再 40 s；超过就给重试入口。 */
+const REPORT_WAIT_MS = 90_000;
+
 type TurnBody =
   | { kind: "start" }
   | { kind: "message"; clientId: string; content: string; intent: Intent | null };
@@ -92,6 +95,7 @@ export function MockInterviewChat({
   const [input, setInput] = useState("");
   const [turnError, setTurnError] = useState("");
   const [completing, setCompleting] = useState(false);
+  const [reportStalled, setReportStalled] = useState(false);
   const startedRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   // 开场回合落库前服务端还没有开始时间，先按进入房间的时刻计时。
@@ -166,14 +170,19 @@ export function MockInterviewChat({
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [transcript, streamingText]);
 
-  // 评分中：轮询直到报告出现；报告一出现，页面会切回带导航的报告视图。
+  // 面试一结束服务端就自动生成报告：这里只轮询，报告一出现页面会切回带导航的报告视图。
+  // 超过等待上限还没出来（评分失败会退回 ready_to_evaluate），再给一个重试入口。
   useEffect(() => {
-    if (session.status !== "evaluating") return;
-    const timer = window.setInterval(() => router.refresh(), 3_000);
+    if (!ended) return;
+    const startedAt = Date.now();
+    const timer = window.setInterval(() => {
+      router.refresh();
+      if (Date.now() - startedAt > REPORT_WAIT_MS) setReportStalled(true);
+    }, 3_000);
     return () => window.clearInterval(timer);
-  }, [router, session.status]);
+  }, [ended, router]);
 
-  async function complete() {
+  async function retryReport() {
     setCompleting(true);
     setTurnError("");
     try {
@@ -228,12 +237,13 @@ export function MockInterviewChat({
 
         {ended ? (
           <div className="flex flex-wrap items-center gap-3 border-t border-border px-3 py-4 sm:px-4">
+            <Loader2 aria-hidden="true" className="size-4 animate-spin text-muted-foreground" strokeWidth={1.5} />
             <p className="text-sm text-muted-foreground">
-              {session.status === "evaluating" ? "正在评分，报告很快就好。" : "面试已结束。"}
+              {reportStalled ? "报告生成得比预期慢，可以重试一次。" : "面试已结束，正在评分并生成报告。"}
             </p>
-            {session.status === "ready_to_evaluate" ? (
-              <Button disabled={completing} onClick={complete} type="button">
-                {completing ? "生成中…" : "生成面试报告"}
+            {reportStalled ? (
+              <Button disabled={completing} onClick={retryReport} type="button" variant="outline">
+                {completing ? "生成中…" : "重新生成报告"}
               </Button>
             ) : null}
           </div>
