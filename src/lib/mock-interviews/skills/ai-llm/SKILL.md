@@ -1,7 +1,7 @@
 ---
 name: ai-llm
 description: AI/LLM 应用工程出题：RAG、Agent 与工具调用、提示与上下文工程、微调与推理优化、评估与安全成本。岗位或简历涉及大模型应用、AI 工程、Agent 开发、LLM 方向算法时加载。
-keywords: [llm, 大模型, agent, 智能体, rag, prompt, 提示工程, langchain, langgraph, mcp, function calling, 微调, lora, vllm, embedding, rerank, ai工程师, ai应用开发]
+keywords: [llm, 大模型, agent, rag, prompt, 提示工程, langchain, langgraph, mcp, function calling, 微调, lora, vllm, embedding, ai工程师]
 layer: domain
 ---
 

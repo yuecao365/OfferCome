@@ -1,7 +1,7 @@
 ---
 name: data-engineering
 description: 数据工程出题：数仓分层与维度建模、离线与实时链路、调度与数据质量、存储格式与湖仓、成本与性能。岗位或简历涉及数据开发、数仓、大数据开发、ETL 时加载。
-keywords: [数据开发, 数仓, 数据仓库, 大数据开发, etl, data engineer, hive, spark, flink, kafka, 维度建模, 实时数仓, 湖仓, iceberg, paimon, airflow, dolphinscheduler, 数据质量]
+keywords: [数据开发, 数仓, 大数据开发, etl, data engineer, hive, spark, flink, 维度建模, 实时数仓, 湖仓, iceberg, paimon, dolphinscheduler, 数据质量]
 layer: domain
 ---
 
@@ -72,6 +72,12 @@ layer: domain
 - 好题：一个新版本 App 上线后某事件量翻倍，你怎么判断是埋点重复还是真实增长？采集侧要加什么机制避免下次再猜？
 - 危险信号：认为数据来了就是对的；不知道 binlog 里 update 会怎么表现
 - 期望信号：埋点校验与灰度对比；CDC 处理 delete 与主键变更；采集侧带版本号
+
+### SQL 现场题与执行原理
+- 阶梯：去重、topN、连续登录、留存这类题怎么写 → 窗口函数、多表 join 的行数放大、null 参与比较与聚合的语义 → 同一段 SQL 在 Hive 与 Spark 结果不一致、count(distinct) 跑不动怎么处理 → 一条复杂 SQL 拆成多步中间表的可维护性与性能权衡
+- 好题：写 SQL 求每个用户最近连续登录天数，并说明 join 日期维表和用窗口函数两种写法在数据量很大时各自的性能问题；如果登录表有重复记录，结果会怎样错？
+- 危险信号：只会 group by 不会窗口；join 后行数翻倍没意识到；count(distinct) 在大表上直接跑不知道会倾斜
+- 期望信号：先确认口径再写；用 row_number 与日期差做连续分组；大基数去重用两阶段聚合或近似算法；对结果做总量对账
 
 ## 好题 / 坏题对比
 
