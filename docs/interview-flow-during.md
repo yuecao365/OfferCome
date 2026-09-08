@@ -99,7 +99,7 @@ idleTurns  连续没有推进动作的回合数
 
 ## 2. 接口层（`/turn`）
 
-请求体二选一：`{ kind: "start" }`（开场）或 `{ clientId, content, intent?, voiceMetricsJson? }`。
+请求体二选一：`{ kind: "start" }`（开场）或 `{ clientId, content, intent?, voiceMetricsJson? }`（voiceMetricsJson 是语音作答的指标，P2 接入，原样并入消息元数据）。
 
 - `content` ≤ 2 万字符；`content` 为空时必须有 `intent`
 - `intent` 显式取值 skip / repeat / end / hint / clarify；未显式给出时，代码只对 **≤40 字** 的短消息做正则识别
