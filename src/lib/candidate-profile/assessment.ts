@@ -3,6 +3,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 
 import { prisma } from "@/lib/db";
+import { REAL_USAGE_INTERVIEW_WHERE } from "@/lib/interviews/types";
 import { deriveDeliveryObservation } from "@/lib/interviews/voice-metrics";
 
 import { assessInterviewQuestions } from "./assessment-agent";
@@ -90,6 +91,7 @@ export function interviewSourceHash(interview: CompletedInterview): string {
 export async function getCompletedInterviews() {
   return prisma.interview.findMany({
     where: {
+      ...REAL_USAGE_INTERVIEW_WHERE,
       status: "completed",
       questions: { some: { answer: { not: null } } },
     },

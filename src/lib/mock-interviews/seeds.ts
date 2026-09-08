@@ -1,6 +1,7 @@
 import "server-only";
 
 import { prisma } from "@/lib/db";
+import { REAL_USAGE_INTERVIEW_WHERE } from "@/lib/interviews/types";
 
 export type MockInterviewSeed = {
   id: string;
@@ -29,7 +30,7 @@ export async function resolveMockInterviewSeed(input: {
         id: input.seedQuestionId,
         answer: { not: null },
         // 模拟面试里答得薄弱的题同样值得针对性再练，不限于真实面试。
-        interview: { kind: { in: ["real", "mock"] }, status: "completed" },
+        interview: { ...REAL_USAGE_INTERVIEW_WHERE, kind: { in: ["real", "mock"] }, status: "completed" },
       },
       select: {
         id: true,

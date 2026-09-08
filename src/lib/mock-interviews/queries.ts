@@ -1,6 +1,7 @@
 import "server-only";
 
 import { prisma } from "@/lib/db";
+import { REAL_USAGE_INTERVIEW_WHERE } from "@/lib/interviews/types";
 import { parseJsonArray, parseJsonObject, parseJsonValue } from "@/lib/json";
 
 import { evidenceTargetForPace, parseStoredBrief } from "./interviewer/brief";
@@ -199,6 +200,7 @@ export async function hasCompletedMockInterview(): Promise<boolean> {
 
 export async function getRecentMockInterviews() {
   return prisma.mockInterviewSession.findMany({
+    where: { interview: REAL_USAGE_INTERVIEW_WHERE },
     include: {
       interview: {
         select: { companyName: true, jobTitle: true, updatedAt: true },

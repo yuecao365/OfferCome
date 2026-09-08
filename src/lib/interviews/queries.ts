@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import {
   toInterviewStats,
   INTERVIEW_HISTORY_PAGE_SIZE,
+  REAL_USAGE_INTERVIEW_WHERE,
   type InterviewFilters,
   type InterviewListItem,
   type InterviewStats,
@@ -83,7 +84,7 @@ function toInterviewListItem(row: InterviewRow): InterviewListItem {
 }
 
 function buildInterviewWhere(filters: InterviewFilters): Prisma.InterviewWhereInput {
-  const where: Prisma.InterviewWhereInput = {};
+  const where: Prisma.InterviewWhereInput = { ...REAL_USAGE_INTERVIEW_WHERE };
 
   if (filters.q) {
     where.OR = [
@@ -189,6 +190,7 @@ export async function getInterviewStats(): Promise<InterviewStats> {
 export async function getInterviewWorkspaceData() {
   const [recent, mockSummary, realStatusGroups, realRoundGroups] = await Promise.all([
     prisma.interview.findMany({
+      where: REAL_USAGE_INTERVIEW_WHERE,
       orderBy: [{ updatedAt: "desc" }],
       take: 3,
       select: {
@@ -206,7 +208,7 @@ export async function getInterviewWorkspaceData() {
       },
     }),
     prisma.mockInterviewSession.aggregate({
-      where: { status: "completed" },
+      where: { status: "completed", interview: REAL_USAGE_INTERVIEW_WHERE },
       _count: { _all: true },
       _avg: { totalScore: true },
     }),

@@ -246,7 +246,8 @@ export async function completeMockInterview(
         data: { status: "completed", interviewedAt: completedAt },
       });
     });
-    await enqueueCandidateProfileRefresh();
+    // 评测跑出的面试不进能力画像。
+    if (!existing.interview.evalTag) await enqueueCandidateProfileRefresh();
     return report;
   } catch (error) {
     // 评分没跑完就退回可交卷状态，否则会话永远卡在 evaluating。

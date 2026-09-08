@@ -1,6 +1,7 @@
 import "server-only";
 
 import { prisma } from "@/lib/db";
+import { REAL_USAGE_INTERVIEW_WHERE } from "@/lib/interviews/types";
 import { parseJsonValue } from "@/lib/json";
 import { parseStoredEvaluationList } from "@/lib/mock-interviews/question-evaluation";
 
@@ -65,6 +66,7 @@ export async function getRecentQualitativeFeedback(
 ): Promise<RecentFeedbackItem[]> {
   const interviews = await prisma.interview.findMany({
     where: {
+      ...REAL_USAGE_INTERVIEW_WHERE,
       status: "completed",
       questions: { some: { evaluation: { evaluationStatus: "completed" } } },
     },

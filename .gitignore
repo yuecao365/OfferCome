@@ -53,5 +53,7 @@ next-env.d.ts
 # Claude Code 会话本地配置
 .claude/
 
-# 评测报告（基线单独存在 src/lib/evals/baseline.json）
-/evals/reports/
+# 评测产物；基线以 eval/runs/baseline-*.json 提交
+/eval/runs/*
+!/eval/runs/baseline-*.json
+/eval/mianjing/raw/

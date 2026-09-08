@@ -134,6 +134,8 @@ model Interview {
   round           String?
   status          String                     @default("completed")
   note            String?
+  /// 评测运行器写的标签；真实使用为 null。带标签的面试不进列表、统计与画像。
+  evalTag         String?
   questions       InterviewQuestion[]
   mockSession     MockInterviewSession?
   importArtifact  InterviewImportArtifact?
@@ -146,6 +148,7 @@ model Interview {
   @@index([interviewedAt])
   @@index([kind])
   @@index([sourceType])
+  @@index([evalTag])
   @@index([roleKey])
   @@index([applicationId])
   @@index([scheduledAt])

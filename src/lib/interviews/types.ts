@@ -125,6 +125,9 @@ export type RealInterviewRoundCounts = {
 
 export const INTERVIEW_HISTORY_PAGE_SIZE = 20;
 
+/** 评测运行器跑出的面试带 evalTag；面向用户的列表、统计与画像一律用这个片段排除。 */
+export const REAL_USAGE_INTERVIEW_WHERE = { evalTag: null } as const;
+
 export type InterviewKindFilter = "all" | "real" | "mock";
 
 export type InterviewFilters = {
