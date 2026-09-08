@@ -136,7 +136,7 @@ advice: 补一版完整的 Agent 主循环设计稿，重点写清上下文构�
    输出 `{ summary≤1200, strengths[≤5]{point, areaName}, weaknesses[≤5]{point, areaName, kind: error | missing | pattern}, advice[≤5], hypotheses[]{text, status, verdict≤120} }`。代码校验：areaName 必须存在，pattern 至少要两个领域有短板否则降为 missing；简历假设以输入为准，面试官标过的状态不动，没标过的由模型定，没问到的结论固定为"这场没有问到。"，结论开头的状态词去掉。措辞：refuted 用"没有讲清楚""还需要更多证据"，不用"被否定"。全场都跳过时不调模型，用固定文案。
 7. 事务：`status=completed`、`totalScore`、`reportJson`（v2，见 `report.ts`）、`completedAt`；`Interview.status=completed`
 8. 任一步失败 → 退回 ready_to_evaluate，房间超时后给重试
-9. 事务外：`enqueueCandidateProfileRefresh()`
+9. 事务外：`enqueueCandidateProfileRefresh()`；评测运行器跑出的面试（`Interview.evalTag` 非空）跳过这一步，不进画像
 
 报告 v2 形状：`{ version: 2, totalScore, summary, strengths[], weaknesses[], advice[], hypotheses[] }`。旧报告（v1：strengths / improvements / actionPlan）读出时映射：improvements + actionPlan → advice，weaknesses 与 hypotheses 为空。体验版的浏览器存档仍是 v1：`/api/trial/evaluate` 与 `/api/trial/report` 把 v2 折回旧形状，报告页再映射回来。
 
@@ -148,6 +148,8 @@ advice: 补一版完整的 Agent 主循环设计稿，重点写清上下文构�
 - **合成器（profile_synthesis）**：服务端已算好等级、趋势、证据权重，模型只提炼洞察（弱项、训练重点等），不能重新打分
 
 画像页的"近期定性反馈"卡直接读逐段评分的 strengths / weaknesses 要点。这些洞察下一次备课时作为 `knownWeaknesses` 进入简报 agent，形成闭环。
+
+评测会话的隔离：`Interview.evalTag` 非空的面试由评测运行器创建（见 [eval.md](eval.md)），面试历史、工作台最近面试、最近模拟面试、画像的已完成面试与近期反馈、训练种子都用 `REAL_USAGE_INTERVIEW_WHERE`（`evalTag: null`）排除它们。
 
 ## 6. 报告页（`mock-interview-report.tsx` + 会话页）
 
@@ -170,6 +172,7 @@ advice: 补一版完整的 Agent 主循环设计稿，重点写清上下文构�
 | InterviewQuestion | 线程关闭 | question, answer, category, skippedAt |
 | InterviewQuestionEvaluation | 线程关闭（pending）→ 后台（completed）→ 示范 | rubricJson, expectedSignalsJson, generationMetadataJson, dimensionsJson, score, strengthsJson, weaknessesJson, adviceJson, exemplarJson, feedback |
 | MockInterviewSession | 每回合 / 交卷 | memoryJson, questionCount, startedAt, status, totalScore, reportJson |
+| Interview | 创建 / 交卷 | status, interviewedAt；evalTag（评测运行器写，真实使用为 null） |
 | AgentRun | 每次模型调用 | agent, status, durationMs, usage, payload / output；selection 事件的 metricsJson 记 quoteMissing、unexplainedLowScore、fabricatedDetail |
 
 ## 8. 真机验证（2026-09-08，快速节奏，Agent 平台开发）

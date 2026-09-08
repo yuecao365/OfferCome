@@ -5,7 +5,7 @@
 ## 0. 现状（读这一节就够）
 
 - 产品：OfferCome，本地优先的求职工作台，核心是 AI 模拟面试。技术栈 Next.js 16（App Router）+ Prisma 7 / SQLite + Vercel AI SDK v7。`AGENTS.md` 的可维护性规则必须遵守。
-- 面试流程现状见四份流程文档：[总览](interview-flow-overview.md) · [面试前](interview-flow-before.md) · [面试中](interview-flow-during.md) · [面试后](interview-flow-after.md)。它们是"现状描述"，改完代码要原地更新。
+- 面试流程现状见四份流程文档：[总览](interview-flow-overview.md) · [面试前](interview-flow-before.md) · [面试中](interview-flow-during.md) · [面试后](interview-flow-after.md)；评测现状见 [eval.md](eval.md)。它们是"现状描述"，改完代码要原地更新。
 - 已完成的计划（都标了执行状态）：[面试前](interview-before-plan.md)（第 5 步"简报结构指标"已并入评测）、[面试中](interview-during-plan.md)、[面试后](interview-after-plan.md)。
 - 版本号：备课简报 v4、面试官提示词 interviewer-v4、评分 evaluation-v2、汇总 summary-v2、示范 exemplar-v1、报告 reportJson v2。
 - 体验版（网页版，`src/lib/trial/`、`src/app/api/trial/`）仍走旧题库流程（question-generation-agent、follow-up-agent、planning），与本地版的对话式流程不同步；它只通过两个接口把评分 v2 折回旧形状。
@@ -27,28 +27,13 @@
 
 ## 2. 阶段 0：评测框架
 
-原则：只做能改变决策的评测；没有人工对照的"模型夸模型"分数不做。
+计划：[eval-plan.md](eval-plan.md)（第二稿，全自动、无人工标注）；现状与跑法：[eval.md](eval.md)。
 
-### 2.1 面试官行为评测（trace 级，无人评）
+代码已完成（2026-09-09）：旧出题评测套件删除，数据搬到 `eval/`；`Interview.evalTag` 隔离评测会话；`npm run eval -- fixtures | scorer | interviewer | compare`；评分器蜕变断言、人设模拟器、自校准裁判、面试官 trace 指标与断言、k 次复跑区间。冒烟：2 道评分器用例 k=1、1 场 earlyend 面试官评测跑通。
 
-- 数据：`InterviewTurnDecision`（提案 / 裁决 / 替换原因 / anchorHit / 信息量前后 / skillsLoaded）与 AgentRun 的 selection 指标。
-- 跑法：固定脚本的候选人（正常作答、连续求提示、跑题、塞注入、发两万字、中途结束）× 真实模型，快速节奏，每个脚本一场；脚本参考本次用过的 `smoke.sh` 思路（创建会话 → 轮询备课 → 逐条 POST `/turn`）。
-- 指标与期望（来自 interview-during-plan.md §9）：追问贴合率 ≥ 0.85；动作替换率越低越好；澄清占比 < 0.2；收尾信息量快速 ≥ 0.55、标准 ≥ 0.7；技能包加载率 ≥ 0.9；对抗组全部不变量成立。
-- 产物：一个 `npm run eval:interviewer` 之类的脚本，输出一张表并存 JSON；进文档。
+还没做：配置 aux 模型（DeepSeek）；生成并冻结 3 人设 + 1 跑题人设、40 道评分器用例；基线各连跑两次得噪声底线；分带有无对比；面经话题覆盖（等文本）。
 
-### 2.2 评分器校准（有人工对照）
-
-- 用户标注 30–40 条线程级样本（分带 + 一句短板），存仓库 `eval/` 下的 JSON。
-- 指标：与人工分带的一致率 / Spearman；同一输入复跑 3 次的方差；面试官现场判断（note 含"失守 / 没答上"）与事后分数的分歧率；`quoteMissing`、`unexplainedLowScore` 的比率。
-- 校准对象是 evaluation-v2 提示词；每改一次提示词跑一遍。
-
-### 2.3 必须留下的故事
-
-评测建好后专门对比一次提示词改动（例如评分器分带有无、或面试官锚点硬门前后），把指标差异记进文档。面试时讲的就是这一段。
-
-### 2.4 明确不做
-
-备课简报的结构指标、成对偏好判分、任何"综合质量分"。旧的 `docs/eval-plan.md` 描述的是已删除的套件，已删。
+原则不变：只做能改变决策的评测；没有真值的"模型夸模型"分数不做；备课简报的结构指标、成对偏好判分、综合质量分不做。
 
 ## 3. 阶段 1：能力画像检查
 
