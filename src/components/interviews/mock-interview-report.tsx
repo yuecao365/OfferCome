@@ -42,6 +42,13 @@ const SOURCE_LABELS: Record<string, string> = {
   general_role: "通用岗位题",
 };
 
+function formatSeconds(seconds: number): string {
+  if (seconds < 60) return `${seconds} 秒`;
+  const minutes = Math.floor(seconds / 60);
+  const rest = seconds % 60;
+  return rest > 0 ? `${minutes} 分 ${rest} 秒` : `${minutes} 分钟`;
+}
+
 export function MockInterviewReport({ session }: { session: MockInterviewView }) {
   const report = session.report;
   if (!report) return null;
@@ -160,11 +167,16 @@ export function MockInterviewReport({ session }: { session: MockInterviewView })
                   <h4 className="text-sm font-medium text-foreground">{question.question}</h4>
                 </div>
               </div>
-              {question.skipped ? (
-                <Badge tone="warning">已跳过</Badge>
-              ) : (
-                <Score value={question.evaluation?.score ?? 0} />
-              )}
+              <div className="flex items-center gap-3">
+                {question.teaching?.answerSeconds ? (
+                  <MetaText>作答约 {formatSeconds(question.teaching.answerSeconds)}</MetaText>
+                ) : null}
+                {question.skipped ? (
+                  <Badge tone="warning">已跳过</Badge>
+                ) : (
+                  <Score value={question.evaluation?.score ?? 0} />
+                )}
+              </div>
             </div>
             {!question.skipped ? (
               <details className="mt-3 rounded-control border border-border bg-surface-subtle p-3">

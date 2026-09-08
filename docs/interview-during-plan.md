@@ -2,6 +2,7 @@
 
 > 基于 [interview-flow-during.md](interview-flow-during.md) 描述的现状。面试前已按 [interview-before-plan.md](interview-before-plan.md) 完成；面试后另起计划。
 > 2026-09-08 第一稿。已定：不做反问环节、不做"记笔记"提示、不做跨轮记忆；回答用时只作辅助信号。
+> 执行状态：第 1–7 步已完成（提示词 interviewer-v4，简报 v4）。真机验证见 interview-flow-during.md 末尾。
 
 ## 0. 三条原则
 

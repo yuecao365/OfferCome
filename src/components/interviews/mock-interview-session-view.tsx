@@ -63,6 +63,9 @@ export function MockInterviewSessionView({
       ) : session.conversation && session.report ? (
         <div className="grid gap-6">
           <MockInterviewReport session={session} />
+          <ButtonLink className="justify-self-start" href={`/interviews/mock/${session.id}/trace`} variant="outline">
+            查看面试官的决策记录
+          </ButtonLink>
           <details>
             <summary className="cursor-pointer text-sm font-semibold text-foreground">对话记录</summary>
             <div className="mt-4 grid gap-3">
