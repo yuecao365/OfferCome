@@ -2,6 +2,7 @@
 
 > 基于 [interview-flow-after.md](interview-flow-after.md) 描述的现状。面试中已按 [interview-during-plan.md](interview-during-plan.md) 完成。
 > 2026-09-08 第一稿。评测框架不在本计划内，另议。
+> 执行状态：第 1–6 步已完成（评分 evaluation-v2、汇总 summary-v2、示范 exemplar-v1、报告 v2）。真机验证见 interview-flow-after.md §2.4 与 §8。
 
 ## 0. 三条原则
 

@@ -105,6 +105,14 @@ export function utterance(speech: string, question: string): string {
 ${asked}`;
 }
 
+/** 代码被迫关线程时写的 note：不是面试官的判断，报告与汇总都不当判断用。 */
+export const SYSTEM_CLOSE_NOTE = "（由系统推进）";
+
+/** 线程 note 里只有面试官自己写的才算判断。 */
+export function interviewerNote(note: string | null): string | null {
+  return note && note !== SYSTEM_CLOSE_NOTE ? note : null;
+}
+
 /** 代码的确定性下一步：用于模型无动作、动作不被允许、或模型失败。 */
 export function fallbackAction(state: InterviewerState): InterviewerAction {
   if (state.phase === "opening" && state.brief.askIntro) {
@@ -112,7 +120,7 @@ export function fallbackAction(state: InterviewerState): InterviewerAction {
   }
   const active = activeThread(state);
   if (active) {
-    return { name: "close_thread", input: { note: "（由系统推进）" } };
+    return { name: "close_thread", input: { note: SYSTEM_CLOSE_NOTE } };
   }
   if (atSafetyCap(state)) {
     return { name: "close_interview", input: { reason: "提问次数已到安全上限" } };

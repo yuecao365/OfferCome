@@ -6,6 +6,7 @@ import { parseJsonArray } from "@/lib/json";
 
 import { parseStoredBrief, type InterviewBrief } from "./interviewer/brief";
 import { parseStoredMemory } from "./interviewer/memory";
+import { interviewerNote } from "./interviewer/reducer";
 import {
   evaluatePersistedMockInterviewQuestion,
   waitForRunningQuestionEvaluations,
@@ -132,7 +133,7 @@ function areaOutcomes(
           weight: area.weight,
           depthReached: Math.max(0, ...threads.map((thread) => thread.depth)),
           targetDepth: area.depth,
-          threadNote: threads.at(-1)?.note ?? null,
+          threadNote: interviewerNote(threads.at(-1)?.note ?? null),
           skipped: answered.length === 0,
           score: answered.length > 0 ? Math.max(...scores) : null,
           weaknesses: parseJsonArray(

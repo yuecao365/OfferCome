@@ -248,10 +248,14 @@ function Evaluation({ evaluation }: { evaluation: NonNullable<Question["evaluati
         </div>
       ) : null}
       {evaluation.advice.length > 0 ? (
-        <p className="text-sm leading-6 text-muted-foreground">
-          <span className="font-medium text-foreground">练什么：</span>
-          {evaluation.advice.join("；")}
-        </p>
+        <div>
+          <p className="text-xs font-medium text-muted-foreground">练什么</p>
+          <ul className="mt-1 grid gap-1 text-sm leading-6 text-muted-foreground">
+            {evaluation.advice.map((item) => (
+              <li key={item}>· {item}</li>
+            ))}
+          </ul>
+        </div>
       ) : null}
       {evaluation.exemplar ? (
         <details className="rounded-control border border-border bg-surface-subtle p-3">

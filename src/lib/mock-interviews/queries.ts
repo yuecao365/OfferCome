@@ -5,6 +5,7 @@ import { parseJsonArray, parseJsonObject, parseJsonValue } from "@/lib/json";
 
 import { evidenceTargetForPace, parseStoredBrief } from "./interviewer/brief";
 import { parseStoredMemory } from "./interviewer/memory";
+import { interviewerNote } from "./interviewer/reducer";
 import {
   parseStoredEvaluationList,
   type AnswerExemplar,
@@ -112,7 +113,7 @@ function buildConversation(session: SessionWithConversation): MockInterviewConve
       status: thread.status as MockInterviewConversation["threads"][number]["status"],
       depth: thread.depth,
       rescues: thread.rescues,
-      note: thread.note,
+      note: interviewerNote(thread.note),
       questionId: thread.questionId,
     })),
     messages: session.messages.map((message) => ({
