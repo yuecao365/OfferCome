@@ -42,9 +42,9 @@ probeCount = probe 消息数
 | InterviewQuestion.answer / skippedAt | 跳过则 answer=null、skippedAt=now |
 | Evaluation.difficulty | 固定 "standard" |
 | Evaluation.sourceKind | 领域 kind |
-| Evaluation.rubricJson | 该领域的评分表（按 kind 固定，见上上篇 5.7） |
+| Evaluation.rubricJson | 该领域的评分表（按 kind + style 固定，见上上篇 5.7） |
 | Evaluation.expectedSignalsJson | 该领域的期望信号 |
-| Evaluation.generationMetadataJson | `{ areaId, areaName, areaKind, note（面试官关线程时的判断）, depth, probeCount }` |
+| Evaluation.generationMetadataJson | `{ areaId, areaName, areaKind, areaStyle, competencyOrigin: jd | baseline, skillPack, note（面试官关线程时的判断）, depth, probeCount }`。competencyOrigin 由代码推：领域绑定了蓝图能力为 jd，否则有 baseline 来源为 baseline |
 | Evaluation.evaluationStatus | pending（跳过的题不调度评分） |
 
 ## 2. 后台逐题评分
@@ -143,7 +143,7 @@ improvements: 补充每类证据分别能排除什么假设；加入 error type�
 | 总分 | 0–100 |
 | 总体表现 | summary |
 | 做得好的部分 / 优先改进 / 下一步训练计划 | strengths / improvements / actionPlan |
-| 逐题反馈 | 每条线程一张卡：题目（切入 + 追问）、分数、可展开"查看我的回答"、可展开"这道题在考察什么"（领域名、来源类型、是否基于推断的岗位要求、期望信号） |
+| 逐题反馈 | 每条线程一张卡：题目（切入 + 追问）、分数、可展开"查看我的回答"、可展开"这道题在考察什么"（领域名、领域类型与风格、来源：JD 明确要求 / 岗位常见要求（技能包 X）/ 兜底蓝图推断、期望信号） |
 | 对话记录 | 可展开的完整气泡记录 |
 
 **尚未展示（P2）**：考察领域与各领域追到第几层、面试官的工作记忆（已确认 / 存疑 / 失守）、简历假设的验证结果。数据已经在 `queries.ts` 的 conversation 里（仅 completed 状态返回），只差界面。
