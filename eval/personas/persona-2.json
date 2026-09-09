@@ -2,18 +2,18 @@
   "id": "persona-2",
   "jd": "tencent-hunyuan-backend",
   "resume": "synthetic-backend",
-  "style": "表达偏踏实，喜欢先讲自己怎么做过，再补一点原理，但遇到没吃透的话题容易顺着关键词往下说。",
+  "style": "表达偏务实，喜欢先讲自己怎么定位问题和改动链路，但遇到没真正做深的话题会用一些听起来顺的概念往下接。",
   "strong": [
-    "Redis 与 MySQL 一致性问题排查和修复，比如超卖场景、Lua 脚本时序缺口、乐观锁方案",
-    "MySQL 表结构与索引优化，包括联合索引设计、慢查询分析、列表接口性能优化",
-    "Spring Boot 后端业务开发与系统设计，例如状态机重构、REST 接口设计、RabbitMQ 异步解耦"
+    "Redis 与 MySQL 结合的库存一致性与超卖排查",
+    "Spring Boot 电商后端开发与状态机/业务建模",
+    "Redis 缓存、索引优化与接口性能优化"
   ],
   "weak": {
-    "topic": "Linux 排障与系统运维基础",
-    "wrongClaim": "Linux里某个进程CPU高，直接看它的RES内存基本就能判断是不是CPU瓶颈。",
-    "whyWrong": "RES 是驻留内存指标，反映内存占用，不反映 CPU 使用瓶颈。排查 CPU 高通常要看 top、pidstat、perf、线程栈等指标与工具。"
+    "topic": "技术基础：MySQL / Redis / MQ 选型与一致性（RabbitMQ 幂等与消息可靠性）",
+    "wrongClaim": "RabbitMQ 只要开启手动 ack，消息就绝对不会重复投递。",
+    "whyWrong": "手动 ack 只能控制消费者确认时机，不能保证绝对不重复。消费者处理后未成功 ack、网络抖动、重试或生产端重复发送都可能导致重复投递，所以仍需要业务幂等。"
   },
-  "unsupportable": "构建文档切分、向量化（bge-m3）与检索链路，对比固定长度切分与按标题层级切分，后者在自建的 60 条问答评测集上命中率提高 18 个百分点。",
+  "unsupportable": "将 7 种状态、23 条流转规则收敛为配置化的状态表，减少重复判断代码约 40%。",
   "offtopic": false,
   "control": false
 }

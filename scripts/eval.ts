@@ -89,6 +89,8 @@ import { buildStoredResumeName, RESUME_UPLOAD_DIR } from "../src/lib/resumes/sto
 const RUNS_DIR = path.join(EVAL_DIR, "runs");
 const DEFAULT_BASE = "http://localhost:3000";
 const MAX_TURNS = 30;
+/** 人设到这一回合还没说出错句 Z，就让模拟器主动带出来；否则快速节奏的两条线程可能根本问不到弱项。 */
+const FORCE_CLAIM_AFTER_TURN = 3;
 const RESUME_MIME = "text/markdown";
 
 function argValue(name: string): string | undefined {
@@ -196,6 +198,10 @@ async function commandFixtures(models: EvalModels): Promise<void> {
   const resumeText = loadResumeText(resumeId);
 
   if (personaCount) {
+    // 弱项话题要落在备课会考察的领域里，先备一次课拿领域清单（深入节奏，看全貌）。
+    const reference = await generateEvalBrief(jdId, resumeId, "persona-reference");
+    const areas = reference.areas.filter((area) => area.kind !== "project").map((area) => ({ name: area.name, description: area.description, ladder: area.ladder.map((rung) => rung.text) }));
+    console.log(`参考简报领域：${areas.map((area) => area.name).join("；")}`);
     const current = loadPersonas();
     const existing = new Set(current.map((persona) => persona.id));
     const usedTopics = current.flatMap((persona) => (persona.weak ? [persona.weak.topic] : []));
@@ -219,6 +225,7 @@ async function commandFixtures(models: EvalModels): Promise<void> {
         control: item.control,
         avoidTopics: usedTopics,
         avoidClaims: usedClaims,
+        areas,
       });
       if (persona.weak) usedTopics.push(persona.weak.topic);
       if (persona.unsupportable) usedClaims.push(persona.unsupportable);
@@ -524,8 +531,11 @@ async function driveSession(base: string, item: EvalCase, sessionId: string, mod
       const next = script.next().value as { content?: string; intent?: string };
       body = { clientId: `eval-${turn}`, content: next.content ?? "", intent: next.intent };
     } else {
+      const claim = item.persona!.weak?.wrongClaim ?? null;
+      const saidClaim = claim ? transcript.some((line) => line.role === "candidate" && line.content.includes(claim.replace(/[。！？]$/, ""))) : true;
+      const forceWrongClaim = Boolean(claim) && !saidClaim && turn >= FORCE_CLAIM_AFTER_TURN;
       const simulate = () =>
-        simulateCandidateReply(models.aux, { persona: item.persona!, resumeText, jobTitle, transcript, runId: `eval-sim:${sessionId}:${turn}` });
+        simulateCandidateReply(models.aux, { persona: item.persona!, resumeText, jobTitle, transcript, forceWrongClaim, runId: `eval-sim:${sessionId}:${turn}` });
       // 兼容通道的模型偶尔返回坏 JSON，抢救不了就再要一次；再失败才算这场失败。
       const reply = await simulate().catch(() => simulate());
       body = { clientId: `eval-${turn}`, content: reply.reply };

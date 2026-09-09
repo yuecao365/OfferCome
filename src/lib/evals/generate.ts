@@ -68,13 +68,19 @@ export async function generatePersona(
     /** 已有人设用过的弱项话题与简历成果，避免几个人设测同一件事。 */
     avoidTopics?: string[];
     avoidClaims?: string[];
+    /** 备课简报里的考察领域：弱项话题必须落在其中，否则面试根本问不到。 */
+    areas?: { name: string; description: string; ladder: string[] }[];
     attempts?: number;
   },
 ): Promise<Persona> {
   if (input.control) return generateControlPersona(aux, input);
   const attempts = input.attempts ?? 3;
   let lastError = "";
+  const areaList = input.areas?.length
+    ? `\n- weakTopic 必须从下面这些备课会考察的领域里选一个（按领域名写，可以细化到领域里的某一级追问），选一个候选人简历上没有直接经验、面试官会往深追的：\n${input.areas.map((area) => `  · ${area.name}：${area.description}；追问阶梯：${area.ladder.join(" → ")}`).join("\n")}`
+    : "";
   const avoid =
+    areaList +
     (input.avoidTopics?.length ? `\n- 已有人设用过的弱项话题（不要再用，也不要用与之直接相关的话题；从岗位会考的其它方向里另选一个，例如数据库、缓存、消息队列、操作系统、网络、Linux 排障）：${input.avoidTopics.join("；")}` : "") +
     (input.avoidClaims?.length ? `\n- 已有人设用过的简历成果（unsupportable 不要再选这些，换简历里另一条带数字的成果）：${input.avoidClaims.join("；")}` : "");
   for (let attempt = 0; attempt < attempts; attempt += 1) {

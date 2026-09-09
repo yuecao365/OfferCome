@@ -2,18 +2,18 @@
   "id": "persona-3",
   "jd": "tencent-hunyuan-backend",
   "resume": "synthetic-backend",
-  "style": "表达清晰偏学生气，喜欢按背景-方案-结果来讲，但遇到没真正做深的话题会用一些听起来顺的术语往下接。",
+  "style": "表达清晰偏务实，喜欢先讲自己做过的链路和结果，但被追到原理细节时会开始用经验化说法兜。",
   "strong": [
-    "Java Spring Boot 后台开发与业务建模，比如订单履约、退款状态机重构、REST 接口设计",
-    "MySQL、Redis 相关的后台性能与一致性问题排查，比如缓存、索引优化、超卖问题定位与修复",
-    "基于 Python/FastAPI 的 RAG 应用落地，包括检索链路、结构化输出、工具调用与测试"
+    "Spring Boot + MySQL + Redis 的电商后端开发与接口性能优化",
+    "订单履约/退款状态机重构与业务建模",
+    "Redis 缓存、MySQL 乐观锁与库存超卖排查处理"
   ],
   "weak": {
-    "topic": "Kafka / Flink 这类大数据流式组件的原理与适用场景对比",
-    "wrongClaim": "Kafka 的消息一旦写入分区，就能保证所有消费者严格实时且只消费一次。",
-    "whyWrong": "Kafka 默认既不保证所有消费者严格实时，也不天然保证端到端只消费一次。消费语义与实时性取决于生产、提交位点、事务、消费端处理等具体设计。"
+    "topic": "技术基础：MySQL / Redis / MQ 选型与一致性（Kafka 适用场景与消息顺序/分区机制）",
+    "wrongClaim": "Kafka 只要创建一个 topic，就能天然保证所有消费者看到的全局顺序一致。",
+    "whyWrong": "Kafka保证的是单分区内的有序性，不保证跨分区全局有序。多个消费者组、多个分区下看到的消费顺序也不会天然一致。"
   },
-  "unsupportable": "· 编写接口自动化用例 120 余条，接入 CI，在灰度发布前拦截 2 次回归缺陷。",
+  "unsupportable": "列表接口 P95 延迟从 420ms 降至 90ms",
   "offtopic": false,
   "control": false
 }

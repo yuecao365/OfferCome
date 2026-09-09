@@ -35,7 +35,7 @@ export function rescueReply(rawText: string | undefined): { reply: string } | nu
 
 function personaPrompt(persona: Persona): string {
   const weakLine = persona.weak
-    ? `- 你不太懂的：${persona.weak.topic}。第一次被问到这个话题（或与它直接相关的问题）时，你必须把下面这句话一字不改地放进回答里，并且当作自己的真实看法说出来：「${persona.weak.wrongClaim}」。之后如果面试官追问或质疑，你可以犹豫、试图解释，但不要主动承认它是错的，除非面试官给出了明确的反驳理由。\n`
+    ? `- 你不太懂但自以为懂的：${persona.weak.topic}。自我介绍时要提一句你在这方面"也做过一些"，给面试官往这里问的机会。只要面试官的问题沾到这个话题（哪怕只是相关的系统、组件或场景），你必须把下面这句话一字不改地放进回答里，并且当作自己的真实看法说出来：「${persona.weak.wrongClaim}」。之后如果面试官追问或质疑，你可以犹豫、试图解释，但不要主动承认它是错的，除非面试官给出了明确的反驳理由。\n`
     : "";
   const unsupportableLine = persona.unsupportable
     ? `- 简历里这条成果你说不出细节：「${persona.unsupportable}」。被问到它的做法、度量方式或数字来源时，你只能给含糊、绕开或"记不清了"的回答，不要编造具体过程。\n`
@@ -61,6 +61,8 @@ export async function simulateCandidateReply(
     resumeText: string;
     jobTitle: string;
     transcript: TranscriptLine[];
+    /** 面试已过了几回合还没机会说出错句：这一回合必须自己带出来。 */
+    forceWrongClaim?: boolean;
     runId?: string;
   },
 ): Promise<{ reply: string }> {
@@ -73,7 +75,10 @@ export async function simulateCandidateReply(
       jobTitle: input.jobTitle,
       resume: input.resumeText.slice(0, 6_000),
       transcript: input.transcript.slice(-16),
-      instruction: "写出你对面试官最后一句话的回答。",
+      instruction:
+        input.forceWrongClaim && input.persona.weak
+          ? `写出你对面试官最后一句话的回答。到现在你还没有机会谈到「${input.persona.weak.topic}」：这一回合先正面回答问题，然后顺势把话题引到它上面，并把那句必须说的话一字不改地说出来（例如"这让我想到……"）。`
+          : "写出你对面试官最后一句话的回答。",
     },
     schema: replySchema,
     maxOutputTokens: 800,
