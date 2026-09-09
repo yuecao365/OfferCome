@@ -198,6 +198,25 @@ export async function generateScorerCase(
 const offtopicSchema = z.object({ answer: z.string().min(120).max(2_000) });
 
 /** 答非所问变体：同一个候选人认真回答另一个方向的题目，和本题没有共同话题。 */
+const resumeSchema = z.object({ markdown: z.string().min(400) });
+
+/**
+ * 岗位方向的合成简历：参考已有的后端简历的结构与真实度，技术栈换成这个岗位的。
+ * 覆盖率评测五个岗位各用一份，否则备课会围绕一份后端简历跑偏，量到的是简历与岗位错配。
+ */
+export async function generateResume(aux: AiTaskConfig, input: { role: string; jobTitle: string; jobDescription: string; reference: string }): Promise<string> {
+  const output = await runAux(aux, {
+    agent: "eval_generate_resume",
+    promptVersion: GENERATE_PROMPT_VERSION,
+    system: `写一份中文合成简历（纯文本 markdown，不要代码块），候选人是即将毕业或毕业一到两年、基础扎实但不算顶尖的工程师，方向是 role，目标岗位见 jobTitle / jobDescription。结构、篇幅、写法与真实感对齐 reference（同样有教育背景、一段实习、两个项目、技能清单，成果带具体但不夸张的数字），但技术栈、项目题材、实习内容全部换成这个方向常见的，不得照抄 reference 的项目或数字。姓名、联系方式用明显虚构的占位。`,
+    untrustedInputs: "岗位与参考简历",
+    payload: { role: input.role, jobTitle: input.jobTitle, jobDescription: input.jobDescription.slice(0, 6_000), reference: input.reference },
+    schema: resumeSchema,
+    maxOutputTokens: 3_000,
+  });
+  return output.markdown.trim();
+}
+
 export async function generateOfftopicAnswer(aux: AiTaskConfig, input: { unrelatedQuestion: string }): Promise<string> {
   const output = await runAux(aux, {
     agent: "eval_generate_offtopic",

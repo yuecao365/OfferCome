@@ -1,10 +1,39 @@
 {
-  "resume": "synthetic-backend",
   "roles": {
-    "ai-llm": ["tencent-hunyuan-agent-harness-engineer", "tencent-pcg-ai-app-agent"],
-    "frontend": ["tencent-marvis-frontend", "tencent-miniprogram-frontend"],
-    "backend": ["tencent-hunyuan-backend", "tencent-wechat-core-backend"],
-    "test-qa": ["tencent-cloud-test-dev-ai-eval", "bytedance-test-dev-tiktok"],
-    "infra": ["alibaba-ai-infra-container", "tencent-agent-infra-senior"]
+    "ai-llm": {
+      "resume": "synthetic-ai-llm",
+      "jds": [
+        "tencent-hunyuan-agent-harness-engineer",
+        "tencent-pcg-ai-app-agent"
+      ]
+    },
+    "frontend": {
+      "resume": "synthetic-frontend",
+      "jds": [
+        "tencent-valorant-frontend-ai",
+        "tencent-miniprogram-frontend"
+      ]
+    },
+    "backend": {
+      "resume": "synthetic-backend",
+      "jds": [
+        "tencent-hunyuan-backend",
+        "tencent-wechat-core-backend"
+      ]
+    },
+    "test-qa": {
+      "resume": "synthetic-test-qa",
+      "jds": [
+        "tencent-wechat-store-test-dev",
+        "bytedance-test-dev-tiktok"
+      ]
+    },
+    "infra": {
+      "resume": "synthetic-infra",
+      "jds": [
+        "alibaba-ai-infra-container",
+        "tencent-agent-infra-senior"
+      ]
+    }
   }
 }

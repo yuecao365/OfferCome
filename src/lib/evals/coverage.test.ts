@@ -58,10 +58,10 @@ test("ladderProgresses checks fact → principle → scenario / tradeoff order a
   assert.equal(ladderProgresses([{ style: null }, { style: null }]), null);
 });
 
-test("briefCoverageText leaves project areas out and keeps ladders readable", () => {
+test("briefCoverageText includes project areas and keeps ladders readable", () => {
   const text = briefCoverageText(brief([{ name: "缓存一致性", kind: "technical" }, { name: "项目深挖", kind: "project" }]));
   assert.ok(text.includes("【缓存一致性】"));
-  assert.ok(!text.includes("项目深挖"));
+  assert.ok(text.includes("【项目深挖】"));
   assert.ok(text.includes("追问阶梯：1. 一；2. 二"));
 });
 
@@ -85,12 +85,12 @@ test("summarizeRoleCoverage merges briefs and lists the most-missed topics", () 
   assert.equal(briefLadderRate(brief([{}, { ladder: [{ text: "x", style: "tradeoff" }, { text: "y", style: "fact" }] }])).value, 0.5);
 });
 
-test("eval/coverage.json names two existing JDs per role and a known resume", () => {
+test("eval/coverage.json names two existing JDs and a same-direction resume per role", () => {
   const config = loadCoverageConfig();
   const ids = new Set(loadJdFixtures().map((jd) => jd.id));
-  for (const [role, jds] of Object.entries(config.roles)) {
-    assert.equal(jds.length, 2, `${role} 应有 2 份 JD`);
-    for (const id of jds) assert.ok(ids.has(id), `${role} 引用了不存在的 JD ${id}`);
+  for (const [role, entry] of Object.entries(config.roles)) {
+    assert.equal(entry.jds.length, 2, `${role} 应有 2 份 JD`);
+    for (const id of entry.jds) assert.ok(ids.has(id), `${role} 引用了不存在的 JD ${id}`);
+    assert.equal(entry.resume, `synthetic-${role}`, `${role} 的简历要与岗位同向`);
   }
-  assert.equal(config.resume, "synthetic-backend");
 });

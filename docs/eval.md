@@ -49,12 +49,12 @@ npm run eval -- compare eval/runs/a.json eval/runs/b.json                两份�
 | 目录 | 内容 | 来源 |
 |---|---|---|
 | `jd/` | 44 份大厂公开 JD（逐字） | 招聘页；三条边界 / 注入用例为合成 |
-| `resumes/` | `synthetic-backend.md` 合成简历 | 手写 |
+| `resumes/` | `synthetic-<role>.md` 五个方向各一份合成简历 | 后端手写，其余 `fixtures --resumes` 按该岗位第一份 JD 参考后端简历生成 |
 | `scripts/` | 静态脚本 hints / injection / longform / earlyend | 手写，都用 `tencent-hunyuan-backend` + 合成简历 |
 | `personas/` | 人设：强项、弱项话题、必须逐字说出的错句 Z 与错因、说不出细节的简历成果 C | aux 生成后冻结 |
 | `scorer/` | 评分器用例：真实产生的线程题目 + base / err / drop / fluff / para / offtopic 六个回答 + 真值（Z、错因、被删机制） | aux 生成后冻结；offtopic 取另一道的 base |
 | `mianjing/` | 5 岗位 × 16 篇 2025–2026 公开面经：`raw/` 原文与 `extracted/` 题目列表都 .gitignore，只提交 `README.md`（索引与来源 URL）、两个抓取 / 抽取脚本和 `topics.json` | 用户收集，见 `eval/mianjing/README.md` |
-| `coverage.json` | 每个岗位用哪两份 JD 做话题覆盖 | 手写 |
+| `coverage.json` | 每个岗位用哪份简历、哪两份 JD 做话题覆盖 | 手写 |
 | `runs/` | 产物 | 运行器 |
 
 schema 与加载在 `fixtures.ts`，`fixtures.test.ts` 自检（id 与文件名一致、脚本引用的 JD 存在、err 变体含 Z 而 base 不含）。
@@ -140,7 +140,7 @@ k > 1 时比率类指标合并分子分母，比例类指标给均值与最小�
 ## 5. 备课评测：面经话题覆盖（`coverage`，`coverage.ts`）
 
 - **话题表**：`fixtures --mianjing` 对每篇面经的题目列表让 aux 归话题（跳过 HR、算法手撕与叙述），再按岗位合并成 ≤ 40 个规范话题，`count` 是提到它的面经篇数，`examples` 是原题。冻结为 `eval/mianjing/topics.json`。
-- **被测对象**：只跑备课链（岗位蓝图 + 简报），不开面试，用深入节奏看备课最多能规划出什么。每个岗位取 `eval/coverage.json` 里的两份 JD，上下文只有 JD 与合成简历，没有画像与历史。项目类领域不参与覆盖（面经里没有别人简历的对照）。
+- **被测对象**：只跑备课链（岗位蓝图 + 简报），不开面试，用深入节奏看备课最多能规划出什么。每个岗位取 `eval/coverage.json` 里的两份 JD 和该方向的合成简历（简历必须与岗位同向：第一版五岗共用后端简历，备课围绕简历项目规划，前端 / 测开 / 运维量到的是简历与岗位错配，见 §7），没有画像与历史。项目领域也参与覆盖：项目追问里问到 Vue 响应式或缓存一致性，对候选人就是考到了这个话题（第一版只算技术领域，低估）。frontend / test-qa 的 JD 选主流岗位（官网与小程序前端、微信小店测开），面经也是主流岗位的；infra 只有 AI infra 的 JD，与运维面经有天然错位。
 - **指标**：加权覆盖率（按 count）、不加权覆盖率、阶梯递进率（风格序号事实 → 原理 → 场景 / 取舍单调不减，代码判）、基线领域占比（技能包补的领域 / 全部）；每岗位列出最常漏掉的话题。
 - **topic 裁判**：是非题"这段考察内容是否属于这个话题"；正样本 = (话题, 它自己的面经原题)，负样本 = (话题, 别的岗位的原题)。准确率 < 0.9 时覆盖率不计。
 - **局限**：面经偏八股，验的是"贴岗位"不是"贴简历"；合成简历是后端方向，其他岗位的项目领域本来就对不上，所以排除；`eval/jd` 里 infra 方向的 JD 是 AI infra，而面经 infra 是 SRE / 运维，这一岗的覆盖率会系统性偏低，要补两份运维 JD 才有意义。

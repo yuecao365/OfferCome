@@ -34,10 +34,9 @@ export const topicsFileSchema = z.object({
 });
 export type TopicsFile = z.infer<typeof topicsFileSchema>;
 
-/** 每个岗位用哪几份 JD 生成简报（eval/coverage.json）。 */
+/** 每个岗位用哪份合成简历、哪几份 JD 生成简报（eval/coverage.json）。简历必须是该方向的，否则备课围绕简历跑偏。 */
 export const coverageConfigSchema = z.object({
-  resume: z.string().min(1),
-  roles: z.partialRecord(z.enum(COVERAGE_ROLES), z.array(z.string().min(1)).min(1)),
+  roles: z.partialRecord(z.enum(COVERAGE_ROLES), z.object({ resume: z.string().min(1), jds: z.array(z.string().min(1)).min(1) })),
 });
 export type CoverageConfig = z.infer<typeof coverageConfigSchema>;
 
@@ -52,10 +51,13 @@ export function loadCoverageConfig(file = COVERAGE_CONFIG_FILE): CoverageConfig 
   return coverageConfigSchema.parse(JSON.parse(readFileSync(file, "utf8")));
 }
 
-/** 简报里参与覆盖的内容：非项目领域的名称、描述与阶梯，拼成裁判可读的一段。 */
+/**
+ * 简报里参与覆盖的内容：每个领域的名称、描述、切入问题与阶梯，拼成裁判可读的一段。
+ * 项目领域也算：面试官在项目追问里问到 Vue 响应式或缓存一致性，对候选人来说就是考到了这个话题；
+ * 只讲职责边界与真实性的项目阶梯不会命中技术话题，不用特意剔除。
+ */
 export function briefCoverageText(brief: InterviewBrief): string {
   return brief.areas
-    .filter((area) => area.kind !== "project")
     .map((area) => {
       const ladder = area.ladder.map((rung, index) => `${index + 1}. ${rung.text}`).join("；");
       return `【${area.name}】${area.description}。切入问题：${area.entryQuestion}。追问阶梯：${ladder}`;

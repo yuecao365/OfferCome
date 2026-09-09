@@ -82,6 +82,7 @@ test("summarizeScorer aggregates rates, unstable variants and quote metrics", ()
   assert.deepEqual(metrics.unstable, ["c2/base"]);
   assert.ok(metrics.retestStdMax! > 12);
   assert.equal(metrics.unexplainedLowScoreRate.value, 0);
+  assert.ok(metrics.falseErrorRate.denominator > 0 && metrics.errorFlaggedRate.denominator > 0);
   assert.equal(metrics.tokensPerCall, 2000);
 });
 

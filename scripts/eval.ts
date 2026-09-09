@@ -38,6 +38,7 @@ import {
   extractFileTopics,
   finalizeScorerCase,
   generateOfftopicAnswer,
+  generateResume,
   generatePersona,
   generateScorerCase,
   mergeRoleTopics,
@@ -80,7 +81,7 @@ import { buildStoredResumeName, RESUME_UPLOAD_DIR } from "../src/lib/resumes/sto
 
 /**
  * 评测运行器。必须用 react-server 条件跑，让 server-only 解析成空模块：
- *   npm run eval -- fixtures [--personas 3] [--scorer 40 [--from-sessions --eval-tag <tag>]] [--jd tencent-hunyuan-backend] [--mianjing]
+ *   npm run eval -- fixtures [--personas 3] [--scorer 40 [--from-sessions --eval-tag <tag>]] [--jd tencent-hunyuan-backend] [--mianjing] [--resumes]
  *   npm run eval -- scorer [--k 3] [--label name] [--cases a,b] [--resume]
  *   npm run eval -- coverage [--k 2] [--label name] [--roles backend,infra]
  *   npm run eval -- interviewer [--k 1] [--label name] [--cases persona-1,hints] [--base http://localhost:3000]
@@ -200,14 +201,14 @@ async function scorerSources(limit: number, existing: Set<string>, evalTag: stri
  * 每个非项目领域出一道题（切入问题 + 阶梯当追问）。题目跨五个方向，错句才有得选；
  * 只用评测面试的题目时全在一份简历的两个项目上打转，错句十道雷同。
  */
-async function scorerSourcesFromBriefs(resumeId: string, existing: Set<string>, limit: number): Promise<(ScorerCaseSource & { role: string })[]> {
+async function scorerSourcesFromBriefs(existing: Set<string>, limit: number): Promise<(ScorerCaseSource & { role: string })[]> {
   const config = loadCoverageConfig();
   const perRole: Record<string, (ScorerCaseSource & { role: string })[]> = {};
-  for (const [role, jdIds] of Object.entries(config.roles)) {
+  for (const [role, entry] of Object.entries(config.roles)) {
     perRole[role] = [];
-    for (const jdId of jdIds ?? []) {
+    for (const jdId of entry?.jds ?? []) {
       const jd = loadJdFixture(jdId);
-      const brief = await generateEvalBrief(jdId, resumeId, "scorer-source");
+      const brief = await generateEvalBrief(jdId, entry!.resume, "scorer-source");
       for (const area of brief.areas) {
         // 只用技术领域：项目题绑定简历，行为题没有可插的技术错句。
         if (area.kind !== "technical") continue;
@@ -240,17 +241,33 @@ async function scorerSourcesFromBriefs(resumeId: string, existing: Set<string>, 
   return sources;
 }
 
+/** 覆盖率配置里每个岗位的合成简历：缺的按该岗位第一份 JD 生成，参考已有的后端简历；已有的不动。 */
+async function buildRoleResumes(models: EvalModels): Promise<void> {
+  const config = loadCoverageConfig();
+  const reference = loadResumeText("synthetic-backend");
+  for (const [role, entry] of Object.entries(config.roles)) {
+    if (!entry) continue;
+    const file = path.join(EVAL_DIR, "resumes", `${entry.resume}.md`);
+    if (await fs.stat(file).then(() => true, () => false)) continue;
+    const jd = loadJdFixture(entry.jds[0]);
+    const markdown = await generateResume(models.aux, { role, jobTitle: jd.title, jobDescription: jd.jobDescription, reference });
+    await fs.writeFile(file, `${markdown}\n`, "utf8");
+    console.log(`${role}：写入 ${file}（${markdown.length} 字）`);
+  }
+}
+
 async function commandFixtures(models: EvalModels): Promise<void> {
   const jdId = argValue("--jd") ?? "tencent-hunyuan-backend";
   const resumeId = argValue("--resume") ?? "synthetic-backend";
   const personaCount = Number(argValue("--personas") ?? 0);
   const scorerCount = Number(argValue("--scorer") ?? 0);
   const mianjing = process.argv.includes("--mianjing");
-  if (!personaCount && !scorerCount && !mianjing) throw new Error("指定 --personas N、--scorer N 或 --mianjing。");
+  const resumes = process.argv.includes("--resumes");
+  if (!personaCount && !scorerCount && !mianjing && !resumes) throw new Error("指定 --personas N、--scorer N、--mianjing 或 --resumes。");
   if (mianjing) await buildTopics(models);
+  if (resumes) await buildRoleResumes(models);
   const jd = loadJdFixture(jdId);
   const resumeText = loadResumeText(resumeId);
-  void resumeText;
 
   if (personaCount) {
     // 弱项话题要落在备课会考察的领域里，先备一次课拿领域清单（深入节奏，看全貌）。
@@ -294,7 +311,7 @@ async function commandFixtures(models: EvalModels): Promise<void> {
     const existing = new Set(current.map((item) => item.questionId));
     const sources = process.argv.includes("--from-sessions")
       ? (await scorerSources(scorerCount, existing, argValue("--eval-tag") ?? null)).map((source) => ({ ...source, role: "backend" }))
-      : await scorerSourcesFromBriefs(resumeId, existing, scorerCount);
+      : await scorerSourcesFromBriefs(existing, scorerCount);
     if (!sources.length) {
       console.log("没有可用的题目来源。");
       return;
@@ -409,6 +426,7 @@ async function commandCoverage(models: EvalModels): Promise<void> {
   const topicsFile = loadTopics();
   const config = loadCoverageConfig();
   const roles = COVERAGE_ROLES.filter((role) => (!only || only.includes(role)) && topicsFile.roles[role] && config.roles[role]);
+  for (const role of roles) loadResumeText(config.roles[role]!.resume);
   if (!roles.length) throw new Error("没有可跑的岗位：检查 topics.json 与 eval/coverage.json。");
   setAgentRunTag(`eval-coverage:${label()}`);
 
@@ -439,11 +457,11 @@ async function commandCoverage(models: EvalModels): Promise<void> {
   const briefs: (BriefCoverage & { areas: string[]; text: string })[] = [];
   for (const role of roles) {
     const topics = topicsFile.roles[role]!.topics;
-    for (const jdId of config.roles[role]!) {
+    for (const jdId of config.roles[role]!.jds) {
       for (let rep = 1; rep <= k; rep += 1) {
         console.log(`\n=== ${role} / ${jdId} #${rep}`);
         try {
-          const brief = await generateEvalBrief(jdId, config.resume, label());
+          const brief = await generateEvalBrief(jdId, config.roles[role]!.resume, label());
           const text = briefCoverageText(brief);
           const verdicts = await judgeMany(models.aux, "topic", topics.map((topic) => ({ a: topicText(topic), b: text })));
           const covered = Object.fromEntries(topics.map((topic, index) => [topic.id, calibration.trusted ? verdicts[index] : null]));
@@ -544,12 +562,12 @@ async function scorerSmokeGate(cases: ScorerCase[]): Promise<void> {
  * 同名产物里已经跑完整（每个变体都有 k 次）的用例；`--resume` 时直接复用，
  * 网络中断只需重跑没跑完的用例。每跑完一道就落盘，所以中断后产物总是可续的。
  */
-async function completedScorerResults(k: number): Promise<Map<string, ScorerCaseResult>> {
+async function completedScorerResults(k: number): Promise<{ done: Map<string, ScorerCaseResult>; envelope: RunEnvelope | null }> {
   const file = path.join(RUNS_DIR, `${label()}-scorer.json`);
   const text = await fs.readFile(file, "utf8").catch(() => null);
-  const previous = text ? (JSON.parse(text) as { results?: ScorerCaseResult[] }).results ?? [] : [];
-  const complete = previous.filter((result) => SCORER_VARIANTS.every((variant) => result.runs[variant]?.length === k));
-  return new Map(complete.map((result) => [result.caseId, result]));
+  const previous = text ? (JSON.parse(text) as RunEnvelope & { results?: ScorerCaseResult[] }) : null;
+  const complete = (previous?.results ?? []).filter((result) => SCORER_VARIANTS.every((variant) => result.runs[variant]?.length === k));
+  return { done: new Map(complete.map((result) => [result.caseId, result])), envelope: previous };
 }
 
 async function commandScorer(models: EvalModels): Promise<void> {
@@ -558,7 +576,8 @@ async function commandScorer(models: EvalModels): Promise<void> {
   const cases = loadScorerCases().filter((item) => !only || only.includes(item.id));
   if (!cases.length) throw new Error("没有评分器用例；先 npm run eval -- fixtures --scorer 40。");
   setAgentRunTag(`eval-scorer:${label()}`);
-  const done = process.argv.includes("--resume") ? await completedScorerResults(k) : new Map<string, ScorerCaseResult>();
+  const resumed = process.argv.includes("--resume") ? await completedScorerResults(k) : { done: new Map<string, ScorerCaseResult>(), envelope: null };
+  const done = resumed.done;
   if (done.size) console.log(`续跑：复用 ${done.size} 道已完成用例。`);
   if (!process.argv.includes("--no-gate") && !done.size) await scorerSmokeGate(cases);
   const results: ScorerCaseResult[] = [];
@@ -601,8 +620,10 @@ async function commandScorer(models: EvalModels): Promise<void> {
   const verdicts = cases.map((item, index) => judgeScorerCase(item, results[index]));
   const metrics = summarizeScorer(verdicts, results);
   metrics.tokensPerCall = tokens[0]?._avg.totalTokens ?? null;
+  // 全部复用（纯重算指标）时保留原产物的时间、提交与模型信息，不改写来源。
+  const reran = cases.some((item) => !done.has(item.id));
   const body = {
-    ...envelope("scorer", models, k, { evaluation: EVALUATION_PROMPT_VERSION }),
+    ...(reran || !resumed.envelope ? envelope("scorer", models, k, { evaluation: EVALUATION_PROMPT_VERSION }) : resumed.envelope),
     metrics: flattenScorerMetrics(metrics),
     unstable: metrics.unstable,
     incomplete,

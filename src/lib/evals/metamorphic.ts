@@ -112,12 +112,21 @@ export type ScorerMetrics = {
   unstable: string[];
   quoteMissingRate: Ratio;
   unexplainedLowScoreRate: Ratio;
+  /** 没有错句的变体（base / para / drop）里被报了 error 类短板的评分次数占比：评分器的误报率。 */
+  falseErrorRate: Ratio;
+  /** 错句变体里报了 error 类短板的评分次数占比：评分器对真错误的召回。 */
+  errorFlaggedRate: Ratio;
   tokensPerCall: number | null;
   msPerCall: number | null;
 };
 
+const hasError = (run: VariantRun) => run.evaluation.weaknesses.some((item) => item.kind === "error");
+const CLEAN_VARIANTS: ScorerVariant[] = ["base", "para", "drop"];
+
 export function summarizeScorer(verdicts: ScorerCaseVerdict[], results: ScorerCaseResult[]): ScorerMetrics {
   const runs = results.flatMap((result) => Object.values(result.runs).flat());
+  const cleanRuns = results.flatMap((result) => CLEAN_VARIANTS.flatMap((variant) => result.runs[variant]));
+  const errRuns = results.flatMap((result) => result.runs.err);
   const stds = verdicts.flatMap((verdict) =>
     Object.entries(verdict.retestStd).flatMap(([variant, std]) => (std === null ? [] : [{ key: `${verdict.caseId}/${variant}`, std }])),
   );
@@ -137,6 +146,8 @@ export function summarizeScorer(verdicts: ScorerCaseVerdict[], results: ScorerCa
     unstable: stds.filter((item) => item.std > 12).map((item) => item.key),
     quoteMissingRate: ratio(runs.reduce((sum, run) => sum + run.metrics.quoteMissing, 0), quotes),
     unexplainedLowScoreRate: ratio(runs.reduce((sum, run) => sum + run.metrics.unexplainedLowScore, 0), runs.length),
+    falseErrorRate: ratio(cleanRuns.filter(hasError).length, cleanRuns.length),
+    errorFlaggedRate: ratio(errRuns.filter(hasError).length, errRuns.length),
     tokensPerCall: mean(runs.flatMap((run) => (run.totalTokens === null ? [] : [run.totalTokens]))),
     msPerCall: mean(runs.map((run) => run.durationMs)),
   };
@@ -153,6 +164,8 @@ export function scorerMetricRows(metrics: ScorerMetrics): MetricRow[] {
     { name: "复跑方差（均值）", value: metrics.retestStdMean, expect: "≤ 6" },
     { name: "复跑方差（最大）", value: metrics.retestStdMax, expect: "单条 > 12 列出", note: metrics.unstable.join(", ") },
     { name: "引用置空率", value: metrics.quoteMissingRate, expect: "≤ 0.1" },
+    { name: "误报率（无错回答被报 error）", value: metrics.falseErrorRate, expect: "≤ 0.1", note: "base / para / drop 变体" },
+    { name: "错句被报 error 率", value: metrics.errorFlaggedRate, expect: "≥ 0.8", note: "err 变体" },
     { name: "低分无短板率", value: metrics.unexplainedLowScoreRate, expect: "0" },
     { name: "每次评分 token", value: metrics.tokensPerCall, expect: "记基线" },
     { name: "每次评分耗时 ms", value: metrics.msPerCall, expect: "记基线" },
