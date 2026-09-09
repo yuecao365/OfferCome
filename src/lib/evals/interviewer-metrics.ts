@@ -345,11 +345,12 @@ export function summarizeInterviewer(outcomes: SessionOutcome[]): InterviewerMet
 }
 
 export function interviewerMetricRows(metrics: InterviewerMetrics, judgesTrusted: { related: boolean; pushback: boolean }): MetricRow[] {
-  const untrusted = "裁判未通过校准，不计入结论";
+  // 裁判没过校准时数字照样给，标明仅供参考；空着反而让人以为没跑。
+  const untrusted = "裁判未通过校准，仅供参考";
   return [
     { name: "锚点命中率", value: metrics.anchorHitRate, expect: "≥ 0.85", note: "只是必要条件" },
-    { name: "追问贴合率（裁判）", value: judgesTrusted.related ? metrics.relatedRate : null, expect: "记基线", note: judgesTrusted.related ? "" : untrusted },
-    { name: "纠偏率", value: judgesTrusted.pushback ? metrics.pushbackRate : null, expect: "记基线", note: judgesTrusted.pushback ? "" : untrusted },
+    { name: "追问贴合率（裁判）", value: metrics.relatedRate, expect: "记基线", note: judgesTrusted.related ? "" : untrusted },
+    { name: "纠偏率", value: metrics.pushbackRate, expect: "记基线", note: judgesTrusted.pushback ? "" : untrusted },
     { name: "失守识别率", value: metrics.failureRecognizedRate, expect: "记基线" },
     { name: "失守进报告率", value: metrics.failureReportedRate, expect: "记基线" },
     { name: "强弱分开率", value: metrics.strongWeakSeparatedRate, expect: "记基线" },

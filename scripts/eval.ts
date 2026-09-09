@@ -82,6 +82,7 @@ import { buildStoredResumeName, RESUME_UPLOAD_DIR } from "../src/lib/resumes/sto
  *   npm run eval -- scorer [--k 3] [--label name] [--cases a,b]
  *   npm run eval -- coverage [--k 2] [--label name] [--roles backend,infra]
  *   npm run eval -- interviewer [--k 1] [--label name] [--cases persona-1,hints] [--base http://localhost:3000]
+ *   npm run eval -- interviewer --tag eval-interviewer:baseline-1 [--label name]   按标签重算（只重跑裁判与指标）
  *   npm run eval -- compare eval/runs/a.json eval/runs/b.json
  * 产物写到 eval/runs/<label>-<kind>.json，终端打印 markdown 表。
  */
@@ -493,10 +494,20 @@ async function pollStatus(base: string, sessionId: string, done: (status: string
 
 type EvalCase = { id: string; kind: "persona" | "script"; persona?: Persona; script?: CandidateScript; jd: string; resume: string };
 
-async function createSession(base: string, item: EvalCase, resumeDbId: string, tag: string): Promise<string> {
+/** 会话的公司名记用例与序号（"评测 persona-1 #2"），按标签重算时靠它认出用例。 */
+function sessionLabel(caseId: string, rep: number): string {
+  return `评测 ${caseId} #${rep}`;
+}
+
+function parseSessionLabel(companyName: string): { caseId: string; rep: number } | null {
+  const match = companyName.match(/^评测 ([a-z0-9-]+) #(\d+)$/);
+  return match ? { caseId: match[1], rep: Number(match[2]) } : null;
+}
+
+async function createSession(base: string, item: EvalCase, resumeDbId: string, tag: string, rep: number): Promise<string> {
   const jd = loadJdFixture(item.jd);
   const form = new FormData();
-  form.set("companyName", "评测");
+  form.set("companyName", sessionLabel(item.id, rep));
   form.set("jobTitle", jd.title);
   form.set("resumeId", resumeDbId);
   form.set("pace", "quick");
@@ -687,7 +698,7 @@ async function judgeSnapshots(models: EvalModels, cases: Map<string, EvalCase>, 
     const item = persona ? pushbackItem(snapshot, persona) : null;
     return item ? [{ snapshot, item }] : [];
   });
-  const answers = [...new Set(related.map((entry) => entry.item.a))].slice(0, 20);
+  const answers = [...new Set(related.map((entry) => entry.item.a))].slice(0, 30);
   const claims = pushback.map((entry) => entry.item.a);
   const neutral = snapshots
     .flatMap((snapshot) => {
@@ -703,11 +714,11 @@ async function judgeSnapshots(models: EvalModels, cases: Map<string, EvalCase>, 
   const trusted = { related: calibrations.find((c) => c.kind === "related")?.trusted ?? false, pushback: calibrations.find((c) => c.kind === "pushback")?.trusted ?? false };
   const relatedVerdicts = await judgeMany(models.aux, "related", related.map((entry) => entry.item));
   related.forEach((entry, index) => {
-    entry.snapshot.judged.related[entry.turnIndex] = trusted.related ? relatedVerdicts[index] : null;
+    entry.snapshot.judged.related[entry.turnIndex] = relatedVerdicts[index];
   });
   const pushbackVerdicts = await judgeMany(models.aux, "pushback", pushback.map((entry) => entry.item));
   pushback.forEach((entry, index) => {
-    entry.snapshot.judged.pushback = trusted.pushback ? pushbackVerdicts[index] : null;
+    entry.snapshot.judged.pushback = pushbackVerdicts[index];
   });
   return { calibrations, trusted };
 }
@@ -717,15 +728,31 @@ async function commandInterviewer(models: EvalModels): Promise<void> {
   const k = Number(argValue("--k") ?? 1);
   const only = argList("--cases");
   const reuse = argList("--session");
+  const reuseTag = argValue("--tag");
   const cases = new Map<string, EvalCase>();
   for (const persona of loadPersonas()) cases.set(persona.id, { id: persona.id, kind: "persona", persona, jd: persona.jd, resume: persona.resume });
   for (const script of loadCandidateScripts()) cases.set(script.id, { id: script.id, kind: "script", script, jd: script.jd, resume: script.resume });
   const selected = [...cases.values()].filter((item) => !only || only.includes(item.id));
   if (!selected.length) throw new Error("没有匹配的用例。");
-  const tag = `eval-interviewer:${label()}`;
+  const tag = reuseTag ?? `eval-interviewer:${label()}`;
   const snapshots: SessionSnapshot[] = [];
 
-  if (reuse) {
+  if (reuseTag) {
+    // 按标签重算：不调面试模型，只重跑裁判与指标。用例从会话名里认，认不出的跳过。
+    const rows = await prisma.mockInterviewSession.findMany({
+      where: { interview: { evalTag: reuseTag } },
+      orderBy: { createdAt: "asc" },
+      select: { id: true, interview: { select: { companyName: true } } },
+    });
+    for (const row of rows) {
+      const parsed = parseSessionLabel(row.interview.companyName);
+      const item = parsed ? cases.get(parsed.caseId) : undefined;
+      if (!parsed || !item || (only && !only.includes(item.id))) continue;
+      snapshots.push(await loadSnapshot(row.id, item, parsed.rep, { latency: [], endedBy: null, error: null }));
+    }
+    if (!snapshots.length) throw new Error(`标签 ${reuseTag} 下没有能认出用例的会话。`);
+    console.log(`按标签重算 ${snapshots.length} 场`);
+  } else if (reuse) {
     for (const [index, sessionId] of reuse.entries()) {
       const item = selected[index % selected.length];
       snapshots.push(await loadSnapshot(sessionId, item, 1, { latency: [], endedBy: null, error: null }));
@@ -742,7 +769,7 @@ async function commandInterviewer(models: EvalModels): Promise<void> {
         console.log(`\n=== ${item.id} #${rep}`);
         let sessionId: string | null = null;
         try {
-          sessionId = await createSession(base, item, resumeDbId, tag);
+          sessionId = await createSession(base, item, resumeDbId, tag, rep);
           const status = await pollStatus(base, sessionId, (value) => value !== "generating", 180_000);
           if (status !== "in_progress") throw new Error(`备课后状态是 ${status}`);
           const drive = await driveSession(base, item, sessionId, models, resumeText, jobTitle);
