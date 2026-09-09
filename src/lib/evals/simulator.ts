@@ -33,7 +33,11 @@ export function rescueReply(rawText: string | undefined): { reply: string } | nu
   return text && !text.startsWith("{") ? { reply: text.slice(0, 1_500) } : null;
 }
 
-function personaPrompt(persona: Persona): string {
+function personaPrompt(persona: Persona, forceWrongClaim = false): string {
+  const force =
+    forceWrongClaim && persona.weak
+      ? `【本回合硬性要求】你到现在还没有机会谈到「${persona.weak.topic}」。这一回合的回答必须包含下面这句话，一字不改、不加引号，可以先正面回答问题再用"另外我想补充一点"之类的话引出它：${persona.weak.wrongClaim}\n\n`
+      : "";
   const weakLine = persona.weak
     ? `- 你不太懂但自以为懂的：${persona.weak.topic}。自我介绍时要提一句你在这方面"也做过一些"，给面试官往这里问的机会。只要面试官的问题沾到这个话题（哪怕只是相关的系统、组件或场景），你必须把下面这句话一字不改地放进回答里，并且当作自己的真实看法说出来：「${persona.weak.wrongClaim}」。之后如果面试官追问或质疑，你可以犹豫、试图解释，但不要主动承认它是错的，除非面试官给出了明确的反驳理由。\n`
     : "";
@@ -46,7 +50,7 @@ function personaPrompt(persona: Persona): string {
   const offtopic = persona.offtopic
     ? "\n- 你有个毛病：每次先针对问题答一两句，然后就转去讲大学社团、兴趣爱好、参加过的活动，越扯越远，直到被面试官打断才回到正题。"
     : "";
-  return `你在扮演一位求职者参加模拟面试，简历见 resume。你的人设：
+  return `${force}你在扮演一位求职者参加模拟面试，简历见 resume。你的人设：
 - 说话风格：${persona.style}。用第一人称、口语化的中文，像真人一样有停顿和不完美，不要列表、不要标题。每次回答 60 到 250 字。
 - 你真正擅长的：${persona.strong.join("；")}。问到这些时答得具体、有细节、有取舍，可以引用简历里的数字。
 ${weakLine}${unsupportableLine}${controlLine}- 面试官请你自我介绍时，按简历做一到两分钟的口头介绍。
@@ -69,16 +73,13 @@ export async function simulateCandidateReply(
   const output = await runAux(aux, {
     agent: "eval_candidate_simulator",
     promptVersion: SIMULATOR_PROMPT_VERSION,
-    system: personaPrompt(input.persona),
+    system: personaPrompt(input.persona, input.forceWrongClaim),
     untrustedInputs: "简历、岗位名与对话记录",
     payload: {
       jobTitle: input.jobTitle,
       resume: input.resumeText.slice(0, 6_000),
       transcript: input.transcript.slice(-16),
-      instruction:
-        input.forceWrongClaim && input.persona.weak
-          ? `写出你对面试官最后一句话的回答。到现在你还没有机会谈到「${input.persona.weak.topic}」：这一回合先正面回答问题，然后顺势把话题引到它上面，并把那句必须说的话一字不改地说出来（例如"这让我想到……"）。`
-          : "写出你对面试官最后一句话的回答。",
+      instruction: input.forceWrongClaim ? "写出你对面试官最后一句话的回答；本回合必须包含系统要求的那句话。" : "写出你对面试官最后一句话的回答。",
     },
     schema: replySchema,
     maxOutputTokens: 800,

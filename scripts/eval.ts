@@ -91,6 +91,8 @@ const DEFAULT_BASE = "http://localhost:3000";
 const MAX_TURNS = 30;
 /** 人设到这一回合还没说出错句 Z，就让模拟器主动带出来；否则快速节奏的两条线程可能根本问不到弱项。 */
 const FORCE_CLAIM_AFTER_TURN = 3;
+/** 再往后模拟器还没说，就由运行器把 Z 接在回答末尾：评测要的是面试官对已知错句的反应，谁把它说出来不重要。 */
+const APPEND_CLAIM_AFTER_TURN = 5;
 const RESUME_MIME = "text/markdown";
 
 function argValue(name: string): string | undefined {
@@ -538,7 +540,9 @@ async function driveSession(base: string, item: EvalCase, sessionId: string, mod
         simulateCandidateReply(models.aux, { persona: item.persona!, resumeText, jobTitle, transcript, forceWrongClaim, runId: `eval-sim:${sessionId}:${turn}` });
       // 兼容通道的模型偶尔返回坏 JSON，抢救不了就再要一次；再失败才算这场失败。
       const reply = await simulate().catch(() => simulate());
-      body = { clientId: `eval-${turn}`, content: reply.reply };
+      const stillMissing = claim && !saidClaim && !reply.reply.includes(claim.replace(/[。！？]$/, ""));
+      const content = stillMissing && turn >= APPEND_CLAIM_AFTER_TURN ? `${reply.reply.trim()}\n\n另外我想补充一点：${claim}` : reply.reply;
+      body = { clientId: `eval-${turn}`, content };
     }
     if (typeof body.content === "string" && body.content) transcript.push({ role: "candidate", content: body.content });
     const result = await postTurn(base, sessionId, body);
