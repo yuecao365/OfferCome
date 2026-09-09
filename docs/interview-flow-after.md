@@ -62,7 +62,7 @@ answerSeconds = 候选人各条回答 composeMs 之和（秒），没有记录�
 4. 评分落库后，有短板的段接着跑示范回答（§2.5），示范失败不影响评分
 5. 失败：置 failed 并记录错误，交卷时补跑
 
-### 2.2 评分 agent（`question-evaluation-agent.ts`，evaluation-v2）
+### 2.2 评分 agent（`question-evaluation-agent.ts`，evaluation-v3）
 
 输入：`{ jobTitle, jobDescription≤12000, question, answer≤20000, rubric, expectedSignals, thread: { depth, targetDepth, probeCount, rescues, note }, round }`。thread 来自 metadata 与简报（targetDepth 是该领域的目标深度）；体验版的旧题库流程传 `thread: null`。
 
@@ -72,13 +72,14 @@ answerSeconds = 候选人各条回答 composeMs 之和（秒），没有记录�
 dimensions[]: { name（逐字等于 rubric）, score 0–100, evidence≤500（支持分数的原话）, gap≤300 | null（缺了什么、错在哪） }
 strengths[≤4]:  { point≤200, quote≤200 }                          quote 逐字摘自回答
 weaknesses[≤4]: { point≤200, quote≤200 | null, kind: error | missing }
-                 error   = 说错的（quote 必填）
-                 missing = 追问到了但没答上或答偏（point 里写是哪一层追问）
+                 error   = 一句在技术上站不住的具体陈述（quote 必须是那句原话，原样复制）
+                 missing = 追问到了没答上 / 答偏 / 该讲的关键机制没出现（point 里写是哪一层追问）
+                 笼统、"不够严谨"、"过于绝对"、缺细节缺数字 都不是 error（v3 起明确，之前误报成 error）
 advice[≤3]:      练什么，每条对应至少一条 weakness
 feedback≤800:    给候选人看的一段话，不报分数
 ```
 
-提示词要点：按深度递进追问，到第 n 层答不上属正常，按达到的深度给分；note 是面试官的现场判断，分数与它明显不一致要在 feedback 里说明；期望信号只是参考，从别的角度答到位同样给分。分带：90 以上准确有取舍能迁移；70–89 主干正确细节欠缺、达到该轮次常规要求；50–69 有基本尝试但关键点缺失；50 以下关键内容错误或基本没答。轮次（一面 / 二面 / HR）写进提示词。
+提示词要点：按深度递进追问，到第 n 层答不上属正常，按达到的深度给分；note 是面试官的现场判断，分数与它明显不一致要在 feedback 里说明；期望信号只是参考，从别的角度答到位同样给分。分带：90 以上准确有取舍能迁移；70–89 主干正确细节欠缺、达到该轮次常规要求；50–69 有基本尝试但关键点缺失；50 以下关键内容错误或基本没答。轮次（一面 / 二面 / HR）写进提示词。v3 加了两条约束：关键机制没讲要在对应维度的 gap 与分数上体现，不能维度满分再在短板里补一句；出现 error 的那一层对应维度不超过 69。
 
 代码校验（`validateQuestionEvaluation`）：维度名与评分表逐一对应，缺的补 0、多的丢；strengths / weaknesses 的 quote 去掉标点后必须是回答的子串（≥4 字），否则置空并计 `quoteMissing`；分数低于 70 却没有任何短板计 `unexplainedLowScore`。两个计数连同分数、短板数写进 AgentRun 的 selection 事件指标。
 

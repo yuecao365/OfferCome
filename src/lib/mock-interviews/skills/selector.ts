@@ -3,14 +3,15 @@ import type { SkillPack } from "./types";
 /**
  * 技能包的排序与索引缩小。
  *
- * 关键词打分：简历权重最高，岗位名次之，JD 最低——JD 普遍宽泛，只当方向信号；
- * 但 JD 里点名的技术栈仍然能把对应 stack 包顶上来。
+ * 关键词打分：岗位名最高，JD 次之，简历最低——面试考的是这个岗位，简历只决定栈包与项目；
+ * 简历权重高时，后端简历投前端 / 测开 / 运维岗会把后端与 AI 包顶到前面，备课就跟着简历跑偏
+ * （评测里前端 JD 的简报一半加载的是 ai-llm 包）。
  * 这里只决定"索引里放哪些包"，不替 agent 决定加载哪些。
  */
 
-const RESUME_WEIGHT = 3;
-const TITLE_WEIGHT = 2;
-const JD_WEIGHT = 1;
+const TITLE_WEIGHT = 3;
+const JD_WEIGHT = 2;
+const RESUME_WEIGHT = 1;
 /** 索引里最多放这么多包；base 层不占名额之外的优先级，永远在前。 */
 export const SKILL_INDEX_LIMIT = 12;
 const MAX_STACK_PACKS = 2;

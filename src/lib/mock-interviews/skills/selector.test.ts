@@ -24,6 +24,21 @@ test("index keeps base packs first, puts the resume's stack right after its doma
   assert.ok(names.indexOf("backend-java") < baseCount + 3, "简历命中的栈包靠前");
 });
 
+test("the job decides the domain: a backend resume applying to a frontend job still gets the frontend pack first", async () => {
+  const packs = await loadSkillPacks();
+  const names = selectSkillIndex(
+    {
+      jobTitle: "前端开发工程师",
+      jobDescription: "负责小程序与 Web 前端开发，熟悉浏览器渲染、性能优化、工程化。",
+      resumeText: "熟悉 Java、Spring Boot、MySQL、Redis、RabbitMQ，做过订单系统与 RAG 问答机器人。",
+    },
+    packs,
+  ).map((pack) => pack.name);
+  const baseCount = packs.filter((pack) => pack.layer === "base").length;
+  assert.equal(names[baseCount], "frontend", "岗位对应的领域包排在最前");
+  assert.ok(names.indexOf("frontend") < names.indexOf("backend"));
+});
+
 test("ranking never drops packs, so the agent can still load a pack the keywords missed", async () => {
   const packs = await loadSkillPacks();
   assert.equal(rankSkillPacks(javaBackend, packs).length, packs.length);

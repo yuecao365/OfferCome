@@ -7,7 +7,7 @@
 - 产品：OfferCome，本地优先的求职工作台，核心是 AI 模拟面试。技术栈 Next.js 16（App Router）+ Prisma 7 / SQLite + Vercel AI SDK v7。`AGENTS.md` 的可维护性规则必须遵守。
 - 面试流程现状见四份流程文档：[总览](interview-flow-overview.md) · [面试前](interview-flow-before.md) · [面试中](interview-flow-during.md) · [面试后](interview-flow-after.md)；评测现状见 [eval.md](eval.md)。它们是"现状描述"，改完代码要原地更新。
 - 已完成的计划（都标了执行状态）：[面试前](interview-before-plan.md)（第 5 步"简报结构指标"已并入评测）、[面试中](interview-during-plan.md)、[面试后](interview-after-plan.md)。
-- 版本号：备课简报 v4、面试官提示词 interviewer-v4、评分 evaluation-v2、汇总 summary-v2、示范 exemplar-v1、报告 reportJson v2。
+- 版本号：备课简报 v4、备课提示词 brief-v5、面试官提示词 interviewer-v4、评分 evaluation-v3、汇总 summary-v2、示范 exemplar-v1、报告 reportJson v2。
 - 体验版（网页版，`src/lib/trial/`、`src/app/api/trial/`）仍走旧题库流程（question-generation-agent、follow-up-agent、planning），与本地版的对话式流程不同步；它只通过两个接口把评分 v2 折回旧形状。
 - 未推送：`origin/main` 停在 `c974b9e`，本地领先约 30 个提交。推送前问用户。
 - 用户的 `.local/` 上传目录曾丢失，默认简历以 txt 恢复，原 PDF 需用户重传。

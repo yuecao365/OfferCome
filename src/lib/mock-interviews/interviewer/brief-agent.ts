@@ -21,9 +21,9 @@ import {
   type InterviewBrief,
   type InterviewPace,
 } from "./brief";
-import { INTERVIEWER_PROMPT_VERSION } from "./prompt";
-
 const BRIEF_TIMEOUT_MS = 90_000;
+/** 备课提示词版本，独立于面试官提示词；变更备课规则时升级。 */
+export const BRIEF_PROMPT_VERSION = "brief-v5";
 /** 最多加载几个技能包再产出简报：每次 load_skill 一步，最后一步出结构化结果。 */
 const BRIEF_MAX_STEPS = 5;
 
@@ -72,7 +72,7 @@ export async function generateInterviewBrief(input: {
       status: level === 3 ? "partial" : "success",
       provider: config.provider,
       model: config.model,
-      promptVersion: INTERVIEWER_PROMPT_VERSION,
+      promptVersion: BRIEF_PROMPT_VERSION,
       durationMs: Date.now() - startedAt,
       metrics: {
         level,
@@ -91,7 +91,7 @@ export async function generateInterviewBrief(input: {
       runId: input.generationId,
       config,
       feature: "AI 模拟面试",
-      promptVersion: INTERVIEWER_PROMPT_VERSION,
+      promptVersion: BRIEF_PROMPT_VERSION,
       schema: briefOutputSchema,
       schemaName: "interview_brief",
       schemaDescription: "面试官的备课简报：考察领域、切入问题、深度阶梯、简历假设",
@@ -109,7 +109,8 @@ ${renderSkillIndex(index)}
 素材的合成规则：
 - JD 是这个岗位的第一依据：JD 明确要求的方向必须有领域覆盖，这类领域通过 competencyIds 绑定岗位能力蓝图里的能力。
 - JD 没写到、但这个岗位通常会考的方向，从你加载的技能包里补：这类领域 competencyIds 为空，改填 baseline（skill 填包名，topic 填包里的主题名）。基线只补空，不替代 JD 明确要求的内容。
-- 候选人简历上有具体项目时，至少一个 project 领域围绕它深挖。
+- 候选人简历上有具体项目时，至少一个 project 领域围绕它深挖；但 project 领域最多两个，技术面的主体是 technical 领域，至少一半的回合预算给它们。
+- technical 领域必须落到具体考点，不能是"后端基础""系统设计"这类笼统的筐：name 与 description 点名要考的机制（例如"MySQL 索引：B+ 树、回表与最左前缀""Redis 缓存一致性与击穿 / 雪崩""JVM 内存分区与 GC 选择"），阶梯每一级也写具体机制而不是"继续深入"。一个 technical 领域只覆盖技能包里的一到两个主题，主题多就多开领域、各自浅一点。真实面试的技术题大多是这类具体考点，笼统的领域会让面试官只能泛泛地问。
 
 备课的产物不是题目清单，而是：
 1. 考察领域：每个领域写明 kind（technical / project / behavioral）、style（只有 technical 填：scenario 从具体系统或场景切入；fundamentals 直接考课纲式的原理与知识点，适合技能包主题里 JD 没点名的基础方向；其他类型填 null）、来源（competencyIds 或 baseline）、权重（1–3，越重要越大）和 depth（打算追问几层，1–${MAX_AREA_DEPTH}）。领域数量和深度由你分配：一个领域花费 depth + 2 个回合，全部领域加起来控制在 ${maxTurns - 1} 回合以内，超出的会按权重被丢弃。少而深、多而浅都可以，但要把预算用满，总花费尽量接近上限，至少两个领域。
@@ -118,7 +119,7 @@ ${renderSkillIndex(index)}
 4. 期望信号：好回答会出现的要点，用于面试后评价，不会给候选人看。
 5. 简历假设（最多 6 条）：要在面试里验证的具体点——写了数字的成果、只写框架名的经历、时间线的空洞。每条 evidence 必须逐字复制简历原文片段，不得改写；没有依据的假设不要写。
 
-已知的候选人弱项（来自历史面试反馈）可以转化为假设去验证。提示词版本：${INTERVIEWER_PROMPT_VERSION}`,
+已知的候选人弱项（来自历史面试反馈）可以转化为假设去验证。提示词版本：${BRIEF_PROMPT_VERSION}`,
       payload: {
         jobTitle: input.jobTitle,
         round: input.round ?? "未指定",

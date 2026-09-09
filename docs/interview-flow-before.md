@@ -79,7 +79,7 @@ flowchart TD
 
 | 层 | 内容 | 谁决定 |
 |---|---|---|
-| 索引 | 每个包一行 `name（layer，属于 parent）：description` | 代码：`selectSkillIndex` 按关键词打分（简历 3、岗位名 2、JD 1）排序，base 固定在前，stack 排在其 parent 之后，取前 12 个 |
+| 索引 | 每个包一行 `name（layer，属于 parent）：description` | 代码：`selectSkillIndex` 按关键词打分（岗位名 3、JD 2、简历 1；岗位决定领域，简历只影响栈包）排序，base 固定在前，stack 排在其 parent 之后，取前 12 个 |
 | 全文 | SKILL.md 正文 | 模型调用 `load_skill(name)`，可多次；加载 stack 包时自动附带父级 domain 包 |
 
 备课日志记 `skillsLoaded`（本次加载的包数），一次都没加载照常备课，作为评测指标。同一套工具在面试中阶段会给回合 agent。
@@ -121,7 +121,8 @@ hypotheses[0..6]: { id, text≤300, evidence≤300（简历原文逐字）, area
 > 素材的合成规则：
 > - JD 是这个岗位的第一依据：JD 明确要求的方向必须有领域覆盖，这类领域通过 competencyIds 绑定岗位能力蓝图里的能力。
 > - JD 没写到、但这个岗位通常会考的方向，从你加载的技能包里补：这类领域 competencyIds 为空，改填 baseline（skill 填包名，topic 填包里的主题名）。基线只补空，不替代 JD 明确要求的内容。
-> - 候选人简历上有具体项目时，至少一个 project 领域围绕它深挖。
+> - 候选人简历上有具体项目时，至少一个 project 领域围绕它深挖；但 project 领域最多两个，技术面的主体是 technical 领域，至少一半的回合预算给它们。
+> - technical 领域必须落到具体考点，不能是"后端基础""系统设计"这类笼统的筐：name 与 description 点名要考的机制，阶梯每一级也写具体机制而不是"继续深入"。一个 technical 领域只覆盖技能包里的一到两个主题，主题多就多开领域、各自浅一点。
 >
 > 备课的产物不是题目清单，而是：
 > 1. 考察领域：每个领域写明 kind、style（只有 technical 填：scenario 从具体系统或场景切入；fundamentals 直接考课纲式的原理与知识点，适合技能包主题里 JD 没点名的基础方向）、来源（competencyIds 或 baseline）、权重和 depth。一个领域花费 depth + 2 个回合，全部领域控制在 ${maxTurns − 1} 回合以内，超出的按权重丢弃。少而深、多而浅都可以，但要把预算用满，至少两个领域。

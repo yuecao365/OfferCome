@@ -69,7 +69,7 @@ import { compareMetrics, gitState, renderMetricTable, type MetricValue, type Run
 import { simulateCandidateReply, type TranscriptLine } from "../src/lib/evals/simulator";
 import { parseJsonValue } from "../src/lib/json";
 import { evidenceTargetForPace, parseStoredBrief, type InterviewBrief } from "../src/lib/mock-interviews/interviewer/brief";
-import { generateInterviewBrief } from "../src/lib/mock-interviews/interviewer/brief-agent";
+import { BRIEF_PROMPT_VERSION, generateInterviewBrief } from "../src/lib/mock-interviews/interviewer/brief-agent";
 import { INTERVIEWER_PROMPT_VERSION } from "../src/lib/mock-interviews/interviewer/prompt";
 import { analyzeMockInterviewJob } from "../src/lib/mock-interviews/job-analysis-agent";
 import { parseStoredMemory, type MemoryPatch } from "../src/lib/mock-interviews/interviewer/memory";
@@ -81,7 +81,7 @@ import { buildStoredResumeName, RESUME_UPLOAD_DIR } from "../src/lib/resumes/sto
 /**
  * 评测运行器。必须用 react-server 条件跑，让 server-only 解析成空模块：
  *   npm run eval -- fixtures [--personas 3] [--scorer 40 [--from-sessions --eval-tag <tag>]] [--jd tencent-hunyuan-backend] [--mianjing]
- *   npm run eval -- scorer [--k 3] [--label name] [--cases a,b]
+ *   npm run eval -- scorer [--k 3] [--label name] [--cases a,b] [--resume]
  *   npm run eval -- coverage [--k 2] [--label name] [--roles backend,infra]
  *   npm run eval -- interviewer [--k 1] [--label name] [--cases persona-1,hints] [--base http://localhost:3000]
  *   npm run eval -- interviewer --tag eval-interviewer:baseline-1 [--label name]   按标签重算（只重跑裁判与指标）
@@ -469,7 +469,7 @@ async function commandCoverage(models: EvalModels): Promise<void> {
   await flushAgentRunPersistence();
   const metrics = roles.map((role) => summarizeRoleCoverage(role, topicsFile.roles[role]!.topics, briefs.filter((brief) => brief.role === role)));
   const body = {
-    ...envelope("coverage", models, k, { blueprint: "job_blueprint", brief: INTERVIEWER_PROMPT_VERSION }),
+    ...envelope("coverage", models, k, { blueprint: "job_blueprint", brief: BRIEF_PROMPT_VERSION }),
     topicsGeneratedAt: topicsFile.generatedAt,
     judges: [calibration],
     metrics: flattenCoverageMetrics(metrics),
@@ -538,15 +538,34 @@ async function scorerSmokeGate(cases: ScorerCase[]): Promise<void> {
 
 /* ------------------------------------------------------------------ scorer */
 
+/**
+ * 同名产物里已经跑完整（每个变体都有 k 次）的用例；`--resume` 时直接复用，
+ * 网络中断只需重跑没跑完的用例。每跑完一道就落盘，所以中断后产物总是可续的。
+ */
+async function completedScorerResults(k: number): Promise<Map<string, ScorerCaseResult>> {
+  const file = path.join(RUNS_DIR, `${label()}-scorer.json`);
+  const text = await fs.readFile(file, "utf8").catch(() => null);
+  const previous = text ? (JSON.parse(text) as { results?: ScorerCaseResult[] }).results ?? [] : [];
+  const complete = previous.filter((result) => SCORER_VARIANTS.every((variant) => result.runs[variant]?.length === k));
+  return new Map(complete.map((result) => [result.caseId, result]));
+}
+
 async function commandScorer(models: EvalModels): Promise<void> {
   const k = Number(argValue("--k") ?? 3);
   const only = argList("--cases");
   const cases = loadScorerCases().filter((item) => !only || only.includes(item.id));
   if (!cases.length) throw new Error("没有评分器用例；先 npm run eval -- fixtures --scorer 40。");
   setAgentRunTag(`eval-scorer:${label()}`);
-  if (!process.argv.includes("--no-gate")) await scorerSmokeGate(cases);
+  const done = process.argv.includes("--resume") ? await completedScorerResults(k) : new Map<string, ScorerCaseResult>();
+  if (done.size) console.log(`续跑：复用 ${done.size} 道已完成用例。`);
+  if (!process.argv.includes("--no-gate") && !done.size) await scorerSmokeGate(cases);
   const results: ScorerCaseResult[] = [];
   for (const item of cases) {
+    const reused = done.get(item.id);
+    if (reused) {
+      results.push(reused);
+      continue;
+    }
     const runs = Object.fromEntries(SCORER_VARIANTS.map((variant) => [variant, [] as VariantRun[]])) as Record<ScorerVariant, VariantRun[]>;
     for (const variant of SCORER_VARIANTS) {
       for (let rep = 0; rep < k; rep += 1) {
@@ -571,7 +590,10 @@ async function commandScorer(models: EvalModels): Promise<void> {
     }
     results.push({ caseId: item.id, runs });
     console.log(`${item.id}: ${SCORER_VARIANTS.map((variant) => `${variant}=${runs[variant].map((run) => run.score).join("/") || "—"}`).join("  ")}`);
+    await writeRun("scorer", { ...envelope("scorer", models, k, { evaluation: EVALUATION_PROMPT_VERSION }), partial: true, results });
   }
+  const incomplete = results.filter((result) => SCORER_VARIANTS.some((variant) => result.runs[variant].length < k)).map((result) => result.caseId);
+  if (incomplete.length) console.warn(`有 ${incomplete.length} 道用例评分次数不足（${incomplete.join(", ")}），用 --resume 补跑后再看指标。`);
   await flushAgentRunPersistence();
   const tokens = await prisma.agentRun.groupBy({ by: ["tag"], where: { tag: `eval-scorer:${label()}`, event: "model_call" }, _avg: { totalTokens: true } });
   const verdicts = cases.map((item, index) => judgeScorerCase(item, results[index]));
@@ -581,6 +603,8 @@ async function commandScorer(models: EvalModels): Promise<void> {
     ...envelope("scorer", models, k, { evaluation: EVALUATION_PROMPT_VERSION }),
     metrics: flattenScorerMetrics(metrics),
     unstable: metrics.unstable,
+    incomplete,
+    results,
     cases: verdicts.map((verdict, index) => ({
       ...verdict,
       wrongClaim: cases[index].truth.wrongClaim,
@@ -941,7 +965,7 @@ async function commandInterviewer(models: EvalModels): Promise<void> {
   });
   const metrics = summarizeInterviewer(outcomes);
   const body = {
-    ...envelope("interviewer", models, k, { interviewer: "interviewer-v4", evaluation: EVALUATION_PROMPT_VERSION }),
+    ...envelope("interviewer", models, k, { interviewer: INTERVIEWER_PROMPT_VERSION, brief: BRIEF_PROMPT_VERSION, evaluation: EVALUATION_PROMPT_VERSION }),
     tag,
     judges: judged.calibrations,
     metrics: flattenInterviewerMetrics(metrics) as Record<string, MetricValue>,
