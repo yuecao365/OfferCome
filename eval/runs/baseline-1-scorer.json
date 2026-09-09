@@ -1,0 +1,2542 @@
+{
+  "label": "baseline-1",
+  "kind": "scorer",
+  "createdAt": "2026-09-09T15:42:24.872Z",
+  "git": {
+    "commit": "54fdc2e",
+    "dirty": true
+  },
+  "models": {
+    "main": "openai/gpt-5.4-mini",
+    "aux": "deepseek/deepseek-chat",
+    "auxSameFamily": false
+  },
+  "promptVersions": {
+    "evaluation": "evaluation-v2"
+  },
+  "k": 3,
+  "metrics": {
+    "orderingRate": {
+      "value": 0.7096774193548387,
+      "numerator": 22,
+      "denominator": 31
+    },
+    "paraphraseStableRate": {
+      "value": 1,
+      "numerator": 31,
+      "denominator": 31
+    },
+    "errorLocatedRate": {
+      "value": 0.41935483870967744,
+      "numerator": 13,
+      "denominator": 31
+    },
+    "errorLoweredRate": {
+      "value": 0.8387096774193549,
+      "numerator": 26,
+      "denominator": 31
+    },
+    "retestStdMean": 4.48269221012309,
+    "retestStdMax": 26.851443164195103,
+    "quoteMissingRate": {
+      "value": 0.12907957462412908,
+      "numerator": 352,
+      "denominator": 2727
+    },
+    "unexplainedLowScoreRate": {
+      "value": 0,
+      "numerator": 0,
+      "denominator": 558
+    },
+    "tokensPerCall": 2928.7186379928316,
+    "msPerCall": 8119.890681003584
+  },
+  "unstable": [
+    "q-2hw8zvnx/offtopic",
+    "q-2u34rsif/offtopic",
+    "q-2usz6ldt/offtopic",
+    "q-58ydenqd/err",
+    "q-ezbplw6h/fluff",
+    "q-f3l82bd8/drop",
+    "q-f3l82bd8/fluff",
+    "q-ivaihf7r/offtopic",
+    "q-mdn4z6w6/offtopic",
+    "q-qi0aojjd/offtopic",
+    "q-qvciv0xu/fluff",
+    "q-r22ixxwp/err",
+    "q-saopzs3w/offtopic",
+    "q-st4e9dzw/offtopic",
+    "q-txotmfxu/err",
+    "q-u3iog0vp/fluff",
+    "q-wflzymvw/err"
+  ],
+  "cases": [
+    {
+      "caseId": "q-0cvfeo1u",
+      "meanScores": {
+        "base": 79,
+        "err": 75.66666666666667,
+        "drop": 79.33333333333333,
+        "fluff": 57,
+        "para": 79.66666666666667,
+        "offtopic": 48.666666666666664
+      },
+      "ordering": false,
+      "paraphraseStable": true,
+      "errorLocated": false,
+      "errorLowered": true,
+      "retestStd": {
+        "base": 1.7320508075688772,
+        "err": 1.1547005383792517,
+        "drop": 0.5773502691896257,
+        "fluff": 1.7320508075688772,
+        "para": 1.5275252316519468,
+        "offtopic": 9.291573243177568
+      },
+      "wrongClaim": "手动 ack 之后消息队列就绝对不会重复投递。",
+      "errWeaknesses": [
+        [
+          {
+            "point": "条件表达式执行细节没有回答清楚，停留在规则和校验层面",
+            "quote": "“这块我先只说退款状态机，不把消息投递混进来”",
+            "kind": "error"
+          },
+          {
+            "point": "对热加载一致性、原子切换、版本重试等关键并发保障没有展开",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "对备选方案和取舍讲得不够，缺少为什么这样设计的说明",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "对上限效果、指标或验证结果没有给出可量化结论",
+            "quote": null,
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "条件表达式如何在线计算、如何命中规则的细节没讲出来。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "追问到热加载一致性、版本重试或极端并发时的完整性论证时，没有展开。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "有一处消息投递表述不准确，容易影响对可靠性机制的判断。",
+            "quote": "“手动 ack 之后消息队列就绝对不会重复投递。”",
+            "kind": "error"
+          }
+        ],
+        [
+          {
+            "point": "对条件表达式如何执行、如何从配置得到最终流转判断，描述不够具体",
+            "quote": "“核心是把每条规则约束成 起始状态 + 条件集合 + 目标状态”",
+            "kind": "error"
+          },
+          {
+            "point": "对消息投递相关判断有明显错误，容易混淆机制",
+            "quote": "“手动 ack 之后消息队列就绝对不会重复投递。”",
+            "kind": "error"
+          },
+          {
+            "point": "追问到热加载一致性和版本重试时，没有展开极端并发下的完整性论证",
+            "quote": null,
+            "kind": "missing"
+          }
+        ]
+      ]
+    },
+    {
+      "caseId": "q-2dl924ik",
+      "meanScores": {
+        "base": 77.66666666666667,
+        "err": 78.66666666666667,
+        "drop": 77,
+        "fluff": 40,
+        "para": 79.33333333333333,
+        "offtopic": 78.33333333333333
+      },
+      "ordering": false,
+      "paraphraseStable": true,
+      "errorLocated": true,
+      "errorLowered": false,
+      "retestStd": {
+        "base": 3.7859388972001824,
+        "err": 3.511884584284246,
+        "drop": 2.6457513110645907,
+        "fluff": 6.244997998398398,
+        "para": 4.509249752822894,
+        "offtopic": 1.5275252316519468
+      },
+      "wrongClaim": "Redis Lua 脚本执行和 MySQL 本地事务天然是强一致的",
+      "errWeaknesses": [
+        [
+          {
+            "point": "退款状态机的类/文件级贡献边界还不够细，追问到具体文件职责时没有进一步展开",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "状态机这条主线缺少回归测试、灰度验证、上线验收等落地细节",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "追问 2 本来在问退款状态机排查，但回答后半段切到了“库存”链路，主线发生偏移",
+            "quote": "“Redis Lua 脚本执行和 MySQL 本地事务天然是强一致的。库存那次排查，我实际是按一次下单链路去对的”",
+            "kind": "error"
+          }
+        ],
+        [
+          {
+            "point": "追问1：还缺少类/文件级别的亲手改动边界说明",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "追问1：对“建表、状态流转引擎、校验器”三块的职责拆分还不够具体",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "追问2：回答切到库存/Redis 链路后，退款状态机这条主线有些跑偏",
+            "quote": "“Redis Lua 脚本执行和 MySQL 本地事务天然是强一致的。”",
+            "kind": "error"
+          },
+          {
+            "point": "追问2：没有把一次下单/扣库存的完整步骤按顺序讲全",
+            "quote": null,
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "追问1：类/文件级别的个人改动边界还不够细",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "追问2：退款状态机的回归测试、灰度验证怎么做没有答出来",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "后半段回答切到库存/超卖链路，和退款状态机主问题有偏离",
+            "quote": "“Redis Lua 脚本执行和 MySQL 本地事务天然是强一致的。”",
+            "kind": "error"
+          }
+        ]
+      ]
+    },
+    {
+      "caseId": "q-2hw8zvnx",
+      "meanScores": {
+        "base": 84,
+        "err": 80,
+        "drop": 84.33333333333333,
+        "fluff": 38,
+        "para": 84.33333333333333,
+        "offtopic": 35.666666666666664
+      },
+      "ordering": false,
+      "paraphraseStable": true,
+      "errorLocated": true,
+      "errorLowered": true,
+      "retestStd": {
+        "base": 1.7320508075688772,
+        "err": 1,
+        "drop": 1.5275252316519468,
+        "fluff": 5.291502622129181,
+        "para": 1.1547005383792517,
+        "offtopic": 17.55942292142123
+      },
+      "wrongClaim": "先删 Redis 缓存再提交 MySQL 事务，就不会出现脏数据。",
+      "errWeaknesses": [
+        [
+          {
+            "point": "回答里出现了与追问不一致、且明显不严谨的表述，影响实现可信度。",
+            "quote": "“先删 Redis 缓存再提交 MySQL 事务，就不会出现脏数据。”",
+            "kind": "error"
+          },
+          {
+            "point": "对“如果两条规则都能命中/前置条件冲突，如何定优先级、如何避免线上配错表”的追问，虽然给了约束，但还缺少更完整的线上治理方案。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "对版本管理、发布回滚、冲突检测的落地方式讲得偏抽象，没有说明具体怎么防止配置误发后影响线上流转。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "对状态机引擎内部执行细节仍不够细，比如候选规则如何排序、checker 如何组织、失败后是返回错误还是走补偿，都没有展开。",
+            "quote": null,
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "追问到执行链路时，开头出现了不正确的架构表述。",
+            "quote": "“先删 Redis 缓存再提交 MySQL 事务，就不会出现脏数据。”",
+            "kind": "error"
+          },
+          {
+            "point": "对状态机引擎落库后的完整执行细节还不够细。",
+            "quote": "“如果版本号不对就说明有并发修改，直接失败或重试。”",
+            "kind": "missing"
+          },
+          {
+            "point": "对‘两条规则都能命中’的优先级决策讲到了规则和约束，但还没结合真实线上防错流程讲透。",
+            "quote": "“发布前跑一遍冲突检测，检查是否存在多条同时可命中的规则。”",
+            "kind": "missing"
+          },
+          {
+            "point": "对上线结果的量化效果和最终结论没有展开。",
+            "quote": "“确认没有把链路弄坏。”",
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "追问到‘两条规则都能命中时怎么定优先级’时，回答较原则化，缺少更具体的落地机制和例子",
+            "quote": "“如果是更细的条件分流，就必须显式配 priority，而且发布前跑一遍冲突检测”",
+            "kind": "error"
+          },
+          {
+            "point": "对前面被追问的‘先删 Redis 缓存再提交 MySQL 事务’没有正面纠偏或解释，容易暴露对一致性细节掌握不稳",
+            "quote": "“先删 Redis 缓存再提交 MySQL 事务，就不会出现脏数据。”",
+            "kind": "error"
+          },
+          {
+            "point": "缺少上线后的问题复盘：是否真的发生过冲突、如何定位、最终如何改进配置治理",
+            "quote": null,
+            "kind": "missing"
+          }
+        ]
+      ]
+    },
+    {
+      "caseId": "q-2u34rsif",
+      "meanScores": {
+        "base": 76.33333333333333,
+        "err": 71,
+        "drop": 77,
+        "fluff": 39,
+        "para": 80.33333333333333,
+        "offtopic": 25.666666666666668
+      },
+      "ordering": false,
+      "paraphraseStable": true,
+      "errorLocated": true,
+      "errorLowered": true,
+      "retestStd": {
+        "base": 3.511884584284246,
+        "err": 4.58257569495584,
+        "drop": 1,
+        "fluff": 6.082762530298219,
+        "para": 1.1547005383792517,
+        "offtopic": 16.165807537309522
+      },
+      "wrongClaim": "jstack 可以直接显示每条 SQL 的执行耗时和返回行数",
+      "errWeaknesses": [
+        [
+          {
+            "point": "追问 1：jstack 里看到的真实证据描述不够严谨，尤其是 SQL 耗时/返回行数的说法不准确。",
+            "quote": "“jstack 可以直接显示每条 SQL 的执行耗时和返回行数。”",
+            "kind": "error"
+          },
+          {
+            "point": "追问 1：对‘为什么不是锁竞争’的区分没有说完整，证据链还停留在连接池等待层面。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "追问 1：没有展开多次 dump 对比、结合其他系统命令的过程，排查方法的边界和替代方案不足。",
+            "quote": null,
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "kind=error：把 jstack 的能力说得过满，混淆了线程栈与 SQL 明细。",
+            "quote": "“jstack 可以直接显示每条 SQL 的执行耗时和返回行数。”",
+            "kind": "error"
+          },
+          {
+            "point": "kind=missing：追问到第2层的“真实证据”还不够具体，缺少某个线程的原始栈样例和当时看到的锁/等待对象。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "kind=missing：对“不是普通慢请求，而是连接池等待或者锁竞争”这一层，没有完整说明如何排除锁竞争，只讲了连接池等待。",
+            "quote": null,
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "技术正确性：jstack 的能力描述不准确。",
+            "quote": "“jstack 可以直接显示每条 SQL 的执行耗时和返回行数。”",
+            "kind": "error"
+          },
+          {
+            "point": "追问 1：没有说清 jstack 里看到的原始证据细节。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "追问 1：对为什么不是锁竞争的排除过程说得不够。",
+            "quote": null,
+            "kind": "missing"
+          }
+        ]
+      ]
+    },
+    {
+      "caseId": "q-2usz6ldt",
+      "meanScores": {
+        "base": 76.33333333333333,
+        "err": 74,
+        "drop": 73.66666666666667,
+        "fluff": 46.666666666666664,
+        "para": 75.66666666666667,
+        "offtopic": 26
+      },
+      "ordering": true,
+      "paraphraseStable": true,
+      "errorLocated": false,
+      "errorLowered": true,
+      "retestStd": {
+        "base": 2.8867513459481287,
+        "err": 1,
+        "drop": 2.8867513459481287,
+        "fluff": 2.309401076758503,
+        "para": 1.1547005383792517,
+        "offtopic": 13.114877048604
+      },
+      "wrongClaim": "Spring 事务提交后一定能回滚已经成功发送的第三方支付回调",
+      "errWeaknesses": [
+        [
+          {
+            "point": "事实与细节：缺少具体文件名、方法名、接口名或提交边界，核验性不够强。",
+            "quote": "“核心会是类似 RefundStateMachine 和 RefundTransitionRegistry 这样的类”",
+            "kind": "error"
+          },
+          {
+            "point": "事实与细节：对代码边界的追问只回答到模块/类层，没有进一步回答‘写了哪些代码文件’这一层。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "复盘与表达：没有讲清重构前的主要瓶颈、为什么选状态机而不是别的方案、以及验证方式。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "岗位关联：对系统运维、排障、RPC/中间件等后台岗位要求覆盖不足。",
+            "quote": null,
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "追问 1 / 2 要求具体模块或类、代码文件落点，但没有给到可核验的文件级细节。",
+            "quote": "“核心会是类似 RefundStateMachine 和 RefundTransitionRegistry 这样的类”",
+            "kind": "error"
+          },
+          {
+            "point": "追问 1 / 2 要求说明自己写了哪些代码文件与接口约定，但只说了抽象协作，没有讲实际代码边界和文件。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "缺少重构前后的瓶颈、备选方案与选择理由，复盘深度不足。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "对结果与验证方式的描述偏笼统，‘压了 40%’没有交代指标来源和验证方法。",
+            "quote": "“最终把重复判断代码大概压了 40%，后面补接口自动化时这块也更好覆盖。”",
+            "kind": "error"
+          }
+        ],
+        [
+          {
+            "point": "缺少追问 1/2 要的真实代码边界：具体落在哪个文件、类、模块，哪些是自己亲手写的。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "对重构前后的瓶颈和取舍讲得不够，没有说明为什么选配置化状态表、为什么这样拆模块。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "有一处技术表述不严谨，事务提交和第三方回调回滚的关系说反了或混淆了。",
+            "quote": "“Spring 事务提交后一定能回滚已经成功发送的第三方支付回调。”",
+            "kind": "error"
+          },
+          {
+            "point": "复盘偏结果汇报，缺少验证方式、回归手段和机制补充。",
+            "quote": null,
+            "kind": "missing"
+          }
+        ]
+      ]
+    },
+    {
+      "caseId": "q-58ydenqd",
+      "meanScores": {
+        "base": 81.33333333333333,
+        "err": 65.33333333333333,
+        "drop": 74.66666666666667,
+        "fluff": 30.333333333333332,
+        "para": 81.66666666666667,
+        "offtopic": 42
+      },
+      "ordering": true,
+      "paraphraseStable": true,
+      "errorLocated": true,
+      "errorLowered": true,
+      "retestStd": {
+        "base": 3.511884584284246,
+        "err": 14.364307617610162,
+        "drop": 4.509249752822894,
+        "fluff": 6.6583281184793925,
+        "para": 4.163331998932265,
+        "offtopic": 4.358898943540674
+      },
+      "wrongClaim": "Redis Lua 脚本执行期间，MySQL 事务会自动跟着一起回滚。",
+      "errWeaknesses": [
+        [
+          {
+            "point": "事实错误：把 Redis Lua 和 MySQL 事务联动回滚说成自动发生",
+            "quote": "Redis Lua 脚本执行期间，MySQL 事务会自动跟着一起回滚。",
+            "kind": "error"
+          },
+          {
+            "point": "第2层追问没答好：60条评测集的来源、标注和正负例定义只讲了泛化流程，缺少与题目要求一致的具体构造细节",
+            "quote": null,
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "error：把 Redis Lua 和 MySQL 事务的关系说错了。",
+            "quote": "Redis Lua 脚本执行期间，MySQL 事务会自动跟着一起回滚。",
+            "kind": "error"
+          },
+          {
+            "point": "missing：追问 1 的第 2 层，60 条评测集的来源没有讲到具体生成流程与样本构造细节。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "missing：追问 1 的第 2 层，正例/负例定义虽然有提，但没有说明实际标注口径如何落到每条样本、以及切分污染如何验收。",
+            "quote": null,
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "事实性错误：把 Redis Lua 与 MySQL 事务回滚关系说错了",
+            "quote": "“Redis Lua 脚本执行期间，MySQL 事务会自动跟着一起回滚。”",
+            "kind": "error"
+          },
+          {
+            "point": "追问1：60条评测集的具体标注与定义没有讲完整，缺少样本规模、标注规则细节",
+            "quote": "“标注主要是我先做初标，再找同学复核有歧义的样本。”",
+            "kind": "missing"
+          },
+          {
+            "point": "追问1：没有充分说明如何避免评测集与切分方案互相污染的操作细节",
+            "quote": null,
+            "kind": "missing"
+          }
+        ]
+      ]
+    },
+    {
+      "caseId": "q-6nzy1a8i",
+      "meanScores": {
+        "base": 88.33333333333333,
+        "err": 91.66666666666667,
+        "drop": 81.33333333333333,
+        "fluff": 15.666666666666666,
+        "para": 89,
+        "offtopic": 16
+      },
+      "ordering": true,
+      "paraphraseStable": true,
+      "errorLocated": false,
+      "errorLowered": false,
+      "retestStd": {
+        "base": 2.5166114784235836,
+        "err": 1.1547005383792517,
+        "drop": 0.5773502691896257,
+        "fluff": 6.658328118479393,
+        "para": 1,
+        "offtopic": 4.358898943540674
+      },
+      "wrongClaim": "同类内部调用也一定会触发 Spring 事务代理并自动回滚",
+      "errWeaknesses": [
+        [
+          {
+            "point": "对“为什么没回滚”还能再补一个更底层的边界条件：事务方法是否被代理到、是否 public、是否跨类调用等。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "第 2 层追问若继续问副作用，你提到了 AopContext/self injection，但没有说明它们的风险与约束，例如耦合代理、代码可读性和测试复杂度。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "“同类内部调用也一定会触发 Spring 事务代理并自动回滚。”这句话表述不严谨，实际上同类内部直接调用通常不会触发代理。",
+            "quote": "同类内部调用也一定会触发 Spring 事务代理并自动回滚。",
+            "kind": "error"
+          }
+        ],
+        [
+          {
+            "point": "缺少对默认回滚规则的更明确表述",
+            "quote": "b() 抛的是受检异常，或者在 a() 里被 catch 住没继续抛，结果事务也不会按预期回滚。",
+            "kind": "error"
+          },
+          {
+            "point": "对备选方案的副作用没有展开",
+            "quote": "如果暂时不能拆，我会用 AopContext.currentProxy() 或者注入自身代理再去调 b()，但我会把它当过渡方案。",
+            "kind": "missing"
+          },
+          {
+            "point": "没有按排查顺序给出现场定位步骤",
+            "quote": null,
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "对事务传播行为、回滚规则的讲解还不够完整",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "题目追问到“为什么没回滚”时，可以进一步说明连接池、长事务、慢 SQL 或 RPC 放进事务里的风险，你没有展开",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "排查顺序可以更具体一些，例如先确认是否自调用、再看异常类型、再看是否被吞异常、最后看传播属性和数据库日志",
+            "quote": null,
+            "kind": "missing"
+          }
+        ]
+      ]
+    },
+    {
+      "caseId": "q-7wh48ba0",
+      "meanScores": {
+        "base": 86.33333333333333,
+        "err": 85,
+        "drop": 83,
+        "fluff": 47.333333333333336,
+        "para": 86.33333333333333,
+        "offtopic": 70.66666666666667
+      },
+      "ordering": true,
+      "paraphraseStable": true,
+      "errorLocated": false,
+      "errorLowered": true,
+      "retestStd": {
+        "base": 1.5275252316519468,
+        "err": 1,
+        "drop": 1.7320508075688772,
+        "fluff": 10.969655114602888,
+        "para": 3.214550253664318,
+        "offtopic": 9.29157324317757
+      },
+      "wrongClaim": "Spring 的 @Transactional 会自动传递到新开的异步线程里",
+      "errWeaknesses": [
+        [
+          {
+            "point": "单测覆盖不够系统，追问到优先级、短路和异常分支时只是列举，没有说明具体用例设计层次和覆盖策略",
+            "quote": "“单测上我会重点覆盖括号优先级、&& 和 || 的短路、空属性和非法操作符”",
+            "kind": "error"
+          },
+          {
+            "point": "对配置校验、灰度和回滚的实际落地效果没有讲出具体机制和结果，只停留在方案描述",
+            "quote": null,
+            "kind": "error"
+          },
+          {
+            "point": "追问到‘一条规则从配置到生效的完整链路’时，缺少更细的中间表示和执行过程边界说明，比如是否有编译/缓存/版本管理",
+            "quote": null,
+            "kind": "error"
+          }
+        ],
+        [
+          {
+            "point": "追问1里关于表达式字段如何避免更难维护，回答偏原则化，缺少更具体的约束设计和失败案例。",
+            "quote": null,
+            "kind": "error"
+          },
+          {
+            "point": "追问3里单测覆盖、配置校验的落地深度不够，尤其缺少异常分支和发布兜底的实际做法细节。",
+            "quote": null,
+            "kind": "error"
+          },
+          {
+            "point": "对结果和收益的量化表达不足，没讲出这套重构带来的效率、稳定性或故障率变化。",
+            "quote": null,
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "单测覆盖的系统性仍不够，追问到异常分支和配置校验时偏原则化",
+            "quote": "“单测上我会重点覆盖括号优先级、&& 和 || 的短路、空属性和非法操作符”",
+            "kind": "error"
+          },
+          {
+            "point": "对指标口径和实际收益没有给出可核验结果",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "对表达式方案的备选方案和放弃理由没有展开到可比较层面",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "对事务异步回滚的错误理解虽然被纠正，但没有进一步说明原因或边界",
+            "quote": "“Spring 的 @Transactional 会自动传递到新开的异步线程里。”",
+            "kind": "error"
+          }
+        ]
+      ]
+    },
+    {
+      "caseId": "q-dp6m6g5m",
+      "meanScores": {
+        "base": 90.66666666666667,
+        "err": 87.33333333333333,
+        "drop": 85.33333333333333,
+        "fluff": 25.666666666666668,
+        "para": 91,
+        "offtopic": 61.666666666666664
+      },
+      "ordering": true,
+      "paraphraseStable": true,
+      "errorLocated": false,
+      "errorLowered": true,
+      "retestStd": {
+        "base": 1.1547005383792517,
+        "err": 1.1547005383792517,
+        "drop": 3.055050463303893,
+        "fluff": 2.081665999466133,
+        "para": 1,
+        "offtopic": 9.50438495292217
+      },
+      "wrongClaim": "Redis Lua 脚本和 MySQL 事务可以天然组成一个原子事务",
+      "errWeaknesses": [
+        [
+          {
+            "point": "追问2里关于乐观锁的适用性与代价没有展开。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "状态机重构前后的实现差异没有讲到足够具体，更多是结果式描述。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "“Redis Lua 脚本和 MySQL 事务可以天然组成一个原子事务。”这句话表述不严谨，容易误导。",
+            "quote": "“Redis Lua 脚本和 MySQL 事务可以天然组成一个原子事务。”",
+            "kind": "error"
+          }
+        ],
+        [
+          {
+            "point": "追问 1：校验器如何避免表和逻辑写散，虽然给了方案，但缺少新增规则时的约束机制说明",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "追问 2：时序缺口定位已经说出结果，但没有把最先看的日志现象和每一步缩小范围的过程讲得更细",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "乐观锁方案只提到了使用，没有说明适用场景与代价",
+            "quote": null,
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "追问1：校验器放代码里后，新增规则时如何避免配置表和逻辑分叉，说明还不够完整",
+            "quote": "“校验器我最后是放在代码里，不是纯配置。表里只配 currentState、event、targetState、validatorKey，启动时把表加载成内存映射，再由 validatorKey 去注册表里拿对应校验器实现”",
+            "kind": "error"
+          },
+          {
+            "point": "追问2：只说了看日志和定位窗口，但对最初的排查动作与如何缩小到 Redis/MySQL 之间的过程还不够细",
+            "quote": "“我先对失败订单按请求 id 串应用日志、Redis 执行日志和 MySQL binlog”",
+            "kind": "error"
+          },
+          {
+            "point": "对乐观锁方案的适用性、代价和边界没有展开",
+            "quote": null,
+            "kind": "missing"
+          }
+        ]
+      ]
+    },
+    {
+      "caseId": "q-ezbplw6h",
+      "meanScores": {
+        "base": 84.66666666666667,
+        "err": 83.33333333333333,
+        "drop": 85.33333333333333,
+        "fluff": 46.333333333333336,
+        "para": 88,
+        "offtopic": 13.666666666666666
+      },
+      "ordering": false,
+      "paraphraseStable": true,
+      "errorLocated": false,
+      "errorLowered": true,
+      "retestStd": {
+        "base": 2.5166114784235836,
+        "err": 2.8867513459481287,
+        "drop": 1.1547005383792517,
+        "fluff": 13.428824718989123,
+        "para": 2,
+        "offtopic": 2.3094010767585034
+      },
+      "wrongClaim": "Redis Lua 脚本执行期间可以被其他命令打断。",
+      "errWeaknesses": [
+        [
+          {
+            "point": "追问1：状态表字段之外，对前置条件校验、上下游接口边界和异常处理没展开。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "追问2：为什么不用条件合并成复杂表达式，只讲了可维护性，缺少对表达能力、可测试性、冲突消解成本的更完整对比。",
+            "quote": "“主要是因为很多规则是公共骨架加少量特例”",
+            "kind": "error"
+          },
+          {
+            "point": "追问3：40% 的统计口径还偏粗，缺少更明确的基线定义和验证方式。",
+            "quote": null,
+            "kind": "error"
+          }
+        ],
+        [
+          {
+            "point": "追问 2：为什么选优先级而不是合并成复杂表达式，还可以补更具体的失败场景或对比代价。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "追问 3：40% 的统计验证还缺少更严格的基线和复核方式，比如是否做了人工标注/脚本统计/回归验证。",
+            "quote": null,
+            "kind": "error"
+          },
+          {
+            "point": "对动态条件性能影响、并发约束等实际实现细节回答偏泛。",
+            "quote": null,
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "追问 1 下对状态表字段的边界表达还可以更完整，尤其是哪些字段是必填、哪些是辅助信息。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "追问 2 下对“为什么选优先级而不是合并成更复杂表达式”的备选方案比较了，但还缺少更实际的代价分析，比如规则冲突、可测试性、配置可读性如何量化。",
+            "quote": "“主要是因为很多规则是公共骨架加少量特例。”",
+            "kind": "error"
+          },
+          {
+            "point": "追问 3 下 40% 的统计口径虽然交代了，但验证方式仍然偏经验化，缺少更严谨的基线方法。",
+            "quote": null,
+            "kind": "error"
+          }
+        ]
+      ]
+    },
+    {
+      "caseId": "q-f3l82bd8",
+      "meanScores": {
+        "base": 77,
+        "err": 59,
+        "drop": 64.33333333333333,
+        "fluff": 49,
+        "para": 75.33333333333333,
+        "offtopic": 70.66666666666667
+      },
+      "ordering": true,
+      "paraphraseStable": true,
+      "errorLocated": true,
+      "errorLowered": true,
+      "retestStd": {
+        "base": 2.6457513110645907,
+        "err": 2,
+        "drop": 21.96208854670551,
+        "fluff": 17.349351572897472,
+        "para": 2.5166114784235836,
+        "offtopic": 5.507570547286102
+      },
+      "wrongClaim": "向量检索命中率只取决于 embedding 维度，和切分策略无关。",
+      "errWeaknesses": [
+        [
+          {
+            "point": "技术正确性：对检索/embedding 的机制理解有明显错误。",
+            "quote": "“向量检索命中率只取决于 embedding 维度，和切分策略无关。”",
+            "kind": "error"
+          },
+          {
+            "point": "技术正确性：对“命中”的判定标准解释还不够完整，主观题处理口径也不充分。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "分析与取舍：没有充分说明如何排除检索召回和 prompt 改动对结果的影响。",
+            "quote": null,
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "追问1-1：60条评测集的构造和命中判定还不够严谨，缺少更明确的口径说明。",
+            "quote": "命中的标准也不是看模型最后答得像不像，而是看 topk 检索结果里有没有包含支撑答案的那一段原文",
+            "kind": "missing"
+          },
+          {
+            "point": "追问1-2：无依据回答从27%到6%的下降，归因解释还不够扎实。",
+            "quote": "主要是我人工抽样标注加规则统计一起看。",
+            "kind": "missing"
+          },
+          {
+            "point": "存在明显技术表述错误：把命中率变化归因到 embedding 维度，忽略了切分策略等因素。",
+            "quote": "向量检索命中率只取决于 embedding 维度，和切分策略无关。",
+            "kind": "error"
+          }
+        ],
+        [
+          {
+            "point": "对追问1里“60条评测集如何构造、命中如何判定、是否有主观题/重复样本”的口径仍不够严密。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "对“27%到6%”的归因还不够扎实，缺少更强的因果证明和统计口径说明。",
+            "quote": "“所以我会认为这个下降基本能归因到校验机制，而不是别的变量。”",
+            "kind": "error"
+          },
+          {
+            "point": "出现了明显不准确的机制判断。",
+            "quote": "“向量检索命中率只取决于 embedding 维度，和切分策略无关。”",
+            "kind": "error"
+          }
+        ]
+      ]
+    },
+    {
+      "caseId": "q-ibgeef6f",
+      "meanScores": {
+        "base": 83,
+        "err": 81,
+        "drop": 81.33333333333333,
+        "fluff": 53.333333333333336,
+        "para": 85.33333333333333,
+        "offtopic": 29
+      },
+      "ordering": true,
+      "paraphraseStable": true,
+      "errorLocated": false,
+      "errorLowered": true,
+      "retestStd": {
+        "base": 1,
+        "err": 1.7320508075688772,
+        "drop": 0.5773502691896257,
+        "fluff": 5.686240703077327,
+        "para": 1.5275252316519468,
+        "offtopic": 7.937253933193772
+      },
+      "wrongClaim": "Spring 事务默认会自动传播到同一方法里新开的异步线程。",
+      "errWeaknesses": [
+        [
+          {
+            "point": "事实性错误：事务上下文不能自动跨线程传播。",
+            "quote": "“Spring 事务默认会自动传播到同一方法里新开的异步线程。”",
+            "kind": "error"
+          },
+          {
+            "point": "追问 4 的量化口径不够严谨，缺少更严格的前后对比指标和统计方法。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "对为什么选字符串表达式的取舍说明还可以更完整，比如复杂度上升、可测试性、调试成本等代价没有讲。",
+            "quote": "“因为规则数量不算特别多，但经常要调，字符串对产品和测试更直观”",
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "“减少40%”的量化口径不够严谨，追问到统计方法时仍偏概括",
+            "quote": null,
+            "kind": "error"
+          },
+          {
+            "point": "对边界状态、回归测试样例和验证细节展开不足",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "对技术选型的备选方案和放弃原因讲得还不够完整",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "对岗位要求里的系统性后台能力映射较少，比如排障、组件选型、通用中间件经验",
+            "quote": null,
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "追问2里关于事务和异步线程的说法是错误的。",
+            "quote": "“Spring 事务默认会自动传播到同一方法里新开的异步线程。”",
+            "kind": "error"
+          },
+          {
+            "point": "追问4里“减少40%”的统计依据还不够严格，缺少明确可复现的度量方法。",
+            "quote": "“我当时把核心 service 里多处重复出现的状态判断、发货判断、金额判断做了统计，重构前后分别数 if-else 分支和重复条件块，合并后大概降了四成。”",
+            "kind": "error"
+          },
+          {
+            "point": "对“前置条件为什么选字符串表达式而不是继续留在代码里”的取舍还可以更深入。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "对状态机重构后的维护性收益与代价，讲得还不够完整。",
+            "quote": null,
+            "kind": "missing"
+          }
+        ]
+      ]
+    },
+    {
+      "caseId": "q-ivaihf7r",
+      "meanScores": {
+        "base": 83,
+        "err": 77,
+        "drop": 77.66666666666667,
+        "fluff": 41.666666666666664,
+        "para": 82,
+        "offtopic": 31.333333333333332
+      },
+      "ordering": true,
+      "paraphraseStable": true,
+      "errorLocated": false,
+      "errorLowered": true,
+      "retestStd": {
+        "base": 1.7320508075688772,
+        "err": 1,
+        "drop": 2.5166114784235836,
+        "fluff": 10.692676621563628,
+        "para": 1.7320508075688772,
+        "offtopic": 25.540817005987364
+      },
+      "wrongClaim": "向量检索召回到的 chunk 页码天然不会出错，错页码只能是前端展示问题。",
+      "errWeaknesses": [
+        [
+          {
+            "point": "追问1里“为什么最终却引用到了错误页码”可以再把链路说得更清楚，尤其是证据如何被带偏。",
+            "quote": "“生成时把另一个弱相关 chunk 的元数据页码也拼进去了”",
+            "kind": "error"
+          },
+          {
+            "point": "追问2里“你具体是怎么做这个校验的”还缺少实现细节，比如如何判定关键断言与对应页的支持关系。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "追问2里“如果某个答案里引用了两个页码，其中一个对、一个错，你系统怎么处理？”虽然给了策略，但没说明判定阈值或优先级细则。",
+            "quote": "“我会把整条引用判成失败，优先触发一次基于已召回证据的重生成；再失败就降级成不给页码但明确说依据不足。”",
+            "kind": "error"
+          },
+          {
+            "point": "追问3里“怎么设计验证集或回归流程”只提了样本量和指标，缺少构造方式、回归门禁和线上灰度验证细节。",
+            "quote": null,
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "追问1：对“相关”定义说了判断标准，但没有把为什么召回只有一段相关、却最终引用错页码的中间链路讲透。",
+            "quote": "“定义相关不是只看关键词，而是看这段是否能独立支撑答案里的核心结论”",
+            "kind": "missing"
+          },
+          {
+            "point": "追问2：实现层的校验细节还不够，没讲清是如何把页码对应到内容做比对的规则、阈值或失败判定逻辑。",
+            "quote": "“还会把页码映射回原文切片，检查答案里的关键断言能不能在对应页找到支持。”",
+            "kind": "missing"
+          },
+          {
+            "point": "追问2：对“一个对、一个错”的多页码场景，只说整条判失败并重生成，缺少更细的处理策略和工程约束。",
+            "quote": "“如果两个页码里一个对一个错，我会把整条引用判成失败”",
+            "kind": "missing"
+          },
+          {
+            "point": "追问3：验证集与回归流程讲了样本量和指标，但没有说明样本来源、分层方式以及如何防止指标优化带来回答质量下降。",
+            "quote": null,
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "追问1：‘为什么最终却引用到了错误页码’ 的中间机制还不够清楚。",
+            "quote": "“后面发现带偏证据的不是检索第一页，而是生成时把另一个弱相关 chunk 的元数据页码也拼进去了”",
+            "kind": "error"
+          },
+          {
+            "point": "追问2：对‘两个页码一个对一个错’的处理，虽然给了策略，但没有说明是否支持部分保留、如何判定失败边界。",
+            "quote": "“如果两个页码里一个对一个错，我会把整条引用判成失败”",
+            "kind": "error"
+          },
+          {
+            "point": "追问3：验证集/回归流程讲了指标和抽样，但没有说明样本来源、构造方式和回归覆盖面。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "追问3：没有展开如何防止改动把问题从错误引用迁移成答非所问，或如何量化这种权衡。",
+            "quote": "“重点看有没有从错误引用变成答非所问，或者因为太保守导致本来能答的问题不答了”",
+            "kind": "error"
+          }
+        ]
+      ]
+    },
+    {
+      "caseId": "q-jipti0bv",
+      "meanScores": {
+        "base": 86.33333333333333,
+        "err": 59.333333333333336,
+        "drop": 86.33333333333333,
+        "fluff": 41,
+        "para": 87.33333333333333,
+        "offtopic": 81
+      },
+      "ordering": false,
+      "paraphraseStable": true,
+      "errorLocated": true,
+      "errorLowered": true,
+      "retestStd": {
+        "base": 1.1547005383792517,
+        "err": 2.8867513459481287,
+        "drop": 1.1547005383792517,
+        "fluff": 10.14889156509222,
+        "para": 0.5773502691896257,
+        "offtopic": 3.4641016151377544
+      },
+      "wrongClaim": "Redis Lua 脚本执行期间会被 MySQL 事务自动回滚",
+      "errWeaknesses": [
+        [
+          {
+            "point": "技术正确性：出现了不成立的机制表述",
+            "quote": "“Redis Lua 脚本执行期间会被 MySQL 事务自动回滚。”",
+            "kind": "error"
+          },
+          {
+            "point": "追问 1：复现时哪些字段必须同时满足，为什么能同时命中两条规则，讲得还不够严谨",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "追问 1：时间窗判断为什么放在规则筛选层而不是规则表里，缺少替代方案与取舍分析",
+            "quote": null,
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "技术正确性：出现了明显不成立的机制描述。",
+            "quote": "Redis Lua 脚本执行期间会被 MySQL 事务自动回滚。",
+            "kind": "error"
+          },
+          {
+            "point": "追问 1：复现细节还不够具体，没把“哪些字段必须同时满足、哪一步最关键”讲透。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "追问 1：对边界用例为什么选这些点，缺少更明确的失败模式分析。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "分析与取舍：没有充分解释为什么选择把时间窗判断放在代码筛选层而不是规则表。",
+            "quote": null,
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "技术正确性里出现了明显不成立的机制描述。",
+            "quote": "“Redis Lua 脚本执行期间会被 MySQL 事务自动回滚。”",
+            "kind": "error"
+          },
+          {
+            "point": "对“时间窗判断”放在代码筛选层的原因讲了结论，但没有把规则冲突、并发竞态、可配置性之间的取舍讲完整。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "追问到“怎么构造那组数据、哪一步最关键”时，虽然说了字段，但还缺少更清晰的最小复现条件和触发链路。",
+            "quote": null,
+            "kind": "missing"
+          }
+        ]
+      ]
+    },
+    {
+      "caseId": "q-jlvpx8tn",
+      "meanScores": {
+        "base": 89.33333333333333,
+        "err": 86.33333333333333,
+        "drop": 87.33333333333333,
+        "fluff": 49.666666666666664,
+        "para": 87,
+        "offtopic": 81.33333333333333
+      },
+      "ordering": true,
+      "paraphraseStable": true,
+      "errorLocated": false,
+      "errorLowered": true,
+      "retestStd": {
+        "base": 1.1547005383792517,
+        "err": 1.1547005383792517,
+        "drop": 4.618802153517006,
+        "fluff": 3.2145502536643185,
+        "para": 1,
+        "offtopic": 1.1547005383792517
+      },
+      "wrongClaim": "Redis 的 Lua 脚本和 MySQL 事务天然是同一个原子事务",
+      "errWeaknesses": [
+        [
+          {
+            "point": "追问1中对幂等、并发冲突、补偿的实现仍偏概述，缺少更贴近代码层的落地细节。",
+            "quote": "没有单独放幂等、并发冲突、补偿字段。",
+            "kind": "missing"
+          },
+          {
+            "point": "追问2中对“为什么不是先怀疑别的地方”的排查顺序可以再明确一些，比如先后排除了哪些可能性。",
+            "quote": "之所以先怀疑这里，是因为现象很像少卖/超卖只出现在高并发瞬间。",
+            "kind": "missing"
+          },
+          {
+            "point": "追问3里热度分数更新的依据讲了来源，但缺少更完整的更新公式、窗口长度或样本反馈闭环。",
+            "quote": "热度分数当时是按最近一段时间的浏览、点击、下单做加权，简单点就是 view 低权重、click 次之、order 最高。",
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "追问 1 的代码落点还不够具体，缺少字段/实现层面的展开。",
+            "quote": "没有单独放幂等、并发冲突、补偿字段。",
+            "kind": "error"
+          },
+          {
+            "point": "追问 2 中对一致性机制的表述不够严谨，容易被继续追问。",
+            "quote": "Redis 的 Lua 脚本和 MySQL 事务天然是同一个原子事务。",
+            "kind": "error"
+          },
+          {
+            "point": "追问 3 对热度分数更新与 TTL 对比实验的说明不够完整。",
+            "quote": "热度分数当时是按最近一段时间的浏览、点击、下单做加权，简单点就是 view 低权重、click 次之、order 最高，每隔一分钟异步汇总一次刷进 Redis 排行。",
+            "kind": "error"
+          },
+          {
+            "point": "追问 1 的幂等、并发冲突、补偿字段没有给出更明确的表结构或状态表设计细节。",
+            "quote": null,
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "第一问对“答案和讲义不符”的问题拆解还不够完整，缺少明确的三类归因。",
+            "quote": "“我会先看生成前的证据约束链路，不是先看大模型文本本身。”",
+            "kind": "error"
+          },
+          {
+            "point": "第一问追问到评测与验证时，没有补充自建评测集的更具体信息。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "第三问关于热度分数更新机制，缺少更明确的计算/刷新链路细节。",
+            "quote": "“热度分数当时是按最近一段时间的浏览、点击、下单做加权”",
+            "kind": "error"
+          },
+          {
+            "point": "第三问对 10 秒和 5 分钟的影响有方向判断，但量化预期不够。",
+            "quote": null,
+            "kind": "missing"
+          }
+        ]
+      ]
+    },
+    {
+      "caseId": "q-mdn4z6w6",
+      "meanScores": {
+        "base": 87.66666666666667,
+        "err": 83.66666666666667,
+        "drop": 85,
+        "fluff": 40,
+        "para": 90,
+        "offtopic": 34
+      },
+      "ordering": true,
+      "paraphraseStable": true,
+      "errorLocated": false,
+      "errorLowered": true,
+      "retestStd": {
+        "base": 2.8867513459481287,
+        "err": 2.5166114784235836,
+        "drop": 1.7320508075688772,
+        "fluff": 6.557438524302,
+        "para": 0,
+        "offtopic": 15.588457268119896
+      },
+      "wrongClaim": "RabbitMQ 开启持久化后，消费者就天然不会重复消费消息。",
+      "errWeaknesses": [
+        [
+          {
+            "point": "技术正确性：把 MQ 持久化与“不会重复消费”混为一谈。",
+            "quote": "RabbitMQ 开启持久化后，消费者就天然不会重复消费消息。",
+            "kind": "error"
+          },
+          {
+            "point": "追问 1：消息表记录何时算完成、以及消费者成功但生产者未改 sent 时的闭环没有答透。",
+            "quote": null,
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "技术正确性：对 RabbitMQ 持久化与重复消费的关系表述不严谨。",
+            "quote": "RabbitMQ 开启持久化后，消费者就天然不会重复消费消息。",
+            "kind": "error"
+          },
+          {
+            "point": "追问 1：消息表里的记录何时算成功删除/标记完成，回答不够具体。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "追问 1：消费者已成功但生产者未把状态改成 sent 就崩了，如何避免重复补偿，缺少明确状态机和判定条件。",
+            "quote": null,
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "追问1：消息表里的记录什么时候算成功删除或标记完成，没有给出完整闭环。",
+            "quote": "等生产者收到明确投递成功回执，或者对账发现消费侧已有成功标记，再把消息表标记 done 或延迟清理。",
+            "kind": "missing"
+          },
+          {
+            "point": "追问1：对“消费者已成功但生产者还没把状态改成 sent 就崩了，如何避免重复补偿”只给了幂等兜底，没有说明补偿任务如何识别已完成记录并停止重扫。",
+            "quote": "后台补偿线程再扫到这条也只是重复投递，但消费者会识别成已处理，最多重复消费、不丢语义。",
+            "kind": "missing"
+          },
+          {
+            "point": "对先发后写、先写后发两种方案的取舍讲得还不够完整，缺少一致性、复杂度和运维代价的对比。",
+            "quote": null,
+            "kind": "missing"
+          }
+        ]
+      ]
+    },
+    {
+      "caseId": "q-muwkxppp",
+      "meanScores": {
+        "base": 85,
+        "err": 74.33333333333333,
+        "drop": 82.33333333333333,
+        "fluff": 48.666666666666664,
+        "para": 84.66666666666667,
+        "offtopic": 84
+      },
+      "ordering": true,
+      "paraphraseStable": true,
+      "errorLocated": true,
+      "errorLowered": true,
+      "retestStd": {
+        "base": 1.7320508075688772,
+        "err": 7.023769168568492,
+        "drop": 4.725815626252608,
+        "fluff": 4.041451884327381,
+        "para": 1.1547005383792517,
+        "offtopic": 2
+      },
+      "wrongClaim": "Redis Lua 脚本和 MySQL 本地事务天然具备原子一致性，不需要补偿。",
+      "errWeaknesses": [
+        [
+          {
+            "point": "对追问1里‘回补 Redis’的分支边界不够严谨，尤其是超时但 DB 已提交成功时的处理。",
+            "quote": "Redis Lua 脚本和 MySQL 本地事务天然具备原子一致性，不需要补偿。",
+            "kind": "error"
+          },
+          {
+            "point": "对‘事务提交异常/超时’与‘数据库已提交成功’的区别没有完全展开，决策条件不够清楚。",
+            "quote": null,
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "技术正确性上，对 Redis 与 MySQL 一致性和补偿关系的表述不够严谨",
+            "quote": "“Redis Lua 脚本和 MySQL 本地事务天然具备原子一致性，不需要补偿”",
+            "kind": "error"
+          },
+          {
+            "point": "追问到接口超时但 DB 已提交成功时，缺少更完整的幂等/最终态确认机制说明",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "分析与取舍里，缺少对替代方案和限制的比较",
+            "quote": null,
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "技术正确性：对“接口超时但数据库已提交成功”这一层的处理逻辑说明不够严谨",
+            "quote": "“Redis Lua 脚本和 MySQL 本地事务天然具备原子一致性，不需要补偿。”",
+            "kind": "error"
+          },
+          {
+            "point": "技术正确性：对回补 Redis 的边界条件表述前后有冲突",
+            "quote": null,
+            "kind": "error"
+          },
+          {
+            "point": "分析与取舍：没有充分解释为什么采用当前方案而不是其他一致性/补偿方案",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "分析与取舍：被追问到‘回补 Redis’具体落在哪个分支时，没有把分支选择和风险控制讲透",
+            "quote": null,
+            "kind": "missing"
+          }
+        ]
+      ]
+    },
+    {
+      "caseId": "q-nllcuy24",
+      "meanScores": {
+        "base": 86.33333333333333,
+        "err": 65.66666666666667,
+        "drop": 84.66666666666667,
+        "fluff": 49.333333333333336,
+        "para": 87,
+        "offtopic": 88
+      },
+      "ordering": false,
+      "paraphraseStable": true,
+      "errorLocated": true,
+      "errorLowered": true,
+      "retestStd": {
+        "base": 1.1547005383792517,
+        "err": 3.7859388972001824,
+        "drop": 0.5773502691896257,
+        "fluff": 4.163331998932266,
+        "para": 1.7320508075688772,
+        "offtopic": 1
+      },
+      "wrongClaim": "RAG 场景下只要加大 chunk 长度，检索命中率一定更高。",
+      "errWeaknesses": [
+        [
+          {
+            "point": "技术正确性上有绝对化结论不严谨。",
+            "quote": "“RAG 场景下只要加大 chunk 长度，检索命中率一定更高。”",
+            "kind": "error"
+          },
+          {
+            "point": "对方案取舍和替代方案的比较不够。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "对检索、生成、校验各环节的边界条件与失败模式展开不足。",
+            "quote": null,
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "技术正确性：第一个结论表述过于绝对，缺少边界条件",
+            "quote": "RAG 场景下只要加大 chunk 长度，检索命中率一定更高。",
+            "kind": "error"
+          },
+          {
+            "point": "分析与取舍：没有讲清楚为什么这样选、有哪些替代方案",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "技术正确性：对“结构化输出 + 页码校验”这类方案的失败模式和适用范围没有展开",
+            "quote": null,
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "技术正确性：第1层没有说明检索召回/命中提升的边界条件，且出现绝对化表述",
+            "quote": "RAG 场景下只要加大 chunk 长度，检索命中率一定更高。",
+            "kind": "error"
+          },
+          {
+            "point": "分析与取舍：第1层只讲了选型结果，没有讲为什么这么选、代价是什么",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "分析与取舍：第1层对工具调用的 JSON Schema 校验、失败重试为何足够、还有无替代方案没有展开",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "表达结构：第1层到第2层之间有些结论先行，缺少更清晰的分段",
+            "quote": null,
+            "kind": "missing"
+          }
+        ]
+      ]
+    },
+    {
+      "caseId": "q-phvl0gvf",
+      "meanScores": {
+        "base": 73.66666666666667,
+        "err": 77,
+        "drop": 75.33333333333333,
+        "fluff": 43.666666666666664,
+        "para": 75.33333333333333,
+        "offtopic": 13
+      },
+      "ordering": false,
+      "paraphraseStable": true,
+      "errorLocated": false,
+      "errorLowered": false,
+      "retestStd": {
+        "base": 2.8867513459481287,
+        "err": 0,
+        "drop": 2.8867513459481287,
+        "fluff": 1.1547005383792517,
+        "para": 2.3094010767585034,
+        "offtopic": 7
+      },
+      "wrongClaim": "MySQL 的乐观锁版本号比较只能放在事务提交之后做。",
+      "errWeaknesses": [
+        [
+          {
+            "point": "追问1层：MySQL 版本号更新失败后，Redis 到底先补还是先确认，回答虽然给了倾向，但缺少可落地的时序细节。",
+            "quote": "你刚才追问的顺序上，就是 MySQL 版本号更新失败后，先走 Redis 补回，再决定要不要基于新版本重试，而不是等 MySQL 成功后再确认",
+            "kind": "missing"
+          },
+          {
+            "point": "追问2层：如何保证回补不会把库存越补越乱，幂等边界只提到“请求维度”，没讲实现条件和去重方式。",
+            "quote": "回补也不是直接 incr 就完了，我们当时按请求维度做幂等标记，只有确认这次 Redis 预扣过、且 MySQL 未落库的请求才能补一次，这样不会越补越多。",
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "追问1：Redis 和 MySQL 先后顺序的边界还不够严密，容易让人担心对一致性链路理解不完全",
+            "quote": "先用 Lua 在 Redis 预扣，成功后再带商品 id、购买量、当前 version 去更新 MySQL",
+            "kind": "error"
+          },
+          {
+            "point": "追问3：MySQL 版本号更新失败后，Redis 回补与再次重试的竞态边界讲得还不够细",
+            "quote": "先回补 Redis，再重新读取 MySQL 最新库存和 version 决定是否再次尝试",
+            "kind": "missing"
+          },
+          {
+            "point": "对“为什么不是只失败重试”的副作用分析不够展开",
+            "quote": "我不会盲目重试同一份参数",
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "对追问 1：Redis 和 MySQL 的先后顺序可以更精确地描述失败分支上的状态变化。",
+            "quote": "MySQL 的乐观锁版本号比较只能放在事务提交之后做。",
+            "kind": "error"
+          },
+          {
+            "point": "对追问 2：版本号比较和 Redis 扣减的配合机制还可以再说得更严密，尤其是 MySQL update 失败时如何保证库存状态一致。",
+            "quote": "Redis 先做快速闸门，MySQL 用 version 保证最终只有一个请求能基于旧版本落库。",
+            "kind": "error"
+          },
+          {
+            "point": "对追问 3：你说明了“不会盲目重试”，但没有完整展开回补如何与重试互斥、如何保证只补一次。",
+            "quote": null,
+            "kind": "missing"
+          }
+        ]
+      ]
+    },
+    {
+      "caseId": "q-qi0aojjd",
+      "meanScores": {
+        "base": 85.33333333333333,
+        "err": 77,
+        "drop": 79.66666666666667,
+        "fluff": 24,
+        "para": 86.66666666666667,
+        "offtopic": 62.666666666666664
+      },
+      "ordering": true,
+      "paraphraseStable": true,
+      "errorLocated": false,
+      "errorLowered": true,
+      "retestStd": {
+        "base": 0.5773502691896257,
+        "err": 4.358898943540674,
+        "drop": 1.5275252316519468,
+        "fluff": 4,
+        "para": 1.1547005383792517,
+        "offtopic": 24.90649179096352
+      },
+      "wrongClaim": "MySQL 的乐观锁更新失败后一定要开启表锁才能保证一致性",
+      "errWeaknesses": [
+        [
+          {
+            "point": "追问 2：乐观锁失败后的处理与副作用验证还不够细",
+            "quote": "“MySQL 的乐观锁更新失败后一定要开启表锁才能保证一致性。”",
+            "kind": "error"
+          },
+          {
+            "point": "追问 1：团队方案与个人实现的边界还可再讲更明确",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "对为何选择乐观锁、以及与其他修法的比较没展开",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "压测/副作用/回归验证的指标口径不够具体",
+            "quote": "“灰度时重点看退款成功率、非法流转告警和新旧链路结果比对，确认再全量。”",
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "追问1：对“团队先定的方案”和“自己具体改了哪些东西”的拆分还不够干净",
+            "quote": "“所以团队先定了要把规则收敛成状态表、对外接口先不变，我主要负责把旧逻辑梳理出来并落地代码。”",
+            "kind": "error"
+          },
+          {
+            "point": "追问2：并发失败后的处理场景里，对“什么情况下重试、什么情况下补偿”的边界还可更严谨",
+            "quote": "“如果是短时间并发导致版本冲突，但重读后还能继续流转，就在服务层限次重试 2 到 3 次；如果重读后发现状态已经被别的流程推进到终态，或者超过重试次数，就进入补偿队列做人工兜底或异步校正。”",
+            "kind": "error"
+          },
+          {
+            "point": "没有展开乐观锁方案的副作用、压测数据和验证方法",
+            "quote": null,
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "并发失败后的处理里有不准确表述，属于技术错误",
+            "quote": "“MySQL 的乐观锁更新失败后一定要开启表锁才能保证一致性。”",
+            "kind": "error"
+          },
+          {
+            "point": "对追问到的验证细节还不够具体，缺少压测/副作用验证",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "岗位关联没有进一步展开到系统排障、API建设或owner推进等岗位要求",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "复盘部分缺少更明确的取舍、失败案例和机制化沉淀",
+            "quote": null,
+            "kind": "missing"
+          }
+        ]
+      ]
+    },
+    {
+      "caseId": "q-qvciv0xu",
+      "meanScores": {
+        "base": 87.66666666666667,
+        "err": 73.66666666666667,
+        "drop": 85.66666666666667,
+        "fluff": 44.666666666666664,
+        "para": 85.33333333333333,
+        "offtopic": 77.66666666666667
+      },
+      "ordering": true,
+      "paraphraseStable": true,
+      "errorLocated": true,
+      "errorLowered": true,
+      "retestStd": {
+        "base": 1.5275252316519468,
+        "err": 2.516611478423583,
+        "drop": 0.5773502691896257,
+        "fluff": 25.423086620891123,
+        "para": 0.5773502691896257,
+        "offtopic": 0.5773502691896257
+      },
+      "wrongClaim": "乐观锁可以天然保证 Redis 和 MySQL 的强一致性",
+      "errWeaknesses": [
+        [
+          {
+            "point": "技术正确性上把乐观锁和跨存储一致性混在了一起",
+            "quote": "“乐观锁可以天然保证 Redis 和 MySQL 的强一致性。”",
+            "kind": "error"
+          },
+          {
+            "point": "补偿失败后的时序边界说得还不够严密（追问到补偿日志先写/后写这一层）",
+            "quote": null,
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "技术正确性：把乐观锁的边界说大了，甚至说成能天然保证 Redis 和 MySQL 强一致性",
+            "quote": "乐观锁可以天然保证 Redis 和 MySQL 的强一致性。",
+            "kind": "error"
+          },
+          {
+            "point": "追问第3层：补偿动作失败后的最终收敛和时序边界没有讲严谨，尤其是补偿日志先写/后写的流程不清楚",
+            "quote": null,
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "技术正确性：把乐观锁的能力说得过满了。",
+            "quote": "“乐观锁可以天然保证 Redis 和 MySQL 的强一致性。”",
+            "kind": "error"
+          },
+          {
+            "point": "技术正确性：补偿失败的时序边界没有完全讲清。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "分析与取舍：对替代方案的副作用对比还不够细。",
+            "quote": null,
+            "kind": "missing"
+          }
+        ]
+      ]
+    },
+    {
+      "caseId": "q-r22ixxwp",
+      "meanScores": {
+        "base": 83.66666666666667,
+        "err": 65,
+        "drop": 74,
+        "fluff": 36,
+        "para": 84,
+        "offtopic": 6.666666666666667
+      },
+      "ordering": true,
+      "paraphraseStable": true,
+      "errorLocated": false,
+      "errorLowered": true,
+      "retestStd": {
+        "base": 2.5166114784235836,
+        "err": 26.851443164195103,
+        "drop": 1.7320508075688772,
+        "fluff": 3.4641016151377544,
+        "para": 1.7320508075688772,
+        "offtopic": 1.5275252316519465
+      },
+      "wrongClaim": "退款状态机漏配规则时，最安全的做法是统一默认流转到退款成功",
+      "errWeaknesses": [
+        [
+          {
+            "point": "缺少这次重构的结果量化或验证方式。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "第 1 层追问里提到‘怎么真正跑起来’，但没有更具体地讲规则加载、匹配顺序或实际执行链路的工程实现。",
+            "quote": "“程序收到一次退款请求后，会先根据当前状态和事件筛出候选规则，再按业务条件和优先级命中一条”",
+            "kind": "missing"
+          },
+          {
+            "point": "没有展开配置化前后的对比，以及为什么要从原有实现切到状态表方案。",
+            "quote": null,
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "缺少对重构前后方案差异、为何这样设计的更深入解释。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "缺少结果指标、验证方式或压测/灰度效果，难以判断实际收益。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "缺少更具体的故障排查或补救闭环描述，复盘深度不足。",
+            "quote": null,
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "事实与细节：缺少可量化结果和验证方式，比如重构后错误率、效率提升、灰度范围、回归覆盖率。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "事实与细节：没有展开一次具体异常排查或线上问题的根因与补救动作，深度还停留在设计层。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "岗位关联：没有进一步说明状态机/配置化经验如何迁移到目标岗位的 API 服务、模型上线或内部工具建设。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "复盘与表达：复盘更多是“怎么做”，较少说明为什么这样取舍、有哪些替代方案以及后来新增了什么机制。",
+            "quote": null,
+            "kind": "missing"
+          }
+        ]
+      ]
+    },
+    {
+      "caseId": "q-saopzs3w",
+      "meanScores": {
+        "base": 82.66666666666667,
+        "err": 75.66666666666667,
+        "drop": 80,
+        "fluff": 43.333333333333336,
+        "para": 81.33333333333333,
+        "offtopic": 60
+      },
+      "ordering": true,
+      "paraphraseStable": true,
+      "errorLocated": false,
+      "errorLowered": true,
+      "retestStd": {
+        "base": 1.5275252316519468,
+        "err": 0.5773502691896257,
+        "drop": 1.7320508075688772,
+        "fluff": 4.509249752822894,
+        "para": 0.5773502691896257,
+        "offtopic": 22.538855339169288
+      },
+      "wrongClaim": "固定长度切分天然不会破坏语义边界，所以检索效果一定更好。",
+      "errWeaknesses": [
+        [
+          {
+            "point": "评测集来源与覆盖范围还不够具体。",
+            "quote": "“用自建的 60 条问答评测出来的，题目覆盖定义题、对比题、流程题和历年题。”",
+            "kind": "missing"
+          },
+          {
+            "point": "“18 个百分点”的统计口径不够清晰，缺少判定标准和误差说明。",
+            "quote": "“按命中率统计，标题层级切分相比固定长度高了 18 个百分点。”",
+            "kind": "missing"
+          },
+          {
+            "point": "岗位关联不足，没有继续把经验落到目标岗位的产品/API/稳定性场景。",
+            "quote": "“固定长度切分虽然简单，但很容易把前提、定义、例外条件切开，检索时只捞到半段，回答就容易缺上下文。”",
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "对‘18 个百分点’的测量口径还不够严谨",
+            "quote": "“按命中率统计，标题层级切分相比固定长度高了 18 个百分点”",
+            "kind": "error"
+          },
+          {
+            "point": "对切分优劣的表述过于绝对",
+            "quote": "“固定长度切分天然不会破坏语义边界，所以检索效果一定更好”",
+            "kind": "error"
+          },
+          {
+            "point": "第 1 层追问：没有展开评测集来源的采样方式与覆盖是否均衡",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "第 2 层追问：没有说明结构化输出失败时的兜底、校验或重试机制",
+            "quote": null,
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "缺少对 18 个百分点指标口径的精确定义",
+            "quote": "按命中率统计，标题层级切分相比固定长度高了 18 个百分点。",
+            "kind": "error"
+          },
+          {
+            "point": "缺少评测集构造方法和去偏说明",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "第 1 层追问可补：为什么这个命中率变化能代表最终回答质量提升",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "与目标岗位的后台工程能力关联不够强",
+            "quote": "我当时选按标题层级切分，核心是课程资料本身就有很强的结构",
+            "kind": "error"
+          }
+        ]
+      ]
+    },
+    {
+      "caseId": "q-st4e9dzw",
+      "meanScores": {
+        "base": 82,
+        "err": 75.66666666666667,
+        "drop": 78,
+        "fluff": 58,
+        "para": 82.66666666666667,
+        "offtopic": 57
+      },
+      "ordering": true,
+      "paraphraseStable": true,
+      "errorLocated": true,
+      "errorLowered": true,
+      "retestStd": {
+        "base": 1.7320508075688772,
+        "err": 2.081665999466133,
+        "drop": 2.6457513110645907,
+        "fluff": 1,
+        "para": 1.1547005383792517,
+        "offtopic": 21.79449471770337
+      },
+      "wrongClaim": "Spring 的 @Transactional 能保证跨 MySQL 和 RabbitMQ 天然原子一致。",
+      "errWeaknesses": [
+        [
+          {
+            "point": "技术正确性：事务与 MQ 的原子性表述不准确。",
+            "quote": "Spring 的 @Transactional 能保证跨 MySQL 和 RabbitMQ 天然原子一致。",
+            "kind": "error"
+          },
+          {
+            "point": "追问 1：没有进一步展开“哪几张表、哪些步骤必须同事务、哪些拆出去”的完整边界。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "追问 2：没有回答配置化方案在并发冲突、配置错误治理、可观测性/验证上的具体取舍。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "补充层面：没有提到 Spring 常见事务失效点，如自调用、传播行为、异常回滚规则。",
+            "quote": null,
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "追问 1 下没有说明哪些步骤必须放进同一个事务、哪些必须拆出去的边界原则。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "没有提到 Spring 事务在真实项目里的常见失效点，比如自调用、传播行为、回滚规则。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "“Spring 的 @Transactional 能保证跨 MySQL 和 RabbitMQ 天然原子一致”表述不准确，容易给人错误印象。",
+            "quote": "Spring 的 @Transactional 能保证跨 MySQL 和 RabbitMQ 天然原子一致。",
+            "kind": "error"
+          },
+          {
+            "point": "追问 2 下没有展开并发流转时如何防重复、如何处理冲突重试，只停留在配置化减少 if/else。",
+            "quote": null,
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "技术正确性：把数据库事务和 RabbitMQ 说成天然原子一致，表述不准确。",
+            "quote": "“Spring 的 @Transactional 能保证跨 MySQL 和 RabbitMQ 天然原子一致。”",
+            "kind": "error"
+          },
+          {
+            "point": "技术正确性：没有回答 Spring 失效点这一层，例如自调用、传播行为、回滚规则。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "分析与取舍：没有展开配置化状态机的代价和适用边界。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "表达结构：追问 1 要求具体流转例子、表级别改动和同事务/拆出边界，但回答只给了泛化描述。",
+            "quote": null,
+            "kind": "missing"
+          }
+        ]
+      ]
+    },
+    {
+      "caseId": "q-sxpn0r44",
+      "meanScores": {
+        "base": 81.33333333333333,
+        "err": 82,
+        "drop": 79.33333333333333,
+        "fluff": 36,
+        "para": 82.33333333333333,
+        "offtopic": 48
+      },
+      "ordering": true,
+      "paraphraseStable": true,
+      "errorLocated": false,
+      "errorLowered": false,
+      "retestStd": {
+        "base": 1.1547005383792517,
+        "err": 1.7320508075688772,
+        "drop": 2.0816659994661326,
+        "fluff": 8.54400374531753,
+        "para": 0.5773502691896257,
+        "offtopic": 10.816653826391969
+      },
+      "wrongClaim": "Spring Boot 的状态机配置一旦加载后运行期不能动态更新",
+      "errWeaknesses": [
+        [
+          {
+            "point": "追问1-1：‘7种状态、23条规则’的形成机制还不够具体，缺少一条规则从旧代码到新表的逐项映射。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "追问1-2：没有明确说明最容易出错流转在旧逻辑里具体是哪段判断、为什么会错。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "追问1-2：新表里这一条规则具体怎么配置、如何确认正确性，讲得偏结论。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "复盘层面偏“怎么做”，对取舍、失败尝试和机制化沉淀讲得不够。",
+            "quote": "“最后收益就是判断代码大概少了 40%，后面新增规则也不用再改很多处分支。”",
+            "kind": "error"
+          }
+        ],
+        [
+          {
+            "point": "缺少一条最具体、最可核验的规则来源示例，比如某条规则如何由某个历史工单/旧代码分支推导出来",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "对追问 1-2 中“最容易出错的流转”虽然讲了场景，但还没完全说透旧逻辑与新表规则的逐条对应关系",
+            "quote": "“然后用历史案例和测试用例回放确认新表应该只允许从指定状态在指定事件下进入重新申请。”",
+            "kind": "error"
+          },
+          {
+            "point": "对个人工作边界的量化还不够，哪些是你独立产出、哪些是协作输入没有完全拆开",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "结果描述偏笼统，缺少更明确的收益衡量口径和代价说明",
+            "quote": "“最后收益就是判断代码大概少了 40%”",
+            "kind": "error"
+          }
+        ],
+        [
+          {
+            "point": "追问到规则来源这一层时，还没有给出一条具体规则的形成过程和证据链。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "对“旧逻辑里怎么写、你怎么确认新表里的规则应该怎么配”讲得偏概括，缺少具体分支和判定条件。",
+            "quote": "“旧逻辑里这个分支散在两个 service 和一个回调处理里，既看售后单状态，也夹杂履约状态判断”",
+            "kind": "error"
+          },
+          {
+            "point": "虽然提到了收益，但没有展开验证口径，40% 这个结论缺少度量方法说明。",
+            "quote": "“最后收益就是判断代码大概少了 40%”",
+            "kind": "error"
+          }
+        ]
+      ]
+    },
+    {
+      "caseId": "q-txotmfxu",
+      "meanScores": {
+        "base": 88,
+        "err": 73.66666666666667,
+        "drop": 82.66666666666667,
+        "fluff": 52.333333333333336,
+        "para": 84.66666666666667,
+        "offtopic": 11.333333333333334
+      },
+      "ordering": true,
+      "paraphraseStable": true,
+      "errorLocated": true,
+      "errorLowered": true,
+      "retestStd": {
+        "base": 1.7320508075688772,
+        "err": 26.633312473917574,
+        "drop": 0.5773502691896257,
+        "fluff": 6.110100926607787,
+        "para": 4.041451884327381,
+        "offtopic": 4.509249752822894
+      },
+      "wrongClaim": "load average 只统计正在占用 CPU 的进程数",
+      "errWeaknesses": [
+        [
+          {
+            "point": "追问 1 中没有进一步回答“单台慢/多台慢”时该优先怀疑什么，以及如何快速分流。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "对线程池/连接池的排查虽然提到，但没有说明如何结合现象判断是线程池打满、下游慢还是锁竞争。",
+            "quote": null,
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "追问 1 的失守点：还没区分单台慢/多台慢时，优先怀疑发布差异还是资源瓶颈。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "对外部依赖慢的判断还可以更落到“先确认是否全局异常、是否只有单机异常”的取舍上。",
+            "quote": null,
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "追问到“单台慢/多台慢”的进一步区分时没有展开。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "对 load average 与 CPU 利用率的关系可以再讲得更精确一些，避免只停留在“D 状态导致高 load”的结论。",
+            "quote": "load average 只统计正在占用 CPU 的进程数。",
+            "kind": "error"
+          }
+        ]
+      ]
+    },
+    {
+      "caseId": "q-u3iog0vp",
+      "meanScores": {
+        "base": 75.66666666666667,
+        "err": 74.66666666666667,
+        "drop": 72.33333333333333,
+        "fluff": 33.666666666666664,
+        "para": 78,
+        "offtopic": 11.333333333333334
+      },
+      "ordering": true,
+      "paraphraseStable": true,
+      "errorLocated": false,
+      "errorLowered": true,
+      "retestStd": {
+        "base": 3.214550253664318,
+        "err": 3.055050463303893,
+        "drop": 2.0816659994661326,
+        "fluff": 19.629909152447276,
+        "para": 1,
+        "offtopic": 5.8594652770823155
+      },
+      "wrongClaim": "MySQL 的 JSON 字段天然支持跨表外键约束校验",
+      "errWeaknesses": [
+        [
+          {
+            "point": "第三层追问里，规则设计与匹配机制没有讲到足够可核验的细节",
+            "quote": "“启动时加载到内存并按 from_status + biz_type 分组。”",
+            "kind": "missing"
+          },
+          {
+            "point": "对“线上临时改规则如何避免误伤其他路径”的控制手段，回答偏原则化，缺少实际实现细节，比如优先级冲突处理、回滚机制、命中顺序、校验工具等",
+            "quote": "“新增更高 version 的规则并灰度开 enabled，配套做规则级单测和关键路径回放”",
+            "kind": "missing"
+          },
+          {
+            "point": "存在明显不准确的技术表述，会影响可信度",
+            "quote": "“MySQL 的 JSON 字段天然支持跨表外键约束校验。”",
+            "kind": "error"
+          },
+          {
+            "point": "没有补出真实排查/验证过程，无法看到假设-验证-根因的闭环",
+            "quote": null,
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "第三层追问里对规则如何真正落地到运行时匹配讲得不够具体，缺少表达式解析、冲突处理和可控性设计。",
+            "quote": null,
+            "kind": "error"
+          },
+          {
+            "point": "对“临时改线上规则怎么保证不影响别的流转路径”的回答偏概念化，缺少具体隔离、校验和回滚手段。",
+            "quote": "“我们不是直接改老规则，而是新增更高 version 的规则并灰度开 enabled，配套做规则级单测和关键路径回放”",
+            "kind": "error"
+          },
+          {
+            "point": "缺少真实排查/验证过程的展开，尤其是如何确认规则正确、如何发现并修正问题。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "没有把结果量化口径说清楚，面试中提到的代码量减少等收益没有在这段回答里建立可核验依据。",
+            "quote": null,
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "第三层追问里，对条件表达式如何真正执行缺少说明",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "第三层追问里，对规则冲突/优先级/覆盖关系的控制方式没有展开",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "第三层追问里，对线上临时改规则如何做 diff、验证和回滚没有讲到可操作流程",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "“MySQL 的 JSON 字段天然支持跨表外键约束校验”这句技术上不成立",
+            "quote": "“MySQL 的 JSON 字段天然支持跨表外键约束校验。”",
+            "kind": "error"
+          }
+        ]
+      ]
+    },
+    {
+      "caseId": "q-u4j3iykn",
+      "meanScores": {
+        "base": 89.33333333333333,
+        "err": 89.66666666666667,
+        "drop": 85.66666666666667,
+        "fluff": 39.333333333333336,
+        "para": 87,
+        "offtopic": 9
+      },
+      "ordering": true,
+      "paraphraseStable": true,
+      "errorLocated": false,
+      "errorLowered": false,
+      "retestStd": {
+        "base": 1.1547005383792517,
+        "err": 1.5275252316519468,
+        "drop": 0.5773502691896257,
+        "fluff": 6.506407098647712,
+        "para": 1,
+        "offtopic": 6.082762530298219
+      },
+      "wrongClaim": "load average 只统计正在占用 CPU 的进程，不包含阻塞态任务",
+      "errWeaknesses": [
+        [
+          {
+            "point": "追问 1：当 iostat 不忙、vmstat runnable 也不多时，缺少把‘内核资源/锁/网络’再进一步定性的更明确判据",
+            "quote": null,
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "load average 的机制表述不准确。",
+            "quote": "load average 只统计正在占用 CPU 的进程，不包含阻塞态任务。",
+            "kind": "error"
+          },
+          {
+            "point": "对追问 1 中“iostat 看不出磁盘忙、runnable 也不多”后的内核资源/锁/网络区分，还可以更系统地补全判断链。",
+            "quote": null,
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "追问1里要求把“等内核资源、等锁、还是等网络”进一步缩小，回答里还偏通用，缺少更明确的判别路径。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "对“load 高但 runnable 不多”的场景，虽然提到了阻塞态和 wchan，但没有明确说如何区分内核资源等待与网络等待时的关键现象组合。",
+            "quote": null,
+            "kind": "missing"
+          }
+        ]
+      ]
+    },
+    {
+      "caseId": "q-wflzymvw",
+      "meanScores": {
+        "base": 87,
+        "err": 72.33333333333333,
+        "drop": 90.66666666666667,
+        "fluff": 8.666666666666666,
+        "para": 88.33333333333333,
+        "offtopic": 27.666666666666668
+      },
+      "ordering": false,
+      "paraphraseStable": true,
+      "errorLocated": true,
+      "errorLowered": true,
+      "retestStd": {
+        "base": 0,
+        "err": 21.939310229205777,
+        "drop": 0.5773502691896257,
+        "fluff": 2.8867513459481287,
+        "para": 1.5275252316519468,
+        "offtopic": 7.023769168568492
+      },
+      "wrongClaim": "同类内部调用时，@Transactional 一定照常生效，因为 Spring 会字节码织入所有方法",
+      "errWeaknesses": [
+        [
+          {
+            "point": "对“同类内部调用时事务照常生效”的表述是错误的，属于反向表述",
+            "quote": "同类内部调用时，@Transactional 一定照常生效，因为 Spring 会字节码织入所有方法。",
+            "kind": "error"
+          },
+          {
+            "point": "没有展开追问到的 TransactionTemplate 修法与事务边界控制，和该轮次参考深度相比略少",
+            "quote": null,
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "对修法的第三种常见方式未展开：TransactionTemplate。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "对拆类修法的副作用只提了内聚性，没把依赖注入后的边界问题讲完整。",
+            "quote": "坑是为了事务硬拆类，可能把本来内聚的逻辑拆散，而且如果异常在外层被吃掉，默认规则下也可能不回滚。",
+            "kind": "error"
+          }
+        ],
+        [
+          {
+            "point": "知识点表述错误：同类内部调用仍然生效的说法不对",
+            "quote": "同类内部调用时，@Transactional 一定照常生效，因为 Spring 会字节码织入所有方法。",
+            "kind": "error"
+          },
+          {
+            "point": "对“拆到另一个 Bean”方案的副作用讲得还不够完整",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "对通过代理自调方案的实现细节和风险还可更明确，比如 exposeProxy 的前置条件、循环依赖问题的具体触发方式",
+            "quote": "坑是代码可读性差，还依赖 exposeProxy 配置，写不好容易有循环依赖或代理拿不到的问题",
+            "kind": "missing"
+          }
+        ]
+      ]
+    },
+    {
+      "caseId": "q-x1x9ewy6",
+      "meanScores": {
+        "base": 79,
+        "err": 74.33333333333333,
+        "drop": 73.33333333333333,
+        "fluff": 30.333333333333332,
+        "para": 79.33333333333333,
+        "offtopic": 21.666666666666668
+      },
+      "ordering": true,
+      "paraphraseStable": true,
+      "errorLocated": false,
+      "errorLowered": true,
+      "retestStd": {
+        "base": 1,
+        "err": 4.725815626252608,
+        "drop": 4.509249752822894,
+        "fluff": 9.865765724632496,
+        "para": 3.7859388972001824,
+        "offtopic": 4.041451884327381
+      },
+      "wrongClaim": "Redis Lua 脚本执行时可以自动回滚 MySQL 事务",
+      "errWeaknesses": [
+        [
+          {
+            "point": "校验逻辑与执行链路之间的实现细节不够准确，存在技术表述混淆",
+            "quote": "“Redis Lua 脚本执行时可以自动回滚 MySQL 事务。”",
+            "kind": "error"
+          },
+          {
+            "point": "对三类职责边界的说明还不够颗粒度化，没讲清具体哪些代码由谁写",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "缺少重构动机、收益、取舍和结果验证，复盘不完整",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "没有补充与岗位相关的稳定性、可维护性、接口协作或线上问题处理经验",
+            "quote": null,
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "对追问到的职责边界，缺少更细的可核验事实：具体文件、类、接口或关键逻辑边界没说出来",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "对状态表、校验器、流转执行三块的主导关系说了，但没有解释各自为什么这么拆、有哪些方案对比",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "回答里出现了与当前问题无关甚至可能不准确的技术表述，削弱可信度",
+            "quote": "“Redis Lua 脚本执行时可以自动回滚 MySQL 事务。”",
+            "kind": "error"
+          }
+        ],
+        [
+          {
+            "point": "缺少更细的可核验实现证据。",
+            "quote": null,
+            "kind": "error"
+          },
+          {
+            "point": "没有回答出更深一层的取舍、收益和复盘。",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "没有补充这次重构与目标岗位的更直接关联，比如服务治理、稳定性、上线协作等。",
+            "quote": null,
+            "kind": "missing"
+          }
+        ]
+      ]
+    },
+    {
+      "caseId": "q-xno1himp",
+      "meanScores": {
+        "base": 85.66666666666667,
+        "err": 82,
+        "drop": 84.33333333333333,
+        "fluff": 41,
+        "para": 86,
+        "offtopic": 71
+      },
+      "ordering": true,
+      "paraphraseStable": true,
+      "errorLocated": true,
+      "errorLowered": true,
+      "retestStd": {
+        "base": 0.5773502691896257,
+        "err": 2.6457513110645907,
+        "drop": 0.5773502691896257,
+        "fluff": 4.358898943540674,
+        "para": 0,
+        "offtopic": 6
+      },
+      "wrongClaim": "MySQL 的乐观锁冲突后数据库会自动把失败请求识别成重复请求。",
+      "errWeaknesses": [
+        [
+          {
+            "point": "技术正确性：把数据库冲突直接等同于业务重复请求，语义不够准确",
+            "quote": "MySQL 的乐观锁冲突后数据库会自动把失败请求识别成重复请求。",
+            "kind": "error"
+          },
+          {
+            "point": "追问 1：并发竞争失败后如何区分“重复请求”和“系统异常”的判定条件还不够细",
+            "quote": null,
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "对“条件更新失败”与“重复请求”的关系表述不够严谨",
+            "quote": "MySQL 的乐观锁冲突后数据库会自动把失败请求识别成重复请求。",
+            "kind": "error"
+          },
+          {
+            "point": "没有明确说明失败分支里，什么条件下返回“重复请求/已受理”，什么条件下返回真正的冲突或异常",
+            "quote": null,
+            "kind": "missing"
+          },
+          {
+            "point": "对悲观锁的替代方案分析还不够完整，缺少锁粒度、事务时长、热点竞争等更细的取舍",
+            "quote": null,
+            "kind": "missing"
+          }
+        ],
+        [
+          {
+            "point": "对追问 1：‘失败的那个你会怎么处理返回结果，前端或调用方怎么感知是重复请求而不是系统异常？’ 还可以更精确地区分状态码与业务码。",
+            "quote": "前端拿到的应该是稳定业务码，比如已提交退款申请。",
+            "kind": "missing"
+          },
+          {
+            "point": "对追问 1：‘为什么这里不用悲观锁把整笔退款单先锁住？’ 还缺少对悲观锁代价和适用场景的更完整边界说明。",
+            "quote": "至于不用悲观锁，是因为退款链路并发高时会把整行长时间锁住，容易放大锁等待和连接占用",
+            "kind": "missing"
+          },
+          {
+            "point": "“MySQL 的乐观锁冲突后数据库会自动把失败请求识别成重复请求”这一句表述不严谨。",
+            "quote": "MySQL 的乐观锁冲突后数据库会自动把失败请求识别成重复请求。",
+            "kind": "error"
+          }
+        ]
+      ]
+    }
+  ]
+}

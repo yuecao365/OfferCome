@@ -1,0 +1,1808 @@
+{
+  "label": "baseline-1",
+  "kind": "coverage",
+  "createdAt": "2026-09-09T15:31:32.205Z",
+  "git": {
+    "commit": "54fdc2e",
+    "dirty": true
+  },
+  "models": {
+    "main": "openai/gpt-5.4-mini",
+    "aux": "deepseek/deepseek-chat",
+    "auxSameFamily": false
+  },
+  "promptVersions": {
+    "blueprint": "job_blueprint",
+    "brief": "interviewer-v4"
+  },
+  "k": 2,
+  "topicsGeneratedAt": "2026-09-09T12:51:39.682Z",
+  "judges": [
+    {
+      "kind": "topic",
+      "accuracy": {
+        "value": 0.975,
+        "numerator": 78,
+        "denominator": 80
+      },
+      "positives": {
+        "value": 0.975,
+        "numerator": 39,
+        "denominator": 40
+      },
+      "negatives": {
+        "value": 0.975,
+        "numerator": 39,
+        "denominator": 40
+      },
+      "trusted": true
+    }
+  ],
+  "metrics": {
+    "ai-llm.weightedCoverage": {
+      "value": 0.20253164556962025,
+      "numerator": 64,
+      "denominator": 316
+    },
+    "ai-llm.plainCoverage": {
+      "value": 0.11486486486486487,
+      "numerator": 17,
+      "denominator": 148
+    },
+    "ai-llm.ladderProgressRate": {
+      "value": 0.7368421052631579,
+      "numerator": 14,
+      "denominator": 19
+    },
+    "ai-llm.baselineAreaShare": {
+      "value": 0.3157894736842105,
+      "numerator": 6,
+      "denominator": 19
+    },
+    "frontend.weightedCoverage": {
+      "value": 0.11538461538461539,
+      "numerator": 30,
+      "denominator": 260
+    },
+    "frontend.plainCoverage": {
+      "value": 0.075,
+      "numerator": 12,
+      "denominator": 160
+    },
+    "frontend.ladderProgressRate": {
+      "value": 0.5,
+      "numerator": 10,
+      "denominator": 20
+    },
+    "frontend.baselineAreaShare": {
+      "value": 0.3,
+      "numerator": 6,
+      "denominator": 20
+    },
+    "backend.weightedCoverage": {
+      "value": 0.26773049645390073,
+      "numerator": 151,
+      "denominator": 564
+    },
+    "backend.plainCoverage": {
+      "value": 0.2,
+      "numerator": 32,
+      "denominator": 160
+    },
+    "backend.ladderProgressRate": {
+      "value": 0.6666666666666666,
+      "numerator": 14,
+      "denominator": 21
+    },
+    "backend.baselineAreaShare": {
+      "value": 0.5714285714285714,
+      "numerator": 12,
+      "denominator": 21
+    },
+    "test-qa.weightedCoverage": {
+      "value": 0.0392156862745098,
+      "numerator": 8,
+      "denominator": 204
+    },
+    "test-qa.plainCoverage": {
+      "value": 0.05,
+      "numerator": 6,
+      "denominator": 120
+    },
+    "test-qa.ladderProgressRate": {
+      "value": 0.55,
+      "numerator": 11,
+      "denominator": 20
+    },
+    "test-qa.baselineAreaShare": {
+      "value": 0.3,
+      "numerator": 6,
+      "denominator": 20
+    },
+    "infra.weightedCoverage": {
+      "value": 0.15048543689320387,
+      "numerator": 62,
+      "denominator": 412
+    },
+    "infra.plainCoverage": {
+      "value": 0.1,
+      "numerator": 16,
+      "denominator": 160
+    },
+    "infra.ladderProgressRate": {
+      "value": 0.5909090909090909,
+      "numerator": 13,
+      "denominator": 22
+    },
+    "infra.baselineAreaShare": {
+      "value": 0.3181818181818182,
+      "numerator": 7,
+      "denominator": 22
+    }
+  },
+  "roles": [
+    {
+      "role": "ai-llm",
+      "briefs": 4,
+      "weightedCoverage": {
+        "value": 0.20253164556962025,
+        "numerator": 64,
+        "denominator": 316
+      },
+      "plainCoverage": {
+        "value": 0.11486486486486487,
+        "numerator": 17,
+        "denominator": 148
+      },
+      "ladderProgressRate": {
+        "value": 0.7368421052631579,
+        "numerator": 14,
+        "denominator": 19
+      },
+      "baselineAreaShare": {
+        "value": 0.3157894736842105,
+        "numerator": 6,
+        "denominator": 19
+      },
+      "missed": [
+        {
+          "id": "model-selection-and-routing",
+          "name": "模型选型策略",
+          "count": 4,
+          "missedIn": 4
+        },
+        {
+          "id": "rag-evaluation",
+          "name": "RAG评测",
+          "count": 3,
+          "missedIn": 4
+        },
+        {
+          "id": "slow-query-optimization",
+          "name": "SQL慢查询优化",
+          "count": 2,
+          "missedIn": 4
+        },
+        {
+          "id": "sse-streaming",
+          "name": "SSE流式通信",
+          "count": 2,
+          "missedIn": 4
+        },
+        {
+          "id": "lora-finetuning",
+          "name": "LoRA微调",
+          "count": 2,
+          "missedIn": 4
+        },
+        {
+          "id": "skill-and-harness",
+          "name": "Skill与编排",
+          "count": 2,
+          "missedIn": 4
+        },
+        {
+          "id": "database-sharding",
+          "name": "分库分表",
+          "count": 2,
+          "missedIn": 4
+        },
+        {
+          "id": "hallucination-mitigation",
+          "name": "幻觉抑制",
+          "count": 1,
+          "missedIn": 4
+        }
+      ]
+    },
+    {
+      "role": "frontend",
+      "briefs": 4,
+      "weightedCoverage": {
+        "value": 0.11538461538461539,
+        "numerator": 30,
+        "denominator": 260
+      },
+      "plainCoverage": {
+        "value": 0.075,
+        "numerator": 12,
+        "denominator": 160
+      },
+      "ladderProgressRate": {
+        "value": 0.5,
+        "numerator": 10,
+        "denominator": 20
+      },
+      "baselineAreaShare": {
+        "value": 0.3,
+        "numerator": 6,
+        "denominator": 20
+      },
+      "missed": [
+        {
+          "id": "browser-storage-and-cookie",
+          "name": "浏览器存储与Cookie",
+          "count": 5,
+          "missedIn": 4
+        },
+        {
+          "id": "http-cache",
+          "name": "HTTP缓存机制",
+          "count": 4,
+          "missedIn": 4
+        },
+        {
+          "id": "routing-and-permission",
+          "name": "路由与权限控制",
+          "count": 3,
+          "missedIn": 4
+        },
+        {
+          "id": "agent-and-mcp-integration",
+          "name": "Agent与MCP集成",
+          "count": 3,
+          "missedIn": 4
+        },
+        {
+          "id": "code-index-and-analysis",
+          "name": "代码索引与静态分析",
+          "count": 2,
+          "missedIn": 4
+        },
+        {
+          "id": "vue-state-management",
+          "name": "Vue状态管理",
+          "count": 2,
+          "missedIn": 4
+        },
+        {
+          "id": "javascript-prototype",
+          "name": "JS原型链与继承",
+          "count": 2,
+          "missedIn": 4
+        },
+        {
+          "id": "project-refactoring",
+          "name": "前端项目重构",
+          "count": 2,
+          "missedIn": 4
+        }
+      ]
+    },
+    {
+      "role": "backend",
+      "briefs": 4,
+      "weightedCoverage": {
+        "value": 0.26773049645390073,
+        "numerator": 151,
+        "denominator": 564
+      },
+      "plainCoverage": {
+        "value": 0.2,
+        "numerator": 32,
+        "denominator": 160
+      },
+      "ladderProgressRate": {
+        "value": 0.6666666666666666,
+        "numerator": 14,
+        "denominator": 21
+      },
+      "baselineAreaShare": {
+        "value": 0.5714285714285714,
+        "numerator": 12,
+        "denominator": 21
+      },
+      "missed": [
+        {
+          "id": "redis-cache-design-and-issues",
+          "name": "Redis缓存设计",
+          "count": 8,
+          "missedIn": 4
+        },
+        {
+          "id": "network-protocols-and-request-flow",
+          "name": "网络协议与请求链路",
+          "count": 6,
+          "missedIn": 4
+        },
+        {
+          "id": "java-basics-and-collections",
+          "name": "Java基础与集合",
+          "count": 4,
+          "missedIn": 4
+        },
+        {
+          "id": "websocket-and-realtime-communication",
+          "name": "WebSocket实时通信",
+          "count": 3,
+          "missedIn": 4
+        },
+        {
+          "id": "authentication-and-authorization",
+          "name": "认证与权限控制",
+          "count": 3,
+          "missedIn": 4
+        },
+        {
+          "id": "agent-memory-and-hallucination",
+          "name": "Agent记忆与幻觉",
+          "count": 2,
+          "missedIn": 4
+        },
+        {
+          "id": "social-feed-design",
+          "name": "社交Feed设计",
+          "count": 2,
+          "missedIn": 4
+        },
+        {
+          "id": "linux-and-deployment",
+          "name": "Linux与部署运维",
+          "count": 2,
+          "missedIn": 4
+        }
+      ]
+    },
+    {
+      "role": "test-qa",
+      "briefs": 4,
+      "weightedCoverage": {
+        "value": 0.0392156862745098,
+        "numerator": 8,
+        "denominator": 204
+      },
+      "plainCoverage": {
+        "value": 0.05,
+        "numerator": 6,
+        "denominator": 120
+      },
+      "ladderProgressRate": {
+        "value": 0.55,
+        "numerator": 11,
+        "denominator": 20
+      },
+      "baselineAreaShare": {
+        "value": 0.3,
+        "numerator": 6,
+        "denominator": 20
+      },
+      "missed": [
+        {
+          "id": "linux-ji-chu-yu-pai-zhang",
+          "name": "Linux基础与排障",
+          "count": 6,
+          "missedIn": 4
+        },
+        {
+          "id": "shu-ju-ku-suo-yin-yu-you-hua",
+          "name": "数据库索引优化",
+          "count": 4,
+          "missedIn": 4
+        },
+        {
+          "id": "tcp-udp-yu-ke-kao-chuan-shu",
+          "name": "TCP/UDP与可靠传输",
+          "count": 4,
+          "missedIn": 4
+        },
+        {
+          "id": "jin-cheng-xian-cheng-yu-si-suo",
+          "name": "进程线程与死锁",
+          "count": 3,
+          "missedIn": 4
+        },
+        {
+          "id": "k8s-ji-chu-cao-zuo",
+          "name": "K8s基础操作",
+          "count": 2,
+          "missedIn": 4
+        },
+        {
+          "id": "sql-ju-he-pai-ming-cha-xun",
+          "name": "SQL聚合排名",
+          "count": 2,
+          "missedIn": 4
+        },
+        {
+          "id": "ce-shi-fang-fa-yu-fen-lei",
+          "name": "测试方法与分类",
+          "count": 2,
+          "missedIn": 4
+        },
+        {
+          "id": "redis-yu-huan-cun-yi-zhi-xing",
+          "name": "Redis与缓存一致性",
+          "count": 2,
+          "missedIn": 4
+        }
+      ]
+    },
+    {
+      "role": "infra",
+      "briefs": 4,
+      "weightedCoverage": {
+        "value": 0.15048543689320387,
+        "numerator": 62,
+        "denominator": 412
+      },
+      "plainCoverage": {
+        "value": 0.1,
+        "numerator": 16,
+        "denominator": 160
+      },
+      "ladderProgressRate": {
+        "value": 0.5909090909090909,
+        "numerator": 13,
+        "denominator": 22
+      },
+      "baselineAreaShare": {
+        "value": 0.3181818181818182,
+        "numerator": 7,
+        "denominator": 22
+      },
+      "missed": [
+        {
+          "id": "jiankong-gaojing-tixi",
+          "name": "监控告警体系",
+          "count": 5,
+          "missedIn": 4
+        },
+        {
+          "id": "mysql-gaokeyong-yu-fuzhi",
+          "name": "MySQL高可用复制",
+          "count": 4,
+          "missedIn": 4
+        },
+        {
+          "id": "mysq1-mancha-yu-youhua",
+          "name": "MySQL慢查询优化",
+          "count": 3,
+          "missedIn": 4
+        },
+        {
+          "id": "monitoring-prometheus",
+          "name": "Prometheus监控",
+          "count": 3,
+          "missedIn": 4
+        },
+        {
+          "id": "nginx-yu-fuzaijunheng",
+          "name": "Nginx与负载均衡",
+          "count": 3,
+          "missedIn": 4
+        },
+        {
+          "id": "ceph-cunchu",
+          "name": "Ceph分布式存储",
+          "count": 3,
+          "missedIn": 4
+        },
+        {
+          "id": "jiaoben-yuzidonghua",
+          "name": "脚本自动化",
+          "count": 3,
+          "missedIn": 4
+        },
+        {
+          "id": "wangluo-duankou-paizhang",
+          "name": "网络端口排障",
+          "count": 3,
+          "missedIn": 4
+        }
+      ]
+    }
+  ],
+  "briefs": [
+    {
+      "role": "ai-llm",
+      "jd": "tencent-hunyuan-agent-harness-engineer",
+      "rep": 1,
+      "covered": {
+        "rag-design-and-optimization": true,
+        "agent-context-and-memory": false,
+        "multi-agent-architecture": true,
+        "ai-coding-practice": false,
+        "agent-tools-and-mcp": true,
+        "model-selection-and-routing": false,
+        "rag-evaluation": false,
+        "agent-fault-tolerance": false,
+        "prompt-and-context-engineering": true,
+        "slow-query-optimization": false,
+        "agent-architecture-and-modes": false,
+        "sse-streaming": false,
+        "lora-finetuning": false,
+        "skill-and-harness": false,
+        "database-sharding": false,
+        "rag-knowledge-base-update": false,
+        "agent-evaluation-and-quality": true,
+        "hallucination-mitigation": false,
+        "vector-store-selection": false,
+        "redis-fundamentals": false,
+        "io-multiplexing": false,
+        "automated-testing": false,
+        "resource-cleanup": false,
+        "watch-consistency": false,
+        "agent-platform-integration": false,
+        "parameter-automation": false,
+        "log-collection-agent": false,
+        "intent-recognition": false,
+        "oauth-mcp-security": false,
+        "retrieval-rerank": false,
+        "multi-tenant-isolation": false,
+        "training-data-and-tuning": false,
+        "design-patterns": false,
+        "mysql-transaction-isolation": false,
+        "redis-lock-and-lua": false,
+        "mq-selection": false,
+        "concurrency-basics": false
+      },
+      "ladderProgressRate": {
+        "value": 0.6,
+        "numerator": 3,
+        "denominator": 5
+      },
+      "areaCount": 5,
+      "baselineAreaCount": 1,
+      "skillPacks": [
+        "project-deep-dive",
+        "ai-llm",
+        "system-design",
+        "backend",
+        "behavioral"
+      ],
+      "areas": [
+        "Agent 质量评估体系与 tracing/observability（technical）",
+        "Agent debugging、工具调用与 prompt/上下文工程（technical）",
+        "LLM/RAG 技术栈与工程化落地（technical）",
+        "后端系统设计：缓存、消息队列、一致性与可观测性（technical）",
+        "电商交易平台实习：退款状态机与库存超卖（project，基线）"
+      ]
+    },
+    {
+      "role": "ai-llm",
+      "jd": "tencent-hunyuan-agent-harness-engineer",
+      "rep": 2,
+      "covered": {
+        "rag-design-and-optimization": false,
+        "agent-context-and-memory": true,
+        "multi-agent-architecture": false,
+        "ai-coding-practice": true,
+        "agent-tools-and-mcp": false,
+        "model-selection-and-routing": false,
+        "rag-evaluation": false,
+        "agent-fault-tolerance": false,
+        "prompt-and-context-engineering": false,
+        "slow-query-optimization": false,
+        "agent-architecture-and-modes": true,
+        "sse-streaming": false,
+        "lora-finetuning": false,
+        "skill-and-harness": false,
+        "database-sharding": false,
+        "rag-knowledge-base-update": false,
+        "agent-evaluation-and-quality": false,
+        "hallucination-mitigation": false,
+        "vector-store-selection": false,
+        "redis-fundamentals": false,
+        "io-multiplexing": false,
+        "automated-testing": false,
+        "resource-cleanup": false,
+        "watch-consistency": false,
+        "agent-platform-integration": false,
+        "parameter-automation": false,
+        "log-collection-agent": false,
+        "intent-recognition": false,
+        "oauth-mcp-security": false,
+        "retrieval-rerank": false,
+        "multi-tenant-isolation": false,
+        "training-data-and-tuning": false,
+        "design-patterns": false,
+        "mysql-transaction-isolation": false,
+        "redis-lock-and-lua": false,
+        "mq-selection": false,
+        "concurrency-basics": false
+      },
+      "ladderProgressRate": {
+        "value": 0.8,
+        "numerator": 4,
+        "denominator": 5
+      },
+      "areaCount": 5,
+      "baselineAreaCount": 3,
+      "skillPacks": [
+        "behavioral",
+        "project-deep-dive",
+        "system-design",
+        "ai-llm",
+        "backend",
+        "backend-java",
+        "cs-fundamentals"
+      ],
+      "areas": [
+        "项目深挖：课程 RAG 问答助手（project，基线）",
+        "项目深挖：电商实习与后端工程（project，基线）",
+        "项目深挖：Spring Boot 电商后端架构与数据路径（project，基线）",
+        "技术面：Agentic coding 体感与 LLM/Agent 栈（technical）",
+        "技术面：LLM/RAG/Agent 基础与评估（technical）"
+      ]
+    },
+    {
+      "role": "ai-llm",
+      "jd": "tencent-pcg-ai-app-agent",
+      "rep": 1,
+      "covered": {
+        "rag-design-and-optimization": false,
+        "agent-context-and-memory": false,
+        "multi-agent-architecture": false,
+        "ai-coding-practice": false,
+        "agent-tools-and-mcp": true,
+        "model-selection-and-routing": false,
+        "rag-evaluation": false,
+        "agent-fault-tolerance": true,
+        "prompt-and-context-engineering": false,
+        "slow-query-optimization": false,
+        "agent-architecture-and-modes": false,
+        "sse-streaming": false,
+        "lora-finetuning": false,
+        "skill-and-harness": false,
+        "database-sharding": false,
+        "rag-knowledge-base-update": true,
+        "agent-evaluation-and-quality": false,
+        "hallucination-mitigation": false,
+        "vector-store-selection": false,
+        "redis-fundamentals": false,
+        "io-multiplexing": false,
+        "automated-testing": false,
+        "resource-cleanup": false,
+        "watch-consistency": false,
+        "agent-platform-integration": true,
+        "parameter-automation": false,
+        "log-collection-agent": false,
+        "intent-recognition": false,
+        "oauth-mcp-security": false,
+        "retrieval-rerank": false,
+        "multi-tenant-isolation": false,
+        "training-data-and-tuning": false,
+        "design-patterns": false,
+        "mysql-transaction-isolation": false,
+        "redis-lock-and-lua": false,
+        "mq-selection": false,
+        "concurrency-basics": false
+      },
+      "ladderProgressRate": {
+        "value": 0.6,
+        "numerator": 3,
+        "denominator": 5
+      },
+      "areaCount": 5,
+      "baselineAreaCount": 2,
+      "skillPacks": [
+        "behavioral",
+        "project-deep-dive",
+        "ai-llm"
+      ],
+      "areas": [
+        "课程资料 RAG 与效果评测/安全（technical）",
+        "Agent 工具调用、MCP 与稳定性（technical）",
+        "项目真实性：RAG 项目职责边界、决策与踩坑（project，基线）",
+        "Java 后端实习：状态机重构与线上问题排查（project）",
+        "动机、学习迁移与稳定性（behavioral，基线）"
+      ]
+    },
+    {
+      "role": "ai-llm",
+      "jd": "tencent-pcg-ai-app-agent",
+      "rep": 2,
+      "covered": {
+        "rag-design-and-optimization": false,
+        "agent-context-and-memory": true,
+        "multi-agent-architecture": false,
+        "ai-coding-practice": false,
+        "agent-tools-and-mcp": true,
+        "model-selection-and-routing": false,
+        "rag-evaluation": false,
+        "agent-fault-tolerance": true,
+        "prompt-and-context-engineering": false,
+        "slow-query-optimization": false,
+        "agent-architecture-and-modes": false,
+        "sse-streaming": false,
+        "lora-finetuning": false,
+        "skill-and-harness": false,
+        "database-sharding": false,
+        "rag-knowledge-base-update": false,
+        "agent-evaluation-and-quality": false,
+        "hallucination-mitigation": false,
+        "vector-store-selection": false,
+        "redis-fundamentals": false,
+        "io-multiplexing": false,
+        "automated-testing": false,
+        "resource-cleanup": false,
+        "watch-consistency": false,
+        "agent-platform-integration": true,
+        "parameter-automation": false,
+        "log-collection-agent": false,
+        "intent-recognition": true,
+        "oauth-mcp-security": false,
+        "retrieval-rerank": false,
+        "multi-tenant-isolation": false,
+        "training-data-and-tuning": false,
+        "design-patterns": false,
+        "mysql-transaction-isolation": false,
+        "redis-lock-and-lua": false,
+        "mq-selection": false,
+        "concurrency-basics": false
+      },
+      "ladderProgressRate": {
+        "value": 1,
+        "numerator": 4,
+        "denominator": 4
+      },
+      "areaCount": 4,
+      "baselineAreaCount": 0,
+      "skillPacks": [
+        "behavioral",
+        "project-deep-dive",
+        "ai-llm"
+      ],
+      "areas": [
+        "课程项目：RAG + 工具调用的真实边界与失败归因（project）",
+        "Agent / LLM 基础：工具调用、记忆与安全边界（technical）",
+        "后端项目：订单/交易链路的工程能力与一致性（project）",
+        "行为面：动机、协作与接受反馈（behavioral）"
+      ]
+    },
+    {
+      "role": "frontend",
+      "jd": "tencent-marvis-frontend",
+      "rep": 1,
+      "covered": {
+        "browser-storage-and-cookie": false,
+        "http-cache": false,
+        "ai-tooling-and-llm-usage": true,
+        "code-index-and-analysis": false,
+        "vue-state-management": false,
+        "frontend-performance-optimization": true,
+        "routing-and-permission": false,
+        "javascript-prototype": false,
+        "os-concurrency-basics": false,
+        "css-layout-and-responsive": true,
+        "css-animation": false,
+        "this-binding": false,
+        "browser-security-and-cross-origin": false,
+        "debounce-and-throttle": false,
+        "vue3-reactivity": false,
+        "ssr-and-nextjs": true,
+        "collaborative-editing": false,
+        "react-fiber": false,
+        "request-encapsulation": false,
+        "agent-and-mcp-integration": false,
+        "model-selection-evaluation": false,
+        "crawler-data-pipeline": false,
+        "vue-keep-alive": false,
+        "http-versions": false,
+        "project-refactoring": false,
+        "complex-component-design": true,
+        "build-tools-and-compilation": false,
+        "javascript-basics": false,
+        "react-event-system": false,
+        "markdown-render-pipeline": false,
+        "vue-component-basics": false,
+        "frontend-monitoring": false,
+        "database-index": false,
+        "tcp-udp": false,
+        "multi-tab-session-control": false,
+        "virtual-list": false,
+        "token-refresh": false,
+        "react-key-and-diff": false,
+        "layout-stability": false,
+        "typescript-generics": false
+      },
+      "ladderProgressRate": {
+        "value": 0,
+        "numerator": 0,
+        "denominator": 5
+      },
+      "areaCount": 5,
+      "baselineAreaCount": 1,
+      "skillPacks": [
+        "behavioral",
+        "project-deep-dive",
+        "frontend"
+      ],
+      "areas": [
+        "前端基础与浏览器原理（technical）",
+        "桌面端性能优化与工程判断（technical）",
+        "项目深挖：实习与业务系统真实性（project，基线）",
+        "AI 应用与工具化落地（technical）",
+        "沟通协作、抗压与反馈（behavioral）"
+      ]
+    },
+    {
+      "role": "frontend",
+      "jd": "tencent-marvis-frontend",
+      "rep": 2,
+      "covered": {
+        "browser-storage-and-cookie": false,
+        "http-cache": false,
+        "ai-tooling-and-llm-usage": false,
+        "code-index-and-analysis": false,
+        "vue-state-management": false,
+        "frontend-performance-optimization": false,
+        "routing-and-permission": false,
+        "javascript-prototype": false,
+        "os-concurrency-basics": false,
+        "css-layout-and-responsive": false,
+        "css-animation": false,
+        "this-binding": false,
+        "browser-security-and-cross-origin": false,
+        "debounce-and-throttle": false,
+        "vue3-reactivity": false,
+        "ssr-and-nextjs": false,
+        "collaborative-editing": false,
+        "react-fiber": false,
+        "request-encapsulation": false,
+        "agent-and-mcp-integration": false,
+        "model-selection-evaluation": false,
+        "crawler-data-pipeline": false,
+        "vue-keep-alive": false,
+        "http-versions": false,
+        "project-refactoring": false,
+        "complex-component-design": false,
+        "build-tools-and-compilation": false,
+        "javascript-basics": false,
+        "react-event-system": false,
+        "markdown-render-pipeline": false,
+        "vue-component-basics": false,
+        "frontend-monitoring": false,
+        "database-index": false,
+        "tcp-udp": false,
+        "multi-tab-session-control": false,
+        "virtual-list": false,
+        "token-refresh": false,
+        "react-key-and-diff": false,
+        "layout-stability": false,
+        "typescript-generics": false
+      },
+      "ladderProgressRate": {
+        "value": 0.4,
+        "numerator": 2,
+        "denominator": 5
+      },
+      "areaCount": 5,
+      "baselineAreaCount": 1,
+      "skillPacks": [
+        "behavioral",
+        "project-deep-dive",
+        "frontend"
+      ],
+      "areas": [
+        "桌面端架构与前端工程基础（technical）",
+        "桌面端性能优化与浏览器渲染（technical）",
+        "AI 编程工具与 AI 业务落地（technical）",
+        "简历项目：课程资料问答机器人（RAG + 工具调用）（project）",
+        "简历项目：校园二手交易平台前端/产品交互视角下的整体链路（project，基线）"
+      ]
+    },
+    {
+      "role": "frontend",
+      "jd": "tencent-miniprogram-frontend",
+      "rep": 1,
+      "covered": {
+        "browser-storage-and-cookie": false,
+        "http-cache": false,
+        "ai-tooling-and-llm-usage": true,
+        "code-index-and-analysis": false,
+        "vue-state-management": false,
+        "frontend-performance-optimization": true,
+        "routing-and-permission": false,
+        "javascript-prototype": false,
+        "os-concurrency-basics": false,
+        "css-layout-and-responsive": true,
+        "css-animation": false,
+        "this-binding": false,
+        "browser-security-and-cross-origin": false,
+        "debounce-and-throttle": false,
+        "vue3-reactivity": false,
+        "ssr-and-nextjs": false,
+        "collaborative-editing": false,
+        "react-fiber": false,
+        "request-encapsulation": false,
+        "agent-and-mcp-integration": false,
+        "model-selection-evaluation": false,
+        "crawler-data-pipeline": false,
+        "vue-keep-alive": false,
+        "http-versions": false,
+        "project-refactoring": false,
+        "complex-component-design": false,
+        "build-tools-and-compilation": false,
+        "javascript-basics": false,
+        "react-event-system": false,
+        "markdown-render-pipeline": false,
+        "vue-component-basics": false,
+        "frontend-monitoring": true,
+        "database-index": false,
+        "tcp-udp": false,
+        "multi-tab-session-control": false,
+        "virtual-list": true,
+        "token-refresh": false,
+        "react-key-and-diff": false,
+        "layout-stability": false,
+        "typescript-generics": false
+      },
+      "ladderProgressRate": {
+        "value": 0.6,
+        "numerator": 3,
+        "denominator": 5
+      },
+      "areaCount": 5,
+      "baselineAreaCount": 2,
+      "skillPacks": [
+        "behavioral",
+        "project-deep-dive",
+        "ai-llm"
+      ],
+      "areas": [
+        "课程问答助手：RAG + Agent 工程与评估（project）",
+        "微信小程序基础框架与前端框架原理（technical）",
+        "项目真实性与工程化能力交叉验证（project，基线）",
+        "计算机基础兜底：网络/操作系统/并发（technical）",
+        "协作、反馈与岗位动机（behavioral，基线）"
+      ]
+    },
+    {
+      "role": "frontend",
+      "jd": "tencent-miniprogram-frontend",
+      "rep": 2,
+      "covered": {
+        "browser-storage-and-cookie": false,
+        "http-cache": false,
+        "ai-tooling-and-llm-usage": true,
+        "code-index-and-analysis": false,
+        "vue-state-management": false,
+        "frontend-performance-optimization": false,
+        "routing-and-permission": false,
+        "javascript-prototype": false,
+        "os-concurrency-basics": true,
+        "css-layout-and-responsive": false,
+        "css-animation": false,
+        "this-binding": false,
+        "browser-security-and-cross-origin": false,
+        "debounce-and-throttle": false,
+        "vue3-reactivity": false,
+        "ssr-and-nextjs": false,
+        "collaborative-editing": false,
+        "react-fiber": false,
+        "request-encapsulation": false,
+        "agent-and-mcp-integration": false,
+        "model-selection-evaluation": false,
+        "crawler-data-pipeline": false,
+        "vue-keep-alive": false,
+        "http-versions": false,
+        "project-refactoring": false,
+        "complex-component-design": false,
+        "build-tools-and-compilation": false,
+        "javascript-basics": false,
+        "react-event-system": false,
+        "markdown-render-pipeline": false,
+        "vue-component-basics": false,
+        "frontend-monitoring": false,
+        "database-index": false,
+        "tcp-udp": false,
+        "multi-tab-session-control": false,
+        "virtual-list": false,
+        "token-refresh": false,
+        "react-key-and-diff": false,
+        "layout-stability": false,
+        "typescript-generics": false
+      },
+      "ladderProgressRate": {
+        "value": 1,
+        "numerator": 5,
+        "denominator": 5
+      },
+      "areaCount": 5,
+      "baselineAreaCount": 2,
+      "skillPacks": [
+        "behavioral",
+        "project-deep-dive",
+        "ai-llm"
+      ],
+      "areas": [
+        "项目深挖：课程问答助手（RAG/Agent）（project，基线）",
+        "项目深挖：电商实习/订单履约与库存问题（project，基线）",
+        "技术基础：小程序/前端框架原理与计算机基础（technical）",
+        "行为面：动机、反馈、协作与职业规划（behavioral）",
+        "能力验证：AI Coding / Agent 工程落地（technical）"
+      ]
+    },
+    {
+      "role": "backend",
+      "jd": "tencent-hunyuan-backend",
+      "rep": 1,
+      "covered": {
+        "mysql-index-and-sql-optimization": true,
+        "jvm-gc-and-memory": true,
+        "redis-cache-design-and-issues": false,
+        "transactions-and-mvcc": false,
+        "redis-data-structures-and-persistence": false,
+        "spring-aop-ioc-and-transactions": true,
+        "redis-distributed-lock": false,
+        "thread-pool-and-java-concurrency": false,
+        "mq-reliability-and-order": false,
+        "agent-and-rag-basics": true,
+        "network-protocols-and-request-flow": false,
+        "high-concurrency-system-design": true,
+        "service-discovery-and-microservices": false,
+        "agent-rag-evaluation-and-improvement": true,
+        "agent-memory-and-hallucination": false,
+        "skill-and-mcp": false,
+        "websocket-and-realtime-communication": false,
+        "social-feed-design": false,
+        "distributed-transactions": false,
+        "java-basics-and-collections": false,
+        "linux-and-deployment": false,
+        "security-and-rate-limiting": false,
+        "distributed-theory-and-storage": false,
+        "authentication-and-authorization": false,
+        "tcp-http-and-java-network-programming": false,
+        "search-and-inverted-index": false,
+        "go-concurrency": false,
+        "http-auth-filter-chain": false,
+        "maven-dependency-management": false,
+        "mongodb-index": false,
+        "url-shortener-design": false,
+        "design-patterns": false,
+        "stability-and-observability": false,
+        "performance-optimization": false,
+        "operating-system-basics": false,
+        "class-loading-and-reflection": false,
+        "database-logs": false,
+        "web-backend-practice": false,
+        "deployment-experience": false,
+        "java-threadlocal": false
+      },
+      "ladderProgressRate": {
+        "value": 0.6,
+        "numerator": 3,
+        "denominator": 5
+      },
+      "areaCount": 5,
+      "baselineAreaCount": 2,
+      "skillPacks": [
+        "project-deep-dive",
+        "backend",
+        "backend-java",
+        "ai-llm",
+        "behavioral",
+        "cs-fundamentals"
+      ],
+      "areas": [
+        "项目深挖：电商实习退款状态机与库存超卖排查（project）",
+        "后端场景：缓存、数据库与接口设计（technical）",
+        "后端场景：消息队列与异步通知（technical）",
+        "AI/LLM 场景：RAG、工具调用与评估（technical，基线）",
+        "Java 生态：Spring、事务、连接池与并发排查（technical，基线）"
+      ]
+    },
+    {
+      "role": "backend",
+      "jd": "tencent-hunyuan-backend",
+      "rep": 2,
+      "covered": {
+        "mysql-index-and-sql-optimization": false,
+        "jvm-gc-and-memory": false,
+        "redis-cache-design-and-issues": false,
+        "transactions-and-mvcc": false,
+        "redis-data-structures-and-persistence": false,
+        "spring-aop-ioc-and-transactions": true,
+        "redis-distributed-lock": false,
+        "thread-pool-and-java-concurrency": false,
+        "mq-reliability-and-order": false,
+        "agent-and-rag-basics": false,
+        "network-protocols-and-request-flow": false,
+        "high-concurrency-system-design": false,
+        "service-discovery-and-microservices": false,
+        "agent-rag-evaluation-and-improvement": false,
+        "agent-memory-and-hallucination": false,
+        "skill-and-mcp": false,
+        "websocket-and-realtime-communication": false,
+        "social-feed-design": false,
+        "distributed-transactions": false,
+        "java-basics-and-collections": false,
+        "linux-and-deployment": false,
+        "security-and-rate-limiting": true,
+        "distributed-theory-and-storage": false,
+        "authentication-and-authorization": false,
+        "tcp-http-and-java-network-programming": false,
+        "search-and-inverted-index": false,
+        "go-concurrency": false,
+        "http-auth-filter-chain": false,
+        "maven-dependency-management": false,
+        "mongodb-index": false,
+        "url-shortener-design": false,
+        "design-patterns": false,
+        "stability-and-observability": true,
+        "performance-optimization": true,
+        "operating-system-basics": true,
+        "class-loading-and-reflection": false,
+        "database-logs": false,
+        "web-backend-practice": false,
+        "deployment-experience": false,
+        "java-threadlocal": false
+      },
+      "ladderProgressRate": {
+        "value": 1,
+        "numerator": 5,
+        "denominator": 5
+      },
+      "areaCount": 5,
+      "baselineAreaCount": 4,
+      "skillPacks": [
+        "project-deep-dive",
+        "backend",
+        "backend-java",
+        "behavioral",
+        "ai-llm"
+      ],
+      "areas": [
+        "Java 后端实习项目深挖：订单履约与库存超卖（project，基线）",
+        "Java 后端项目深挖：Redis 缓存、MQ、SQL 优化与一致性（project，基线）",
+        "LLM/RAG 项目深挖：课程问答助手的评估、检索与工具调用（project，基线）",
+        "Linux 后台开发与线上排障（technical）",
+        "Java 并发、JVM 与 Spring 生态排障（technical，基线）"
+      ]
+    },
+    {
+      "role": "backend",
+      "jd": "tencent-wechat-core-backend",
+      "rep": 1,
+      "covered": {
+        "mysql-index-and-sql-optimization": true,
+        "jvm-gc-and-memory": false,
+        "redis-cache-design-and-issues": false,
+        "transactions-and-mvcc": true,
+        "redis-data-structures-and-persistence": true,
+        "spring-aop-ioc-and-transactions": false,
+        "redis-distributed-lock": true,
+        "thread-pool-and-java-concurrency": true,
+        "mq-reliability-and-order": true,
+        "agent-and-rag-basics": true,
+        "network-protocols-and-request-flow": false,
+        "high-concurrency-system-design": true,
+        "service-discovery-and-microservices": true,
+        "agent-rag-evaluation-and-improvement": true,
+        "agent-memory-and-hallucination": false,
+        "skill-and-mcp": true,
+        "websocket-and-realtime-communication": false,
+        "social-feed-design": false,
+        "distributed-transactions": true,
+        "java-basics-and-collections": false,
+        "linux-and-deployment": false,
+        "security-and-rate-limiting": true,
+        "distributed-theory-and-storage": true,
+        "authentication-and-authorization": false,
+        "tcp-http-and-java-network-programming": false,
+        "search-and-inverted-index": false,
+        "go-concurrency": false,
+        "http-auth-filter-chain": false,
+        "maven-dependency-management": false,
+        "mongodb-index": false,
+        "url-shortener-design": false,
+        "design-patterns": false,
+        "stability-and-observability": false,
+        "performance-optimization": false,
+        "operating-system-basics": false,
+        "class-loading-and-reflection": true,
+        "database-logs": false,
+        "web-backend-practice": true,
+        "deployment-experience": true,
+        "java-threadlocal": false
+      },
+      "ladderProgressRate": {
+        "value": 0.8333333333333334,
+        "numerator": 5,
+        "denominator": 6
+      },
+      "areaCount": 6,
+      "baselineAreaCount": 4,
+      "skillPacks": [
+        "project-deep-dive",
+        "backend",
+        "ai-llm",
+        "behavioral"
+      ],
+      "areas": [
+        "项目深挖：电商交易平台后端实习（project，基线）",
+        "后端基础：缓存、队列、SQL 与一致性（technical）",
+        "AI 应用：RAG 与工具调用（technical）",
+        "系统与语言基础：Java 后端与并发/事务（technical，基线）",
+        "行为面：协作、反馈与动机（behavioral，基线）",
+        "行为面：职业规划与岗位匹配（behavioral，基线）"
+      ]
+    },
+    {
+      "role": "backend",
+      "jd": "tencent-wechat-core-backend",
+      "rep": 2,
+      "covered": {
+        "mysql-index-and-sql-optimization": false,
+        "jvm-gc-and-memory": false,
+        "redis-cache-design-and-issues": false,
+        "transactions-and-mvcc": true,
+        "redis-data-structures-and-persistence": false,
+        "spring-aop-ioc-and-transactions": false,
+        "redis-distributed-lock": true,
+        "thread-pool-and-java-concurrency": true,
+        "mq-reliability-and-order": false,
+        "agent-and-rag-basics": false,
+        "network-protocols-and-request-flow": false,
+        "high-concurrency-system-design": false,
+        "service-discovery-and-microservices": false,
+        "agent-rag-evaluation-and-improvement": false,
+        "agent-memory-and-hallucination": false,
+        "skill-and-mcp": false,
+        "websocket-and-realtime-communication": false,
+        "social-feed-design": false,
+        "distributed-transactions": false,
+        "java-basics-and-collections": false,
+        "linux-and-deployment": false,
+        "security-and-rate-limiting": false,
+        "distributed-theory-and-storage": false,
+        "authentication-and-authorization": false,
+        "tcp-http-and-java-network-programming": false,
+        "search-and-inverted-index": false,
+        "go-concurrency": false,
+        "http-auth-filter-chain": false,
+        "maven-dependency-management": false,
+        "mongodb-index": false,
+        "url-shortener-design": false,
+        "design-patterns": false,
+        "stability-and-observability": true,
+        "performance-optimization": false,
+        "operating-system-basics": false,
+        "class-loading-and-reflection": false,
+        "database-logs": false,
+        "web-backend-practice": false,
+        "deployment-experience": false,
+        "java-threadlocal": false
+      },
+      "ladderProgressRate": {
+        "value": 0.2,
+        "numerator": 1,
+        "denominator": 5
+      },
+      "areaCount": 5,
+      "baselineAreaCount": 2,
+      "skillPacks": [
+        "project-deep-dive",
+        "backend",
+        "backend-java",
+        "ai-llm",
+        "behavioral"
+      ],
+      "areas": [
+        "Java后端线上故障与性能排查（technical）",
+        "项目深挖：校园二手交易平台的数据流与一致性（project，基线）",
+        "LLM/RAG与Agent应用工程（technical）",
+        "Spring Boot与Java并发/事务基础（technical，基线）",
+        "行为面：协作、反馈与动机（behavioral）"
+      ]
+    },
+    {
+      "role": "test-qa",
+      "jd": "tencent-cloud-test-dev-ai-eval",
+      "rep": 1,
+      "covered": {
+        "linux-ji-chu-yu-pai-zhang": false,
+        "shu-ju-ku-suo-yin-yu-you-hua": false,
+        "tcp-udp-yu-ke-kao-chuan-shu": false,
+        "jin-cheng-xian-cheng-yu-si-suo": false,
+        "k8s-ji-chu-cao-zuo": false,
+        "sql-ju-he-pai-ming-cha-xun": false,
+        "ce-shi-fang-fa-yu-fen-lei": false,
+        "redis-yu-huan-cun-yi-zhi-xing": false,
+        "http-xiang-guan-ji-chu": false,
+        "ce-shi-chang-jing-yu-yong-li-she-ji": false,
+        "zi-dong-hua-ce-shi": false,
+        "wang-luo-yu-http-quan-lian-lu": false,
+        "chan-pin-ce-shi-shang-shou": false,
+        "ce-shi-fu-gai-lv": false,
+        "ou-fa-gu-zhang-pai-cha": false,
+        "zhu-ce-zhong-xin-she-ji": false,
+        "ce-shi-cheng-ben-ping-gu": false,
+        "jian-rong-xing-ce-shi": false,
+        "wang-luo-ip-yu-nat": false,
+        "python-ji-chu": false,
+        "epoll-yuan-li": false,
+        "nei-cun-chi-she-ji": false,
+        "c-cpp-nei-cun-guan-li": false,
+        "jin-cheng-jian-tong-xin": false,
+        "hong-hei-shu": false,
+        "mysql-gao-ji-yu-guan-xi-xing": false,
+        "sql-ji-chu-cha-xun": false,
+        "c-duo-tai-yu-zhi-zhen": false,
+        "vector-di-ceng-ji-zhi": false,
+        "bu-shu-yu-nginx": false
+      },
+      "ladderProgressRate": {
+        "value": 0.8,
+        "numerator": 4,
+        "denominator": 5
+      },
+      "areaCount": 5,
+      "baselineAreaCount": 2,
+      "skillPacks": [
+        "behavioral",
+        "project-deep-dive",
+        "ai-llm",
+        "test-qa"
+      ],
+      "areas": [
+        "AI 产品/LLM 质量评测体系建设（technical）",
+        "RAG / 提示工程 / Agent 工程化（technical）",
+        "AI 测试开发与质量工程（technical）",
+        "项目深挖：实习与课程项目真实性验证（project，基线）",
+        "行为面：协作、动机、抗压与自我认知（behavioral，基线）"
+      ]
+    },
+    {
+      "role": "test-qa",
+      "jd": "tencent-cloud-test-dev-ai-eval",
+      "rep": 2,
+      "covered": {
+        "linux-ji-chu-yu-pai-zhang": false,
+        "shu-ju-ku-suo-yin-yu-you-hua": false,
+        "tcp-udp-yu-ke-kao-chuan-shu": false,
+        "jin-cheng-xian-cheng-yu-si-suo": false,
+        "k8s-ji-chu-cao-zuo": false,
+        "sql-ju-he-pai-ming-cha-xun": false,
+        "ce-shi-fang-fa-yu-fen-lei": false,
+        "redis-yu-huan-cun-yi-zhi-xing": false,
+        "http-xiang-guan-ji-chu": false,
+        "ce-shi-chang-jing-yu-yong-li-she-ji": false,
+        "zi-dong-hua-ce-shi": true,
+        "wang-luo-yu-http-quan-lian-lu": false,
+        "chan-pin-ce-shi-shang-shou": true,
+        "ce-shi-fu-gai-lv": false,
+        "ou-fa-gu-zhang-pai-cha": false,
+        "zhu-ce-zhong-xin-she-ji": false,
+        "ce-shi-cheng-ben-ping-gu": false,
+        "jian-rong-xing-ce-shi": false,
+        "wang-luo-ip-yu-nat": false,
+        "python-ji-chu": true,
+        "epoll-yuan-li": false,
+        "nei-cun-chi-she-ji": false,
+        "c-cpp-nei-cun-guan-li": false,
+        "jin-cheng-jian-tong-xin": false,
+        "hong-hei-shu": false,
+        "mysql-gao-ji-yu-guan-xi-xing": false,
+        "sql-ji-chu-cha-xun": false,
+        "c-duo-tai-yu-zhi-zhen": false,
+        "vector-di-ceng-ji-zhi": false,
+        "bu-shu-yu-nginx": false
+      },
+      "ladderProgressRate": {
+        "value": 0.8,
+        "numerator": 4,
+        "denominator": 5
+      },
+      "areaCount": 5,
+      "baselineAreaCount": 2,
+      "skillPacks": [
+        "behavioral",
+        "project-deep-dive",
+        "ai-llm"
+      ],
+      "areas": [
+        "AI/大模型评测体系建设（technical）",
+        "RAG/提示工程/工具调用工程化（technical）",
+        "Python 测试开发与评测平台工程化（technical）",
+        "项目深挖：课程资料问答助手（RAG）（project，基线）",
+        "项目深挖：实习中的故障定位与质量改进（project，基线）"
+      ]
+    },
+    {
+      "role": "test-qa",
+      "jd": "bytedance-test-dev-tiktok",
+      "rep": 1,
+      "covered": {
+        "linux-ji-chu-yu-pai-zhang": false,
+        "shu-ju-ku-suo-yin-yu-you-hua": false,
+        "tcp-udp-yu-ke-kao-chuan-shu": false,
+        "jin-cheng-xian-cheng-yu-si-suo": false,
+        "k8s-ji-chu-cao-zuo": false,
+        "sql-ju-he-pai-ming-cha-xun": false,
+        "ce-shi-fang-fa-yu-fen-lei": false,
+        "redis-yu-huan-cun-yi-zhi-xing": false,
+        "http-xiang-guan-ji-chu": false,
+        "ce-shi-chang-jing-yu-yong-li-she-ji": false,
+        "zi-dong-hua-ce-shi": false,
+        "wang-luo-yu-http-quan-lian-lu": false,
+        "chan-pin-ce-shi-shang-shou": false,
+        "ce-shi-fu-gai-lv": false,
+        "ou-fa-gu-zhang-pai-cha": false,
+        "zhu-ce-zhong-xin-she-ji": false,
+        "ce-shi-cheng-ben-ping-gu": false,
+        "jian-rong-xing-ce-shi": false,
+        "wang-luo-ip-yu-nat": false,
+        "python-ji-chu": false,
+        "epoll-yuan-li": false,
+        "nei-cun-chi-she-ji": false,
+        "c-cpp-nei-cun-guan-li": false,
+        "jin-cheng-jian-tong-xin": false,
+        "hong-hei-shu": false,
+        "mysql-gao-ji-yu-guan-xi-xing": false,
+        "sql-ji-chu-cha-xun": false,
+        "c-duo-tai-yu-zhi-zhen": false,
+        "vector-di-ceng-ji-zhi": false,
+        "bu-shu-yu-nginx": false
+      },
+      "ladderProgressRate": {
+        "value": 0.6,
+        "numerator": 3,
+        "denominator": 5
+      },
+      "areaCount": 5,
+      "baselineAreaCount": 0,
+      "skillPacks": [
+        "behavioral",
+        "project-deep-dive",
+        "backend",
+        "backend-java"
+      ],
+      "areas": [
+        "实习项目真实性与个人贡献边界（project）",
+        "线上故障与性能稳定性排查（project）",
+        "业务系统设计与数据建模（校园二手交易平台）（project）",
+        "编程能力与 Java 后端实现细节（technical）",
+        "测试理论与方法、质量运营效率（technical）"
+      ]
+    },
+    {
+      "role": "test-qa",
+      "jd": "bytedance-test-dev-tiktok",
+      "rep": 2,
+      "covered": {
+        "linux-ji-chu-yu-pai-zhang": false,
+        "shu-ju-ku-suo-yin-yu-you-hua": false,
+        "tcp-udp-yu-ke-kao-chuan-shu": false,
+        "jin-cheng-xian-cheng-yu-si-suo": false,
+        "k8s-ji-chu-cao-zuo": false,
+        "sql-ju-he-pai-ming-cha-xun": false,
+        "ce-shi-fang-fa-yu-fen-lei": false,
+        "redis-yu-huan-cun-yi-zhi-xing": false,
+        "http-xiang-guan-ji-chu": true,
+        "ce-shi-chang-jing-yu-yong-li-she-ji": false,
+        "zi-dong-hua-ce-shi": false,
+        "wang-luo-yu-http-quan-lian-lu": false,
+        "chan-pin-ce-shi-shang-shou": false,
+        "ce-shi-fu-gai-lv": false,
+        "ou-fa-gu-zhang-pai-cha": true,
+        "zhu-ce-zhong-xin-she-ji": false,
+        "ce-shi-cheng-ben-ping-gu": false,
+        "jian-rong-xing-ce-shi": false,
+        "wang-luo-ip-yu-nat": false,
+        "python-ji-chu": false,
+        "epoll-yuan-li": false,
+        "nei-cun-chi-she-ji": false,
+        "c-cpp-nei-cun-guan-li": false,
+        "jin-cheng-jian-tong-xin": false,
+        "hong-hei-shu": false,
+        "mysql-gao-ji-yu-guan-xi-xing": true,
+        "sql-ji-chu-cha-xun": false,
+        "c-duo-tai-yu-zhi-zhen": false,
+        "vector-di-ceng-ji-zhi": false,
+        "bu-shu-yu-nginx": false
+      },
+      "ladderProgressRate": {
+        "value": 0,
+        "numerator": 0,
+        "denominator": 5
+      },
+      "areaCount": 5,
+      "baselineAreaCount": 2,
+      "skillPacks": [
+        "behavioral",
+        "project-deep-dive",
+        "test-qa"
+      ],
+      "areas": [
+        "测试设计与左移评审（technical）",
+        "接口自动化与质量效能（technical）",
+        "性能体验与稳定性测试（technical）",
+        "项目真实性与技术决策（project，基线）",
+        "编程基础与计算机原理（technical，基线）"
+      ]
+    },
+    {
+      "role": "infra",
+      "jd": "alibaba-ai-infra-container",
+      "rep": 1,
+      "covered": {
+        "k8s-jiagou-yu-zujian": true,
+        "linux-xingneng-yu-guzhang-paicha": false,
+        "docker-yuanli-yu-bushu": false,
+        "mysql-gaokeyong-yu-fuzhi": false,
+        "mysq1-mancha-yu-youhua": false,
+        "k8s-wangluo-yu-cni": true,
+        "k8s-fuwu-baolu": true,
+        "monitoring-prometheus": false,
+        "nginx-yu-fuzaijunheng": false,
+        "fabu-liucheng-yu-cicd": false,
+        "gaokeyong-yu-rongzai": false,
+        "k8s-paizhang-yu-jiaofu": true,
+        "docker-jingxiang-goujian": false,
+        "linux-faxingban-yu-bao": false,
+        "sre-renzhi": false,
+        "ansible-zidonghua-yunwei": false,
+        "ceph-cunchu": false,
+        "jiankong-gaojing-tixi": false,
+        "jiaoben-yuzidonghua": false,
+        "wangluo-duankou-paizhang": false,
+        "fuzai-junheng-celve": false,
+        "mysql-suoyin-yu-cunchu": false,
+        "redis-yizhi-xing": false,
+        "k8s-stateful": false,
+        "k3s-bushu-yu-paizhang": false,
+        "dns-yu-liulanqi-lianlu": false,
+        "https-yu-fanxiangdaili": false,
+        "mysql-yu-nosql-xuanxing": false,
+        "kafka-xiaoxi-jizhi": false,
+        "linux-quanxian-yu-xitong": false,
+        "redis-yingyong": false,
+        "tcp-jihe-neihe": false,
+        "weifuwu-yuliang-zhili": false,
+        "efk-rizhi-fenxi": false,
+        "fenbushi-yizhixing": false,
+        "siyouhua-jiaofu": false,
+        "rabbitmq-bushu": false,
+        "gpu-jiqun-yunwei": false,
+        "keepalived-yu-ha": false,
+        "jwt-anquan": false
+      },
+      "ladderProgressRate": {
+        "value": 0.8333333333333334,
+        "numerator": 5,
+        "denominator": 6
+      },
+      "areaCount": 6,
+      "baselineAreaCount": 4,
+      "skillPacks": [
+        "project-deep-dive",
+        "backend",
+        "backend-java",
+        "infra-sre",
+        "ai-llm",
+        "behavioral"
+      ],
+      "areas": [
+        "项目深挖：RAG 课程资料问答助手（project，基线）",
+        "项目深挖：电商订单履约与库存超卖排查（project，基线）",
+        "技术基础：Java/Spring 后端实现细节（technical，基线）",
+        "技术基础：Kubernetes 容器与 Linux 底层（technical）",
+        "技术基础：后端缓存、队列与一致性（technical）",
+        "行为面：协作、反馈与动机（behavioral，基线）"
+      ]
+    },
+    {
+      "role": "infra",
+      "jd": "alibaba-ai-infra-container",
+      "rep": 2,
+      "covered": {
+        "k8s-jiagou-yu-zujian": true,
+        "linux-xingneng-yu-guzhang-paicha": true,
+        "docker-yuanli-yu-bushu": false,
+        "mysql-gaokeyong-yu-fuzhi": false,
+        "mysq1-mancha-yu-youhua": false,
+        "k8s-wangluo-yu-cni": false,
+        "k8s-fuwu-baolu": false,
+        "monitoring-prometheus": false,
+        "nginx-yu-fuzaijunheng": false,
+        "fabu-liucheng-yu-cicd": true,
+        "gaokeyong-yu-rongzai": false,
+        "k8s-paizhang-yu-jiaofu": false,
+        "docker-jingxiang-goujian": false,
+        "linux-faxingban-yu-bao": false,
+        "sre-renzhi": false,
+        "ansible-zidonghua-yunwei": false,
+        "ceph-cunchu": false,
+        "jiankong-gaojing-tixi": false,
+        "jiaoben-yuzidonghua": false,
+        "wangluo-duankou-paizhang": false,
+        "fuzai-junheng-celve": false,
+        "mysql-suoyin-yu-cunchu": false,
+        "redis-yizhi-xing": false,
+        "k8s-stateful": false,
+        "k3s-bushu-yu-paizhang": false,
+        "dns-yu-liulanqi-lianlu": false,
+        "https-yu-fanxiangdaili": false,
+        "mysql-yu-nosql-xuanxing": false,
+        "kafka-xiaoxi-jizhi": false,
+        "linux-quanxian-yu-xitong": false,
+        "redis-yingyong": false,
+        "tcp-jihe-neihe": false,
+        "weifuwu-yuliang-zhili": false,
+        "efk-rizhi-fenxi": false,
+        "fenbushi-yizhixing": false,
+        "siyouhua-jiaofu": false,
+        "rabbitmq-bushu": false,
+        "gpu-jiqun-yunwei": false,
+        "keepalived-yu-ha": false,
+        "jwt-anquan": false
+      },
+      "ladderProgressRate": {
+        "value": 0.4,
+        "numerator": 2,
+        "denominator": 5
+      },
+      "areaCount": 5,
+      "baselineAreaCount": 2,
+      "skillPacks": [
+        "behavioral",
+        "project-deep-dive",
+        "infra-sre",
+        "backend",
+        "backend-go"
+      ],
+      "areas": [
+        "Kubernetes 容器调度与编排优化（technical）",
+        "AI 高性能存储与网络底座（technical）",
+        "Linux 与 Go 运行时基础（technical，基线）",
+        "AI 应用工程与 RAG/Agent 真实性验证（technical）",
+        "后端项目深挖：职责边界、选型与事故复盘（project，基线）"
+      ]
+    },
+    {
+      "role": "infra",
+      "jd": "tencent-agent-infra-senior",
+      "rep": 1,
+      "covered": {
+        "k8s-jiagou-yu-zujian": false,
+        "linux-xingneng-yu-guzhang-paicha": true,
+        "docker-yuanli-yu-bushu": true,
+        "mysql-gaokeyong-yu-fuzhi": false,
+        "mysq1-mancha-yu-youhua": false,
+        "k8s-wangluo-yu-cni": false,
+        "k8s-fuwu-baolu": true,
+        "monitoring-prometheus": false,
+        "nginx-yu-fuzaijunheng": false,
+        "fabu-liucheng-yu-cicd": false,
+        "gaokeyong-yu-rongzai": false,
+        "k8s-paizhang-yu-jiaofu": false,
+        "docker-jingxiang-goujian": false,
+        "linux-faxingban-yu-bao": false,
+        "sre-renzhi": false,
+        "ansible-zidonghua-yunwei": false,
+        "ceph-cunchu": false,
+        "jiankong-gaojing-tixi": false,
+        "jiaoben-yuzidonghua": false,
+        "wangluo-duankou-paizhang": false,
+        "fuzai-junheng-celve": false,
+        "mysql-suoyin-yu-cunchu": false,
+        "redis-yizhi-xing": false,
+        "k8s-stateful": false,
+        "k3s-bushu-yu-paizhang": false,
+        "dns-yu-liulanqi-lianlu": false,
+        "https-yu-fanxiangdaili": false,
+        "mysql-yu-nosql-xuanxing": false,
+        "kafka-xiaoxi-jizhi": false,
+        "linux-quanxian-yu-xitong": false,
+        "redis-yingyong": false,
+        "tcp-jihe-neihe": false,
+        "weifuwu-yuliang-zhili": false,
+        "efk-rizhi-fenxi": false,
+        "fenbushi-yizhixing": false,
+        "siyouhua-jiaofu": false,
+        "rabbitmq-bushu": true,
+        "gpu-jiqun-yunwei": true,
+        "keepalived-yu-ha": false,
+        "jwt-anquan": false
+      },
+      "ladderProgressRate": {
+        "value": 1,
+        "numerator": 6,
+        "denominator": 6
+      },
+      "areaCount": 6,
+      "baselineAreaCount": 0,
+      "skillPacks": [
+        "behavioral",
+        "project-deep-dive",
+        "ai-llm"
+      ],
+      "areas": [
+        "课程问答助手（LLM RAG / Agent）深挖（project）",
+        "Agent / 模型调用核心链路（technical）",
+        "Agent Infra 平台与高并发任务治理（technical）",
+        "Go 与容器/集群基础设施（基线）（technical）",
+        "项目真实性：交易平台与实习经历（project）",
+        "动机、职业规划与协作推进（behavioral）"
+      ]
+    },
+    {
+      "role": "infra",
+      "jd": "tencent-agent-infra-senior",
+      "rep": 2,
+      "covered": {
+        "k8s-jiagou-yu-zujian": true,
+        "linux-xingneng-yu-guzhang-paicha": true,
+        "docker-yuanli-yu-bushu": false,
+        "mysql-gaokeyong-yu-fuzhi": false,
+        "mysq1-mancha-yu-youhua": false,
+        "k8s-wangluo-yu-cni": false,
+        "k8s-fuwu-baolu": false,
+        "monitoring-prometheus": false,
+        "nginx-yu-fuzaijunheng": false,
+        "fabu-liucheng-yu-cicd": false,
+        "gaokeyong-yu-rongzai": true,
+        "k8s-paizhang-yu-jiaofu": false,
+        "docker-jingxiang-goujian": false,
+        "linux-faxingban-yu-bao": false,
+        "sre-renzhi": false,
+        "ansible-zidonghua-yunwei": true,
+        "ceph-cunchu": false,
+        "jiankong-gaojing-tixi": false,
+        "jiaoben-yuzidonghua": false,
+        "wangluo-duankou-paizhang": false,
+        "fuzai-junheng-celve": false,
+        "mysql-suoyin-yu-cunchu": false,
+        "redis-yizhi-xing": false,
+        "k8s-stateful": false,
+        "k3s-bushu-yu-paizhang": false,
+        "dns-yu-liulanqi-lianlu": false,
+        "https-yu-fanxiangdaili": false,
+        "mysql-yu-nosql-xuanxing": false,
+        "kafka-xiaoxi-jizhi": false,
+        "linux-quanxian-yu-xitong": false,
+        "redis-yingyong": false,
+        "tcp-jihe-neihe": false,
+        "weifuwu-yuliang-zhili": false,
+        "efk-rizhi-fenxi": false,
+        "fenbushi-yizhixing": false,
+        "siyouhua-jiaofu": false,
+        "rabbitmq-bushu": false,
+        "gpu-jiqun-yunwei": false,
+        "keepalived-yu-ha": false,
+        "jwt-anquan": false
+      },
+      "ladderProgressRate": {
+        "value": 0,
+        "numerator": 0,
+        "denominator": 5
+      },
+      "areaCount": 5,
+      "baselineAreaCount": 1,
+      "skillPacks": [
+        "behavioral",
+        "project-deep-dive",
+        "ai-llm"
+      ],
+      "areas": [
+        "LLM/Agent 核心链路与评估体系（technical）",
+        "Agent 沙盒/平台与高并发任务执行（technical）",
+        "Python 软件工程与项目真实性深挖（project）",
+        "云原生与 Go/Linux 基础设施能力（technical）",
+        "行为面：动机、反馈与协作（behavioral，基线）"
+      ]
+    }
+  ]
+}
