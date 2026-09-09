@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
@@ -210,10 +211,12 @@ async function scorerSourcesFromBriefs(resumeId: string, existing: Set<string>, 
       for (const area of brief.areas) {
         // 只用技术领域：项目题绑定简历，行为题没有可插的技术错句。
         if (area.kind !== "technical") continue;
-        const questionId = `${jdId}:${area.id}`;
-        if (existing.has(questionId)) continue;
+        // 每次备课的领域 id 都从 a1 开始编，只用 id 会把不同内容的新领域当成已有的；带上切入问题的短哈希。
+        const digest = createHash("sha1").update(area.entryQuestion).digest("hex").slice(0, 6);
+        const questionId = `${jdId}:${area.id}:${digest}`;
+        if (existing.has(questionId) || existing.has(`${jdId}:${area.id}`)) continue;
         perRole[role].push({
-          id: `${jdId.replace(/[^a-z0-9-]/g, "")}-${area.id.toLowerCase().replace(/[^a-z0-9-]/g, "")}`,
+          id: `${jdId.replace(/[^a-z0-9-]/g, "")}-${area.id.toLowerCase().replace(/[^a-z0-9-]/g, "")}-${digest}`,
           questionId,
           role,
           jobTitle: jd.title,

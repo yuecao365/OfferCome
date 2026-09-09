@@ -1,0 +1,52 @@
+{
+  "id": "tencent-agent-infra-senior-a4",
+  "questionId": "tencent-agent-infra-senior:A4",
+  "role": "infra",
+  "jobTitle": "Agent Infra高级研发工程师（TEG）",
+  "jobDescription": "职位描述\n1.负责大模型 Agent 评估、强化学习和数据制造所需的大规模沙盒平台建设；\n2.负责面向模型训练/研究场景下 Agent 框架的研发与维护，支持强化学习、数据生成、自动化评估和实验复现等业务需求；\n3.解决高并发任务执行场景下全链路的性能、稳定性问题，与业务紧密协作，优化相关任务流程、建设配套的平台基础设施，保障训练/实验/评估等流程高效、准确执行；\n4.支持各类评估 bench 及运行环境接入。\n职位要求\n1.精通 Python，具备扎实的软件工程能力与系统设计能力，能在复杂系统中推进架构落地；\n2.熟悉大模型与 Agent 相关应用技术，理解模型调用、工具调用、上下文管理、任务执行、日志 Trace 和结果评估等核心链路；\n3.熟悉 Go 语言，熟悉 Linux、Docker、Kubernetes、容器网络、镜像构建、CPU / 内存 / 集群调度中的多项；\n4.了解大模型训练流程和基本原理；\n5.具备良好的软件工程能力，重视模块化设计、测试、日志、性能和稳定性治理；\n6.具备良好的问题分析与解决能力，能高效利用行业前沿 AI 工具提升研发效率，并能与算法和平台团队协作推进落地。",
+  "round": "first_interview",
+  "question": "你简历里写了 Go（入门）和 Docker。假设你要把一个 Go 服务部署到 Kubernetes，服务里会并发调用多个下游，并且要求收到 SIGTERM 后 5 秒内优雅退出。你会怎么写并发控制、context 传递和退出流程？\n追问 1：先问基本事实：goroutine、channel、context 在这个场景里分别负责什么。\n追问 2：继续追实现：并发请求的取消、超时和 goroutine 回收怎么保证，不会泄漏或阻塞。\n追问 3：再追容器与部署：Kubernetes 探针、preStop、Shutdown 的顺序怎么配，为什么。",
+  "rubric": [
+    {
+      "name": "技术正确性",
+      "description": "关键概念、机制和边界条件准确。",
+      "weight": 50
+    },
+    {
+      "name": "分析与取舍",
+      "description": "能够解释方案选择、限制及替代方案。",
+      "weight": 30
+    },
+    {
+      "name": "表达结构",
+      "description": "回答层次清楚，结论有依据。",
+      "weight": 20
+    }
+  ],
+  "expectedSignals": [
+    "知道 context 要贯穿到 HTTP/DB/gRPC 调用",
+    "能说清谁创建 goroutine、谁负责退出和回收",
+    "知道 readiness/liveness/preStop/Shutdown 的配合",
+    "不把 Go 并发与容器退出当成彼此独立的问题"
+  ],
+  "thread": {
+    "depth": 3,
+    "targetDepth": 3,
+    "probeCount": 3,
+    "rescues": 0,
+    "note": null
+  },
+  "answers": {
+    "base": "我会把这类服务分成请求内并发和进程级退出两层来做。goroutine 主要是把多个下游调用并发跑起来，channel 我一般用来收集结果、错误或者做限流信号，context 负责把超时、取消信号沿着整条调用链往下传。实现上，入口请求先拿到 request context，再基于它派生一个带总超时的 ctx，往每个下游调用里继续传；起多个 goroutine 时会配合 WaitGroup 或 errgroup，一旦有一个关键下游报错，或者上游已经取消，就尽快让其他调用感知 ctx.Done() 退出。每个 goroutine 里都要避免无界阻塞，比如发结果到 channel 时要么 channel 有缓冲，要么 select 同时监听 ctx.Done()，这样即使主流程提前返回，子协程也不会卡死。下游 HTTP 或 RPC 客户端也要设置请求级超时，不能只靠业务层等。回收上我会保证只有一个地方 close channel，通常是等所有 worker 结束后再关；如果用了 errgroup，主流程 wait 完再统一收尾会更稳。\n\n部署到 Kubernetes 时，我会先做就绪和存活分离。收到 SIGTERM 后，程序先把自己标成 not ready，让新流量别再进来，再开始 graceful shutdown：停止接收新请求，保留一个 5 秒内的退出 context，等待在途请求完成，超时后强制结束。Kubernetes 这边 preStop 可以先触发摘流，给负载均衡和 endpoints 更新留一点时间，然后主进程再进 Shutdown。整体顺序我理解是：Pod 被终止时先执行 preStop，同时容器会收到终止信号；应用在信号处理里先降就绪，再执行 server.Shutdown，目标就是把外部摘流和内部收尾衔接上，尽量不丢请求也不拖太久。",
+    "err": "我会把这类服务分成请求内并发和进程级退出两层来做。goroutine 主要是把多个下游调用并发跑起来，channel 我一般用来收集结果、错误或者做限流信号，context 负责把超时、取消信号沿着整条调用链往下传。实现上，入口请求先拿到 request context，再基于它派生一个带总超时的 ctx，往每个下游调用里继续传；起多个 goroutine 时会配合 WaitGroup 或 errgroup，一旦有一个关键下游报错，或者上游已经取消，就尽快让其他调用感知 ctx.Done() 退出。每个 goroutine 里都要避免无界阻塞，比如发结果到 channel 时要么 channel 有缓冲，要么 select 同时监听 ctx.Done()，这样即使主流程提前返回，子协程也不会卡死。下游 HTTP 或 RPC 客户端也要设置请求级超时，不能只靠业务层等。Go 里父 context 取消后，子 context 还会继续独立存活。回收上我会保证只有一个地方 close channel，通常是等所有 worker 结束后再关；如果用了 errgroup，主流程 wait 完再统一收尾会更稳。\n\n部署到 Kubernetes 时，我会先做就绪和存活分离。收到 SIGTERM 后，程序先把自己标成 not ready，让新流量别再进来，再开始 graceful shutdown：停止接收新请求，保留一个 5 秒内的退出 context，等待在途请求完成，超时后强制结束。Kubernetes 这边 preStop 可以先触发摘流，给负载均衡和 endpoints 更新留一点时间，然后主进程再进 Shutdown。整体顺序我理解是：Pod 被终止时先执行 preStop，同时容器会收到终止信号；应用在信号处理里先降就绪，再执行 server.Shutdown，目标就是把外部摘流和内部收尾衔接上，尽量不丢请求也不拖太久。",
+    "drop": "我会把这类服务分成请求内并发和进程级退出两层来做。goroutine 主要是把多个下游调用并发跑起来，channel 我一般用来收集结果、错误或者做限流信号，context 负责把超时、取消信号沿着整条调用链往下传。\n\n部署到 Kubernetes 时，我会先做就绪和存活分离。收到 SIGTERM 后，程序先把自己标成 not ready，让新流量别再进来，再开始 graceful shutdown：停止接收新请求，保留一个 5 秒内的退出 context，等待在途请求完成，超时后强制结束。Kubernetes 这边 preStop 可以先触发摘流，给负载均衡和 endpoints 更新留一点时间，然后主进程再进 Shutdown。整体顺序我理解是：Pod 被终止时先执行 preStop，同时容器会收到终止信号；应用在信号处理里先降就绪，再执行 server.Shutdown，目标就是把外部摘流和内部收尾衔接上，尽量不丢请求也不拖太久。",
+    "fluff": "我会优先按线上稳定性来设计，先把职责分清楚，再把流程串起来。像这种有并发、有下游依赖、还要考虑优雅退出的服务，我一般会从开发实现和部署配合两边一起看，不会只盯某一个点。请求进来之后，我会让代码结构尽量统一，方便后续排查和维护；如果出现异常，也希望行为是可预期的。对于退出这块，我的思路是尽量平滑，不要让服务一下子中断，也不要把退出拖得太久。放到 Kubernetes 里，我会结合服务状态、流量切换和应用本身的关闭流程一起设计，保证整体协作顺畅。这样做的核心还是让服务在正常请求、异常取消和进程退出几种状态下都比较稳。",
+    "para": "如果让我来做，我会把方案拆成两部分：一部分是单次请求里的并发调用，另一部分是进程收到退出信号后的收尾。goroutine 在这里就是负责把多个下游任务同时执行；channel 我会拿来传结果、错误，或者做并发控制；context 则是贯穿请求链路，把截止时间和取消事件传到每个下游。具体写法上，请求进入后先基于原始 request context 派生一个总超时 ctx，然后所有并发下游都带着这个 ctx 执行；启动多个 goroutine 时我通常会用 WaitGroup 或 errgroup，若某个关键调用失败，或者外层请求已经取消，就让其他协程通过 ctx.Done() 及时停下来。为了避免 goroutine 泄漏，我会注意不要让协程阻塞在 channel 上，比如结果写入时结合带缓冲的 channel，或者用 select 同时监听 ctx.Done()；这样主流程即便提前结束，子协程也有退出路径。网络调用侧我也会补上 HTTP 或 RPC 的请求超时，避免只靠上层控制。至于资源回收，我会约束 channel 的关闭位置，只在一个确定的地方 close，一般等全部 worker 退出后再关闭；如果使用 errgroup，就在 wait 之后做统一清理。\n\n在 Kubernetes 部署层面，我会把 readiness 和 liveness 分开处理。收到 SIGTERM 以后，应用先把 readiness 置失败，先阻止新请求进入，然后开始优雅关闭：不再接收新的连接或请求，给在途请求一个 5 秒内的关闭窗口，没结束的再按超时处理。preStop 我会用来提前触发摘流，给 service endpoint 和外部负载均衡同步状态留出一点缓冲，然后应用内部再走 Shutdown。整体配合上，我的理解是 Pod 进入终止流程时会先跑 preStop，同时容器也会收到终止信号；程序在信号处理逻辑里先取消就绪，再调用 server.Shutdown，这样外部流量切走和内部优雅退出能接起来，减少请求丢失。",
+    "offtopic": "我在 B 公司做的 Agent 核心上，主要负责的是把大模型的推理、工具调用和任务编排串起来，做成一个能稳定执行复杂任务的中间层。简单说，它不是只会聊天，而是能理解目标、拆解步骤、调用检索、数据库、代码执行这类工具，再根据结果继续往下走。它解决的核心问题有两个：第一，大模型单轮回答能力强，但一到多步骤任务就容易漂，我做的这套东西提升了执行稳定性和可控性；第二，业务接入成本高、各团队重复造轮子，所以我把记忆、规划、权限、观测这些能力做了统一封装。这样业务方接入后，能更快落地客服、运营辅助、数据分析这类场景，同时线上问题也更容易排查和优化。"
+  },
+  "truth": {
+    "wrongClaim": "Go 里父 context 取消后，子 context 还会继续独立存活。",
+    "whyWrong": "context 的取消是向下游传播的。父 context 一旦被取消，基于它派生出来的子 context 都会收到取消信号，不会继续独立存活。",
+    "droppedMechanism": "实现上，入口请求先拿到 request context，再基于它派生一个带总超时的 ctx，往每个下游调用里继续传；起多个 goroutine 时会配合 WaitGroup 或 errgroup，一旦有一个关键下游报错，或者上游已经取消，就尽快让其他调用感知 ctx.Done() 退出。每个 goroutine 里都要避免无界阻塞，比如发结果到 channel 时要么 channel 有缓冲，要么 select 同时监听 ctx.Done()，这样即使主流程提前返回，子协程也不会卡死。下游 HTTP 或 RPC 客户端也要设置请求级超时，不能只靠业务层等。回收上我会保证只有一个地方 close channel，通常是等所有 worker 结束后再关；如果用了 errgroup，主流程 wait 完再统一收尾会更稳。"
+  }
+}
