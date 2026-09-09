@@ -435,7 +435,8 @@ async function commandCoverage(models: EvalModels): Promise<void> {
   const calibration = calibrationFromVerdicts("topic", positiveVerdicts, negativeVerdicts);
   console.log(`裁判 topic：准确率 ${calibration.accuracy.value?.toFixed(2) ?? "—"} (${calibration.accuracy.numerator}/${calibration.accuracy.denominator})${calibration.trusted ? "" : "，不可信"}`);
 
-  const briefs: (BriefCoverage & { areas: string[] })[] = [];
+  // 产物存简报全文：覆盖率异常时能直接核对裁判看到的内容，不用重跑。
+  const briefs: (BriefCoverage & { areas: string[]; text: string })[] = [];
   for (const role of roles) {
     const topics = topicsFile.roles[role]!.topics;
     for (const jdId of config.roles[role]!) {
@@ -457,6 +458,7 @@ async function commandCoverage(models: EvalModels): Promise<void> {
             baselineAreaCount: brief.areas.filter((area) => area.baseline).length,
             skillPacks: brief.skillPacks,
             areas,
+            text,
           });
           console.log(`  领域：${areas.join("；")}\n  技能包：${brief.skillPacks.join(", ") || "无"}；覆盖 ${Object.values(covered).filter(Boolean).length}/${topics.length}`);
         } catch (error) {
