@@ -36,6 +36,7 @@ import {
 import {
   extractFileTopics,
   finalizeScorerCase,
+  generateOfftopicAnswer,
   generatePersona,
   generateScorerCase,
   mergeRoleTopics,
@@ -54,7 +55,7 @@ import {
   type SessionSnapshot,
   type SnapshotThread,
 } from "../src/lib/evals/interviewer-metrics";
-import { calibrateJudge, calibrationFromVerdicts, judgeMany, loadCalibrationSet, saveCalibrationSet, type JudgeCalibration, type JudgeItem } from "../src/lib/evals/judge";
+import { calibrateJudge, calibrationFromVerdicts, judgeMany, judgeOne, loadCalibrationSet, saveCalibrationSet, type JudgeCalibration, type JudgeItem } from "../src/lib/evals/judge";
 import {
   flattenScorerMetrics,
   judgeScorerCase,
@@ -153,15 +154,19 @@ async function scorerSources(limit: number, existing: Set<string>, evalTag: stri
     where: {
       answer: { not: null },
       evaluation: { is: { generationMetadataJson: { contains: "\"areaId\"" } } },
-      ...(evalTag ? { interview: { evalTag } } : {}),
+      // 只用评测会话的题目，不碰用户自己的面试。
+      interview: { evalTag: evalTag ?? { startsWith: "eval-interviewer:" } },
     },
     orderBy: { createdAt: "desc" },
     include: { evaluation: true, interview: { include: { mockSession: { select: { jdTextSnapshot: true, briefJson: true } } } } },
     take: limit * 3,
   });
+  // 人设场次里面试官会当场反驳错句，那句反驳留在题目文本里等于把答案告诉评分器：这类题目不用。
+  const personaClaims = loadPersonas().flatMap((persona) => (persona.weak ? [persona.weak.wrongClaim.replace(/[。！？]$/, "")] : []));
   const sources: ScorerCaseSource[] = [];
   for (const question of questions) {
     if (existing.has(question.id) || !question.evaluation || !question.interview.mockSession) continue;
+    if (/说法不对|这个说法/.test(question.question) || personaClaims.some((claim) => question.question.includes(claim.slice(0, 12)))) continue;
     const metadata = (parseJsonValue(question.evaluation.generationMetadataJson) ?? {}) as Record<string, unknown>;
     const brief = parseStoredBrief(question.interview.mockSession.briefJson);
     const area = brief?.areas.find((item) => item.id === metadata.areaId);
@@ -245,23 +250,32 @@ async function commandFixtures(models: EvalModels): Promise<void> {
       console.log("库里没有可用的线程级题目；先跑一轮 interviewer 评测。");
       return;
     }
-    let previousBase = current.at(-1)?.answers.base ?? null;
-    const generated: Awaited<ReturnType<typeof generateScorerCase>>[] = [];
-    for (const source of sources) {
+    // 答非所问变体：认真回答另一个方向（前端 / 运维）的真实面经题，和本题没有共同话题。
+    const foreign = ["frontend", "infra"].flatMap((role) => loadTopics().roles[role as CoverageRole]?.topics.flatMap((topic) => topic.examples.slice(0, 1)) ?? []);
+    if (!foreign.length) throw new Error("需要 eval/mianjing/topics.json 里的前端 / 运维题目做答非所问变体。");
+    const usedClaims = current.map((item) => item.truth.wrongClaim);
+    let written = 0;
+    for (const [index, source] of sources.entries()) {
       try {
-        generated.push(await generateScorerCase(models.aux, { source, resumeText }));
-        console.log(`评分器用例 ${source.id} 生成完成`);
+        const partial = await generateScorerCase(models.aux, { source, resumeText, avoidClaims: usedClaims });
+        const unrelatedQuestion = foreign[(current.length + index) % foreign.length];
+        const offtopic = await generateOfftopicAnswer(models.aux, { unrelatedQuestion, resumeText });
+        const item = finalizeScorerCase(partial, offtopic);
+        const problems = await checkScorerCase(models.aux, item, usedClaims);
+        if (problems.length) {
+          console.warn(`评分器用例 ${source.id} 体检不过，丢弃：${problems.join("；")}`);
+          continue;
+        }
+        usedClaims.push(item.truth.wrongClaim);
+        writeFixture("scorer", item);
+        written += 1;
+        console.log(`评分器用例 ${source.id}：Z「${item.truth.wrongClaim}」`);
       } catch (error) {
+        if (isBillingError(error)) throw error;
         console.warn(`评分器用例 ${source.id} 生成失败：`, error instanceof Error ? error.message : error);
       }
     }
-    for (let index = 0; index < generated.length; index += 1) {
-      const offtopic = generated[(index + 1) % generated.length].answers.base;
-      const item = finalizeScorerCase(generated[index], generated.length > 1 ? offtopic : (previousBase ?? offtopic));
-      writeFixture("scorer", item);
-      previousBase = item.answers.base;
-    }
-    console.log(`写入 ${generated.length} 道评分器用例；现有 ${loadScorerCases().length} 道。`);
+    console.log(`写入 ${written} 道评分器用例；现有 ${loadScorerCases().length} 道。`);
   }
 }
 
@@ -309,7 +323,7 @@ async function generateEvalBrief(jdId: string, resumeId: string, runLabel: strin
   const jd = loadJdFixture(jdId);
   const generationId = `eval-brief:${runLabel}:${jdId}:${Date.now()}`;
   const blueprint = await analyzeMockInterviewJob({ generationId, jobTitle: jd.title, jobDescription: jd.jobDescription });
-  return generateInterviewBrief({
+  const brief = await generateInterviewBrief({
     generationId,
     jobTitle: jd.title,
     blueprint,
@@ -324,6 +338,9 @@ async function generateEvalBrief(jdId: string, resumeId: string, runLabel: strin
     pace: "deep",
     round: "first_interview",
   });
+  // 备课 agent 失败时会退回代码兜底的简报；评测里那不是被测对象，当失败处理。
+  if (brief.source === "fallback") throw new Error(`备课失败，退回了兜底简报（${jdId}）`);
+  return brief;
 }
 
 function topicText(topic: { name: string; description: string }): string {
@@ -392,6 +409,7 @@ async function commandCoverage(models: EvalModels): Promise<void> {
           });
           console.log(`  领域：${areas.join("；")}\n  技能包：${brief.skillPacks.join(", ") || "无"}；覆盖 ${Object.values(covered).filter(Boolean).length}/${topics.length}`);
         } catch (error) {
+          if (isBillingError(error)) throw error;
           console.warn(`  失败：`, error instanceof Error ? error.message : error);
         }
       }
@@ -411,6 +429,62 @@ async function commandCoverage(models: EvalModels): Promise<void> {
   console.log(`\n${renderMetricTable(coverageMetricRows(metrics, calibration.trusted))}\n\n产物：${file}`);
 }
 
+/* ------------------------------------------------------------- 用例体检 */
+
+/** 额度、鉴权这类错误再试也没用，整个运行立刻停。 */
+function isBillingError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /credits|quota|billing|401|insufficient|余额|额度/i.test(message);
+}
+
+/** 生成后的自动体检：错句针对题目、与已有错句不重复、答非所问确实跑题、变体关系成立。 */
+async function checkScorerCase(aux: EvalModels["aux"], item: ScorerCase, usedClaims: string[]): Promise<string[]> {
+  const problems: string[] = [];
+  const lettersOnly = (value: string) => value.replace(/[^\p{L}\p{N}]/gu, "");
+  const z = lettersOnly(item.truth.wrongClaim);
+  for (const used of usedClaims) {
+    const u = lettersOnly(used);
+    const shorter = z.length <= u.length ? z : u;
+    let shared = 0;
+    for (let i = 0; i + 8 <= shorter.length; i += 1) if ((shorter === z ? u : z).includes(shorter.slice(i, i + 8))) shared += 1;
+    if (shorter.length >= 8 && shared / (shorter.length - 7) > 0.5) {
+      problems.push(`错句与已有用例重复：${used}`);
+      break;
+    }
+  }
+  const onTopic = await judgeOne(aux, "claim", { a: item.question, b: item.truth.wrongClaim });
+  if (onTopic === false) problems.push("错句不针对题目所问的机制");
+  const offRelated = await judgeOne(aux, "related", { a: item.answers.base, b: item.answers.offtopic });
+  if (offRelated === true) problems.push("答非所问变体与本题相关");
+  if (item.answers.drop.length >= item.answers.base.length) problems.push("drop 不比 base 短");
+  if (item.answers.fluff.length < 80) problems.push("fluff 太短");
+  return problems;
+}
+
+/** 评分跑前的冒烟门槛：前 3 道各评 1 次，空话与答非所问必须都低于原版，否则停下来查数据。 */
+async function scorerSmokeGate(cases: ScorerCase[]): Promise<void> {
+  for (const item of cases.slice(0, 3)) {
+    const scores: Record<string, number> = {};
+    for (const variant of ["base", "fluff", "offtopic"] as const) {
+      const result = await evaluateMockInterviewQuestion({
+        question: item.question,
+        answer: item.answers[variant],
+        rubric: item.rubric,
+        expectedSignals: item.expectedSignals,
+        jobTitle: item.jobTitle,
+        jobDescription: item.jobDescription,
+        thread: item.thread,
+        round: item.round,
+      });
+      scores[variant] = result.score;
+    }
+    console.log(`冒烟 ${item.id}: base ${scores.base} fluff ${scores.fluff} offtopic ${scores.offtopic}`);
+    if (scores.fluff >= scores.base || scores.offtopic >= scores.base) {
+      throw new Error(`冒烟门槛不过（${item.id}）：空话或答非所问不低于原版，先查用例数据再跑。`);
+    }
+  }
+}
+
 /* ------------------------------------------------------------------ scorer */
 
 async function commandScorer(models: EvalModels): Promise<void> {
@@ -419,6 +493,7 @@ async function commandScorer(models: EvalModels): Promise<void> {
   const cases = loadScorerCases().filter((item) => !only || only.includes(item.id));
   if (!cases.length) throw new Error("没有评分器用例；先 npm run eval -- fixtures --scorer 40。");
   setAgentRunTag(`eval-scorer:${label()}`);
+  if (!process.argv.includes("--no-gate")) await scorerSmokeGate(cases);
   const results: ScorerCaseResult[] = [];
   for (const item of cases) {
     const runs = Object.fromEntries(SCORER_VARIANTS.map((variant) => [variant, [] as VariantRun[]])) as Record<ScorerVariant, VariantRun[]>;
@@ -438,6 +513,7 @@ async function commandScorer(models: EvalModels): Promise<void> {
           });
           runs[variant].push({ score: result.score, evaluation: result.evaluation, metrics: result.metrics, durationMs: Date.now() - startedAt, totalTokens: null });
         } catch (error) {
+          if (isBillingError(error)) throw error;
           console.warn(`${item.id}/${variant}#${rep + 1} 评分失败：`, error instanceof Error ? error.message : error);
         }
       }
@@ -787,6 +863,7 @@ async function commandInterviewer(models: EvalModels): Promise<void> {
           if (final !== "completed") console.warn(`  报告没有在时限内生成，状态 ${final}`);
           snapshots.push(await loadSnapshot(sessionId, item, rep, { ...drive, error: null }));
         } catch (error) {
+          if (isBillingError(error)) throw error;
           const message = error instanceof Error ? error.message : String(error);
           console.warn(`  失败：${message}`);
           if (sessionId) {

@@ -22,7 +22,7 @@ import { ratio, type Ratio } from "./report";
 export const JUDGE_PROMPT_VERSION = "judge-v1";
 export const TRUST_THRESHOLD = 0.9;
 
-export type JudgeKind = "related" | "pushback" | "topic";
+export type JudgeKind = "related" | "pushback" | "topic" | "claim";
 
 export type JudgeItem = { a: string; b: string };
 
@@ -36,6 +36,11 @@ const QUESTIONS: Record<JudgeKind, { system: string; fields: [string, string] }>
     system:
       "你是评测裁判。给你候选人说过的一句断言（claim）和面试官接下来说的话（reply）。只判断一件事：面试官的话是否对这句断言提出了质疑、纠正或反驳（指出它不对、不准确、需要核实，或直接给出相反说法）。只是顺着往下问、没有表达怀疑的，判 false。不评价断言本身对错。",
     fields: ["claim", "reply"],
+  },
+  claim: {
+    system:
+      "你是评测裁判。给你一道面试题（question，含追问）和候选人回答里的一句断言（claim）。只判断一件事：这句断言说的是不是题目正在问的那个机制、组件或做法（回答这道题时说出它是自然的）。说的是题目没问到的别的组件或话题，判 false。不判断断言本身对错。",
+    fields: ["question", "claim"],
   },
   topic: {
     system:

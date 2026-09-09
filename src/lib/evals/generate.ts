@@ -147,23 +147,26 @@ export type ScorerCaseSource = {
 /** offtopic 变体由调用方从另一道用例的 base 填入；这里生成其余五个。 */
 export async function generateScorerCase(
   aux: AiTaskConfig,
-  input: { source: ScorerCaseSource; resumeText: string; attempts?: number },
+  input: { source: ScorerCaseSource; resumeText: string; avoidClaims?: string[]; attempts?: number },
 ): Promise<Omit<ScorerCase, "answers"> & { answers: Omit<ScorerCase["answers"], "offtopic"> }> {
   const attempts = input.attempts ?? 3;
   let lastError = "";
+  const avoid = input.avoidClaims?.length
+    ? `\n- 已有用例用过的错句（不要再用同一个错误点，也不要用它们的换个说法；从题目所问的另一个机制里找）：${input.avoidClaims.join("；")}`
+    : "";
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     const output = await runAux(aux, {
       agent: "eval_generate_scorer_case",
       promptVersion: GENERATE_PROMPT_VERSION,
       system: `为评分器评测构造一组回答。题目是 question（切入问题加追问），候选人是 resume 里的人。要求：
 - base：一个主干正确、细节一般的回答，口语化、第一人称、150 到 400 字，回应题目里的每一层追问，可引用简历里的项目与数字。
-- wrongClaim：一句明确错误的技术断言（陈述句、8 到 60 字、不带引号、有经验的面试官一眼能看出错），错误要与题目相关。
+- wrongClaim：一句明确错误的技术断言（陈述句、8 到 60 字、不带引号、有经验的面试官一眼能看出错）。它必须是对题目正在问的那个机制或做法的错误说法，放进 base 里读起来像候选人在回答这道题时说错了，而不是扯到题目没问的别的组件。
 - whyWrong：为什么错。
 - droppedMechanism：base 里对回答这道题最关键的一段机制描述，逐字抄出来。
 - drop：把 droppedMechanism 从 base 里删掉后的回答（其余不改，可做最小的语句衔接）。
 - fluff：与 base 长度相近、只有态度与套话、不含任何具体机制或数字的回答。
 - para：base 的同义改写，意思与信息量完全一致，措辞和句序不同。
-不要在任何回答里带引号。${lastError ? `\n上一次的问题：${lastError}` : ""}`,
+不要在任何回答里带引号。${avoid}${lastError ? `\n上一次的问题：${lastError}` : ""}`,
       untrustedInputs: "题目、岗位描述与简历",
       payload: {
         jobTitle: input.source.jobTitle,
@@ -194,6 +197,22 @@ export async function generateScorerCase(
     };
   }
   throw new Error(`评分器用例 ${input.source.id} 生成失败：${lastError}`);
+}
+
+const offtopicSchema = z.object({ answer: z.string().min(120).max(2_000) });
+
+/** 答非所问变体：同一个候选人认真回答另一个方向的题目，和本题没有共同话题。 */
+export async function generateOfftopicAnswer(aux: AiTaskConfig, input: { unrelatedQuestion: string; resumeText: string }): Promise<string> {
+  const output = await runAux(aux, {
+    agent: "eval_generate_offtopic",
+    promptVersion: GENERATE_PROMPT_VERSION,
+    system: "候选人是 resume 里的人。请以第一人称、口语化写一段 150 到 350 字的回答，认真回答 question 这道题，不要带引号。",
+    untrustedInputs: "题目与简历",
+    payload: { question: input.unrelatedQuestion, resume: input.resumeText.slice(0, 6_000) },
+    schema: offtopicSchema,
+    maxOutputTokens: 1_200,
+  });
+  return output.answer;
 }
 
 /** 把错句插进基准回答的中段（第二个句号之后），由代码插入以保证逐字存在。 */

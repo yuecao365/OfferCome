@@ -62,8 +62,13 @@ export type ScorerCaseVerdict = {
   meanScores: Record<ScorerVariant, number | null>;
   ordering: boolean | null;
   paraphraseStable: boolean | null;
+  /** 严格口径：k 次评分全部引用到 Z。 */
   errorLocated: boolean | null;
+  /** 多数口径：k 次里过半引用到 Z。 */
+  errorLocatedMajority: boolean | null;
   errorLowered: boolean | null;
+  /** 删掉关键机制后分数不低于原版：评分器没察觉。 */
+  dropUndetected: boolean | null;
   /** 各变体 k 次分数的标准差。 */
   retestStd: Record<ScorerVariant, number | null>;
 };
@@ -85,7 +90,9 @@ export function judgeScorerCase(item: ScorerCase, result: ScorerCaseResult): Sco
     ordering: have("base", "drop", "fluff", "offtopic") ? s.base! > s.drop! && s.drop! > s.fluff! && s.offtopic! < s.base! : null,
     paraphraseStable: have("base", "para") ? Math.abs(s.para! - s.base!) <= PARAPHRASE_TOLERANCE : null,
     errorLocated: errRuns.length ? errRuns.every((run) => locatesWrongClaim(run.evaluation, item.truth.wrongClaim)) : null,
+    errorLocatedMajority: errRuns.length ? errRuns.filter((run) => locatesWrongClaim(run.evaluation, item.truth.wrongClaim)).length * 2 > errRuns.length : null,
     errorLowered: have("base", "err") ? s.err! < s.base! : null,
+    dropUndetected: have("base", "drop") ? s.drop! >= s.base! : null,
     retestStd: Object.fromEntries(
       SCORER_VARIANTS.map((variant) => [variant, stddev((result.runs[variant] ?? []).map((run) => run.score))]),
     ) as Record<ScorerVariant, number | null>,
@@ -96,7 +103,9 @@ export type ScorerMetrics = {
   orderingRate: Ratio;
   paraphraseStableRate: Ratio;
   errorLocatedRate: Ratio;
+  errorLocatedMajorityRate: Ratio;
   errorLoweredRate: Ratio;
+  dropUndetectedRate: Ratio;
   retestStdMean: number | null;
   retestStdMax: number | null;
   /** 标准差超过 12 的（用例, 变体）。 */
@@ -120,7 +129,9 @@ export function summarizeScorer(verdicts: ScorerCaseVerdict[], results: ScorerCa
     orderingRate: ratioOf(verdicts.map((verdict) => verdict.ordering)),
     paraphraseStableRate: ratioOf(verdicts.map((verdict) => verdict.paraphraseStable)),
     errorLocatedRate: ratioOf(verdicts.map((verdict) => verdict.errorLocated)),
+    errorLocatedMajorityRate: ratioOf(verdicts.map((verdict) => verdict.errorLocatedMajority)),
     errorLoweredRate: ratioOf(verdicts.map((verdict) => verdict.errorLowered)),
+    dropUndetectedRate: ratioOf(verdicts.map((verdict) => verdict.dropUndetected)),
     retestStdMean: mean(stds.map((item) => item.std)),
     retestStdMax: stds.length ? Math.max(...stds.map((item) => item.std)) : null,
     unstable: stds.filter((item) => item.std > 12).map((item) => item.key),
@@ -135,8 +146,10 @@ export function scorerMetricRows(metrics: ScorerMetrics): MetricRow[] {
   return [
     { name: "排序成立率", value: metrics.orderingRate, expect: "≥ 0.9", note: "base > drop > fluff 且 offtopic < base" },
     { name: "复述不变率", value: metrics.paraphraseStableRate, expect: "≥ 0.9", note: `|para − base| ≤ ${PARAPHRASE_TOLERANCE}` },
-    { name: "错误定位率", value: metrics.errorLocatedRate, expect: "≥ 0.8", note: "err 的短板引用到插入的错句" },
+    { name: "错误定位率（严格：k 次全部）", value: metrics.errorLocatedRate, expect: "≥ 0.8", note: "err 的短板引用到插入的错句" },
+    { name: "错误定位率（多数）", value: metrics.errorLocatedMajorityRate, expect: "≥ 0.8" },
     { name: "错误降分率", value: metrics.errorLoweredRate, expect: "记基线" },
+    { name: "删机制未检出率", value: metrics.dropUndetectedRate, expect: "记基线", note: "drop ≥ base" },
     { name: "复跑方差（均值）", value: metrics.retestStdMean, expect: "≤ 6" },
     { name: "复跑方差（最大）", value: metrics.retestStdMax, expect: "单条 > 12 列出", note: metrics.unstable.join(", ") },
     { name: "引用置空率", value: metrics.quoteMissingRate, expect: "≤ 0.1" },
@@ -151,7 +164,9 @@ export function flattenScorerMetrics(metrics: ScorerMetrics): Record<string, Met
     orderingRate: metrics.orderingRate,
     paraphraseStableRate: metrics.paraphraseStableRate,
     errorLocatedRate: metrics.errorLocatedRate,
+    errorLocatedMajorityRate: metrics.errorLocatedMajorityRate,
     errorLoweredRate: metrics.errorLoweredRate,
+    dropUndetectedRate: metrics.dropUndetectedRate,
     retestStdMean: metrics.retestStdMean,
     retestStdMax: metrics.retestStdMax,
     quoteMissingRate: metrics.quoteMissingRate,
