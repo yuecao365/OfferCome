@@ -54,7 +54,7 @@ import {
   type SessionSnapshot,
   type SnapshotThread,
 } from "../src/lib/evals/interviewer-metrics";
-import { calibrateJudge, calibrationFromVerdicts, judgeMany, type JudgeCalibration, type JudgeItem } from "../src/lib/evals/judge";
+import { calibrateJudge, calibrationFromVerdicts, judgeMany, loadCalibrationSet, saveCalibrationSet, type JudgeCalibration, type JudgeItem } from "../src/lib/evals/judge";
 import {
   flattenScorerMetrics,
   judgeScorerCase,
@@ -353,7 +353,12 @@ async function commandCoverage(models: EvalModels): Promise<void> {
       if (foreign) negatives.push({ a: topicText(topic), b: foreign.examples[0] });
     }
   }
-  const [positiveVerdicts, negativeVerdicts] = await Promise.all([judgeMany(models.aux, "topic", positives), judgeMany(models.aux, "topic", negatives)]);
+  let topicSet = loadCalibrationSet("topic");
+  if (!topicSet) {
+    topicSet = { kind: "topic", positives, negatives };
+    saveCalibrationSet(topicSet);
+  }
+  const [positiveVerdicts, negativeVerdicts] = await Promise.all([judgeMany(models.aux, "topic", topicSet.positives), judgeMany(models.aux, "topic", topicSet.negatives)]);
   const calibration = calibrationFromVerdicts("topic", positiveVerdicts, negativeVerdicts);
   console.log(`裁判 topic：准确率 ${calibration.accuracy.value?.toFixed(2) ?? "—"} (${calibration.accuracy.numerator}/${calibration.accuracy.denominator})${calibration.trusted ? "" : "，不可信"}`);
 

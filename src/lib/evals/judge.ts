@@ -1,9 +1,13 @@
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import path from "node:path";
+
 import { z } from "zod";
 
 import type { AiTaskConfig } from "@/lib/ai/config";
 
 import { salvageJson } from "@/lib/ai/salvage-json";
 
+import { EVAL_DIR } from "./fixtures";
 import { runAux } from "./models";
 import { ratio, type Ratio } from "./report";
 
@@ -152,17 +156,35 @@ export async function synthesizePositive(aux: AiTaskConfig, kind: Exclude<JudgeK
   }
 }
 
+export type CalibrationSet = { kind: JudgeKind; positives: JudgeItem[]; negatives: JudgeItem[] };
+
+export const JUDGE_SETS_DIR = path.join(EVAL_DIR, "judges");
+
 /**
- * related 与 pushback 的校准：
+ * 校准集第一次构造后冻结到 eval/judges/<kind>.json：每次运行判的是同一套题，
+ * 准确率才能跨运行比较；否则正样本每次重新生成，数字会因为题目不同而来回摆。
+ */
+export function loadCalibrationSet(kind: JudgeKind, dir = JUDGE_SETS_DIR): CalibrationSet | null {
+  const file = path.join(dir, `${kind}.json`);
+  return existsSync(file) ? (JSON.parse(readFileSync(file, "utf8")) as CalibrationSet) : null;
+}
+
+export function saveCalibrationSet(set: CalibrationSet, dir = JUDGE_SETS_DIR): void {
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(path.join(dir, `${set.kind}.json`), `${JSON.stringify(set, null, 2)}\n`, "utf8");
+}
+
+/**
+ * related 与 pushback 的校准集：
  *   related  正样本 = (回答, aux 写的追问)；负样本 = 打乱配对
  *   pushback 正样本 = (断言, aux 写的反驳)；负样本 = (断言, 没有出现断言的回合里面试官的话)
  */
-export async function calibrateJudge(
+export async function buildCalibrationSet(
   aux: AiTaskConfig,
   kind: Exclude<JudgeKind, "topic">,
   sources: string[],
   neutralReplies: string[] = [],
-): Promise<JudgeCalibration> {
+): Promise<CalibrationSet> {
   const positives: JudgeItem[] = [];
   for (const source of sources) {
     const text = await synthesizePositive(aux, kind, source);
@@ -172,6 +194,22 @@ export async function calibrateJudge(
     kind === "related"
       ? shuffledPairs(positives)
       : positives.flatMap((item, index) => (neutralReplies[index % Math.max(1, neutralReplies.length)] ? [{ a: item.a, b: neutralReplies[index % neutralReplies.length] }] : []));
-  const [positiveVerdicts, negativeVerdicts] = await Promise.all([judgeMany(aux, kind, positives), judgeMany(aux, kind, negatives)]);
+  return { kind, positives, negatives };
+}
+
+/** 有冻结的校准集就用它，没有就构造并冻结；然后跑裁判算准确率。 */
+export async function calibrateJudge(
+  aux: AiTaskConfig,
+  kind: Exclude<JudgeKind, "topic">,
+  sources: string[],
+  neutralReplies: string[] = [],
+): Promise<JudgeCalibration> {
+  let set = loadCalibrationSet(kind);
+  if (!set) {
+    set = await buildCalibrationSet(aux, kind, sources, neutralReplies);
+    saveCalibrationSet(set);
+    console.log(`[eval] 冻结 ${kind} 裁判校准集：正 ${set.positives.length}，负 ${set.negatives.length}`);
+  }
+  const [positiveVerdicts, negativeVerdicts] = await Promise.all([judgeMany(aux, kind, set.positives), judgeMany(aux, kind, set.negatives)]);
   return calibrationFromVerdicts(kind, positiveVerdicts, negativeVerdicts);
 }
