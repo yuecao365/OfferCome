@@ -1,0 +1,19 @@
+{
+  "id": "persona-2",
+  "jd": "tencent-hunyuan-backend",
+  "resume": "synthetic-backend",
+  "style": "表达偏踏实，喜欢先讲自己怎么做过，再补一点原理，但遇到没吃透的话题容易顺着关键词往下说。",
+  "strong": [
+    "Redis 与 MySQL 一致性问题排查和修复，比如超卖场景、Lua 脚本时序缺口、乐观锁方案",
+    "MySQL 表结构与索引优化，包括联合索引设计、慢查询分析、列表接口性能优化",
+    "Spring Boot 后端业务开发与系统设计，例如状态机重构、REST 接口设计、RabbitMQ 异步解耦"
+  ],
+  "weak": {
+    "topic": "Linux 排障与系统运维基础",
+    "wrongClaim": "Linux里某个进程CPU高，直接看它的RES内存基本就能判断是不是CPU瓶颈。",
+    "whyWrong": "RES 是驻留内存指标，反映内存占用，不反映 CPU 使用瓶颈。排查 CPU 高通常要看 top、pidstat、perf、线程栈等指标与工具。"
+  },
+  "unsupportable": "构建文档切分、向量化（bge-m3）与检索链路，对比固定长度切分与按标题层级切分，后者在自建的 60 条问答评测集上命中率提高 18 个百分点。",
+  "offtopic": false,
+  "control": false
+}

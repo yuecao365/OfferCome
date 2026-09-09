@@ -1,0 +1,19 @@
+{
+  "id": "persona-1",
+  "jd": "tencent-hunyuan-backend",
+  "resume": "synthetic-backend",
+  "style": "表达偏踏实清晰，喜欢按背景、方案、结果来讲项目，遇到不懂的底层实现会先说自己主要做了应用接入和调参。",
+  "strong": [
+    "Java/Spring Boot 后台业务开发与状态机重构、接口设计",
+    "Redis + MySQL 一致性问题排查与缓存/索引性能优化",
+    "基于 FastAPI 的 RAG 应用落地，包括检索链路、结构化输出和工具调用"
+  ],
+  "weak": {
+    "topic": "常见 RPC 框架及其底层通信机制",
+    "wrongClaim": "gRPC 本质上是基于 Redis 发布订阅来做服务间通信的。",
+    "whyWrong": "gRPC 是基于 HTTP/2 的 RPC 框架，使用 Protocol Buffers 等进行序列化，与 Redis 发布订阅没有本质关系。把 RPC 通信协议栈和消息中间件机制混为一谈了。"
+  },
+  "unsupportable": "编写接口自动化用例 120 余条，接入 CI，在灰度发布前拦截 2 次回归缺陷。",
+  "offtopic": false,
+  "control": false
+}

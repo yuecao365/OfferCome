@@ -1,0 +1,1961 @@
+{
+  "generatedAt": "2026-09-09T12:51:39.682Z",
+  "aux": "openai/gpt-5.4",
+  "roles": {
+    "ai-llm": {
+      "files": 16,
+      "topics": [
+        {
+          "id": "rag-design-and-optimization",
+          "name": "RAG设计优化",
+          "description": "围绕RAG整体方案、数据处理、切分、检索、索引、召回与落地优化的系统设计能力。",
+          "count": 9,
+          "examples": [
+            "介绍一下你对RAG的理解？",
+            "RAG怎么做文本切分的，窗口大小怎么设计的",
+            "rag混合检索机制，是怎么实现的",
+            "创新点与落地差异拷问：你做的这个 RAG 和传统上的 RAG 有没有什么不同？还是只是基于传统概念做了一个落地实践？",
+            "RAG的具体流程"
+          ]
+        },
+        {
+          "id": "agent-context-and-memory",
+          "name": "Agent上下文记忆",
+          "description": "考察Agent的上下文裁剪、压缩、短长期记忆、召回组织及连续任务保持能力。",
+          "count": 4,
+          "examples": [
+            "看到你做了一个memory上下文记忆功能的处理，可以说一下处理逻辑吗？",
+            "使用 Coding Agent 开发复杂功能时，如果上下文过长或模型产生幻觉，怎样把任务拉回正确方向？",
+            "三层 Memory 分别保存什么？",
+            "你之前开发过 agent，怎么管理它的 context？",
+            "如果Agent上下文信息越来越长，超过模型限制，通常有哪些处理方式？"
+          ]
+        },
+        {
+          "id": "multi-agent-architecture",
+          "name": "多Agent架构协作",
+          "description": "考察多Agent的角色拆分、协作编排、状态传递、并发协调与资源一致性控制。",
+          "count": 5,
+          "examples": [
+            "你刚才提到配合定会议那个是多 agent 架构，一共用了几个 agent？每个 agent 分别负责哪一块？",
+            "如果多个 agent 之间有并发的情况，你一般怎么处理？",
+            "Multi-Agent系统中，不同Agent之间应该如何划分职责？",
+            "多agent系统，agent之间如何协作？多agent之间的上下文怎么管理？任务状态如何去进行传递？",
+            "在项目过程中又遇到怎么大的问题吗，说说你怎么解决的。（整理了，但是忘了，只说了怎么平衡固定的WorkFlow和Agent自主权的问题）"
+          ]
+        },
+        {
+          "id": "ai-coding-practice",
+          "name": "AI Coding实践",
+          "description": "关注AI辅助编程或Coding Agent的使用方法、能力边界、工程落地与优化思路。",
+          "count": 6,
+          "examples": [
+            "你是否有AI编程的经历和理解？",
+            "你怎样理解 AI Coding？它能替代开发者完成哪些工作，不能替代哪些工作？",
+            "你自己在做 AI coding 时，一般怎么用？有没有什么方法论？",
+            "如果让你优化一个Coding Agent系统，你会优先从哪些方向入手？",
+            "整个项目你的编码量如何，AI coding你都是怎么使用的呢？"
+          ]
+        },
+        {
+          "id": "agent-tools-and-mcp",
+          "name": "Agent工具调用",
+          "description": "考察Tool/Function Calling、MCP接入、调用流程、工具组织及异常处理机制。",
+          "count": 6,
+          "examples": [
+            "工具如何注册？工具的参数、权限和作用范围如何描述？",
+            "你之前都开发过哪些工具 / function？",
+            "MCP是什么？Agent通过MCP调用工具的流程是什么？",
+            "业界趋势理解：当前比较热的 Skill，这个是什么概念？",
+            "（问项目里的 langchain 的工具调用）你能不能讲讲 function calling 或者是 tool calling 的整体的流程？agent 是如何完成一次工具调用的？"
+          ]
+        },
+        {
+          "id": "model-selection-and-routing",
+          "name": "模型选型策略",
+          "description": "考察不同模型在能力、成本、时延、稳定性上的权衡，以及多模型统一接入与切换。",
+          "count": 4,
+          "examples": [
+            "对于模型的选型你是否有考虑呢？",
+            "日常使用哪些模型？模型选型时如何权衡能力、稳定性和成本？",
+            "项目如何统一接入三类模型后端？",
+            "为什么一些记忆管理、上下文压缩任务可以交给小模型完成？相比大模型有什么优势？",
+            "最近一年你的agent学习路线是什么，接触过哪些比较好的agent产品？"
+          ]
+        },
+        {
+          "id": "rag-evaluation",
+          "name": "RAG评测",
+          "description": "考察RAG评测集构造、效果验证、指标设计、失败归因与可信度分析。",
+          "count": 3,
+          "examples": [
+            "RAG 评测集是怎样构造的？有多少文档和问题？",
+            "创新点与落地差异拷问：你做的这个 RAG 和传统上的 RAG 有没有什么不同？还是只是基于传统概念做了一个落地实践？",
+            "你自己做RAG系统有没有去做一个数据集去验证？"
+          ]
+        },
+        {
+          "id": "agent-fault-tolerance",
+          "name": "Agent容错恢复",
+          "description": "关注Agent执行中的失败、中断、超时、重试、熔断、降级与幂等恢复设计。",
+          "count": 2,
+          "examples": [
+            "对于Agent有没有什么熔断机制？",
+            "4- agent失败/中断如何处理？"
+          ]
+        },
+        {
+          "id": "prompt-and-context-engineering",
+          "name": "提示与上下文工程",
+          "description": "考察Prompt Engineering与Context Engineering的区别、作用边界及应用方法。",
+          "count": 2,
+          "examples": [
+            "提示词工程（Prompt Engineering）和上下文工程（Context Engineering）的区别是什么？",
+            "（根据项目里面的prompt设计展开）你认为 prompt engineering，context engineering，harness， loop engineering，这四个有什么区别吗？"
+          ]
+        },
+        {
+          "id": "slow-query-optimization",
+          "name": "SQL慢查询优化",
+          "description": "考察数据库慢查询定位、执行计划分析、索引设计与SQL改写优化方法。",
+          "count": 2,
+          "examples": [
+            "遇到查询缓慢或数据量过大时，如何定位问题？",
+            "实习经历(sql多表查询和慢查询问题，如何去解决的？)"
+          ]
+        },
+        {
+          "id": "agent-architecture-and-modes",
+          "name": "Agent架构模式",
+          "description": "考察Agent整体架构、自研动机、执行范式与工作模式选择。",
+          "count": 3,
+          "examples": [
+            "是否使用过辅助项目设计与开发的工作流或 Agent 框架？",
+            "ReAct模式和Plan模式有什么区别？两种Agent执行方式分别适用于哪些场景？",
+            "对agent的看法"
+          ]
+        },
+        {
+          "id": "sse-streaming",
+          "name": "SSE流式通信",
+          "description": "考察SSE实时推送、断线重连、流式输出恢复及与WebSocket的差异。",
+          "count": 2,
+          "examples": [
+            "SSE和websocket的区别，SSE具体怎么实现的，后端什么时候推送，前端如果断连怎么处理",
+            "sse流式输出在用户关闭浏览器的时候就断开了，如何保证中断后还能保持之前输出"
+          ]
+        },
+        {
+          "id": "lora-finetuning",
+          "name": "LoRA微调",
+          "description": "考察LoRA微调的原理、适用场景、训练流程及项目实践。",
+          "count": 2,
+          "examples": [
+            "LoRA微调用得多吗？",
+            "（问项目里的lora微调）能不能简单给我介绍一下 Lora 微调是做什么的呀？你是怎么做这个微调的？"
+          ]
+        },
+        {
+          "id": "skill-and-harness",
+          "name": "Skill与编排",
+          "description": "考察Skill、Harness、循环编排等能力组织与控制机制在LLM应用中的作用。",
+          "count": 2,
+          "examples": [
+            "你认为 Harness 是解决什么问题呢？",
+            "你有没有用过 Claude Code？你开发过程中有没有用过一些什么 Skill ？",
+            "skill的目录结构是什么样的？skills相对于MCP的最大优点是什么？MCP也能封装工具，搭建生态，还有什么其它优点？假如你要给一群完全不懂技术的人装openclaw，你会用什么方法？"
+          ]
+        },
+        {
+          "id": "database-sharding",
+          "name": "分库分表",
+          "description": "考察何时进行分库分表、分片键选择以及跨分片查询等设计权衡。",
+          "count": 2,
+          "examples": [
+            "什么情况下才需要考虑分库分表？",
+            "分库分表基础：你是怎么做分库？怎么分表的？"
+          ]
+        },
+        {
+          "id": "rag-knowledge-base-update",
+          "name": "RAG更新一致性",
+          "description": "关注RAG知识库热更新、索引切换、数据同步及检索系统一致性保障。",
+          "count": 2,
+          "examples": [
+            "RAG项目二中MySQL和ES数据一致性是怎么做的",
+            "RAG知识库更新怎么不停服"
+          ]
+        },
+        {
+          "id": "agent-evaluation-and-quality",
+          "name": "Agent评测质保",
+          "description": "考察Agent或LLM应用的测试、验收、量化评估与上线质量保障体系。",
+          "count": 2,
+          "examples": [
+            "上线前主要是通过什么方式保证质量的？只是靠 code review 吗？",
+            "多agent系统的工作流程和生成效果如何去做量化评估？"
+          ]
+        },
+        {
+          "id": "hallucination-mitigation",
+          "name": "幻觉抑制",
+          "description": "考察识别、减少和修复模型幻觉，以及通过自我修正提升输出可靠性。",
+          "count": 1,
+          "examples": [
+            "你们项目里有没有遇到幻觉问题？这个问题怎么减少、规避？"
+          ]
+        },
+        {
+          "id": "vector-store-selection",
+          "name": "向量库选型",
+          "description": "考察向量库或检索存储的选型依据，以及本地云端存储权衡。",
+          "count": 1,
+          "examples": [
+            "做的rag项目中，为什么用Chroma"
+          ]
+        },
+        {
+          "id": "redis-fundamentals",
+          "name": "Redis基础",
+          "description": "考察Redis持久化、线程模型及高性能原因等基础原理。",
+          "count": 1,
+          "examples": [
+            "Redis 的 RDB 和 AOF 分别记录什么？各自有什么优缺点？"
+          ]
+        },
+        {
+          "id": "io-multiplexing",
+          "name": "IO多路复用",
+          "description": "考察select、poll、epoll等IO多路复用机制及适用场景。",
+          "count": 1,
+          "examples": [
+            "IO 多路复用解决了什么问题？"
+          ]
+        },
+        {
+          "id": "automated-testing",
+          "name": "自动化测试",
+          "description": "考察自动化测试框架与工程中的测试实践能力。",
+          "count": 1,
+          "examples": [
+            "你有没有接触过自动化测试？了解哪些测试框架（Python 或其他语言）？"
+          ]
+        },
+        {
+          "id": "resource-cleanup",
+          "name": "资源清理设计",
+          "description": "考察孤儿资源识别、清理流程及扫描或事件驱动实现方案。",
+          "count": 1,
+          "examples": [
+            "你说的孤儿资源清理具体是怎么实现的？"
+          ]
+        },
+        {
+          "id": "watch-consistency",
+          "name": "Watch一致性",
+          "description": "考察基于Watch的监听同步链路设计及与数据库一致性处理。",
+          "count": 1,
+          "examples": [
+            "Watch 和数据库同步这一套是怎么设计的？有没有一致性问题？"
+          ]
+        },
+        {
+          "id": "agent-platform-integration",
+          "name": "Agent平台落地",
+          "description": "考察Agent在自动化平台中的职责、演进路径及业务闭环落地方式。",
+          "count": 2,
+          "examples": [
+            "你在B公司做的 Agent 核心是做什么的？解决了什么问题？",
+            "如果这个 Agent 要扩展到自动检测、排障、自动化能力，架构怎么演进？",
+            "除了这个 RAG 项目，有没有再做过一些什么其他的agent？或者说你用过什么其他的 agent 吗？你理解它相关的一些原理吗？"
+          ]
+        },
+        {
+          "id": "parameter-automation",
+          "name": "参数自动化",
+          "description": "考察参数收集自动化、易错项识别与规则沉淀设计。",
+          "count": 1,
+          "examples": [
+            "用户在 Jenkins 上最容易填错哪些参数？为什么？"
+          ]
+        },
+        {
+          "id": "log-collection-agent",
+          "name": "日志采集Agent",
+          "description": "考察自动拉取日志Agent的多机采集、凭据处理与解析流程设计。",
+          "count": 1,
+          "examples": [
+            "如果让你设计一个自动拉日志的 Agent，你整体流程是怎样的？"
+          ]
+        },
+        {
+          "id": "intent-recognition",
+          "name": "意图识别",
+          "description": "考察Agent中的语义理解、意图分类与任务路由机制设计。",
+          "count": 1,
+          "examples": [
+            "做的agent项目中，语义意图识别是怎么做的"
+          ]
+        },
+        {
+          "id": "oauth-mcp-security",
+          "name": "MCP鉴权安全",
+          "description": "考察在MCP场景中接入OAuth鉴权的目的、流程与安全设计。",
+          "count": 1,
+          "examples": [
+            "介绍一下项目一，oauth2.1为什么要接入进mcp中"
+          ]
+        },
+        {
+          "id": "retrieval-rerank",
+          "name": "召回重排",
+          "description": "考察召回、排序、重排策略的组合设计及效果权衡。",
+          "count": 1,
+          "examples": [
+            "讲解召回重排的策略"
+          ]
+        },
+        {
+          "id": "multi-tenant-isolation",
+          "name": "多租户隔离",
+          "description": "考察系统在数据、权限、资源和配置层面的租户隔离设计。",
+          "count": 1,
+          "examples": [
+            "如何实现多租户隔离"
+          ]
+        },
+        {
+          "id": "training-data-and-tuning",
+          "name": "训练数据调优",
+          "description": "考察训练样本来源、构造方式以及模型调优实践。",
+          "count": 1,
+          "examples": [
+            "3- 训练样本哪里来的？"
+          ]
+        },
+        {
+          "id": "design-patterns",
+          "name": "设计模式",
+          "description": "考察常见设计模式在系统扩展性与解耦中的实际应用。",
+          "count": 1,
+          "examples": [
+            "设计模式追问"
+          ]
+        },
+        {
+          "id": "mysql-transaction-isolation",
+          "name": "事务隔离级别",
+          "description": "考察MySQL事务隔离级别及其区别与作用。",
+          "count": 1,
+          "examples": [
+            "MySQL 事务隔离级别有哪些？"
+          ]
+        },
+        {
+          "id": "redis-lock-and-lua",
+          "name": "Redis锁与Lua",
+          "description": "考察Redis分布式锁及Lua脚本封装复合原子操作的设计动机。",
+          "count": 1,
+          "examples": [
+            "Lua 脚本动机：在这个红包系统里用了 Redis 的这种 Lua 脚本做增减，为什么用 Lua 脚本不用比如 Redis 自己自带的这些原子指令（比如 `INCR`/`DECR`）？",
+            "Redis 分布式锁原理：在 Redis 里的分布式锁，它是大概是什么样的以及怎么用的？"
+          ]
+        },
+        {
+          "id": "mq-selection",
+          "name": "MQ选型",
+          "description": "考察消息队列在业务系统中的作用以及具体选型依据。",
+          "count": 1,
+          "examples": [
+            "MQ 选型与演进：在这个红包系统里面用了RocketMQ，为什么会选择这种消息队列来去做推送？"
+          ]
+        },
+        {
+          "id": "concurrency-basics",
+          "name": "并发基础",
+          "description": "考察进程、线程、协程的区别及线程共享资源等基础知识。",
+          "count": 1,
+          "examples": [
+            "说一下线程、进程还有协程他们的一些区别概念。"
+          ]
+        }
+      ]
+    },
+    "backend": {
+      "files": 16,
+      "topics": [
+        {
+          "id": "mysql-index-and-sql-optimization",
+          "name": "MySQL索引与优化",
+          "description": "围绕 MySQL/InnoDB 索引结构、回表与失效场景、执行计划及查询优化的方法。",
+          "count": 11,
+          "examples": [
+            "数据库的回表操作可以介绍一下吗",
+            "了解MySQL索引吗？",
+            "10 MySQL的存储引擎",
+            "15 索引什么情况下失效 （函数、where、模糊匹配、表达式计算、不满足最左匹配原则忘记了）",
+            "数据库索引的底层结构是什么？什么时候会失效？"
+          ]
+        },
+        {
+          "id": "jvm-gc-and-memory",
+          "name": "JVM内存与GC",
+          "description": "考察 JVM 内存区域、对象分配与存活判定、垃圾回收机制及调优思路。",
+          "count": 11,
+          "examples": [
+            "Java GC有哪些垃圾回收算法？",
+            "在实际过程（你的日常编程中）中如何减少gc的开销",
+            "垃圾回收机制是什么？",
+            "假如有一个电商下单场景，要求时延小于10ms的比例是N个9，如何从JVM调优角度优化效果（减少GC次数，使用STW较小的GC器）；进一步，有哪些减少FullGC次数的方法（说了调小老年代的比例、增大对象被移到老年代的年龄）",
+            "Java类的加载过程"
+          ]
+        },
+        {
+          "id": "redis-cache-design-and-issues",
+          "name": "Redis缓存设计",
+          "description": "围绕缓存一致性、穿透击穿雪崩、热点 Key 与缓存更新策略的设计与治理。",
+          "count": 8,
+          "examples": [
+            "如果让你用Redis做MySQL的缓存，你会采取什么样的更新策略？",
+            "缓存穿透、雪崩、击穿，如何解决",
+            "使用Redis缓存，如何保证缓存和数据库的数据一致性？",
+            "18 缓存三大问题（雪崩、击穿、穿透），如何避免",
+            "缓存三剑客"
+          ]
+        },
+        {
+          "id": "transactions-and-mvcc",
+          "name": "事务与MVCC",
+          "description": "考察事务 ACID、隔离级别、并发控制、锁与 MVCC 的原理和权衡。",
+          "count": 10,
+          "examples": [
+            "MySQL事务有哪几种隔离级别？",
+            "12 讲一讲事务的特性，具体说一下各个特性（一致性没说出来，被追问了）",
+            "数据库事务的特性是什么？",
+            "数据库的隔离级别有哪些，分别解决什么问题",
+            "事务并发隔离等级"
+          ]
+        },
+        {
+          "id": "redis-data-structures-and-persistence",
+          "name": "Redis原理机制",
+          "description": "考察 Redis 数据结构、ZSet/跳表、线程模型、持久化、内存淘汰及相关底层机制。",
+          "count": 8,
+          "examples": [
+            "Redis持久化介绍一下",
+            "Redis ZSet底层是什么数据结构？ziplist和新版listpack两种结构有什么区别？",
+            "Redis 支持哪些数据结构？",
+            "Redis中ZSet的底层数据结构",
+            "Redis的常用数据结构有哪些，以及他们的原理"
+          ]
+        },
+        {
+          "id": "spring-aop-ioc-and-transactions",
+          "name": "Spring核心机制",
+          "description": "围绕 Spring IoC、AOP、Bean 生命周期、事务生效与代理机制等核心原理。",
+          "count": 8,
+          "examples": [
+            "spring中使用了哪些代理模式 （我只回答了工厂模式、单例模式、代理模式）",
+            "Spring AOP 代理在什么情况下会失效？",
+            "Spring中@Transactional的失效场景，原因有哪些；如果一定要在方法内执行本类的方法，但是不能用this.调用（否则会失效），那该怎么调用",
+            "Spring容器的启动流程",
+            "介绍一下java的注解？"
+          ]
+        },
+        {
+          "id": "redis-distributed-lock",
+          "name": "Redis分布式锁",
+          "description": "考察基于 Redis/Redisson 的分布式锁实现、原子性、过期续期与失效场景处理。",
+          "count": 5,
+          "examples": [
+            "如何用Redis实现分布式锁？",
+            "你方案里用到Redis分布式锁，锁的过期时间设置多久？1万QPS场景下该如何设计这把锁？",
+            "16 redis如何实现分布式锁",
+            "实习经历里的Redisson上分布式锁仍超卖的原因和解决方案",
+            "Redis分布式锁"
+          ]
+        },
+        {
+          "id": "thread-pool-and-java-concurrency",
+          "name": "线程池与并发",
+          "description": "考察线程池参数与执行流程，以及 Java 并发同步、AQS、CAS 和线程安全机制。",
+          "count": 4,
+          "examples": [
+            "你了解线程池吗，讲一下创建参数和运行的流程（吟唱）",
+            "Java创建线程池的方法中的核心参数及含义；另外这些参数应该如何设置，考虑哪些因素",
+            "CountDownLatch的底层实现（AQS）；AQS底层是如何实现的（那个state，加上类CLH锁）",
+            "Java线程池的作用",
+            "java线程池介绍一下，有哪些参数，工作流程"
+          ]
+        },
+        {
+          "id": "mq-reliability-and-order",
+          "name": "消息队列可靠性",
+          "description": "围绕 MQ 的应用场景、选型、顺序性、重复消费、丢失处理与幂等设计。",
+          "count": 7,
+          "examples": [
+            "了解消息队列吗？",
+            "有没有用过消息队列，如何保证消费的时候不重复也不遗漏（笔者没用过消息队列，八股也基本没看，只有一些简单的印象）",
+            "MQ 一般用在什么场景？",
+            "如果让你设计一个消息队列中间件，那么如何保证消息不丢失，不重复；假如消息的乱序到达的，如何保证消费者能按序消费",
+            "采用Kafka作为消息队列如何就能对系统进行解耦呢？"
+          ]
+        },
+        {
+          "id": "agent-and-rag-basics",
+          "name": "Agent与RAG基础",
+          "description": "考察 Agent、RAG、知识库及其核心概念、流程、模块和应用场景理解。",
+          "count": 5,
+          "examples": [
+            "对Agent了解多少？RAG了解吗？",
+            "Agent 在学术上通常由哪些模块组成？",
+            "项目里的knowledge base是为了解决什么问题？",
+            "大模型相关",
+            "开始聊聊AI吧，Agent是什么？"
+          ]
+        },
+        {
+          "id": "network-protocols-and-request-flow",
+          "name": "网络协议与请求链路",
+          "description": "围绕 TCP/UDP、HTTP、DNS 到服务端处理的完整网络请求链路与协议基础。",
+          "count": 6,
+          "examples": [
+            "在浏览器里输入URL到页面完全展示，中间都发生了什么？",
+            "快速说一下TCP、UDP的区别",
+            "一个请求从前端到后端，HTTP是如何处理的？",
+            "当客户端宕机了，服务端如何判断是否要断开这个连接？",
+            "HTTP 2.0 与 HTTP 1.0的区别"
+          ]
+        },
+        {
+          "id": "high-concurrency-system-design",
+          "name": "高并发系统设计",
+          "description": "考察秒杀、抢课等高并发业务的容量、库存、削峰、限流与稳定性设计。",
+          "count": 5,
+          "examples": [
+            "场景：设计一个抢课系统，你觉得它的痛点在哪里，你又会如何解决这个痛点，一堆人使用的时候系统不会宕机，热门课程不会被超出容量的人抢掉 （这块答的比较差）",
+            "秒杀券优化里的锁是怎么实现的，了解到是数据库层面的乐观锁就没有追问了",
+            "这个令牌桶它的原理是什么？",
+            "设计一个秒杀系统（重点问限流方案）",
+            "秒杀是怎么做的？"
+          ]
+        },
+        {
+          "id": "service-discovery-and-microservices",
+          "name": "微服务与注册发现",
+          "description": "考察微服务架构中的服务注册发现、负载均衡、SpringBoot/Cloud 与基础组件理解。",
+          "count": 3,
+          "examples": [
+            "微服务架构里，服务发现和负载均衡是怎么实现的？",
+            "服务发现怎么实现的？",
+            "为什么用springboot（讲了起步依赖和自动装配）"
+          ]
+        },
+        {
+          "id": "agent-rag-evaluation-and-improvement",
+          "name": "RAG评测与优化",
+          "description": "围绕 RAG 系统的评测集构建、效果指标、缺陷分析和优化改进方案。",
+          "count": 1,
+          "examples": [
+            "你怎么评估这套RAG回复系统的效果好坏？",
+            "抛开评测问题不谈，你当前RAG平台还有哪些不足？如果要面向全校学生、抖音用户大规模使用存在什么缺陷？"
+          ]
+        },
+        {
+          "id": "agent-memory-and-hallucination",
+          "name": "Agent记忆与幻觉",
+          "description": "考察 Agent 的记忆机制、写入使用时机，以及幻觉控制和工业落地治理。",
+          "count": 2,
+          "examples": [
+            "Agent 如何减少幻觉？如果放到工业场景里，你会怎么做？",
+            "讲一下Agent的记忆"
+          ]
+        },
+        {
+          "id": "skill-and-mcp",
+          "name": "Skill与MCP",
+          "description": "考察 Agent 体系中 Skill 与 MCP 的职责边界、封装方式和适用场景。",
+          "count": 2,
+          "examples": [
+            "Skill和MCP的区别是什么？",
+            "你做了二十多个skill和MCP，skill和MCP的边界你怎么划分？"
+          ]
+        },
+        {
+          "id": "websocket-and-realtime-communication",
+          "name": "WebSocket实时通信",
+          "description": "考察 WebSocket 原理、服务端推送及实时搜索或通知场景下的通信方式选择。",
+          "count": 3,
+          "examples": [
+            "7 讲一下websocket",
+            "实时搜索一般会用什么网络协议？比如 `WebSocket`，你了解或用过吗？",
+            "为什么基于WebSocket实现点赞关注通知功能"
+          ]
+        },
+        {
+          "id": "social-feed-design",
+          "name": "社交Feed设计",
+          "description": "考察朋友圈/Feed 类产品的数据模型、评论结构、发布与分发架构设计。",
+          "count": 2,
+          "examples": [
+            "设计微信朋友圈的表结构、评论表设计",
+            "场景题：设计一个社交朋友圈，可以发文，好友可以发动态，设计数据结构和架构"
+          ]
+        },
+        {
+          "id": "distributed-transactions",
+          "name": "分布式事务",
+          "description": "考察 2PC、TCC、Saga、消息事务等跨库跨服务一致性方案及其取舍。",
+          "count": 3,
+          "examples": [
+            "介绍一下两阶段提交#快手#",
+            "如何保证分布式事务？",
+            "各个分布式事务解决方案原理"
+          ]
+        },
+        {
+          "id": "java-basics-and-collections",
+          "name": "Java基础与集合",
+          "description": "考察 Java 面向对象、集合框架、HashMap/ConcurrentHashMap 及对象语义等基础。",
+          "count": 4,
+          "examples": [
+            "使用一个自定义的类时，然后要塞到HashMap中，需要注意什么（Equals 和 HashCode方法）；并说明如果只重写HashCode方法会发生什么，举例子",
+            "HashMap的扩容是怎么实现的",
+            "Java是一个面向对象的编程，那面向对象和面向过程这两个你是怎么理解的？",
+            "Java里面的变量数据类型，有一些基本数据类型，有一些包装数据类型，在实际使用过程中，这两种有什么区别？",
+            "Java里面的集合框架，List, Set, Map它们之间的区别是什么？"
+          ]
+        },
+        {
+          "id": "linux-and-deployment",
+          "name": "Linux与部署运维",
+          "description": "考察 Linux 常用命令、环境与端口排障，以及 Docker/K8s 和服务部署基础。",
+          "count": 2,
+          "examples": [
+            "Linux下的常用环境变量有哪些？",
+            "Docker容器",
+            "Linux下，如果现在程序执行报错端口冲突，什么命令可以知道端口对应的IP地址",
+            "K8s了解吗"
+          ]
+        },
+        {
+          "id": "security-and-rate-limiting",
+          "name": "安全与限流防护",
+          "description": "围绕接口限流、DDoS/SYN Flood、SQL 注入等攻击防护与治理方案。",
+          "count": 2,
+          "examples": [
+            "怎么防止DDOS攻击",
+            "了解哪些网络攻击方式？"
+          ]
+        },
+        {
+          "id": "distributed-theory-and-storage",
+          "name": "分布式理论与存储",
+          "description": "考察 CAP/BASE、Raft 等分布式理论，以及分片、多副本和分布式存储设计。",
+          "count": 2,
+          "examples": [
+            "分布式基础（CAP/BASE）",
+            "你项目经历里面有没有分布式存储相关的？",
+            "还有分布式的理论知道吗？",
+            "除了一主多从这种副本机制，多主多从的话应该怎么设计？"
+          ]
+        },
+        {
+          "id": "authentication-and-authorization",
+          "name": "认证与权限控制",
+          "description": "考察 JWT 认证、会话共享、身份校验和数据权限隔离等访问控制机制。",
+          "count": 3,
+          "examples": [
+            "你刚才提到权限隔离，举个场景：用户要查询UID=123的钱包，但当前登录用户实际UID是456，这套查询逻辑怎么处理？调用接口前如何判断两边ID是否匹配？",
+            "1 讲一下JWT（项目提到）",
+            "你项目（黑马点评）中，用redis解决了session共享问题，这大概做了什么事呢？"
+          ]
+        },
+        {
+          "id": "tcp-http-and-java-network-programming",
+          "name": "Java网络编程",
+          "description": "考察 Java Socket 编程及其与底层 TCP 连接通信模型的结合理解。",
+          "count": 1,
+          "examples": [
+            "socket的连接在Java中的实现"
+          ]
+        },
+        {
+          "id": "search-and-inverted-index",
+          "name": "搜索与倒排索引",
+          "description": "考察倒排索引、全文检索、模糊搜索与联想提示等搜索系统实现思路。",
+          "count": 2,
+          "examples": [
+            "MySQL倒排放入数据",
+            "如何实现一个类似淘宝搜索框的实时商品名称模糊搜索？"
+          ]
+        },
+        {
+          "id": "go-concurrency",
+          "name": "Go并发与调度",
+          "description": "考察 Go 与 Java 差异、协程模型、Channel/Mutex 用法及 GMP 调度机制。",
+          "count": 2,
+          "examples": [
+            "go和java区别",
+            "Channel 和传统锁，比如 `Mutex`，在并发控制上有什么区别？分别适合什么场景？"
+          ]
+        },
+        {
+          "id": "http-auth-filter-chain",
+          "name": "请求拦截链",
+          "description": "考察 Servlet、Filter、Interceptor 在 Web 请求处理链中的位置与作用。",
+          "count": 1,
+          "examples": [
+            "filter和interceptor的工作原理，以及他们分别解决了什么问题？"
+          ]
+        },
+        {
+          "id": "maven-dependency-management",
+          "name": "Maven依赖管理",
+          "description": "考察 Maven 传递依赖、版本冲突和依赖治理方法。",
+          "count": 1,
+          "examples": [
+            "Maven 传递依赖可能会带来什么问题？怎么处理？"
+          ]
+        },
+        {
+          "id": "mongodb-index",
+          "name": "MongoDB索引",
+          "description": "考察 MongoDB 索引结构及其与常见关系型数据库索引的区别。",
+          "count": 1,
+          "examples": [
+            "MongDB索引是什么结构(B树)"
+          ]
+        },
+        {
+          "id": "url-shortener-design",
+          "name": "短链系统设计",
+          "description": "考察短链接系统的存储、生成、跳转链路及高并发优化设计。",
+          "count": 1,
+          "examples": [
+            "设计一个短链系统"
+          ]
+        },
+        {
+          "id": "design-patterns",
+          "name": "设计模式",
+          "description": "考察常见设计模式在业务开发中的使用、取舍与重构思路。",
+          "count": 2,
+          "examples": [
+            "那你在项目中使用了哪些设计模式",
+            "我看你用的是责任链设计模式做的，是吧？（追问项目细节）"
+          ]
+        },
+        {
+          "id": "stability-and-observability",
+          "name": "稳定性与可观测",
+          "description": "考察监控、告警、数据对账、防错校验及线上问题发现治理能力。",
+          "count": 2,
+          "examples": [
+            "迭代变更可能导致多报、漏报、少报、错报，怎么防？",
+            "端侧稳定性和可观测性治理具体做了什么？",
+            "你负责的模块怎么优化性能？"
+          ]
+        },
+        {
+          "id": "performance-optimization",
+          "name": "性能优化",
+          "description": "考察服务性能瓶颈定位、并发改造和线上优化思路。",
+          "count": 1,
+          "examples": [
+            "要优化这段代码的性能，除了算法层面还有什么角度？"
+          ]
+        },
+        {
+          "id": "operating-system-basics",
+          "name": "操作系统基础",
+          "description": "考察进程线程、用户态内核态切换及操作系统常见锁机制等基础知识。",
+          "count": 3,
+          "examples": [
+            "进程状态以及状态之间的转换",
+            "这段代码运行在内核态还是用户态？",
+            "操作系统常用的锁机制有哪些？"
+          ]
+        },
+        {
+          "id": "class-loading-and-reflection",
+          "name": "类加载与反射",
+          "description": "考察 Java 类加载、双亲委派、常量池、反射及相关底层机制。",
+          "count": 3,
+          "examples": [
+            "类加载器有几种？",
+            "介绍一下Java的常量池",
+            "Java反射的应用场景",
+            "Java new一个对象的过程"
+          ]
+        },
+        {
+          "id": "database-logs",
+          "name": "MySQL日志机制",
+          "description": "考察 redo log、undo log、binlog 的作用、写入时机与配合关系。",
+          "count": 1,
+          "examples": [
+            "redo log、undo log、bin log文件格式的区别？"
+          ]
+        },
+        {
+          "id": "web-backend-practice",
+          "name": "后端开发实践",
+          "description": "考察数据库 CRUD、基础 Web 框架使用及实际后端开发经验。",
+          "count": 1,
+          "examples": [
+            "用过数据库吗？增删改查之类的"
+          ]
+        },
+        {
+          "id": "deployment-experience",
+          "name": "项目部署上线",
+          "description": "考察项目独立部署、上线流程及落地交付经验。",
+          "count": 1,
+          "examples": [
+            "部署过什么？"
+          ]
+        },
+        {
+          "id": "java-threadlocal",
+          "name": "ThreadLocal原理",
+          "description": "考察 ThreadLocal 的使用场景、底层实现及内存泄漏等注意事项。",
+          "count": 1,
+          "examples": [
+            "看你项目中用了ThreadLocal，说说用在哪"
+          ]
+        }
+      ]
+    },
+    "frontend": {
+      "files": 16,
+      "topics": [
+        {
+          "id": "browser-storage-and-cookie",
+          "name": "浏览器存储与Cookie",
+          "description": "考察 Cookie、localStorage、sessionStorage、IndexedDB 等浏览器存储方案的区别、生命周期、安全性与使用场景。",
+          "count": 5,
+          "examples": [
+            "localstorage和sessionstorage区别",
+            "Cookie 作用，一般什么场景用？",
+            "还有吗，提示：比如我通过 JS 获取到（设置 HttpOnly，禁止脚本获取 cookie）",
+            "Cookie 和 localstotage 和 session storage 的区别",
+            "技术选型indexeddb和localstorage对比"
+          ]
+        },
+        {
+          "id": "http-cache",
+          "name": "HTTP缓存机制",
+          "description": "考察强缓存、协商缓存、304 状态码及相关响应头字段的原理和实际应用。",
+          "count": 4,
+          "examples": [
+            "强缓存和协商缓存",
+            "http的缓存策略",
+            "http缓存",
+            "说说网络状态码304，为什么需要304状态码"
+          ]
+        },
+        {
+          "id": "ai-tooling-and-llm-usage",
+          "name": "AI工具与大模型应用",
+          "description": "考察开发中使用 AI 工具或大模型的方式、效果评估、能力边界与落地经验。",
+          "count": 5,
+          "examples": [
+            "了解是如何和大模型进行交互的吗？",
+            "有没有在用 AI 工具，怎么用的，被夸了，说我接触的很深",
+            "你用过什么大模型",
+            "如何使用的ai",
+            "问AI Coding"
+          ]
+        },
+        {
+          "id": "code-index-and-analysis",
+          "name": "代码索引与静态分析",
+          "description": "考察代码库索引、AST/静态分析、检索优化及增量更新等代码理解基础设施方案。",
+          "count": 2,
+          "examples": [
+            "了解过业界在代码索引这个方向做的相关工作吗？",
+            "Data Agent 项目中 Codebase Index 的具体技术方案是什么？",
+            "不使用 RAG 的情况下，如何提升检索效果？",
+            "代码发生修改后，如何保证 index 索引是最新的？",
+            "如何通过 ts-morph 提取行号信息？"
+          ]
+        },
+        {
+          "id": "vue-state-management",
+          "name": "Vue状态管理",
+          "description": "考察 Vue 项目中全局状态管理方案的选型、设计与实践。",
+          "count": 2,
+          "examples": [
+            "为什么前面用vuex 后面用pinia 有什么目的吗",
+            "vue3是如何做状态管理的？"
+          ]
+        },
+        {
+          "id": "frontend-performance-optimization",
+          "name": "前端性能优化",
+          "description": "考察懒加载、预加载、弱网优化等页面性能优化手段的实现与适用场景。",
+          "count": 3,
+          "examples": [
+            "图片懒加载怎么实现？",
+            "图片懒加载 - 是否做了加载异常的处理？",
+            "怎么做的提前加载内容？",
+            "弱网情况下用户快速滑动图片列表怎么能够好的让用户访问？"
+          ]
+        },
+        {
+          "id": "routing-and-permission",
+          "name": "路由与权限控制",
+          "description": "考察前端动态路由、路由鉴权、权限模型与访问控制设计。",
+          "count": 3,
+          "examples": [
+            "项目中动态路由介绍",
+            "项目里react router设置权限，权限你怎么做的（我没想到这个也是我入职后mt着重教的地方）",
+            "你是如何设计 JWT 权限分级管控的，具体做了哪些权限隔离的细节？"
+          ]
+        },
+        {
+          "id": "javascript-prototype",
+          "name": "JS原型链与继承",
+          "description": "考察 JavaScript 原型链、继承机制以及 prototype 和 __proto__ 等核心概念。",
+          "count": 2,
+          "examples": [
+            "JS 原型链是什么？",
+            "在JS中，能解释一下js对象的原型是如何继承的吗？"
+          ]
+        },
+        {
+          "id": "os-concurrency-basics",
+          "name": "进程线程与并发",
+          "description": "考察进程、线程、协程、调度及死锁等操作系统并发基础概念。",
+          "count": 2,
+          "examples": [
+            "进程和线程的区别",
+            "死锁定义",
+            "问操作系统"
+          ]
+        },
+        {
+          "id": "css-layout-and-responsive",
+          "name": "页面布局与适配",
+          "description": "考察响应式布局、尺寸适配与常见页面排版对齐方案。",
+          "count": 1,
+          "examples": [
+            "如何做页面尺寸适配"
+          ]
+        },
+        {
+          "id": "css-animation",
+          "name": "CSS动画",
+          "description": "考察使用 CSS 实现动画的方式、关键属性及适用场景。",
+          "count": 1,
+          "examples": [
+            "如何实现css动画"
+          ]
+        },
+        {
+          "id": "this-binding",
+          "name": "this绑定机制",
+          "description": "考察 JavaScript 中 this 的指向规则及显式修改绑定的方法。",
+          "count": 1,
+          "examples": [
+            "如何改变this"
+          ]
+        },
+        {
+          "id": "browser-security-and-cross-origin",
+          "name": "浏览器安全与跨域",
+          "description": "考察同源策略、跨域通信方式及常见前端安全机制。",
+          "count": 1,
+          "examples": [
+            "什么是浏览器同源策略？"
+          ]
+        },
+        {
+          "id": "debounce-and-throttle",
+          "name": "防抖与节流",
+          "description": "考察高频事件优化中防抖和节流的区别、实现思路与使用场景。",
+          "count": 1,
+          "examples": [
+            "防抖和节流使用场景，二者有什么区别？"
+          ]
+        },
+        {
+          "id": "vue3-reactivity",
+          "name": "Vue3响应式",
+          "description": "考察 Vue3 基于 Proxy 的响应式实现、依赖收集与触发更新机制。",
+          "count": 1,
+          "examples": [
+            "Vue 3 响应式原理，初始化的时候 Proxy 收集什么内容？"
+          ]
+        },
+        {
+          "id": "ssr-and-nextjs",
+          "name": "SSR与Next.js",
+          "description": "考察服务端渲染的执行流程、生命周期运行环境以及 SEO 相关实践。",
+          "count": 2,
+          "examples": [
+            "onMounted 之类的钩子在服务端还是客户端执行？",
+            "有做 SEO 优化吗？"
+          ]
+        },
+        {
+          "id": "collaborative-editing",
+          "name": "协同编辑算法",
+          "description": "考察 CRDT 与 OT 的原理、差异及在协同编辑场景中的取舍。",
+          "count": 1,
+          "examples": [
+            "协同算法crdt、ot介绍与比较"
+          ]
+        },
+        {
+          "id": "react-fiber",
+          "name": "React Fiber",
+          "description": "考察 React Fiber 的数据结构、调度思想及可中断渲染机制。",
+          "count": 1,
+          "examples": [
+            "fiber的数据结构与算法"
+          ]
+        },
+        {
+          "id": "request-encapsulation",
+          "name": "请求封装设计",
+          "description": "考察前端请求层封装的通用能力设计及自定义请求工具实现思路。",
+          "count": 1,
+          "examples": [
+            "useAsyncFetch 这类请求方法里面大概实现了什么功能？"
+          ]
+        },
+        {
+          "id": "agent-and-mcp-integration",
+          "name": "Agent与MCP集成",
+          "description": "考察 Agent、MCP、Skill 等 AI 工作流能力在工程中的集成与职责划分。",
+          "count": 3,
+          "examples": [
+            "Browser Agent 自测相关，你做了哪些工作？",
+            "Node 写的 MCP 的功能是什么？",
+            "手机端人工接管 AI 编码任务是怎么实现的？",
+            "为什么要编写 Skill 让 AI 理解内部组件库？",
+            "MCP Server 怎么理解？"
+          ]
+        },
+        {
+          "id": "model-selection-evaluation",
+          "name": "模型选型与评测",
+          "description": "考察 AI 场景下模型选择、数据收集、评估指标与效果验证方法。",
+          "count": 1,
+          "examples": [
+            "在做模型选型切换的时候有没有做数据收集？"
+          ]
+        },
+        {
+          "id": "crawler-data-pipeline",
+          "name": "数据链路与入库",
+          "description": "考察爬虫或外部数据如何入库、被后端消费并提供给前端的链路设计。",
+          "count": 1,
+          "examples": [
+            "爬虫的数据怎么与后端联动的，因为后端用的 Node.js（面试官觉得 Python 与 Node.js 无法直接交互，但我们后端的作用只是负责给前端提供数据，爬虫的数据会直接写入数据库然后被分析）"
+          ]
+        },
+        {
+          "id": "vue-keep-alive",
+          "name": "Vue keep-alive",
+          "description": "考察 Vue 组件缓存机制、相关生命周期以及 keep-alive 的实现思路。",
+          "count": 1,
+          "examples": [
+            "实现一个 Vue 的 keep alive，面试官一直在提示我(ಥ_ಥ)"
+          ]
+        },
+        {
+          "id": "http-versions",
+          "name": "HTTP版本演进",
+          "description": "考察 HTTP 各版本在连接复用、队头阻塞和传输机制上的核心差异。",
+          "count": 1,
+          "examples": [
+            "讲一下 HTTP 不同版本的区别（这里一开始说的有些乱了，面试官让我重新总结一遍）"
+          ]
+        },
+        {
+          "id": "project-refactoring",
+          "name": "前端项目重构",
+          "description": "考察项目重构的动机、收益、方案设计与迁移取舍。",
+          "count": 2,
+          "examples": [
+            "OJ 项目",
+            "插件v2到v3的过渡流程，如何重构项目的"
+          ]
+        },
+        {
+          "id": "complex-component-design",
+          "name": "复杂组件封装",
+          "description": "考察复杂业务组件、插件化或可视化能力的封装设计与技术难点。",
+          "count": 1,
+          "examples": [
+            "说一个有挑战的事或难点（这里讲的智能训练流程图的组件封装，但面试官似乎不太满意？让我再说说，我就说了信息聚合可视化项目的难点，说了两个：插件开发 / 爬虫中高价值用户获取整体流程与迭代思路）"
+          ]
+        },
+        {
+          "id": "build-tools-and-compilation",
+          "name": "构建工具与编译",
+          "description": "考察 Webpack、Vite 等构建工具及前端文件编译产物的基本原理。",
+          "count": 1,
+          "examples": [
+            "Webpack 熟不熟？"
+          ]
+        },
+        {
+          "id": "javascript-basics",
+          "name": "JS基础与ES6",
+          "description": "考察变量声明、数组操作、ES6 特性等 JavaScript 基础能力。",
+          "count": 2,
+          "examples": [
+            "讲一下const var let的区别",
+            "了解过ES6吗？"
+          ]
+        },
+        {
+          "id": "react-event-system",
+          "name": "React事件机制",
+          "description": "考察 React 合成事件系统的实现思路与作用。",
+          "count": 1,
+          "examples": [
+            "有没有了解过react里面的事件，什么是合成事件"
+          ]
+        },
+        {
+          "id": "markdown-render-pipeline",
+          "name": "Markdown渲染链路",
+          "description": "考察 Markdown 从解析、插件处理到页面渲染的完整流程。",
+          "count": 1,
+          "examples": [
+            "会话是如何渲染的？"
+          ]
+        },
+        {
+          "id": "vue-component-basics",
+          "name": "Vue组件基础",
+          "description": "考察 Vue 组件结构、基础写法与生命周期等核心概念。",
+          "count": 1,
+          "examples": [
+            "vue组件一般由哪几部分构成？",
+            "style是如何编写的？"
+          ]
+        },
+        {
+          "id": "frontend-monitoring",
+          "name": "前端监控告警",
+          "description": "考察前端监控指标采集、展示与告警机制设计。",
+          "count": 1,
+          "examples": [
+            "如何实现告警"
+          ]
+        },
+        {
+          "id": "database-index",
+          "name": "数据库索引",
+          "description": "考察数据库索引的作用、结构设计及加速查询的原理。",
+          "count": 2,
+          "examples": [
+            "如何建索引表，位数拓展如何调整索引表",
+            "你们现在计算机基础学习的如何，数据库的索引有什么用"
+          ]
+        },
+        {
+          "id": "tcp-udp",
+          "name": "TCP与UDP",
+          "description": "考察 TCP 和 UDP 的核心区别、特点及适用场景。",
+          "count": 1,
+          "examples": [
+            "tcp和udp的区别"
+          ]
+        },
+        {
+          "id": "multi-tab-session-control",
+          "name": "多标签页会话控制",
+          "description": "考察同账号多标签页场景下登录状态同步、互斥控制与会话感知实现。",
+          "count": 1,
+          "examples": [
+            "场景题：对一个考生的答题应用场景，如何避免考生同时打开两个页面的错误？"
+          ]
+        },
+        {
+          "id": "virtual-list",
+          "name": "虚拟列表",
+          "description": "考察虚拟滚动的核心原理，以及分页和动态更新下的数据与视图稳定性。",
+          "count": 1,
+          "examples": [
+            "场景题：虚拟滚动的核心原理"
+          ]
+        },
+        {
+          "id": "token-refresh",
+          "name": "Token刷新重试",
+          "description": "考察 401 场景下 token 无感刷新、请求排队与重放机制的实现。",
+          "count": 1,
+          "examples": [
+            "请求和响应拦截器 返回 401 错误 无感刷新 token 的实现 使用 isRefeshing 标记来避免重复调用刷新 token 的接口"
+          ]
+        },
+        {
+          "id": "react-key-and-diff",
+          "name": "React key机制",
+          "description": "考察列表渲染中 key 的作用及其对节点复用和 Diff 过程的影响。",
+          "count": 1,
+          "examples": [
+            "手写三个 div 为啥不需要 key 但是使用遍历就需要 key 呢？"
+          ]
+        },
+        {
+          "id": "layout-stability",
+          "name": "布局稳定性",
+          "description": "考察异步内容插入导致布局位移时的交互风险与优化方案。",
+          "count": 1,
+          "examples": [
+            "如果页面中的按钮突然加载出来，把图片顶到下面去了，那用户刚好点击了这个怎么办？"
+          ]
+        },
+        {
+          "id": "typescript-generics",
+          "name": "TS泛型",
+          "description": "考察 TypeScript 泛型在类型复用、约束表达和类型安全中的作用。",
+          "count": 1,
+          "examples": [
+            "介绍 TS 的泛型解决的问题"
+          ]
+        }
+      ]
+    },
+    "infra": {
+      "files": 16,
+      "topics": [
+        {
+          "id": "k8s-jiagou-yu-zujian",
+          "name": "K8s架构与组件",
+          "description": "考察 Kubernetes 整体架构、核心组件、节点角色及常见资源对象的职责与协作。",
+          "count": 6,
+          "examples": [
+            "k8s",
+            "K8s 基础",
+            "K8s的架构和组件",
+            "K8s：核心组件",
+            "看你使用到了k8s，你介绍一下k8s集群有哪些角色吧"
+          ]
+        },
+        {
+          "id": "linux-xingneng-yu-guzhang-paicha",
+          "name": "Linux性能排障",
+          "description": "考察 Linux 下 CPU、内存、磁盘、网络等系统性能与故障的定位思路和常用方法。",
+          "count": 6,
+          "examples": [
+            "Linux & 排障",
+            "Linux如何分析进程的负载，IO,网络",
+            "怎么看我当前的这个 Linux 系统的 CPU 详细信息是多少？",
+            "CPU、内存、磁盘还有网络的性能分析，你常用的命令和步骤是什么",
+            "你在学校负责过哪些运维相关的工作？主要用什么命令？"
+          ]
+        },
+        {
+          "id": "docker-yuanli-yu-bushu",
+          "name": "Docker原理与部署",
+          "description": "考察 Docker 的核心原理、镜像容器基础及容器化部署实践。",
+          "count": 4,
+          "examples": [
+            "docker：",
+            "讲一下docker的一些核心的一些概念，还有工作原理。",
+            "Docker：镜像构建",
+            "你的环境都是用docker部署的吗？"
+          ]
+        },
+        {
+          "id": "mysql-gaokeyong-yu-fuzhi",
+          "name": "MySQL高可用复制",
+          "description": "考察 MySQL 主从复制、高可用架构、故障切换、恢复与一致性保障。",
+          "count": 4,
+          "examples": [
+            "MySQL高可用如何实现，如何保证数据一致性，如果节点挂了怎么办，如何恢复",
+            "数据库：MySQL 与 PostgreSQL",
+            "这个数据库的话，有接触过吗？",
+            "提升数据库性能有什么手段"
+          ]
+        },
+        {
+          "id": "mysq1-mancha-yu-youhua",
+          "name": "MySQL慢查询优化",
+          "description": "考察 MySQL 慢查询成因、定位分析与持续优化治理方法。",
+          "count": 3,
+          "examples": [
+            "mysql慢查询原因",
+            "Mysql慢查询的优化？",
+            "后端存储用的是什么？如果MySQL变慢，你会怎么定位和排查？"
+          ]
+        },
+        {
+          "id": "k8s-wangluo-yu-cni",
+          "name": "K8s网络与CNI",
+          "description": "考察 Kubernetes 网络模型、Pod 通信、CNI 方案及 Overlay/VXLAN 原理。",
+          "count": 2,
+          "examples": [
+            "除了 Flannel，你还知道哪些 CNI？",
+            "K8s 网络原理",
+            "Pod 之间网络不通的排查案例"
+          ]
+        },
+        {
+          "id": "k8s-fuwu-baolu",
+          "name": "K8s服务暴露",
+          "description": "考察 Kubernetes 中 Service、Ingress 等服务访问与对外暴露方式及场景。",
+          "count": 3,
+          "examples": [
+            "K8s一共有几种访问方式",
+            "一个 Kubernetes 节点处于 NotReady ，怎么排查？",
+            "在这个 K8S 里边呢，我想的把那个里边像像你刚才说的都暴露了。我想把里边的某一个服务的服务对外，让它提供服务，哪怕是一个 Nginx，或者提供了一个页面，我的页面呢部署了一个官网，比如说部署了个京东，对吧京东的页面，我想让用户呢在外面能看到它，这个时候呢我通过哪几种方式可以把这个服务暴露出来？"
+          ]
+        },
+        {
+          "id": "monitoring-prometheus",
+          "name": "Prometheus监控",
+          "description": "考察 Prometheus 的指标采集方式、Kubernetes 接入及监控设计。",
+          "count": 3,
+          "examples": [
+            "prometheus怎么拉取k8s集群的指标",
+            "Prometheus 一般在收集监控对象的这些指标，一般有哪两种？",
+            "搭建这个跟普罗米修斯去做那个监控集群的时候，你要去监控哪？"
+          ]
+        },
+        {
+          "id": "nginx-yu-fuzaijunheng",
+          "name": "Nginx与负载均衡",
+          "description": "考察 Nginx 的反向代理、负载均衡策略、常见配置及故障排查。",
+          "count": 3,
+          "examples": [
+            "nginx的负载均衡策略有哪些",
+            "Nginx：反向代理与故障排查",
+            "你用的Nginx做了哪些优化？有没有做负载均衡？"
+          ]
+        },
+        {
+          "id": "fabu-liucheng-yu-cicd",
+          "name": "发布流程与CI/CD",
+          "description": "考察项目发布流程、持续集成持续交付流水线及上线交付实践。",
+          "count": 4,
+          "examples": [
+            "说一下你们公司项目发布流程",
+            "讲下CI/CD是什么",
+            "整个 cicd的 pipeline 的一个步步骤是什么？",
+            "介绍一下你第一段实习公司的项目发布流程。"
+          ]
+        },
+        {
+          "id": "gaokeyong-yu-rongzai",
+          "name": "高可用与容灾",
+          "description": "考察服务高可用、故障定位、容灾切换及异常实例流量治理。",
+          "count": 2,
+          "examples": [
+            "那你是怎么定位是上海机房出问题的呢？",
+            "还问了下我的个人项目（分布式im），问我是如何保证你这个系统的高可用的，服务实例状态转移是怎么做的，如何保证流量不打到异常运行的服务实例的。",
+            "你用到的Keepalived 的存活判活机制你是怎么设计？什么情况下，会触发它的故障？"
+          ]
+        },
+        {
+          "id": "k8s-paizhang-yu-jiaofu",
+          "name": "K8s排障与落地",
+          "description": "考察 Kubernetes 在节点、调度、镜像拉取、资源异常等场景下的落地与排障能力。",
+          "count": 4,
+          "examples": [
+            "一个pod，scheduler已经判断出去哪个节点了，那么pod是怎么到这个节点上的？",
+            "之前实习中遇到的 K8s 排错经历？",
+            "你维护的这 K8S 里边的话，它这个 Pod 数多的话能达达到多少个呀？",
+            "K8s场景题（回答不怎么会，所以没继续）"
+          ]
+        },
+        {
+          "id": "docker-jingxiang-goujian",
+          "name": "镜像构建优化",
+          "description": "考察 Docker 镜像构建流程以及体积、缓存命中率和构建速度优化。",
+          "count": 1,
+          "examples": [
+            "构建镜像时，如何优化镜像体积和构建速度？",
+            "你做过的多架构镜像迁移主要有哪些工作？"
+          ]
+        },
+        {
+          "id": "linux-faxingban-yu-bao",
+          "name": "Linux发行版包管理",
+          "description": "考察 Linux 常见发行版差异、包管理方式及基础系统认知。",
+          "count": 2,
+          "examples": [
+            "linux与unbuntun的区别？（记不太清了，反正是问了linux、centos、docker）",
+            "Linux 基础：发行版与包管理"
+          ]
+        },
+        {
+          "id": "sre-renzhi",
+          "name": "SRE职责认知",
+          "description": "考察对 SRE 岗位职责边界、目标及可靠性方法论的理解。",
+          "count": 2,
+          "examples": [
+            "问我是否了解sre岗位",
+            "如何理解 SRE"
+          ]
+        },
+        {
+          "id": "ansible-zidonghua-yunwei",
+          "name": "Ansible自动化运维",
+          "description": "考察使用 Ansible 进行批量部署、配置管理和自动化运维的实践。",
+          "count": 2,
+          "examples": [
+            "你在运维过程当中用到ansible去做一些批量的一些运维操作，能举几个场景例子吗？你主要用它去做哪些批量部署？",
+            "我看你还有一些自动化运维的经验，这个一块你能介绍一下吗？你是做了哪些工作？"
+          ]
+        },
+        {
+          "id": "ceph-cunchu",
+          "name": "Ceph分布式存储",
+          "description": "考察 Ceph 的存储架构、分层设计及部署落地认知。",
+          "count": 3,
+          "examples": [
+            "Ceph在存储设计上会做一些分层，你对这个分层大概有了解吗？",
+            "Ceph 这种存储物接触过吗？",
+            "假设你之前没有接触过ceph，但是你的现项目中需要去部署分布式的这个存储，你会如何快速的学习并落地？请分享一下你的做法。"
+          ]
+        },
+        {
+          "id": "jiankong-gaojing-tixi",
+          "name": "监控告警体系",
+          "description": "考察监控指标、统一监控平台与告警分级响应的设计思路。",
+          "count": 5,
+          "examples": [
+            "设计服务器统一监控工具",
+            "监控一般采集哪些指标？",
+            "P0到 P3的告警分级的依据是怎么怎么去分级的？",
+            "你之前实习公司内部监控告警有哪些内容？",
+            "博客系统是怎么做监控的？用过哪些监控工具？Prometheus、Grafana等怎么用的？"
+          ]
+        },
+        {
+          "id": "jiaoben-yuzidonghua",
+          "name": "脚本自动化",
+          "description": "考察 Shell 等脚本在批量运维、定时任务和自动化处理中的实践。",
+          "count": 3,
+          "examples": [
+            "你通常会写一些什么脚本在你的项目当中或者说实践当中，能举几个例子吗？",
+            "平时写过哪些脚本？主要用什么语言？用过哪些定时任务工具？",
+            "你在实习过程中使用了什么shell脚本解决什么问题"
+          ]
+        },
+        {
+          "id": "wangluo-duankou-paizhang",
+          "name": "网络端口排障",
+          "description": "考察主机到目标端口的网络连通性排查、抓包分析及防火墙检查。",
+          "count": 3,
+          "examples": [
+            "tcpdump 常用参数与 TCP 握手",
+            "当前主机 A 要联通业务服务器 B 的3389端口。现在无法确定网络是否联通，你作为这个运维工程师，怎么去进行排查处理这个问题？",
+            "防火墙主要关注哪些设置？",
+            "怎么排查端口和网络问题"
+          ]
+        },
+        {
+          "id": "fuzai-junheng-celve",
+          "name": "负载均衡策略",
+          "description": "考察常见负载均衡算法、软件选型、会话保持及一致性哈希。",
+          "count": 3,
+          "examples": [
+            "随机、轮询、加权、 一致性哈希 的策略与优缺点？",
+            "负载均衡的软件，你知道哪些？",
+            "说一下负载均衡，负载均衡有啥作用"
+          ]
+        },
+        {
+          "id": "mysql-suoyin-yu-cunchu",
+          "name": "MySQL索引引擎",
+          "description": "考察 InnoDB 底层结构、索引设计及存储引擎差异。",
+          "count": 2,
+          "examples": [
+            "MySQL的InnoDB底层数据结构是什么",
+            "这个数据库的话，有接触过吗？"
+          ]
+        },
+        {
+          "id": "redis-yizhi-xing",
+          "name": "Redis缓存一致性",
+          "description": "考察 Redis 与数据库双写下的一致性、高可用、扩容及缓存风险治理。",
+          "count": 2,
+          "examples": [
+            "怎么保证Redis和MySQL的数据一致性",
+            "Redis，你在你的项目中是怎么用的？"
+          ]
+        },
+        {
+          "id": "k8s-stateful",
+          "name": "K8s有状态服务",
+          "description": "考察在 Kubernetes 中部署 MySQL 等有状态服务时的持久化与运行方案。",
+          "count": 2,
+          "examples": [
+            "MySQL 的数据库有在 K8S 里边搭搭建过吗",
+            "达梦数据库部署经验"
+          ]
+        },
+        {
+          "id": "k3s-bushu-yu-paizhang",
+          "name": "k3s部署排障",
+          "description": "考察 k3s 的安装运行机制、适用场景及与宿主机运行时冲突处理。",
+          "count": 1,
+          "examples": [
+            "你们什么场景会使用 k3s？",
+            "k3s 自己具体是怎么安装起来的？",
+            "如果客户已经安装了新版 Docker，可能会和 k3s 自带的 containerd 产生冲突。"
+          ]
+        },
+        {
+          "id": "dns-yu-liulanqi-lianlu",
+          "name": "DNS与访问链路",
+          "description": "考察 DNS 解析故障及从浏览器输入 URL 到服务返回的完整访问链路。",
+          "count": 2,
+          "examples": [
+            "一个浏览器地址栏输入地址后，会经过哪些步骤？",
+            "主机 A 无法解析任何域名的话，我怎么去排查处理？"
+          ]
+        },
+        {
+          "id": "https-yu-fanxiangdaili",
+          "name": "HTTPS与反向代理",
+          "description": "考察 HTTPS 握手、证书校验及 HTTP/HTTPS 反向代理配置与转发链路。",
+          "count": 2,
+          "examples": [
+            "HTTPS加密解密过程",
+            "http做https的反向代理？"
+          ]
+        },
+        {
+          "id": "mysql-yu-nosql-xuanxing",
+          "name": "MySQL与NoSQL选型",
+          "description": "考察关系型数据库与 NoSQL/其他数据库在模型、能力和场景上的选型取舍。",
+          "count": 3,
+          "examples": [
+            "MySQL和NoSQL的差异是范围查询吗（这里想长篇大论，直接被打断了）",
+            "数据库（PG vs MySQL）",
+            "讲讲MongoDB和MySQL的区别"
+          ]
+        },
+        {
+          "id": "kafka-xiaoxi-jizhi",
+          "name": "Kafka消息机制",
+          "description": "考察 Kafka 的消费可靠性、集群消费机制及在系统中的解耦削峰作用。",
+          "count": 2,
+          "examples": [
+            "kafka消费者怎么保证消息消费不丢失的，如何进行集群消费的",
+            "这个里面提到了会用到 Kafka，这个 Kafka 在这个里面你更多的是让它扮演什么样的角色去解决什么样的问题"
+          ]
+        },
+        {
+          "id": "linux-quanxian-yu-xitong",
+          "name": "Linux权限与系统管理",
+          "description": "考察 Linux 文件权限、系统参数、资源限制及常见执行失败问题。",
+          "count": 3,
+          "examples": [
+            "客户现场安装产品时出现 Permission denied ，一般是什么问题？",
+            "Linux 系统管理：内核参数调整",
+            "linux，修改文件命令失败可能有哪些原因导致的？"
+          ]
+        },
+        {
+          "id": "redis-yingyong",
+          "name": "Redis应用场景",
+          "description": "考察 Redis 在限流等实际业务场景中的使用方式及数据结构支撑。",
+          "count": 2,
+          "examples": [
+            "Redis怎么做的限流（答错成代码层面的内容了，实际是要答令牌桶算法）",
+            "熟悉什么中间件（MySQL，Redis，RabbitMQ）"
+          ]
+        },
+        {
+          "id": "tcp-jihe-neihe",
+          "name": "TCP内核与分层",
+          "description": "考察 TCP/UDP 基础分层、连接队列及相关内核参数和调优思路。",
+          "count": 2,
+          "examples": [
+            "tcp内核参数了解哪些，半连接队列和全连接队列",
+            "TCP和UDP属于哪一层的协议？"
+          ]
+        },
+        {
+          "id": "weifuwu-yuliang-zhili",
+          "name": "微服务与流量治理",
+          "description": "考察微服务基本概念、流量入口设计以及灰度发布中的流量治理。",
+          "count": 3,
+          "examples": [
+            "什么是微服务",
+            "讲一下灰度发布策略，它的含义和用途",
+            "我看你线上巡检是在数据库层面进行校验的，为什么不在流量打进来之前进行校验。"
+          ]
+        },
+        {
+          "id": "efk-rizhi-fenxi",
+          "name": "日志采集分析",
+          "description": "考察日志平台的采集规模、查询分析方法及系统日志定位实践。",
+          "count": 2,
+          "examples": [
+            "ubuntu系统的登录日志一般存在哪个路径底下？",
+            "你搭建 EFK 做日志分析的时候，有收集到多大的量？是怎么做的分析？"
+          ]
+        },
+        {
+          "id": "fenbushi-yizhixing",
+          "name": "分布式一致性",
+          "description": "考察 Raft、脑裂处理及分布式系统一致性保障机制。",
+          "count": 2,
+          "examples": [
+            "请介绍 Raft 的整体流程与实现挑战。",
+            "如果集群发生了脑裂现象，有什么办法可以处理，你遇到过这种情况吗？"
+          ]
+        },
+        {
+          "id": "siyouhua-jiaofu",
+          "name": "私有化与离线交付",
+          "description": "考察私有化部署中的环境检查、离线交付、镜像分发与版本一致性控制。",
+          "count": 1,
+          "examples": [
+            "你们的镜像怎么管理？",
+            "数据库密码轮换如何设计"
+          ]
+        },
+        {
+          "id": "rabbitmq-bushu",
+          "name": "RabbitMQ部署",
+          "description": "考察 RabbitMQ 的选型理由、部署落地及特定环境下的处理方案。",
+          "count": 1,
+          "examples": [
+            "你提到Windows上没办法部署RabbitMQ，那你是怎么做的"
+          ]
+        },
+        {
+          "id": "gpu-jiqun-yunwei",
+          "name": "GPU集群运维",
+          "description": "考察 GPU 集群中的网络带宽调优与驱动故障排查能力。",
+          "count": 1,
+          "examples": [
+            "像那个 GPU 里面的网络的话有接触过吗？",
+            "比如说显卡驱动掉，这种问题有有有办法规避吗？"
+          ]
+        },
+        {
+          "id": "keepalived-yu-ha",
+          "name": "Keepalived高可用",
+          "description": "考察基于 Keepalived 的存活检测、故障判定与切换机制设计。",
+          "count": 1,
+          "examples": [
+            "你用到的Keepalived 的存活判活机制你是怎么设计？什么情况下，会触发它的故障？"
+          ]
+        },
+        {
+          "id": "jwt-anquan",
+          "name": "JWT认证安全",
+          "description": "考察 JWT 的作用、认证流程及其在系统安全中的应用。",
+          "count": 1,
+          "examples": [
+            "你用JWT提升安全性的思路是什么？JWT的作用是什么？"
+          ]
+        }
+      ]
+    },
+    "test-qa": {
+      "files": 16,
+      "topics": [
+        {
+          "id": "linux-ji-chu-yu-pai-zhang",
+          "name": "Linux基础与排障",
+          "description": "考察 Linux 常用命令、权限、系统信息查看及测试环境中的基础排障操作能力。",
+          "count": 6,
+          "examples": [
+            "linux指令；",
+            "会不会linux，常用linux命令",
+            "windows和linux系统下如何拷贝文件，拷贝文件的命令方法 不懂",
+            "linux怎么查看内存信息",
+            "linux用户访问权限，如何修改权限"
+          ]
+        },
+        {
+          "id": "shu-ju-ku-suo-yin-yu-you-hua",
+          "name": "数据库索引优化",
+          "description": "考察 MySQL/关系型数据库的索引类型、命中规则、失效场景及慢查询优化思路。",
+          "count": 4,
+          "examples": [
+            "数据库了解吗；",
+            "数据库常见索引",
+            "4 mysql了解吗？mysql的索引有哪些？",
+            "数据库索引优化 索引失效"
+          ]
+        },
+        {
+          "id": "tcp-udp-yu-ke-kao-chuan-shu",
+          "name": "TCP/UDP与可靠传输",
+          "description": "考察 TCP/UDP 区别、分层、可靠传输机制以及连接管理等网络基础。",
+          "count": 4,
+          "examples": [
+            "TCP，UDP在那一层，区别有哪些",
+            "测试面经：一面自我介绍tcp和udp的区别",
+            "TCP的可靠性是怎么保证的呢",
+            "TCP和UDP协议的传输效率，哪个更高，为什么"
+          ]
+        },
+        {
+          "id": "jin-cheng-xian-cheng-yu-si-suo",
+          "name": "进程线程与死锁",
+          "description": "考察进程线程区别、并发基础以及死锁条件和处理方法。",
+          "count": 3,
+          "examples": [
+            "进程线程区别",
+            "1 操作系统里进程和线程的区别",
+            "刚才你不是提到有用一些多线程的锁机制是吧，那你说一下死锁成立的条件"
+          ]
+        },
+        {
+          "id": "k8s-ji-chu-cao-zuo",
+          "name": "K8s基础操作",
+          "description": "考察 Kubernetes 常用命令、资源查看与日常集群操作能力。",
+          "count": 2,
+          "examples": [
+            "k8s指令；",
+            "你刚刚提到了k8s，讲一讲指令；"
+          ]
+        },
+        {
+          "id": "sql-ju-he-pai-ming-cha-xun",
+          "name": "SQL聚合排名",
+          "description": "考察分组统计、排序、TopN 和排名类 SQL 的编写能力。",
+          "count": 2,
+          "examples": [
+            "sql查询语句：查30天以上购买最多的top10；",
+            "mysql查询语句：有一个成绩表(学号，姓名，科目，分数)存有学生各科成绩，查询学生的总成绩并进行排名"
+          ]
+        },
+        {
+          "id": "ce-shi-fang-fa-yu-fen-lei",
+          "name": "测试方法与分类",
+          "description": "考察黑盒白盒及项目中常见测试类型、方法论和适用场景的理解。",
+          "count": 2,
+          "examples": [
+            "项目中接触到哪些测试",
+            "黑盒测试盒白盒测试了解吗？"
+          ]
+        },
+        {
+          "id": "redis-yu-huan-cun-yi-zhi-xing",
+          "name": "Redis与缓存一致性",
+          "description": "考察 Redis 的使用方式、常见问题以及缓存与数据库一致性处理。",
+          "count": 2,
+          "examples": [
+            "2 你用到了redis，主要用来做什么的",
+            "redis了解多少，说一下"
+          ]
+        },
+        {
+          "id": "http-xiang-guan-ji-chu",
+          "name": "HTTP基础",
+          "description": "考察 HTTP 方法差异、状态码、安全性及请求异常定位等基础知识。",
+          "count": 2,
+          "examples": [
+            "为什么post比get安全",
+            "笔试错题：http499 状态码和 linux 的grep 命令现在知道是什么了吗？"
+          ]
+        },
+        {
+          "id": "ce-shi-chang-jing-yu-yong-li-she-ji",
+          "name": "测试场景与用例设计",
+          "description": "考察测试点分析、风险识别以及围绕具体功能设计测试用例的能力。",
+          "count": 2,
+          "examples": [
+            "有个测试场景题，但是我忘了是什么了；",
+            "针对你提到的文件上传说说测试用例如何设计？"
+          ]
+        },
+        {
+          "id": "zi-dong-hua-ce-shi",
+          "name": "自动化测试",
+          "description": "考察自动化测试脚本或接口自动化的设计、实现难点与有效性验证。",
+          "count": 2,
+          "examples": [
+            "设计自动化测试脚本过程中的难点是什么？",
+            "接口自动化测试有了解过吗？"
+          ]
+        },
+        {
+          "id": "wang-luo-yu-http-quan-lian-lu",
+          "name": "网络请求全链路",
+          "description": "考察从 DNS、建连到应用层请求返回的整体网络链路理解。",
+          "count": 1,
+          "examples": [
+            "2 网络中，输入一个www.baidu.com到返回数据需要经过哪些步骤"
+          ]
+        },
+        {
+          "id": "chan-pin-ce-shi-shang-shou",
+          "name": "产品测试上手",
+          "description": "考察面对新产品时如何理解业务、划定范围并快速开展测试。",
+          "count": 1,
+          "examples": [
+            "如何上手一个产品；"
+          ]
+        },
+        {
+          "id": "ce-shi-fu-gai-lv",
+          "name": "测试覆盖率",
+          "description": "考察测试覆盖率的定义、计算方法及其评估测试充分性的作用。",
+          "count": 1,
+          "examples": [
+            "测试覆盖率如何计算的？"
+          ]
+        },
+        {
+          "id": "ou-fa-gu-zhang-pai-cha",
+          "name": "偶发故障排查",
+          "description": "考察对难复现问题的信息收集、范围缩小与定位排查思路。",
+          "count": 1,
+          "examples": [
+            "搜索引擎偶发性出错，无法复现，你会如何排查；"
+          ]
+        },
+        {
+          "id": "zhu-ce-zhong-xin-she-ji",
+          "name": "注册中心设计",
+          "description": "考察服务注册发现系统在可用性、一致性和架构上的设计思路。",
+          "count": 1,
+          "examples": [
+            "反问：如果让您搭注册中心，您会怎么搭；"
+          ]
+        },
+        {
+          "id": "ce-shi-cheng-ben-ping-gu",
+          "name": "测试成本评估",
+          "description": "考察测试投入产出、资源分配及测试策略取舍能力。",
+          "count": 1,
+          "examples": [
+            "场景题：测试费用；"
+          ]
+        },
+        {
+          "id": "jian-rong-xing-ce-shi",
+          "name": "兼容性测试",
+          "description": "考察不同硬件、系统、驱动或配置组合下的兼容性测试设计。",
+          "count": 1,
+          "examples": [
+            "介绍一下不同显卡、不同系统下的兼容性测试（详细介绍一下有哪些功能）",
+            "介绍分辨率测试 一般"
+          ]
+        },
+        {
+          "id": "wang-luo-ip-yu-nat",
+          "name": "网络IP与NAT",
+          "description": "考察静态动态 IP、NAT 原理及网络地址转换对通信的影响。",
+          "count": 2,
+          "examples": [
+            "网络上面动态ip和静态ip的区别 不会",
+            "讲一下NAT协议"
+          ]
+        },
+        {
+          "id": "python-ji-chu",
+          "name": "Python基础",
+          "description": "考察 Python 字典等基础语言特性的理解。",
+          "count": 1,
+          "examples": [
+            "python中字典的键和值可以由哪些充当？"
+          ]
+        },
+        {
+          "id": "epoll-yuan-li",
+          "name": "epoll原理",
+          "description": "考察 epoll 高效性的核心设计及 IO 多路复用原理。",
+          "count": 1,
+          "examples": [
+            "epoll之所以高效，他里面最核心的原因是什么？"
+          ]
+        },
+        {
+          "id": "nei-cun-chi-she-ji",
+          "name": "内存池设计",
+          "description": "考察内存池的分配策略、碎片控制与性能优化思路。",
+          "count": 1,
+          "examples": [
+            "然后我看到你有写你用内存池去提升效率嘛，那你这个内存池是怎么设计的呢，就比如具体怎么设计才不会造成内存浪费的？"
+          ]
+        },
+        {
+          "id": "c-cpp-nei-cun-guan-li",
+          "name": "C/C++内存管理",
+          "description": "考察 new、malloc 等内存分配与资源管理机制的区别。",
+          "count": 1,
+          "examples": [
+            "讲一下new和malloc的区别"
+          ]
+        },
+        {
+          "id": "jin-cheng-jian-tong-xin",
+          "name": "进程间通信",
+          "description": "考察跨进程通信方式、适用场景及实现思路。",
+          "count": 1,
+          "examples": [
+            "C++里的跨进程通信怎么搞"
+          ]
+        },
+        {
+          "id": "hong-hei-shu",
+          "name": "红黑树",
+          "description": "考察红黑树的性质、平衡机制及典型应用。",
+          "count": 1,
+          "examples": [
+            "讲一下红黑树的特性，哪里有用到红黑树"
+          ]
+        },
+        {
+          "id": "mysql-gao-ji-yu-guan-xi-xing",
+          "name": "数据库模型与高级特性",
+          "description": "考察关系型与非关系型数据库区别，以及存储过程、游标等数据库高级能力。",
+          "count": 1,
+          "examples": [
+            "讲一下MySQL的存储过程",
+            "关系型数据库和非关系型数据库的区别"
+          ]
+        },
+        {
+          "id": "sql-ji-chu-cha-xun",
+          "name": "SQL基础查询",
+          "description": "考察基础 SQL 查询、筛选及简单关联编写能力。",
+          "count": 1,
+          "examples": [
+            "写个SQL（简单）"
+          ]
+        },
+        {
+          "id": "c-duo-tai-yu-zhi-zhen",
+          "name": "C++多态与指针",
+          "description": "考察 C++ 虚函数、多态、虚继承和智能指针等核心语言机制。",
+          "count": 1,
+          "examples": [
+            "知道虚函数吗，虚函数怎么建立的？",
+            "讲一下有啥智能指针，以及他们分别如何使用？"
+          ]
+        },
+        {
+          "id": "vector-di-ceng-ji-zhi",
+          "name": "vector扩容机制",
+          "description": "考察 vector 底层存储、扩容策略及迭代器失效等实现细节。",
+          "count": 1,
+          "examples": [
+            "讲一下vector的扩容机制"
+          ]
+        },
+        {
+          "id": "bu-shu-yu-nginx",
+          "name": "部署与Nginx",
+          "description": "考察项目部署流程、服务器环境配置及 Nginx 的基础使用。",
+          "count": 1,
+          "examples": [
+            "这个网站项目有部署，讲讲部署的流程"
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -58,11 +58,25 @@ async function generateControlPersona(aux: AiTaskConfig, input: { id: string; jd
 
 export async function generatePersona(
   aux: AiTaskConfig,
-  input: { id: string; jd: JdFixture; resumeId: string; resumeText: string; offtopic: boolean; control?: boolean; attempts?: number },
+  input: {
+    id: string;
+    jd: JdFixture;
+    resumeId: string;
+    resumeText: string;
+    offtopic: boolean;
+    control?: boolean;
+    /** 已有人设用过的弱项话题与简历成果，避免几个人设测同一件事。 */
+    avoidTopics?: string[];
+    avoidClaims?: string[];
+    attempts?: number;
+  },
 ): Promise<Persona> {
   if (input.control) return generateControlPersona(aux, input);
   const attempts = input.attempts ?? 3;
   let lastError = "";
+  const avoid =
+    (input.avoidTopics?.length ? `\n- 已有人设用过的弱项话题（不要再用，也不要用与之直接相关的话题；从岗位会考的其它方向里另选一个，例如数据库、缓存、消息队列、操作系统、网络、Linux 排障）：${input.avoidTopics.join("；")}` : "") +
+    (input.avoidClaims?.length ? `\n- 已有人设用过的简历成果（unsupportable 不要再选这些，换简历里另一条带数字的成果）：${input.avoidClaims.join("；")}` : "");
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     const output = await runAux(aux, {
       agent: "eval_generate_persona",
@@ -73,7 +87,7 @@ export async function generatePersona(
 - wrongClaim：候选人谈到 weakTopic 时会说出的一句明确错误的技术断言。必须是陈述句、放进口语回答里自然、8 到 60 字、错误明确到有经验的面试官一眼能看出（不是"有争议"或"过时"）。不要在句子里带引号。
 - whyWrong：这句为什么错，一两句。
 - unsupportable：从简历原文里逐字抄一条带数字的成果（不改一个字、不加标点），候选人在人设里说不出它的细节。
-- style：一句话的说话风格。${lastError ? `\n上一次的问题：${lastError}` : ""}`,
+- style：一句话的说话风格。${avoid}${lastError ? `\n上一次的问题：${lastError}` : ""}`,
       untrustedInputs: "岗位描述与简历",
       payload: { jobTitle: input.jd.title, jobDescription: input.jd.jobDescription, resume: input.resumeText },
       schema: personaOutputSchema,

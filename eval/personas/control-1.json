@@ -1,0 +1,16 @@
+{
+  "id": "control-1",
+  "jd": "tencent-hunyuan-backend",
+  "resume": "synthetic-backend",
+  "style": "表达偏务实清晰，习惯先讲业务场景与约束，再用指标说明设计取舍、排障过程和落地结果。",
+  "strong": [
+    "Java 后台开发与交易系统实践：做过 Spring Boot 服务开发，参与退款状态机重构，能结合业务规则、代码可维护",
+    "MySQL + Redis 一致性与性能优化：排查过库存超卖，理解缓存、事务、Lua 脚本、乐观锁的配合，也做过慢查询和",
+    "接口服务工程质量与稳定性保障：写过较完整的自动化测试并接入 CI，能围绕灰度发布、回归拦截、压测复现来谈后台服务质量建设",
+    "AI 应用后端与 RAG 服务落地：用 FastAPI 做过课程问答助手，覆盖检索、结构化输出、函数调用、校验与测试，适"
+  ],
+  "weak": null,
+  "unsupportable": null,
+  "offtopic": false,
+  "control": true
+}

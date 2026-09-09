@@ -196,7 +196,10 @@ async function commandFixtures(models: EvalModels): Promise<void> {
   const resumeText = loadResumeText(resumeId);
 
   if (personaCount) {
-    const existing = new Set(loadPersonas().map((persona) => persona.id));
+    const current = loadPersonas();
+    const existing = new Set(current.map((persona) => persona.id));
+    const usedTopics = current.flatMap((persona) => (persona.weak ? [persona.weak.topic] : []));
+    const usedClaims = current.flatMap((persona) => (persona.unsupportable ? [persona.unsupportable] : []));
     const wanted = [
       ...Array.from({ length: personaCount }, (_, index) => ({ id: `persona-${index + 1}`, offtopic: false, control: false })),
       { id: "offtopic-1", offtopic: true, control: false },
@@ -207,7 +210,18 @@ async function commandFixtures(models: EvalModels): Promise<void> {
         console.log(`人设 ${item.id} 已存在，跳过`);
         continue;
       }
-      const persona = await generatePersona(models.aux, { id: item.id, jd, resumeId, resumeText, offtopic: item.offtopic, control: item.control });
+      const persona = await generatePersona(models.aux, {
+        id: item.id,
+        jd,
+        resumeId,
+        resumeText,
+        offtopic: item.offtopic,
+        control: item.control,
+        avoidTopics: usedTopics,
+        avoidClaims: usedClaims,
+      });
+      if (persona.weak) usedTopics.push(persona.weak.topic);
+      if (persona.unsupportable) usedClaims.push(persona.unsupportable);
       writeFixture("personas", persona);
       console.log(persona.weak ? `人设 ${persona.id}：弱项「${persona.weak.topic}」，错句「${persona.weak.wrongClaim}」` : `对照人设 ${persona.id}：强项 ${persona.strong.join("、")}`);
     }
