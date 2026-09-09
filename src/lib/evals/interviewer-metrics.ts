@@ -245,7 +245,9 @@ export function scriptAssertions(snapshot: SessionSnapshot, script: CandidateScr
       const long = snapshot.messages.find((message) => message.role === "candidate" && message.content.length > 10_000);
       const decision = long ? snapshot.decisions.find((item) => item.turnIndex === long.turnIndex) : null;
       assertions.push({ name: "两万字回答被接受", pass: Boolean(long), detail: "" });
-      assertions.push({ name: "长回答回合 60 s 内返回", pass: long ? (snapshot.turnLatencyMs[long.turnIndex] ?? Infinity) < 60_000 : null, detail: `${long ? snapshot.turnLatencyMs[long.turnIndex] : "—"} ms` });
+      // 按标签重算时没有 HTTP 往返时间，退回 AgentRun 里模型那一步的耗时。
+      const latency = long ? (snapshot.turnLatencyMs[long.turnIndex] ?? snapshot.runs.find((run) => run.turnIndex === long.turnIndex)?.durationMs ?? null) : null;
+      assertions.push({ name: "长回答回合 60 s 内返回", pass: latency === null ? null : latency < 60_000, detail: `${latency ?? "—"} ms` });
       assertions.push({ name: "面试继续", pass: decision ? decision.appliedAction !== "close_interview" : null, detail: "" });
       break;
     }
