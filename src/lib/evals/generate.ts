@@ -147,8 +147,8 @@ export type ScorerCaseSource = {
 /** offtopic 变体由调用方从另一道用例的 base 填入；这里生成其余五个。 */
 export async function generateScorerCase(
   aux: AiTaskConfig,
-  input: { source: ScorerCaseSource; resumeText: string; avoidClaims?: string[]; attempts?: number },
-): Promise<Omit<ScorerCase, "answers"> & { answers: Omit<ScorerCase["answers"], "offtopic"> }> {
+  input: { source: ScorerCaseSource; avoidClaims?: string[]; attempts?: number },
+): Promise<Omit<ScorerCase, "answers" | "role"> & { answers: Omit<ScorerCase["answers"], "offtopic"> }> {
   const attempts = input.attempts ?? 3;
   let lastError = "";
   const avoid = input.avoidClaims?.length
@@ -158,8 +158,8 @@ export async function generateScorerCase(
     const output = await runAux(aux, {
       agent: "eval_generate_scorer_case",
       promptVersion: GENERATE_PROMPT_VERSION,
-      system: `为评分器评测构造一组回答。题目是 question（切入问题加追问），候选人是 resume 里的人。要求：
-- base：一个主干正确、细节一般的回答，口语化、第一人称、150 到 400 字，回应题目里的每一层追问，可引用简历里的项目与数字。
+      system: `为评分器评测构造一组回答。题目是 question（切入问题加追问），候选人是一位有一到三年经验、基础扎实但不算顶尖的工程师，岗位见 jobTitle。要求：
+- base：一个主干正确、细节一般的回答，口语化、第一人称、150 到 400 字，回应题目里每一层追问；可以编一个合理的项目背景，但不要编具体数字。
 - wrongClaim：一句明确错误的技术断言（陈述句、8 到 60 字、不带引号、有经验的面试官一眼能看出错）。它必须是对题目正在问的那个机制或做法的错误说法，放进 base 里读起来像候选人在回答这道题时说错了，而不是扯到题目没问的别的组件。
 - whyWrong：为什么错。
 - droppedMechanism：base 里对回答这道题最关键的一段机制描述，逐字抄出来。
@@ -168,11 +168,7 @@ export async function generateScorerCase(
 - para：base 的同义改写，意思与信息量完全一致，措辞和句序不同。
 不要在任何回答里带引号。${avoid}${lastError ? `\n上一次的问题：${lastError}` : ""}`,
       untrustedInputs: "题目、岗位描述与简历",
-      payload: {
-        jobTitle: input.source.jobTitle,
-        question: input.source.question,
-        resume: input.resumeText.slice(0, 6_000),
-      },
+      payload: { jobTitle: input.source.jobTitle, question: input.source.question },
       schema: scorerOutputSchema,
       maxOutputTokens: 4_000,
       timeoutMs: 120_000,
@@ -202,13 +198,13 @@ export async function generateScorerCase(
 const offtopicSchema = z.object({ answer: z.string().min(120).max(2_000) });
 
 /** 答非所问变体：同一个候选人认真回答另一个方向的题目，和本题没有共同话题。 */
-export async function generateOfftopicAnswer(aux: AiTaskConfig, input: { unrelatedQuestion: string; resumeText: string }): Promise<string> {
+export async function generateOfftopicAnswer(aux: AiTaskConfig, input: { unrelatedQuestion: string }): Promise<string> {
   const output = await runAux(aux, {
     agent: "eval_generate_offtopic",
     promptVersion: GENERATE_PROMPT_VERSION,
-    system: "候选人是 resume 里的人。请以第一人称、口语化写一段 150 到 350 字的回答，认真回答 question 这道题，不要带引号。",
-    untrustedInputs: "题目与简历",
-    payload: { question: input.unrelatedQuestion, resume: input.resumeText.slice(0, 6_000) },
+    system: "请以一位工程师候选人的口吻、第一人称、口语化写一段 150 到 350 字的回答，认真回答 question 这道题，不要带引号。",
+    untrustedInputs: "题目",
+    payload: { question: input.unrelatedQuestion },
     schema: offtopicSchema,
     maxOutputTokens: 1_200,
   });
@@ -223,7 +219,7 @@ export function insertClaim(base: string, claim: string): string {
   return `${base.slice(0, at)}${sentence}${base.slice(at)}`;
 }
 
-export function finalizeScorerCase(partial: Awaited<ReturnType<typeof generateScorerCase>>, offtopic: string): ScorerCase {
+export function finalizeScorerCase(partial: Awaited<ReturnType<typeof generateScorerCase>> & { role: string }, offtopic: string): ScorerCase {
   return scorerCaseSchema.parse({ ...partial, answers: { ...partial.answers, offtopic } });
 }
 

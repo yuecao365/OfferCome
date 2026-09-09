@@ -78,8 +78,10 @@ export type ScorerVariant = (typeof SCORER_VARIANTS)[number];
 /** 评分器蜕变用例：一道真实产生的题 + 基准回答 + 五个变体，关系断言见 metamorphic.ts。 */
 export const scorerCaseSchema = z.object({
   id: z.string().regex(/^[a-z0-9-]+$/),
-  /** 来源题目（InterviewQuestion.id），只作追溯。 */
+  /** 来源：`<jd>:<areaId>`（来自备课简报的领域）或 InterviewQuestion.id，只作追溯。 */
   questionId: z.string().min(1),
+  /** 题目所属岗位方向；答非所问变体取别的方向的题。 */
+  role: z.string().min(1).default("backend"),
   jobTitle: z.string().min(1),
   jobDescription: z.string().min(1),
   round: z.string().nullable(),

@@ -79,7 +79,7 @@ import { buildStoredResumeName, RESUME_UPLOAD_DIR } from "../src/lib/resumes/sto
 
 /**
  * 评测运行器。必须用 react-server 条件跑，让 server-only 解析成空模块：
- *   npm run eval -- fixtures [--personas 3] [--scorer 40] [--jd tencent-hunyuan-backend] [--mianjing]
+ *   npm run eval -- fixtures [--personas 3] [--scorer 40 [--from-sessions --eval-tag <tag>]] [--jd tencent-hunyuan-backend] [--mianjing]
  *   npm run eval -- scorer [--k 3] [--label name] [--cases a,b]
  *   npm run eval -- coverage [--k 2] [--label name] [--roles backend,infra]
  *   npm run eval -- interviewer [--k 1] [--label name] [--cases persona-1,hints] [--base http://localhost:3000]
@@ -194,6 +194,48 @@ async function scorerSources(limit: number, existing: Set<string>, evalTag: stri
   return sources;
 }
 
+/**
+ * 评分器用例的题目来源：按 eval/coverage.json 的 5 岗位 × 2 份 JD 各备一次课（深入节奏），
+ * 每个非项目领域出一道题（切入问题 + 阶梯当追问）。题目跨五个方向，错句才有得选；
+ * 只用评测面试的题目时全在一份简历的两个项目上打转，错句十道雷同。
+ */
+async function scorerSourcesFromBriefs(resumeId: string, existing: Set<string>, limit: number): Promise<(ScorerCaseSource & { role: string })[]> {
+  const config = loadCoverageConfig();
+  const perRole: Record<string, (ScorerCaseSource & { role: string })[]> = {};
+  for (const [role, jdIds] of Object.entries(config.roles)) {
+    perRole[role] = [];
+    for (const jdId of jdIds ?? []) {
+      const jd = loadJdFixture(jdId);
+      const brief = await generateEvalBrief(jdId, resumeId, "scorer-source");
+      for (const area of brief.areas) {
+        if (area.kind === "project") continue;
+        const questionId = `${jdId}:${area.id}`;
+        if (existing.has(questionId)) continue;
+        perRole[role].push({
+          id: `${jdId.replace(/[^a-z0-9-]/g, "")}-${area.id.toLowerCase().replace(/[^a-z0-9-]/g, "")}`,
+          questionId,
+          role,
+          jobTitle: jd.title,
+          jobDescription: jd.jobDescription,
+          round: "first_interview",
+          question: [area.entryQuestion.trim(), ...area.ladder.map((rung, index) => `追问 ${index + 1}：${rung.text.trim()}`)].join("\n"),
+          rubric: area.rubric,
+          expectedSignals: area.expectedSignals,
+          thread: { depth: area.ladder.length, targetDepth: area.depth, probeCount: area.ladder.length, rescues: 0, note: null },
+        });
+      }
+      console.log(`${role} / ${jdId}：${brief.areas.filter((area) => area.kind !== "project").length} 道`);
+    }
+  }
+  // 轮流从各岗位取，保证五个方向都有。
+  const sources: (ScorerCaseSource & { role: string })[] = [];
+  const queues = Object.values(perRole);
+  for (let round = 0; sources.length < limit && queues.some((queue) => queue.length > round); round += 1) {
+    for (const queue of queues) if (queue[round] && sources.length < limit) sources.push(queue[round]);
+  }
+  return sources;
+}
+
 async function commandFixtures(models: EvalModels): Promise<void> {
   const jdId = argValue("--jd") ?? "tencent-hunyuan-backend";
   const resumeId = argValue("--resume") ?? "synthetic-backend";
@@ -204,6 +246,7 @@ async function commandFixtures(models: EvalModels): Promise<void> {
   if (mianjing) await buildTopics(models);
   const jd = loadJdFixture(jdId);
   const resumeText = loadResumeText(resumeId);
+  void resumeText;
 
   if (personaCount) {
     // 弱项话题要落在备课会考察的领域里，先备一次课拿领域清单（深入节奏，看全貌）。
@@ -245,25 +288,29 @@ async function commandFixtures(models: EvalModels): Promise<void> {
   if (scorerCount) {
     const current = loadScorerCases();
     const existing = new Set(current.map((item) => item.questionId));
-    const sources = await scorerSources(scorerCount, existing, argValue("--eval-tag") ?? null);
+    const sources = process.argv.includes("--from-sessions")
+      ? (await scorerSources(scorerCount, existing, argValue("--eval-tag") ?? null)).map((source) => ({ ...source, role: "backend" }))
+      : await scorerSourcesFromBriefs(resumeId, existing, scorerCount);
     if (!sources.length) {
-      console.log("库里没有可用的线程级题目；先跑一轮 interviewer 评测。");
+      console.log("没有可用的题目来源。");
       return;
     }
-    // 答非所问变体：认真回答另一个方向（前端 / 运维）的真实面经题，和本题没有共同话题。
-    const foreign = ["frontend", "infra"].flatMap((role) => loadTopics().roles[role as CoverageRole]?.topics.flatMap((topic) => topic.examples.slice(0, 1)) ?? []);
-    if (!foreign.length) throw new Error("需要 eval/mianjing/topics.json 里的前端 / 运维题目做答非所问变体。");
+    // 答非所问变体：认真回答另一个方向的真实面经题，和本题没有共同话题。
+    const topicsFile = loadTopics();
+    const foreignFor = (role: string) =>
+      COVERAGE_ROLES.filter((item) => item !== role).flatMap((item) => topicsFile.roles[item]?.topics.flatMap((topic) => topic.examples.slice(0, 1)) ?? []);
     const usedClaims = current.map((item) => item.truth.wrongClaim);
     let written = 0;
     for (const [index, source] of sources.entries()) {
       try {
-        const partial = await generateScorerCase(models.aux, { source, resumeText, avoidClaims: usedClaims });
+        const partial = await generateScorerCase(models.aux, { source, avoidClaims: usedClaims });
+        const foreign = foreignFor(source.role);
         const unrelatedQuestion = foreign[(current.length + index) % foreign.length];
-        const offtopic = await generateOfftopicAnswer(models.aux, { unrelatedQuestion, resumeText });
-        const item = finalizeScorerCase(partial, offtopic);
+        const offtopic = await generateOfftopicAnswer(models.aux, { unrelatedQuestion });
+        const item = finalizeScorerCase({ ...partial, role: source.role }, offtopic);
         const problems = await checkScorerCase(models.aux, item, usedClaims);
         if (problems.length) {
-          console.warn(`评分器用例 ${source.id} 体检不过，丢弃：${problems.join("；")}`);
+          console.warn(`评分器用例 ${source.id} 体检不过，丢弃：${problems.join("；")}｜Z「${item.truth.wrongClaim}」｜题「${item.question.slice(0, 60).replace(/\n/g, " ")}」`);
           continue;
         }
         usedClaims.push(item.truth.wrongClaim);
