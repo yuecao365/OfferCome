@@ -15,6 +15,8 @@ npm run eval -- fixtures --scorer 40 [--eval-tag <tag>]                  从库�
 npm run eval -- scorer [--k 3] [--label name] [--cases a,b]              评分器蜕变测试（进程内，不需要服务器）
 npm run eval -- interviewer [--k 1] [--label name] [--cases persona-1,hints] [--base http://localhost:3000]
 npm run eval -- interviewer --session <id>[,<id>]                        只对已有会话重算，不调模型
+npm run eval -- fixtures --mianjing [--roles test-qa]                    面经题目 → eval/mianjing/topics.json（话题表，进仓库）
+npm run eval -- coverage [--k 2] [--roles backend,infra] [--label name]  备课话题覆盖率（只跑蓝图 + 简报，不开面试）
 npm run eval -- compare eval/runs/a.json eval/runs/b.json                两份产物的指标差
 ```
 
@@ -34,7 +36,8 @@ npm run eval -- compare eval/runs/a.json eval/runs/b.json                两份�
 | `scripts/` | 静态脚本 hints / injection / longform / earlyend | 手写，都用 `tencent-hunyuan-backend` + 合成简历 |
 | `personas/` | 人设：强项、弱项话题、必须逐字说出的错句 Z 与错因、说不出细节的简历成果 C | aux 生成后冻结 |
 | `scorer/` | 评分器用例：真实产生的线程题目 + base / err / drop / fluff / para / offtopic 六个回答 + 真值（Z、错因、被删机制） | aux 生成后冻结；offtopic 取另一道的 base |
-| `mianjing/` | 面经话题表（可选，原文不进仓库） | 待用户提供文本 |
+| `mianjing/` | 5 岗位 × 16 篇 2025–2026 公开面经：`raw/` 原文与 `extracted/` 题目列表都 .gitignore，只提交 `README.md`（索引与来源 URL）、两个抓取 / 抽取脚本和 `topics.json` | 用户收集，见 `eval/mianjing/README.md` |
+| `coverage.json` | 每个岗位用哪两份 JD 做话题覆盖 | 手写 |
 | `runs/` | 产物 | 运行器 |
 
 schema 与加载在 `fixtures.ts`，`fixtures.test.ts` 自检（id 与文件名一致、脚本引用的 JD 存在、err 变体含 Z 而 base 不含）。
@@ -112,17 +115,25 @@ k > 1 时比率类指标合并分子分母，比例类指标给均值与最小�
 
 每次运行先跑校准（各 ≤ 20 条），准确率 ≥ 0.9 且样本 ≥ 10 才可信；不可信的裁判当次相关指标显示为"—"并注明。校准结果写进产物的 `judges`。
 
-## 5. 基线与噪声
+## 5. 备课评测：面经话题覆盖（`coverage`，`coverage.ts`）
 
-尚未跑。步骤：配置 aux → `fixtures --personas 3` → `interviewer --k 3 --label baseline-1`、再跑 `--label baseline-2` → `fixtures --scorer 40 --eval-tag eval-interviewer:baseline-1` → `scorer --k 3 --label baseline-1`、再跑 `baseline-2` → 把四份产物复制为 `eval/runs/baseline-*.json` 提交 → 两次的差记在这里作为噪声底线。
+- **话题表**：`fixtures --mianjing` 对每篇面经的题目列表让 aux 归话题（跳过 HR、算法手撕与叙述），再按岗位合并成 ≤ 40 个规范话题，`count` 是提到它的面经篇数，`examples` 是原题。冻结为 `eval/mianjing/topics.json`。
+- **被测对象**：只跑备课链（岗位蓝图 + 简报），不开面试，用深入节奏看备课最多能规划出什么。每个岗位取 `eval/coverage.json` 里的两份 JD，上下文只有 JD 与合成简历，没有画像与历史。项目类领域不参与覆盖（面经里没有别人简历的对照）。
+- **指标**：加权覆盖率（按 count）、不加权覆盖率、阶梯递进率（风格序号事实 → 原理 → 场景 / 取舍单调不减，代码判）、基线领域占比（技能包补的领域 / 全部）；每岗位列出最常漏掉的话题。
+- **topic 裁判**：是非题"这段考察内容是否属于这个话题"；正样本 = (话题, 它自己的面经原题)，负样本 = (话题, 别的岗位的原题)。准确率 < 0.9 时覆盖率不计。
+- **局限**：面经偏八股，验的是"贴岗位"不是"贴简历"；合成简历是后端方向，其他岗位的项目领域本来就对不上，所以排除；`eval/jd` 里 infra 方向的 JD 是 AI infra，而面经 infra 是 SRE / 运维，这一岗的覆盖率会系统性偏低，要补两份运维 JD 才有意义。
 
-冒烟（2026-09-09，主模型 gpt-5.4-mini，aux 同家族）：2 道评分器用例 k=1，排序成立 1/2、错误定位 2/2、复述不变 2/2，引用置空率 0.15；1 场 earlyend，5 回合、断言全过、锚点 1/1。数字只证明链路通，不作基线。
+## 6. 基线与噪声
 
-## 6. 对比记录
+尚未跑。步骤：配置 aux → `fixtures --personas 3` → `interviewer --k 3 --label baseline-1`、再跑 `--label baseline-2` → `fixtures --scorer 40 --eval-tag eval-interviewer:baseline-1` → `scorer --k 3 --label baseline-1`、再跑 `baseline-2` → `fixtures --mianjing` → `coverage --k 2 --label baseline-1`、再跑 `baseline-2` → 把产物复制为 `eval/runs/baseline-*.json` 提交 → 两次的差记在这里作为噪声底线。
+
+冒烟（2026-09-09，主模型 gpt-5.4-mini，aux 同家族）：2 道评分器用例 k=1，排序成立 1/2、错误定位 2/2、复述不变 2/2，引用置空率 0.15；1 场 earlyend，5 回合、断言全过、锚点 1/1；test-qa 16 篇面经 → 19 个话题，两份测开 JD 的简报在深入节奏下各 5 个领域，覆盖 1/19 与 0/19，topic 裁判 16/16。这个接近 0 的数字是真实发现：简报按 JD 规划抽象领域（"测试用例设计与测试理论""编程与计算机基础"），不落到面试官实际会问的具体话题（Linux 命令、TCP/UDP、索引失效）。数字只证明链路通，不作基线。
+
+## 7. 对比记录
 
 待做：评分器分带有无（见计划 §7）。
 
-## 7. 边界
+## 8. 边界
 
 - 构造的错误是"一眼能看出"的粗错误，细微判断偏差没测。
 - 模拟器不是真人：它按人设说话，会漏说 Z（计入无效率），也可能比真人更配合。

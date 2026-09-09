@@ -157,3 +157,83 @@ export function insertClaim(base: string, claim: string): string {
 export function finalizeScorerCase(partial: Awaited<ReturnType<typeof generateScorerCase>>, offtopic: string): ScorerCase {
   return scorerCaseSchema.parse({ ...partial, answers: { ...partial.answers, offtopic } });
 }
+
+/* ------------------------------------------------------------ 面经话题表 */
+
+const fileTopicsSchema = z.object({
+  topics: z
+    .array(
+      z.object({
+        name: z.string().min(1).max(30),
+        description: z.string().min(1).max(80),
+        /** 属于这个话题的题目下标（从 0 起）。 */
+        questionIndexes: z.array(z.number().int().min(0)).min(1).max(40),
+      }),
+    )
+    .max(25),
+});
+
+export type FileTopic = { file: string; name: string; description: string; example: string };
+
+/** 一篇面经 → 它考到的话题（只看技术与场景题，跳过 HR、算法手撕与叙述）。 */
+export async function extractFileTopics(aux: AiTaskConfig, input: { role: string; file: string; questions: string[] }): Promise<FileTopic[]> {
+  const output = await runAux(aux, {
+    agent: "eval_extract_topics",
+    promptVersion: GENERATE_PROMPT_VERSION,
+    system: `下面是一篇${input.role}岗位面经里按顺序抽出的题目列表（questions，带下标），其中混有叙述、HR 问题、算法手撕题和抽取噪声。把技术与场景题归成话题：
+- 每个话题是面试官在考察的一件事，例如"Redis 分布式锁""K8s 调度与 Pod 生命周期""Agent 上下文压缩"，name 不超过 20 字，description 一句话说这个话题通常问什么。
+- questionIndexes 只放确实属于这个话题的题目下标；叙述、HR 问题、纯算法手撕题、"介绍项目 / 实习"这类不归话题。
+- 同一话题只出现一次；粒度以"一场面试会围绕它追问两三层"为准，不要细到单个知识点，也不要粗到"数据库"。`,
+    untrustedInputs: "题目列表",
+    payload: { role: input.role, questions: input.questions.map((text, index) => ({ index, text })) },
+    schema: fileTopicsSchema,
+    maxOutputTokens: 2_500,
+  });
+  return output.topics.flatMap((topic) => {
+    const example = topic.questionIndexes.map((index) => input.questions[index]).find(Boolean);
+    return example ? [{ file: input.file, name: topic.name, description: topic.description, example }] : [];
+  });
+}
+
+const mergedTopicsSchema = z.object({
+  topics: z
+    .array(
+      z.object({
+        id: z.string().regex(/^[a-z0-9-]+$/).max(40),
+        name: z.string().min(1).max(40),
+        description: z.string().min(1).max(200),
+        /** 归入这个话题的原始条目下标。 */
+        members: z.array(z.number().int().min(0)).min(1).max(200),
+      }),
+    )
+    .min(1)
+    .max(40),
+});
+
+export type MergedTopic = { id: string; name: string; description: string; count: number; examples: string[] };
+
+/** 一个岗位所有面经的话题 → 去重合并成 ≤ 40 个规范话题；count 是提到它的面经篇数。 */
+export async function mergeRoleTopics(aux: AiTaskConfig, input: { role: string; items: FileTopic[] }): Promise<MergedTopic[]> {
+  const output = await runAux(aux, {
+    agent: "eval_merge_topics",
+    promptVersion: GENERATE_PROMPT_VERSION,
+    system: `下面是从多篇${input.role}岗位面经里各自抽出的话题条目（items，带下标、来源文件与一道原题）。把同一件事的条目合并成规范话题：
+- 输出不超过 40 个话题，按被提到的篇数从多到少排；每个话题 id 用小写字母、数字和连字符，name 不超过 20 字，description 一句话。
+- members 列出归入该话题的全部条目下标；一个条目只归一个话题；明显不属于这个岗位技术考察的条目（HR、闲聊）不归入。
+- 不要为了凑数把不同的事合成一个，也不要把同一件事拆成两个（例如"Redis 缓存一致性"和"缓存与数据库双写"应合并）。`,
+    untrustedInputs: "话题条目",
+    payload: { role: input.role, items: input.items.map((item, index) => ({ index, file: item.file, name: item.name, description: item.description, example: item.example })) },
+    schema: mergedTopicsSchema,
+    maxOutputTokens: 6_000,
+    timeoutMs: 180_000,
+  });
+  const seen = new Set<string>();
+  return output.topics.flatMap((topic) => {
+    if (seen.has(topic.id)) return [];
+    seen.add(topic.id);
+    const members = topic.members.map((index) => input.items[index]).filter(Boolean);
+    if (!members.length) return [];
+    const examples = [...new Set(members.map((item) => item.example))].slice(0, 5);
+    return [{ id: topic.id, name: topic.name, description: topic.description, count: new Set(members.map((item) => item.file)).size, examples }];
+  });
+}

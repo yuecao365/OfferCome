@@ -19,7 +19,29 @@ import {
   type ScorerVariant,
   SCORER_VARIANTS,
 } from "../src/lib/evals/fixtures";
-import { finalizeScorerCase, generatePersona, generateScorerCase, type ScorerCaseSource } from "../src/lib/evals/generate";
+import {
+  briefCoverageText,
+  briefLadderRate,
+  COVERAGE_ROLES,
+  coverageMetricRows,
+  flattenCoverageMetrics,
+  loadCoverageConfig,
+  loadTopics,
+  summarizeRoleCoverage,
+  TOPICS_FILE,
+  type BriefCoverage,
+  type CoverageRole,
+  type TopicsFile,
+} from "../src/lib/evals/coverage";
+import {
+  extractFileTopics,
+  finalizeScorerCase,
+  generatePersona,
+  generateScorerCase,
+  mergeRoleTopics,
+  type FileTopic,
+  type ScorerCaseSource,
+} from "../src/lib/evals/generate";
 import {
   findClaimTurn,
   flattenInterviewerMetrics,
@@ -32,7 +54,7 @@ import {
   type SessionSnapshot,
   type SnapshotThread,
 } from "../src/lib/evals/interviewer-metrics";
-import { calibrateJudge, judgeMany, type JudgeCalibration, type JudgeItem } from "../src/lib/evals/judge";
+import { calibrateJudge, calibrationFromVerdicts, judgeMany, type JudgeCalibration, type JudgeItem } from "../src/lib/evals/judge";
 import {
   flattenScorerMetrics,
   judgeScorerCase,
@@ -44,7 +66,10 @@ import {
 import { compareMetrics, gitState, renderMetricTable, type MetricValue, type RunEnvelope } from "../src/lib/evals/report";
 import { simulateCandidateReply, type TranscriptLine } from "../src/lib/evals/simulator";
 import { parseJsonValue } from "../src/lib/json";
-import { evidenceTargetForPace, parseStoredBrief } from "../src/lib/mock-interviews/interviewer/brief";
+import { evidenceTargetForPace, parseStoredBrief, type InterviewBrief } from "../src/lib/mock-interviews/interviewer/brief";
+import { generateInterviewBrief } from "../src/lib/mock-interviews/interviewer/brief-agent";
+import { INTERVIEWER_PROMPT_VERSION } from "../src/lib/mock-interviews/interviewer/prompt";
+import { analyzeMockInterviewJob } from "../src/lib/mock-interviews/job-analysis-agent";
 import { parseStoredMemory, type MemoryPatch } from "../src/lib/mock-interviews/interviewer/memory";
 import { EVALUATION_PROMPT_VERSION, evaluateMockInterviewQuestion } from "../src/lib/mock-interviews/question-evaluation-agent";
 import { parseStoredEvaluationList, type EvaluationStrength, type EvaluationWeakness } from "../src/lib/mock-interviews/question-evaluation";
@@ -53,8 +78,9 @@ import { buildStoredResumeName, RESUME_UPLOAD_DIR } from "../src/lib/resumes/sto
 
 /**
  * 评测运行器。必须用 react-server 条件跑，让 server-only 解析成空模块：
- *   npm run eval -- fixtures [--personas 3] [--scorer 40] [--jd tencent-hunyuan-backend]
+ *   npm run eval -- fixtures [--personas 3] [--scorer 40] [--jd tencent-hunyuan-backend] [--mianjing]
  *   npm run eval -- scorer [--k 3] [--label name] [--cases a,b]
+ *   npm run eval -- coverage [--k 2] [--label name] [--roles backend,infra]
  *   npm run eval -- interviewer [--k 1] [--label name] [--cases persona-1,hints] [--base http://localhost:3000]
  *   npm run eval -- compare eval/runs/a.json eval/runs/b.json
  * 产物写到 eval/runs/<label>-<kind>.json，终端打印 markdown 表。
@@ -163,7 +189,9 @@ async function commandFixtures(models: EvalModels): Promise<void> {
   const resumeId = argValue("--resume") ?? "synthetic-backend";
   const personaCount = Number(argValue("--personas") ?? 0);
   const scorerCount = Number(argValue("--scorer") ?? 0);
-  if (!personaCount && !scorerCount) throw new Error("指定 --personas N 或 --scorer N。");
+  const mianjing = process.argv.includes("--mianjing");
+  if (!personaCount && !scorerCount && !mianjing) throw new Error("指定 --personas N、--scorer N 或 --mianjing。");
+  if (mianjing) await buildTopics(models);
   const jd = loadJdFixture(jdId);
   const resumeText = loadResumeText(resumeId);
 
@@ -207,6 +235,141 @@ async function commandFixtures(models: EvalModels): Promise<void> {
     }
     console.log(`写入 ${generated.length} 道评分器用例；现有 ${loadScorerCases().length} 道。`);
   }
+}
+
+/* ---------------------------------------------------------- 面经话题表 */
+
+const MIANJING_DIR = path.join(EVAL_DIR, "mianjing", "extracted");
+
+/** eval/mianjing/extracted/*.json → eval/mianjing/topics.json（话题表进仓库，原文与题目列表不进）。 */
+async function buildTopics(models: EvalModels): Promise<void> {
+  const files = (await fs.readdir(MIANJING_DIR)).filter((name) => name.endsWith(".json") && !name.startsWith("_")).sort();
+  const only = argList("--roles");
+  const byRole = new Map<CoverageRole, { file: string; questions: string[] }[]>();
+  for (const name of files) {
+    const json = JSON.parse(await fs.readFile(path.join(MIANJING_DIR, name), "utf8")) as { role?: string; questions?: string[] };
+    const role = COVERAGE_ROLES.find((item) => item === json.role);
+    if (!role || !json.questions?.length || (only && !only.includes(role))) continue;
+    byRole.set(role, [...(byRole.get(role) ?? []), { file: name, questions: json.questions }]);
+  }
+  if (!byRole.size) throw new Error(`${MIANJING_DIR} 里没有带 role 的面经 JSON；先跑 node eval/mianjing/extract-questions.mjs。`);
+  const roles: TopicsFile["roles"] = {};
+  for (const [role, items] of byRole) {
+    const fileTopics: FileTopic[] = [];
+    for (const item of items) {
+      try {
+        fileTopics.push(...(await extractFileTopics(models.aux, { role, file: item.file, questions: item.questions })));
+      } catch (error) {
+        console.warn(`${item.file} 话题抽取失败：`, error instanceof Error ? error.message : error);
+      }
+    }
+    const topics = await mergeRoleTopics(models.aux, { role, items: fileTopics });
+    roles[role] = { files: items.length, topics };
+    console.log(`${role}: ${items.length} 篇 → ${fileTopics.length} 条 → ${topics.length} 个话题；前五：${topics.slice(0, 5).map((topic) => `${topic.name}(${topic.count})`).join("、")}`);
+  }
+  // 只跑部分岗位时保留文件里其余岗位的话题表。
+  const existing = await fs.readFile(TOPICS_FILE, "utf8").then((text) => (JSON.parse(text) as TopicsFile).roles).catch(() => ({}));
+  const body: TopicsFile = { generatedAt: new Date().toISOString(), aux: `${models.aux.provider}/${models.aux.model}`, roles: { ...existing, ...roles } };
+  await fs.writeFile(TOPICS_FILE, `${JSON.stringify(body, null, 2)}\n`, "utf8");
+  console.log(`写入 ${TOPICS_FILE}`);
+}
+
+/* ---------------------------------------------------------------- coverage */
+
+/** 只跑备课（蓝图 + 简报），不开面试；上下文里没有画像与历史，简报只由 JD 与合成简历决定。 */
+async function generateEvalBrief(jdId: string, resumeId: string, runLabel: string): Promise<InterviewBrief> {
+  const jd = loadJdFixture(jdId);
+  const generationId = `eval-brief:${runLabel}:${jdId}:${Date.now()}`;
+  const blueprint = await analyzeMockInterviewJob({ generationId, jobTitle: jd.title, jobDescription: jd.jobDescription });
+  return generateInterviewBrief({
+    generationId,
+    jobTitle: jd.title,
+    blueprint,
+    context: {
+      jobDescription: jd.jobDescription,
+      resume: { id: `eval-${resumeId}`, name: `eval-${resumeId}.md`, text: loadResumeText(resumeId) },
+      projects: [],
+      history: [],
+      profile: { revision: 0, insights: [] },
+    },
+    // 深入节奏：看备课最多能规划出什么；真实面试按用户节奏裁剪，是另一回事。
+    pace: "deep",
+    round: "first_interview",
+  });
+}
+
+function topicText(topic: { name: string; description: string }): string {
+  return `${topic.name}：${topic.description}`;
+}
+
+async function commandCoverage(models: EvalModels): Promise<void> {
+  const k = Number(argValue("--k") ?? 1);
+  const only = argList("--roles");
+  const topicsFile = loadTopics();
+  const config = loadCoverageConfig();
+  const roles = COVERAGE_ROLES.filter((role) => (!only || only.includes(role)) && topicsFile.roles[role] && config.roles[role]);
+  if (!roles.length) throw new Error("没有可跑的岗位：检查 topics.json 与 eval/coverage.json。");
+  setAgentRunTag(`eval-coverage:${label()}`);
+
+  // topic 裁判自校准：正样本 = (话题, 它自己的面经原题)；负样本 = (话题, 别的岗位的原题)。
+  const positives: JudgeItem[] = [];
+  const negatives: JudgeItem[] = [];
+  for (const role of roles) {
+    const others = roles.filter((item) => item !== role);
+    for (const topic of topicsFile.roles[role]!.topics.slice(0, 8)) {
+      positives.push({ a: topicText(topic), b: topic.examples[0] });
+      const pool = others.length
+        ? topicsFile.roles[others[positives.length % others.length]]!.topics
+        : topicsFile.roles[role]!.topics.filter((item) => item.id !== topic.id);
+      const foreign = pool[positives.length % pool.length];
+      if (foreign) negatives.push({ a: topicText(topic), b: foreign.examples[0] });
+    }
+  }
+  const [positiveVerdicts, negativeVerdicts] = await Promise.all([judgeMany(models.aux, "topic", positives), judgeMany(models.aux, "topic", negatives)]);
+  const calibration = calibrationFromVerdicts("topic", positiveVerdicts, negativeVerdicts);
+  console.log(`裁判 topic：准确率 ${calibration.accuracy.value?.toFixed(2) ?? "—"} (${calibration.accuracy.numerator}/${calibration.accuracy.denominator})${calibration.trusted ? "" : "，不可信"}`);
+
+  const briefs: (BriefCoverage & { areas: string[] })[] = [];
+  for (const role of roles) {
+    const topics = topicsFile.roles[role]!.topics;
+    for (const jdId of config.roles[role]!) {
+      for (let rep = 1; rep <= k; rep += 1) {
+        console.log(`\n=== ${role} / ${jdId} #${rep}`);
+        try {
+          const brief = await generateEvalBrief(jdId, config.resume, label());
+          const text = briefCoverageText(brief);
+          const verdicts = await judgeMany(models.aux, "topic", topics.map((topic) => ({ a: topicText(topic), b: text })));
+          const covered = Object.fromEntries(topics.map((topic, index) => [topic.id, calibration.trusted ? verdicts[index] : null]));
+          const areas = brief.areas.map((area) => `${area.name}（${area.kind}${area.baseline ? "，基线" : ""}）`);
+          briefs.push({
+            role,
+            jd: jdId,
+            rep,
+            covered,
+            ladderProgressRate: briefLadderRate(brief),
+            areaCount: brief.areas.length,
+            baselineAreaCount: brief.areas.filter((area) => area.baseline).length,
+            areas,
+          });
+          console.log(`  领域：${areas.join("；")}\n  技能包：${brief.skillPacks.join(", ") || "无"}；覆盖 ${Object.values(covered).filter(Boolean).length}/${topics.length}`);
+        } catch (error) {
+          console.warn(`  失败：`, error instanceof Error ? error.message : error);
+        }
+      }
+    }
+  }
+  await flushAgentRunPersistence();
+  const metrics = roles.map((role) => summarizeRoleCoverage(role, topicsFile.roles[role]!.topics, briefs.filter((brief) => brief.role === role)));
+  const body = {
+    ...envelope("coverage", models, k, { blueprint: "job_blueprint", brief: INTERVIEWER_PROMPT_VERSION }),
+    topicsGeneratedAt: topicsFile.generatedAt,
+    judges: [calibration],
+    metrics: flattenCoverageMetrics(metrics),
+    roles: metrics,
+    briefs,
+  };
+  const file = await writeRun("coverage", body);
+  console.log(`\n${renderMetricTable(coverageMetricRows(metrics, calibration.trusted))}\n\n产物：${file}`);
 }
 
 /* ------------------------------------------------------------------ scorer */
@@ -662,8 +825,10 @@ async function main(): Promise<void> {
       return commandScorer(models);
     case "interviewer":
       return commandInterviewer(models);
+    case "coverage":
+      return commandCoverage(models);
     default:
-      throw new Error("用法：eval <fixtures | scorer | interviewer | compare>");
+      throw new Error("用法：eval <fixtures | scorer | interviewer | coverage | compare>");
   }
 }
 

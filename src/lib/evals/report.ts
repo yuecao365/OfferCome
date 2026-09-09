@@ -56,7 +56,7 @@ export type MetricValue = number | Ratio | Spread | null;
 
 export type RunEnvelope = {
   label: string;
-  kind: "interviewer" | "scorer";
+  kind: "interviewer" | "scorer" | "coverage";
   createdAt: string;
   git: { commit: string; dirty: boolean };
   models: { main: string; aux: string; auxSameFamily: boolean };
