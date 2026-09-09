@@ -524,13 +524,10 @@ async function driveSession(base: string, item: EvalCase, sessionId: string, mod
       const next = script.next().value as { content?: string; intent?: string };
       body = { clientId: `eval-${turn}`, content: next.content ?? "", intent: next.intent };
     } else {
-      const reply = await simulateCandidateReply(models.aux, {
-        persona: item.persona!,
-        resumeText,
-        jobTitle,
-        transcript,
-        runId: `eval-sim:${sessionId}:${turn}`,
-      });
+      const simulate = () =>
+        simulateCandidateReply(models.aux, { persona: item.persona!, resumeText, jobTitle, transcript, runId: `eval-sim:${sessionId}:${turn}` });
+      // 兼容通道的模型偶尔返回坏 JSON，抢救不了就再要一次；再失败才算这场失败。
+      const reply = await simulate().catch(() => simulate());
       body = { clientId: `eval-${turn}`, content: reply.reply };
     }
     if (typeof body.content === "string" && body.content) transcript.push({ role: "candidate", content: body.content });

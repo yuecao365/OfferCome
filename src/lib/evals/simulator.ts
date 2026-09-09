@@ -2,6 +2,8 @@ import { z } from "zod";
 
 import type { AiTaskConfig } from "@/lib/ai/config";
 
+import { salvageJson } from "@/lib/ai/salvage-json";
+
 import { runAux } from "./models";
 import type { Persona } from "./fixtures";
 
@@ -14,11 +16,22 @@ export const SIMULATOR_PROMPT_VERSION = "simulator-v1";
 
 export type TranscriptLine = { role: "interviewer" | "candidate"; content: string };
 
-const replySchema = z.object({
-  reply: z.string().min(1).max(1_500),
-  /** 模拟器自报这回合是否把错句说出来了；评测以正文子串检查为准，这个字段只作调试。 */
-  saidWrongClaim: z.boolean(),
-});
+const replySchema = z.object({ reply: z.string().min(1).max(1_500) });
+
+/** 残缺 JSON 里抠出 reply；整段都不是 JSON 就把原文当回答。 */
+export function rescueReply(rawText: string | undefined): { reply: string } | null {
+  const viaJson = salvageJson(replySchema)(rawText);
+  if (viaJson) return viaJson;
+  const quoted = rawText?.match(/"reply"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+  if (quoted) {
+    try {
+      const reply = JSON.parse(`"${quoted[1]}"`) as string;
+      if (reply.trim()) return { reply: reply.trim().slice(0, 1_500) };
+    } catch {}
+  }
+  const text = rawText?.trim() ?? "";
+  return text && !text.startsWith("{") ? { reply: text.slice(0, 1_500) } : null;
+}
 
 function personaPrompt(persona: Persona): string {
   const weakLine = persona.weak
@@ -50,7 +63,7 @@ export async function simulateCandidateReply(
     transcript: TranscriptLine[];
     runId?: string;
   },
-): Promise<{ reply: string; saidWrongClaim: boolean }> {
+): Promise<{ reply: string }> {
   const output = await runAux(aux, {
     agent: "eval_candidate_simulator",
     promptVersion: SIMULATOR_PROMPT_VERSION,
@@ -66,6 +79,7 @@ export async function simulateCandidateReply(
     maxOutputTokens: 800,
     timeoutMs: 45_000,
     runId: input.runId,
+    rescue: rescueReply,
   });
   return output;
 }

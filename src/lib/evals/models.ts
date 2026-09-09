@@ -78,6 +78,8 @@ export async function runAux<T>(
     maxOutputTokens?: number;
     timeoutMs?: number;
     runId?: string;
+    /** 结构化输出失败时从原始文本抢救；兼容通道的模型偶尔会返回残缺 JSON。 */
+    rescue?: (rawText: string | undefined) => T | null;
   },
 ): Promise<T> {
   const { output } = await runAgent({
@@ -92,6 +94,7 @@ export async function runAux<T>(
     schema: input.schema,
     maxOutputTokens: input.maxOutputTokens ?? 2_000,
     timeoutMs: input.timeoutMs ?? 60_000,
+    rescue: input.rescue,
   });
   return output;
 }

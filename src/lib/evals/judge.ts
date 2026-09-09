@@ -2,6 +2,8 @@ import { z } from "zod";
 
 import type { AiTaskConfig } from "@/lib/ai/config";
 
+import { salvageJson } from "@/lib/ai/salvage-json";
+
 import { runAux } from "./models";
 import { ratio, type Ratio } from "./report";
 
@@ -40,6 +42,14 @@ const QUESTIONS: Record<JudgeKind, { system: string; fields: [string, string] }>
 
 const verdictSchema = z.object({ verdict: z.boolean(), reason: z.string().max(200) });
 
+/** 残缺 JSON 里抠出 verdict。 */
+export function rescueVerdict(rawText: string | undefined): { verdict: boolean; reason: string } | null {
+  const viaJson = salvageJson(verdictSchema)(rawText);
+  if (viaJson) return viaJson;
+  const match = rawText?.match(/"verdict"\s*:\s*(true|false)/);
+  return match ? { verdict: match[1] === "true", reason: "" } : null;
+}
+
 export async function judgeOne(aux: AiTaskConfig, kind: JudgeKind, item: JudgeItem): Promise<boolean | null> {
   const [fieldA, fieldB] = QUESTIONS[kind].fields;
   try {
@@ -52,6 +62,7 @@ export async function judgeOne(aux: AiTaskConfig, kind: JudgeKind, item: JudgeIt
       schema: verdictSchema,
       maxOutputTokens: 300,
       timeoutMs: 30_000,
+      rescue: rescueVerdict,
     });
     return output.verdict;
   } catch (error) {
