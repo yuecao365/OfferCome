@@ -53,8 +53,10 @@ next-env.d.ts
 # Claude Code 会话本地配置
 .claude/
 
-# 评测产物；基线以 eval/runs/baseline-*.json 提交
+# 评测产物；基线（baseline-*）、对照基线（base-*）与修复复测（fix-*）提交，其余临时运行不进仓库
 /eval/runs/*
 !/eval/runs/baseline-*.json
+!/eval/runs/base-*.json
+!/eval/runs/fix-*.json
 /eval/mianjing/raw/
 /eval/mianjing/extracted/
