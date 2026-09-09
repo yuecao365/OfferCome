@@ -197,15 +197,19 @@ async function commandFixtures(models: EvalModels): Promise<void> {
 
   if (personaCount) {
     const existing = new Set(loadPersonas().map((persona) => persona.id));
-    const wanted = [...Array.from({ length: personaCount }, (_, index) => ({ id: `persona-${index + 1}`, offtopic: false })), { id: "offtopic-1", offtopic: true }];
+    const wanted = [
+      ...Array.from({ length: personaCount }, (_, index) => ({ id: `persona-${index + 1}`, offtopic: false, control: false })),
+      { id: "offtopic-1", offtopic: true, control: false },
+      { id: "control-1", offtopic: false, control: true },
+    ];
     for (const item of wanted) {
       if (existing.has(item.id)) {
         console.log(`人设 ${item.id} 已存在，跳过`);
         continue;
       }
-      const persona = await generatePersona(models.aux, { id: item.id, jd, resumeId, resumeText, offtopic: item.offtopic });
+      const persona = await generatePersona(models.aux, { id: item.id, jd, resumeId, resumeText, offtopic: item.offtopic, control: item.control });
       writeFixture("personas", persona);
-      console.log(`人设 ${persona.id}：弱项「${persona.weak.topic}」，错句「${persona.weak.wrongClaim}」`);
+      console.log(persona.weak ? `人设 ${persona.id}：弱项「${persona.weak.topic}」，错句「${persona.weak.wrongClaim}」` : `对照人设 ${persona.id}：强项 ${persona.strong.join("、")}`);
     }
   }
 
@@ -641,6 +645,7 @@ function relatedItems(snapshot: SessionSnapshot): { turnIndex: number; item: Jud
 
 /** 纠偏的裁判样本：错句所在回合面试官的回应。 */
 function pushbackItem(snapshot: SessionSnapshot, persona: Persona): JudgeItem | null {
+  if (!persona.weak) return null;
   const claim = findClaimTurn(snapshot, persona.weak.wrongClaim);
   if (!claim) return null;
   const reply = snapshot.messages
@@ -662,7 +667,7 @@ async function judgeSnapshots(models: EvalModels, cases: Map<string, EvalCase>, 
   const neutral = snapshots
     .flatMap((snapshot) => {
       const persona = cases.get(snapshot.caseId)?.persona;
-      const claimTurn = persona ? findClaimTurn(snapshot, persona.weak.wrongClaim)?.turnIndex : null;
+      const claimTurn = persona?.weak ? findClaimTurn(snapshot, persona.weak.wrongClaim)?.turnIndex : null;
       return snapshot.messages.filter((message) => message.role === "interviewer" && message.kind === "probe" && message.turnIndex !== claimTurn).map((message) => message.content);
     })
     .slice(0, 20);

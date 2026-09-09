@@ -141,8 +141,26 @@ export function findClaimTurn(snapshot: SessionSnapshot, claim: string): Snapsho
   return snapshot.messages.find((message) => message.role === "candidate" && contains(message.content, claim)) ?? null;
 }
 
+/** 对照人设：没有失守点，系统不该记失守、不该报 error 类短板、不该否定简历假设。 */
+export function controlAssertions(snapshot: SessionSnapshot): Assertion[] {
+  const failedNotes = snapshot.decisions.filter((decision) => decision.memoryPatch?.failed.length).map((decision) => decision.memoryPatch!.failed.join(" / "));
+  const errorThreads = snapshot.threads.filter((thread) => thread.evaluation?.weaknesses.some((item) => item.kind === "error"));
+  const reportErrors = snapshot.report?.weaknesses.filter((item) => item.kind === "error") ?? [];
+  const refuted = snapshot.memory.hypotheses.filter((item) => item.status === "refuted");
+  return [
+    { name: "对照：无失守记录", pass: snapshot.memory.failed.length === 0 && failedNotes.length === 0, detail: failedNotes.join("；") },
+    { name: "对照：无 error 类短板", pass: errorThreads.length === 0 && reportErrors.length === 0, detail: [...errorThreads.map((thread) => thread.areaId), ...reportErrors.map((item) => item.point)].join("；") },
+    { name: "对照：假设不被否定", pass: refuted.length === 0, detail: refuted.map((item) => item.id).join(", ") },
+    threadDepthWithinLimit(snapshot),
+    perThreadCaps(snapshot),
+  ];
+}
+
 export function personaAssertions(snapshot: SessionSnapshot, persona: Persona): { valid: boolean; assertions: Assertion[] } {
-  const claimMessage = findClaimTurn(snapshot, persona.weak.wrongClaim);
+  const weak = persona.weak;
+  if (persona.control || !weak) return { valid: true, assertions: controlAssertions(snapshot) };
+  const unsupportable = persona.unsupportable;
+  const claimMessage = findClaimTurn(snapshot, weak.wrongClaim);
   if (!claimMessage) return { valid: false, assertions: [] };
   const weakThread = snapshot.threads.find((thread) => thread.id === claimMessage.threadId) ?? null;
   const others = snapshot.threads.filter((thread) => thread.id !== weakThread?.id && thread.score !== null);
@@ -162,9 +180,9 @@ export function personaAssertions(snapshot: SessionSnapshot, persona: Persona): 
   });
   const evaluation = weakThread?.evaluation ?? null;
   const located = evaluation
-    ? evaluation.weaknesses.some((item) => item.kind === "error" && item.quote !== null && textsOverlap(item.quote, persona.weak.wrongClaim)) ||
+    ? evaluation.weaknesses.some((item) => item.kind === "error" && item.quote !== null && textsOverlap(item.quote, weak.wrongClaim)) ||
       [...evaluation.weaknesses.map((item) => item.point), ...evaluation.dimensions.map((item) => item.gap ?? "")].some((text) =>
-        textsOverlap(text, persona.weak.wrongClaim, 6),
+        textsOverlap(text, weak.wrongClaim, 6),
       )
     : null;
   assertions.push({ name: "失守进报告", pass: located, detail: evaluation ? "" : "弱项线程没有评分" });
@@ -179,7 +197,9 @@ export function personaAssertions(snapshot: SessionSnapshot, persona: Persona): 
     pass: others.length > 0 ? falseErrors.length === 0 : null,
     detail: falseErrors.map((thread) => thread.areaId).join(", "),
   });
-  const hypothesis = snapshot.hypotheses.find((item) => contains(item.evidence, persona.unsupportable) || contains(persona.unsupportable, item.evidence));
+  const hypothesis = unsupportable
+    ? snapshot.hypotheses.find((item) => contains(item.evidence, unsupportable) || contains(unsupportable, item.evidence))
+    : undefined;
   if (hypothesis) {
     const status = snapshot.memory.hypotheses.find((item) => item.id === hypothesis.id)?.status ?? "open";
     const reported = snapshot.report?.hypotheses.some((item) => item.text === hypothesis.text && item.verdict.trim().length > 0) ?? false;
@@ -259,6 +279,8 @@ export type InterviewerMetrics = {
   noFalseErrorRate: Ratio;
   hypothesisCoverageRate: Ratio;
   hypothesisPursuedRate: Ratio;
+  /** 对照人设里出现任一误报（失守记录、error 类短板、否定假设）的场 / 对照场。 */
+  controlFalseAlarmRate: Ratio;
   replacementRate: Spread;
   clarifyShare: Spread;
   asideRate: Spread;
@@ -287,6 +309,7 @@ export function summarizeInterviewer(outcomes: SessionOutcome[]): InterviewerMet
   const traces = valid.map((outcome) => outcome.trace);
   const sum = (key: "numerator" | "denominator", pick: (trace: SessionTrace) => Ratio) => traces.reduce((total, trace) => total + pick(trace)[key], 0);
   const hypothesisAssertions = personas.flatMap((outcome) => outcome.assertions.filter((item) => item.name === "简历假设被追"));
+  const controls = personas.filter((outcome) => outcome.assertions.some((item) => item.name.startsWith("对照：")));
   const byCase = new Map<string, boolean[]>();
   for (const outcome of scripts) {
     const reps = byCase.get(outcome.snapshot.caseId) ?? [];
@@ -305,6 +328,7 @@ export function summarizeInterviewer(outcomes: SessionOutcome[]): InterviewerMet
     noFalseErrorRate: assertionRate(personas, "强项不被误纠偏"),
     hypothesisCoverageRate: ratio(hypothesisAssertions.filter((item) => item.pass !== null).length, hypothesisAssertions.length),
     hypothesisPursuedRate: ratioOf(hypothesisAssertions.map((item) => item.pass)),
+    controlFalseAlarmRate: ratioOf(controls.map((outcome) => outcome.assertions.some((item) => item.name.startsWith("对照：") && item.pass === false))),
     replacementRate: spread(traces.map((trace) => trace.replacementRate.value)),
     clarifyShare: spread(traces.map((trace) => trace.clarifyShare.value)),
     asideRate: spread(traces.map((trace) => trace.asideRate.value)),
@@ -332,6 +356,7 @@ export function interviewerMetricRows(metrics: InterviewerMetrics, judgesTrusted
     { name: "强项不被误纠偏率", value: metrics.noFalseErrorRate, expect: "记基线" },
     { name: "简历假设覆盖率", value: metrics.hypothesisCoverageRate, expect: "记基线", note: "简报为说不出细节的成果生成了假设" },
     { name: "简历假设被追率", value: metrics.hypothesisPursuedRate, expect: "记基线" },
+    { name: "对照组误报率", value: metrics.controlFalseAlarmRate, expect: "0", note: "答得好的候选人被记失守 / 报错误 / 否定假设" },
     { name: "动作替换率", value: metrics.replacementRate, expect: "记基线，升高即警报" },
     { name: "澄清占比", value: metrics.clarifyShare, expect: "< 0.2" },
     { name: "空转率", value: metrics.asideRate, expect: "记基线" },

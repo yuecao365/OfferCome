@@ -38,11 +38,13 @@ export const personaSchema = z.object({
     wrongClaim: z.string().min(8),
     /** 生成时一并写下的错因，供人事后翻看，不进评测逻辑。 */
     whyWrong: z.string().min(1),
-  }),
-  /** 逐字取自简历、人设说不出细节的成果（C）。 */
-  unsupportable: z.string().min(4),
+  }).nullable(),
+  /** 逐字取自简历、人设说不出细节的成果（C）；对照人设为 null。 */
+  unsupportable: z.string().min(4).nullable(),
   /** 每次先答一句再跑题讲社团与兴趣。 */
   offtopic: z.boolean().default(false),
+  /** 对照人设：没有失守点，全程答得好。测的是误报：系统不该记失守、不该报 error 类短板、不该否定假设。 */
+  control: z.boolean().default(false),
 });
 export type Persona = z.infer<typeof personaSchema>;
 

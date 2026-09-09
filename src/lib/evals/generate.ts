@@ -27,10 +27,40 @@ function verbatim(haystack: string, needle: string): boolean {
   return normalizedText(haystack).includes(normalizedText(needle));
 }
 
+const controlPersonaSchema = z.object({
+  style: z.string().min(1).max(60),
+  strong: z.array(z.string().min(1).max(60)).min(3).max(4),
+});
+
+/** 对照人设：没有弱项与错句，全程答得好，测误报。 */
+async function generateControlPersona(aux: AiTaskConfig, input: { id: string; jd: JdFixture; resumeId: string; resumeText: string }): Promise<Persona> {
+  const output = await runAux(aux, {
+    agent: "eval_generate_persona",
+    promptVersion: GENERATE_PROMPT_VERSION,
+    system: "根据岗位描述与简历，为一位准备充分、基础扎实的候选人设计人设：strong 列出简历里能支撑、且与岗位相关的 3–4 个擅长话题；style 一句话的说话风格。这位候选人没有明显短板。",
+    untrustedInputs: "岗位描述与简历",
+    payload: { jobTitle: input.jd.title, jobDescription: input.jd.jobDescription, resume: input.resumeText },
+    schema: controlPersonaSchema,
+    maxOutputTokens: 600,
+  });
+  return personaSchema.parse({
+    id: input.id,
+    jd: input.jd.id,
+    resume: input.resumeId,
+    style: output.style,
+    strong: output.strong,
+    weak: null,
+    unsupportable: null,
+    offtopic: false,
+    control: true,
+  });
+}
+
 export async function generatePersona(
   aux: AiTaskConfig,
-  input: { id: string; jd: JdFixture; resumeId: string; resumeText: string; offtopic: boolean; attempts?: number },
+  input: { id: string; jd: JdFixture; resumeId: string; resumeText: string; offtopic: boolean; control?: boolean; attempts?: number },
 ): Promise<Persona> {
+  if (input.control) return generateControlPersona(aux, input);
   const attempts = input.attempts ?? 3;
   let lastError = "";
   for (let attempt = 0; attempt < attempts; attempt += 1) {

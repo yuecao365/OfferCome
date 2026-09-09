@@ -25,6 +25,7 @@ const persona: Persona = {
   weak: { topic: "消息队列", wrongClaim: CLAIM, whyWrong: "ack 不保证不重" },
   unsupportable: "复现率从每万单 3 次降为 0",
   offtopic: false,
+  control: false,
 };
 
 function msg(turnIndex: number, role: SnapshotMessage["role"], kind: SnapshotMessage["kind"], content: string, threadId: string | null): SnapshotMessage {
@@ -177,6 +178,31 @@ test("persona assertions fail or go null when the truth is not honoured", () => 
   assert.equal(byName["深度不越界"], false);
   const silent = snapshot({ messages: snapshot().messages.filter((message) => !message.content.includes("ack")) });
   assert.equal(personaAssertions(silent, persona).valid, false);
+});
+
+test("a control persona is always valid and flags failure notes, error weaknesses and refuted hypotheses as false alarms", () => {
+  const control: Persona = { ...persona, id: "control-1", weak: null, unsupportable: null, control: true };
+  const clean = snapshot({
+    threads: [thread("t1", "A1", { score: 80 }), thread("t2", "A2", { score: 78 })],
+    decisions: snapshot().decisions.map((item) => ({ ...item, memoryPatch: null })),
+    memory: { established: [], doubtful: [], failed: [], hypotheses: [{ id: "H1", status: "confirmed", note: null }] },
+    report: { ...snapshot().report!, weaknesses: [{ point: "细节不够", areaName: "状态机", kind: "missing" }] },
+  });
+  const ok = personaAssertions(clean, control);
+  assert.equal(ok.valid, true);
+  assert.ok(ok.assertions.filter((item) => item.name.startsWith("对照：")).every((item) => item.pass === true));
+
+  const noisy = personaAssertions(snapshot(), control);
+  const byName = Object.fromEntries(noisy.assertions.map((item) => [item.name, item.pass]));
+  assert.equal(byName["对照：无失守记录"], false);
+  assert.equal(byName["对照：无 error 类短板"], false);
+  assert.equal(byName["对照：假设不被否定"], false);
+
+  const outcomes: SessionOutcome[] = [
+    { snapshot: clean, trace: sessionTrace(clean), valid: true, assertions: ok.assertions },
+    { snapshot: snapshot({ rep: 2 }), trace: sessionTrace(snapshot()), valid: true, assertions: noisy.assertions },
+  ];
+  assert.deepEqual(summarizeInterviewer(outcomes).controlFalseAlarmRate, { value: 0.5, numerator: 1, denominator: 2 });
 });
 
 test("script assertions cover hints, injection, longform and earlyend", () => {
