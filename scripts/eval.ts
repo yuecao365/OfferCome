@@ -330,6 +330,11 @@ function topicText(topic: { name: string; description: string }): string {
   return `${topic.name}：${topic.description}`;
 }
 
+/** 校准样本要和真实样本同一形状：把一道面经原题包成一个简报领域。 */
+function asBriefArea(question: string): string {
+  return `【考察领域】围绕这道题展开。切入问题：${question}。追问阶梯：1. 追问它的原理；2. 追问它在真实场景里的取舍`;
+}
+
 async function commandCoverage(models: EvalModels): Promise<void> {
   const k = Number(argValue("--k") ?? 1);
   const only = argList("--roles");
@@ -345,12 +350,12 @@ async function commandCoverage(models: EvalModels): Promise<void> {
   for (const role of roles) {
     const others = roles.filter((item) => item !== role);
     for (const topic of topicsFile.roles[role]!.topics.slice(0, 8)) {
-      positives.push({ a: topicText(topic), b: topic.examples[0] });
+      positives.push({ a: topicText(topic), b: asBriefArea(topic.examples[0]) });
       const pool = others.length
         ? topicsFile.roles[others[positives.length % others.length]]!.topics
         : topicsFile.roles[role]!.topics.filter((item) => item.id !== topic.id);
       const foreign = pool[positives.length % pool.length];
-      if (foreign) negatives.push({ a: topicText(topic), b: foreign.examples[0] });
+      if (foreign) negatives.push({ a: topicText(topic), b: asBriefArea(foreign.examples[0]) });
     }
   }
   let topicSet = loadCalibrationSet("topic");
