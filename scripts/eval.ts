@@ -349,6 +349,7 @@ async function commandCoverage(models: EvalModels): Promise<void> {
             ladderProgressRate: briefLadderRate(brief),
             areaCount: brief.areas.length,
             baselineAreaCount: brief.areas.filter((area) => area.baseline).length,
+            skillPacks: brief.skillPacks,
             areas,
           });
           console.log(`  领域：${areas.join("；")}\n  技能包：${brief.skillPacks.join(", ") || "无"}；覆盖 ${Object.values(covered).filter(Boolean).length}/${topics.length}`);

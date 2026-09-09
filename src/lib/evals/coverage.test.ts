@@ -73,8 +73,8 @@ test("coverageRates weights by mianjing frequency and ignores unjudged topics", 
 
 test("summarizeRoleCoverage merges briefs and lists the most-missed topics", () => {
   const briefs: BriefCoverage[] = [
-    { role: "backend", jd: "a", rep: 1, covered: { "redis-lock": true, "mysql-index": false, mq: false }, ladderProgressRate: { value: 1, numerator: 2, denominator: 2 }, areaCount: 3, baselineAreaCount: 1 },
-    { role: "backend", jd: "b", rep: 1, covered: { "redis-lock": true, "mysql-index": true, mq: false }, ladderProgressRate: { value: 0.5, numerator: 1, denominator: 2 }, areaCount: 2, baselineAreaCount: 0 },
+    { role: "backend", jd: "a", rep: 1, covered: { "redis-lock": true, "mysql-index": false, mq: false }, ladderProgressRate: { value: 1, numerator: 2, denominator: 2 }, areaCount: 3, baselineAreaCount: 1, skillPacks: ["backend"] },
+    { role: "backend", jd: "b", rep: 1, covered: { "redis-lock": true, "mysql-index": true, mq: false }, ladderProgressRate: { value: 0.5, numerator: 1, denominator: 2 }, areaCount: 2, baselineAreaCount: 0, skillPacks: [] },
   ];
   const metrics = summarizeRoleCoverage("backend", topics, briefs);
   assert.deepEqual(metrics.weightedCoverage, { value: 16 / 24, numerator: 16, denominator: 24 });

@@ -81,6 +81,8 @@ export type BriefCoverage = {
   ladderProgressRate: Ratio;
   areaCount: number;
   baselineAreaCount: number;
+  /** 备课加载了哪些技能包；覆盖率低时先看这里。 */
+  skillPacks: string[];
 };
 
 /** 按面经频次加权的覆盖率，以及不加权的。 */
