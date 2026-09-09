@@ -38,6 +38,15 @@ function buildSystemPrompt(system: string, untrustedInputs?: string): string {
   return `${guard}\n\n${system}`;
 }
 
+/**
+ * OpenAI 之外的服务商走 OpenAI 兼容通道，SDK 只请求"返回 JSON"，schema 不随请求下发，
+ * 模型会用自己想的键名。把 JSON Schema 写进提示词，让它照着输出。
+ */
+export function schemaInstruction(config: AiTaskConfig, schema: FlexibleSchema<unknown>): string {
+  if (config.provider === "openai") return "";
+  return `\n\n输出必须是一个 JSON 对象，严格符合下面的 JSON Schema：键名、类型、必填项都要一致，不要输出 schema 之外的键，不要输出任何其它文字。\n${JSON.stringify(asSchema(schema).jsonSchema)}`;
+}
+
 export type AgentRunErrorKind =
   | "not_configured"
   | "incompatible_schema"
@@ -425,7 +434,7 @@ export async function runAgent<T>(
         ? { maxOutputTokens: options.maxOutputTokens }
         : {}),
       abortSignal: AbortSignal.timeout(options.timeoutMs),
-      system: buildSystemPrompt(options.system, options.untrustedInputs),
+      system: buildSystemPrompt(options.system, options.untrustedInputs) + schemaInstruction(config, options.schema),
       prompt: JSON.stringify(options.payload),
     });
     rawText = result.text;
