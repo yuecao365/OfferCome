@@ -39,7 +39,7 @@ npm run eval -- compare eval/runs/a.json eval/runs/b.json                两份�
 
 - 运行器用 `tsx --conditions=react-server` 跑，让 `server-only` 解析成空模块，评分 agent 可以在进程内直接调；不改任何源码。
 - 面试官评测走 `http://localhost:3000` 的真实接口（创建 → 轮询备课 → 逐条 `/turn` → 轮询交卷），后台评分与自动交卷都是生产路径。
-- **aux 模型**：`.env` 里加 `EVAL_AUX_AI_CONFIG={"provider":"deepseek","model":"deepseek-chat","apiKey":"…"}`（形状同设置页的文本模型配置，provider 可为 deepseek / qwen / kimi / glm / anthropic / compatible 等）。人设与变体生成、模拟器、裁判都用它。没配时回落到主模型，产物里 `models.auxSameFamily: true`，终端会警告；这种运行的裁判结论要打折。
+- **aux 模型**：`.env` 里加 `DEEPSEEK_API_KEY=sk-…`（等价于 deepseek-chat），或完整写 `EVAL_AUX_AI_CONFIG={"provider":"deepseek","model":"deepseek-chat","apiKey":"…"}`（形状同设置页的文本模型配置，provider 可为 deepseek / qwen / kimi / glm / anthropic / compatible 等）。生成用例时临时把它指向更强的模型（本次用 gpt-5.4），跑评测时切回 DeepSeek。人设与变体生成、模拟器、裁判都用它。没配时回落到主模型，产物里 `models.auxSameFamily: true`，终端会警告；这种运行的裁判结论要打折。
 - 产物：`eval/runs/<label>-<scorer|interviewer>.json`（.gitignore；基线以 `baseline-*.json` 提交）。每份带 git commit 与 dirty、主 / aux 模型、提示词版本、k。
 - 评测会话：`companyName=评测`，`Interview.evalTag = eval-interviewer:<label>`；面试列表、工作台、画像、训练种子都排除它们，交卷时不刷新画像。trace 页照常可看：`/interviews/mock/<id>/trace`。合成简历会自动建一条 `Resume` 记录（originalName `eval-synthetic-backend.md`）。
 - 评分器运行的 AgentRun 带 `tag = eval-scorer:<label>`；面试官评测经服务器跑，AgentRun 不带标签，按 runId 前缀 `turn:<sessionId>:` 关联。

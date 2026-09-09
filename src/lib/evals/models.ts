@@ -11,6 +11,8 @@ import { getAiTaskConfig } from "@/lib/settings/ai";
  */
 
 export const EVAL_AUX_ENV = "EVAL_AUX_AI_CONFIG";
+/** 只给一个 DeepSeek key 的简写：等价于 {"provider":"deepseek","model":"deepseek-chat"}。 */
+export const DEEPSEEK_KEY_ENV = "DEEPSEEK_API_KEY";
 
 export type EvalModels = {
   main: AiTaskConfig;
@@ -44,13 +46,21 @@ export function parseAuxConfig(raw: string | undefined): AiTaskConfig | null {
   return validated.value;
 }
 
+/** 完整 JSON 优先；只给了 DEEPSEEK_API_KEY 就用 deepseek-chat。 */
+export function auxConfigFromEnv(env: Record<string, string | undefined>): AiTaskConfig | null {
+  const full = parseAuxConfig(env[EVAL_AUX_ENV]);
+  if (full) return full;
+  const key = env[DEEPSEEK_KEY_ENV]?.trim();
+  return key ? parseAuxConfig(JSON.stringify({ provider: "deepseek", model: "deepseek-chat", apiKey: key })) : null;
+}
+
 export async function loadEvalModels(env = process.env): Promise<EvalModels> {
   const main = await getAiTaskConfig("text");
   if (main.requiresApiKey && !main.apiKey) throw new Error("主模型没有配置 API Key，先在设置页配好。");
-  const aux = parseAuxConfig(env[EVAL_AUX_ENV]) ?? main;
+  const aux = auxConfigFromEnv(env) ?? main;
   const auxSameFamily = modelFamily(aux) === modelFamily(main);
   if (auxSameFamily) {
-    console.warn(`[eval] 没有配置 ${EVAL_AUX_ENV} 或与主模型同家族；裁判与模拟器将与被测系统共享盲点，产物会标 auxSameFamily。`);
+    console.warn(`[eval] 没有配置 ${EVAL_AUX_ENV} / ${DEEPSEEK_KEY_ENV} 或与主模型同家族；裁判与模拟器将与被测系统共享盲点，产物会标 auxSameFamily。`);
   }
   return { main, aux, auxSameFamily };
 }
