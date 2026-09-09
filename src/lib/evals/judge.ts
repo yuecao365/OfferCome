@@ -137,6 +137,13 @@ export async function synthesizePositive(aux: AiTaskConfig, kind: Exclude<JudgeK
       schema: syntheticSchema,
       maxOutputTokens: 300,
       timeoutMs: 30_000,
+      // 兼容通道的模型常直接给一句话不包 JSON：原文就是样本。
+      rescue: (rawText) => {
+        const viaJson = salvageJson(syntheticSchema)(rawText);
+        if (viaJson) return viaJson;
+        const text = rawText?.trim() ?? "";
+        return text && !text.startsWith("{") ? { text: text.slice(0, 400) } : null;
+      },
     });
     return output.text;
   } catch (error) {
