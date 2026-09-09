@@ -1,0 +1,52 @@
+{
+  "id": "alibaba-ai-infra-container-a1",
+  "questionId": "alibaba-ai-infra-container:A1",
+  "role": "infra",
+  "jobTitle": "AI Infra工程师-容器方向（实习）",
+  "jobDescription": "职位描述\n你将成为大模型技术落地的\"算力内核设计者\"。你将深入 Kubernetes 生态，参与构建支撑超大规模 AI 集群的容器化基础设施，通过对调度、存储、网络等核心组件的深度定制与优化，打破大模型训练与推理的工程瓶颈。你的代码将直接优化 Agent 的冷启动速度，提升 GPU 集群的吞吐量与资源利用率，为 AI 时代的算力底座注入极致性能。\n具体职责包括：\n1. AI 容器调度与编排优化\n2. AI 高性能存储与网络底座\n3. AI 工程平台架构设计与效率提升\n4. AI 基础设施极致加速\n职位要求\n1. 基础条件：计算机、软件工程等相关专业优先；热衷于数据结构和算法；有 K8s 或容器相关开源社区贡献或高性能存储/网络开发经验者加分\n2. 专业能力：扎实的 Linux 系统底层基础、Go/Java/Python/C++ 语言能力、Kubernetes 架构深入理解、AI 推理/训练资源特征理解\n3. 能力特质：极致的性能追求、工程化思维、跨域协同、极客精神",
+  "round": "first_interview",
+  "question": "你遇到过一次 Pod 长时间 Pending 或者发布后一半 Pod 进入 CrashLoopBackOff 的情况吗？如果让你现场接手，你会按什么顺序排查？\n追问 1：先确认现象属于调度问题、镜像/启动问题，还是节点/资源问题；你会看哪些对象和事件。\n追问 2：继续追 request/limit、节点资源、亲和性/污点、探针和启动顺序对结果的影响。\n追问 3：如果同一份配置在部分节点正常、部分节点异常，怎么把节点差异、镜像差异、配置差异分开验证。\n追问 4：当集群规模扩大或业务有 GPU/AI 特殊资源时，哪些默认 K8s 假设会失效，应该怎么改。",
+  "rubric": [
+    {
+      "name": "技术正确性",
+      "description": "关键概念、机制和边界条件准确。",
+      "weight": 50
+    },
+    {
+      "name": "分析与取舍",
+      "description": "能够解释方案选择、限制及替代方案。",
+      "weight": 30
+    },
+    {
+      "name": "表达结构",
+      "description": "回答层次清楚，结论有依据。",
+      "weight": 20
+    }
+  ],
+  "expectedSignals": [
+    "能从 describe、events、节点维度、镜像和配置差异分层排查",
+    "理解 request/limit、QoS、探针、优雅退出对调度和启动的影响",
+    "知道先止血再定位，例如回滚、缩容、隔离坏节点",
+    "能说出 AI/GPU 场景下调度或资源模型的特殊性与取舍"
+  ],
+  "thread": {
+    "depth": 4,
+    "targetDepth": 4,
+    "probeCount": 4,
+    "rescues": 0,
+    "note": null
+  },
+  "answers": {
+    "base": "我遇到过，比较典型的是一次发布后新 Pod 有一部分一直 Pending，另一部分起来后很快进 CrashLoopBackOff。我要现场接手的话，一般先分层看：先确认是调度卡住了，还是已经调度上去但容器启动失败，或者其实是节点本身状态和资源有问题。第一步我会先看 deployment、rs、pod 的状态变化，再看 pod 事件和节点事件，快速判断问题落在哪一层。\n\n如果是 Pending，我会重点看 Pod 的 Conditions、describe 里的 Events，还有 scheduler 给的原因，比如是不是 Insufficient cpu、memory、gpu，或者被 nodeSelector、nodeAffinity、taint/toleration 卡住。这里我会顺手核对 request/limit，因为调度主要是按 request 看的，不是按 limit；如果 limit 设得特别大但 request 很小，虽然不一定导致 Pending，但可能把运行时稳定性搞差。然后再看节点 allocatable、当前已分配资源、是否有节点 NotReady，必要时对比一下同一批 Pod 为啥有的能上有的不能上。\n\n如果 Pod 已经调度成功但进 CrashLoopBackOff，我会先看容器退出码、上一轮日志、describe 事件，区分是镜像拉取、启动命令、配置缺失、端口占用，还是探针把容器反复杀掉。探针这块我会连 startupProbe、livenessProbe、readinessProbe 一起看，因为应用启动慢的时候，如果没有用 startupProbe 做保护，liveness 可能过早失败，容器就会一直重启。还会检查发布时 initContainer、主容器、依赖服务之间的启动顺序，比如配置文件、模型文件、证书或者下游服务是不是还没就绪。\n\n如果同一份配置在部分节点正常、部分节点异常，我会优先把变量拆开。节点差异上看 kubelet 版本、container runtime、GPU 驱动、节点标签污点、磁盘空间、时钟、DNS 和 CNI 是否一致；镜像差异上看是不是拉到了不同 digest，或者某些节点命中了旧缓存；配置差异上就把生效后的 PodSpec、ConfigMap、Secret、环境变量和挂载内容逐项比。通常我会挑一台正常节点和一台异常节点，固定同一个镜像 digest、同一份配置，分别用最小化 Pod 或临时调试容器复现，这样能更快判断是节点环境问题还是业务镜像问题。",
+    "err": "我遇到过，比较典型的是一次发布后新 Pod 有一部分一直 Pending，另一部分起来后很快进 CrashLoopBackOff。我要现场接手的话，一般先分层看：先确认是调度卡住了，还是已经调度上去但容器启动失败，或者其实是节点本身状态和资源有问题。第一步我会先看 deployment、rs、pod 的状态变化，再看 pod 事件和节点事件，快速判断问题落在哪一层。\n\n如果是 Pending，我会重点看 Pod 的 Conditions、describe 里的 Events，还有 scheduler 给的原因，比如是不是 Insufficient cpu、memory、gpu，或者被 nodeSelector、nodeAffinity、taint/toleration 卡住。这里我会顺手核对 request/limit，因为调度主要是按 request 看的，不是按 limit；如果 limit 设得特别大但 request 很小，虽然不一定导致 Pending，但可能把运行时稳定性搞差。然后再看节点 allocatable、当前已分配资源、是否有节点 NotReady，必要时对比一下同一批 Pod 为啥有的能上有的不能上。\n\nKubernetes 调度器主要根据 limit 来决定 Pod 能不能被调度。如果 Pod 已经调度成功但进 CrashLoopBackOff，我会先看容器退出码、上一轮日志、describe 事件，区分是镜像拉取、启动命令、配置缺失、端口占用，还是探针把容器反复杀掉。探针这块我会连 startupProbe、livenessProbe、readinessProbe 一起看，因为应用启动慢的时候，如果没有用 startupProbe 做保护，liveness 可能过早失败，容器就会一直重启。还会检查发布时 initContainer、主容器、依赖服务之间的启动顺序，比如配置文件、模型文件、证书或者下游服务是不是还没就绪。\n\n如果同一份配置在部分节点正常、部分节点异常，我会优先把变量拆开。节点差异上看 kubelet 版本、container runtime、GPU 驱动、节点标签污点、磁盘空间、时钟、DNS 和 CNI 是否一致；镜像差异上看是不是拉到了不同 digest，或者某些节点命中了旧缓存；配置差异上就把生效后的 PodSpec、ConfigMap、Secret、环境变量和挂载内容逐项比。通常我会挑一台正常节点和一台异常节点，固定同一个镜像 digest、同一份配置，分别用最小化 Pod 或临时调试容器复现，这样能更快判断是节点环境问题还是业务镜像问题。",
+    "drop": "我遇到过，比较典型的是一次发布后新 Pod 有一部分一直 Pending，另一部分起来后很快进 CrashLoopBackOff。我要现场接手的话，一般先分层看：先确认是调度卡住了，还是已经调度上去但容器启动失败，或者其实是节点本身状态和资源有问题。第一步我会先看 deployment、rs、pod 的状态变化，再看 pod 事件和节点事件，快速判断问题落在哪一层。\n\n如果是 Pending，我会重点看相关对象和事件，先把原因归类清楚，再结合同批次 Pod 的分布做对比。\n\n如果 Pod 已经调度成功但进 CrashLoopBackOff，我会先看容器退出码、上一轮日志、describe 事件，区分是镜像拉取、启动命令、配置缺失、端口占用，还是探针把容器反复杀掉。探针这块我会连 startupProbe、livenessProbe、readinessProbe 一起看，因为应用启动慢的时候，如果没有用 startupProbe 做保护，liveness 可能过早失败，容器就会一直重启。还会检查发布时 initContainer、主容器、依赖服务之间的启动顺序，比如配置文件、模型文件、证书或者下游服务是不是还没就绪。\n\n如果同一份配置在部分节点正常、部分节点异常，我会优先把变量拆开。节点差异上看 kubelet 版本、container runtime、GPU 驱动、节点标签污点、磁盘空间、时钟、DNS 和 CNI 是否一致；镜像差异上看是不是拉到了不同 digest，或者某些节点命中了旧缓存；配置差异上就把生效后的 PodSpec、ConfigMap、Secret、环境变量和挂载内容逐项比。通常我会挑一台正常节点和一台异常节点，固定同一个镜像 digest、同一份配置，分别用最小化 Pod 或临时调试容器复现，这样能更快判断是节点环境问题还是业务镜像问题。",
+    "fluff": "我遇到这种情况会先稳住现场，然后按优先级一层一层排，不会一上来就猜。我的思路是先把现象分清楚，再把影响范围和变化点找出来，同时结合发布前后的上下文去判断。排查时我会先看最直接的线索，再往底层收敛，避免在单一方向上耗太久。\n\n对于追问里的几个方向，我会同步做交叉验证，因为这类问题往往不是单点原因，而是多个因素叠加。我的习惯是先判断属于哪一大类，再去看和这类问题最相关的对象与信息，把可能性快速缩小。之后会把配置、环境、节点、实例之间做横向对比，看看异常是不是有明显的共性。\n\n如果同一份配置结果不一致，我会优先假设环境侧存在差异，然后通过对照实验把问题拆开。等定位到关键变量后，再决定是临时止血还是继续深挖。对于规模更大或者带特殊资源的集群，我会更关注默认经验什么时候不再成立，并且及时调整排查和治理方式。",
+    "para": "我之前碰到过类似情况，发布之后一批新 Pod 里有的长期 Pending，有的虽然调度上去了，但启动不久就变成 CrashLoopBackOff。要是让我当场接手，我通常会先按层次拆：先判断是调度阶段出问题，还是容器启动阶段出问题，或者根子在节点状态、节点资源。开始时我会先过一遍 deployment、rs 和 pod 的状态流转，再结合 pod 和 node 的事件，先把故障层级定下来。\n\n对于 Pending，我会先盯 Pod Conditions 和 describe 里的 Events，看 scheduler 到底报了什么，比如 cpu、memory、gpu 不足，还是被 nodeSelector、nodeAffinity、taint/toleration 限住了。同时我会检查 request 和 limit，因为真正影响调度的是 request，不是 limit；要是 limit 很高但 request 很低，未必会直接卡调度，不过可能给后面的运行稳定性埋雷。接着还会去看节点的 allocatable、资源分配情况，以及节点有没有 NotReady，再把能正常调度和不能正常调度的 Pod 做对照。\n\n如果 Pod 已经绑到节点上但进入 CrashLoopBackOff，我会先查退出码、前一次重启日志和 describe 事件，先区分是拉镜像失败、启动命令有问题、配置没带上、端口冲突，还是探针触发了反复重启。探针这部分我会一起看 startupProbe、livenessProbe 和 readinessProbe，因为有些服务启动本来就慢，如果没有 startupProbe 兜住，liveness 太早介入就可能不断把容器杀掉。我也会顺带确认 initContainer、业务容器和依赖服务之间的启动先后关系，比如配置、模型、证书或者下游依赖是否已经准备好。\n\n要是同样的配置在一些节点上正常、另一些节点上异常，我会把节点、镜像、配置三个维度拆开验证。节点侧会对比 kubelet 版本、container runtime、GPU 驱动、标签和污点、磁盘、时钟、DNS、CNI；镜像侧会确认是不是实际拉到了不同的 digest，或者个别节点用了旧缓存；配置侧就检查最终落地的 PodSpec、ConfigMap、Secret、环境变量以及挂载文件。我一般会选一台正常节点和一台异常节点，锁定同一个镜像 digest 和同一套配置，用最小 Pod 或临时调试容器分别跑一下，这样比较容易把问题归因到节点环境还是镜像本身。",
+    "offtopic": "我理解工具注册这块，核心是把工具当成一份可被系统识别和治理的能力声明。注册时一般要提交工具名称、唯一标识、版本、调用入口、协议类型，以及健康检查和超时重试等基础信息。参数描述要清楚输入输出的字段名、类型、是否必填、默认值、取值范围和示例，最好补充幂等性、错误码和返回结构，方便调用方稳定接入。权限上我会按最小权限原则设计，说明谁能调用、能访问哪些数据、是否涉及读写删除，以及鉴权方式、审计日志和限流策略。作用范围则要定义清楚适用业务、环境范围比如测试或生产、租户或项目隔离边界，还有地域、时间窗口和配额限制。这样注册完不只是能调用，还能做到安全、可控、可运维。"
+  },
+  "truth": {
+    "wrongClaim": "Kubernetes 调度器主要根据 limit 来决定 Pod 能不能被调度。",
+    "whyWrong": "Kubernetes 调度时主要依据容器声明的 requests 和节点可分配资源做过滤与打分，不是按 limits 决定能否调度。limits 更多影响运行时的 cgroup 限制；例如 CPU limit 会限速，内存超限会触发 OOMKill。",
+    "droppedMechanism": "如果是 Pending，我会重点看 Pod 的 Conditions、describe 里的 Events，还有 scheduler 给的原因，比如是不是 Insufficient cpu、memory、gpu，或者被 nodeSelector、nodeAffinity、taint/toleration 卡住。这里我会顺手核对 request/limit，因为调度主要是按 request 看的，不是按 limit；如果 limit 设得特别大但 request 很小，虽然不一定导致 Pending，但可能把运行时稳定性搞差。然后再看节点 allocatable、当前已分配资源、是否有节点 NotReady，必要时对比一下同一批 Pod 为啥有的能上有的不能上。"
+  }
+}

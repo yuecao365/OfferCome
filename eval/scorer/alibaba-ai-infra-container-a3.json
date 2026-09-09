@@ -1,0 +1,52 @@
+{
+  "id": "alibaba-ai-infra-container-a3",
+  "questionId": "alibaba-ai-infra-container:A3",
+  "role": "infra",
+  "jobTitle": "AI Infra工程师-容器方向（实习）",
+  "jobDescription": "职位描述\n你将成为大模型技术落地的\"算力内核设计者\"。你将深入 Kubernetes 生态，参与构建支撑超大规模 AI 集群的容器化基础设施，通过对调度、存储、网络等核心组件的深度定制与优化，打破大模型训练与推理的工程瓶颈。你的代码将直接优化 Agent 的冷启动速度，提升 GPU 集群的吞吐量与资源利用率，为 AI 时代的算力底座注入极致性能。\n具体职责包括：\n1. AI 容器调度与编排优化\n2. AI 高性能存储与网络底座\n3. AI 工程平台架构设计与效率提升\n4. AI 基础设施极致加速\n职位要求\n1. 基础条件：计算机、软件工程等相关专业优先；热衷于数据结构和算法；有 K8s 或容器相关开源社区贡献或高性能存储/网络开发经验者加分\n2. 专业能力：扎实的 Linux 系统底层基础、Go/Java/Python/C++ 语言能力、Kubernetes 架构深入理解、AI 推理/训练资源特征理解\n3. 能力特质：极致的性能追求、工程化思维、跨域协同、极客精神",
+  "round": "first_interview",
+  "question": "容器里明明看到 Java 堆远小于 limit，却还是被 OOMKilled。你先从哪些 Linux 和容器运行时层面的边界条件解释这个现象？\n追问 1：先说进程内存构成：堆、堆外、线程栈、metaspace、page cache 等。\n追问 2：再追 cgroup、宿主机内存、容器 limit 与 JVM 感知限制之间的关系。\n追问 3：如果问题只在某些镜像或某些节点出现，你会怎么排除基础镜像、启动参数和内核版本差异。",
+  "rubric": [
+    {
+      "name": "准确性",
+      "description": "概念、机制与边界条件说得准确，没有似是而非。",
+      "weight": 60
+    },
+    {
+      "name": "原理深度",
+      "description": "能讲清为什么，而不只是是什么。",
+      "weight": 25
+    },
+    {
+      "name": "表达结构",
+      "description": "回答层次清楚，结论有依据。",
+      "weight": 15
+    }
+  ],
+  "expectedSignals": [
+    "知道 OOM 不等于只看 Java heap",
+    "能提到 cgroup limit、堆外内存、线程栈、page cache、JVM 容器感知参数",
+    "理解容器与宿主机资源视角的差异",
+    "能把排查落到镜像参数、节点差异、内核与 cgroup 配置"
+  ],
+  "thread": {
+    "depth": 3,
+    "targetDepth": 3,
+    "probeCount": 3,
+    "rescues": 0,
+    "note": null
+  },
+  "answers": {
+    "base": "我会先把问题拆成进程实际占用和 cgroup 记账两层看。Java 堆小不代表容器占用就小，进程内除了堆，还有直接内存、JNI/native 库分配、每个线程的栈、metaspace、code cache、GC 自身结构，以及内存映射文件和 page cache，这些都可能把 RSS 或 cgroup 里的 usage 顶上去。像 Netty、NIO、ByteBuffer、解压缩库这类堆外内存，如果没单独约束，增长起来很隐蔽。线程数一多，哪怕单个栈不大，叠加也很可观。\n\n再往下我会看 cgroup 视角，因为 OOMKilled 本质上通常是容器所在 memcg 触发了限制，不是只看 JVM 堆。重点会核对容器 limit、memory.current 或 memory.usage 这类值、是否有 memory.max 接近上限、是否存在 page cache 回收不及时、tmpfs 或 emptyDir 写内存、以及是不是宿主机整体吃紧导致更容易触发回收和 OOM。JVM 这边还要确认它有没有正确感知容器限制；如果镜像里的 JDK 偏老，或者启动参数把 MaxRAMPercentage、Xmx、MaxDirectMemorySize 配得不协调，就可能出现堆设得看着保守，但堆外和其他 native 区域把 limit 吃满。\n\n如果只在某些镜像或节点出现，我会做对比排查。镜像侧先比基础镜像和 JDK 发行版、版本差异，看看 glibc 或 musl、malloc 实现、默认时区字符集包这些有没有引入额外内存行为，再核对启动脚本有没有按节点环境拼出不同 JVM 参数。节点侧我会看内核版本、cgroup v1/v2、containerd 或 runc 版本，以及是否开了不同的 hugepage、swap、透明大页、overcommit 策略。然后用同一镜像跨节点复现、同一节点换镜像复现，把问题收敛到镜像还是节点；同时结合 dmesg、kubectl describe、/sys/fs/cgroup 下的统计、jcmd 和 NMT 去看究竟是线程栈、直接内存还是 page cache 在涨。整体上我会先确认是谁在记账、谁先碰到了边界，再决定是调 JVM、调镜像还是调节点配置。",
+    "err": "我会先把问题拆成进程实际占用和 cgroup 记账两层看。Java 堆小不代表容器占用就小，进程内除了堆，还有直接内存、JNI/native 库分配、每个线程的栈、metaspace、code cache、GC 自身结构，以及内存映射文件和 page cache，这些都可能把 RSS 或 cgroup 里的 usage 顶上去。像 Netty、NIO、ByteBuffer、解压缩库这类堆外内存，如果没单独约束，增长起来很隐蔽。线程数一多，哪怕单个栈不大，叠加也很可观。\n\n再往下我会看 cgroup 视角，因为 OOMKilled 本质上通常是容器所在 memcg 触发了限制，不是只看 JVM 堆。重点会核对容器 limit、memory.current 或 memory.usage 这类值、是否有 memory.max 接近上限、是否存在 page cache 回收不及时、tmpfs 或 emptyDir 写内存、以及是不是宿主机整体吃紧导致更容易触发回收和 OOM。容器的 OOMKilled 只会统计 JVM 堆，不会把 page cache 算进去。JVM 这边还要确认它有没有正确感知容器限制；如果镜像里的 JDK 偏老，或者启动参数把 MaxRAMPercentage、Xmx、MaxDirectMemorySize 配得不协调，就可能出现堆设得看着保守，但堆外和其他 native 区域把 limit 吃满。\n\n如果只在某些镜像或节点出现，我会做对比排查。镜像侧先比基础镜像和 JDK 发行版、版本差异，看看 glibc 或 musl、malloc 实现、默认时区字符集包这些有没有引入额外内存行为，再核对启动脚本有没有按节点环境拼出不同 JVM 参数。节点侧我会看内核版本、cgroup v1/v2、containerd 或 runc 版本，以及是否开了不同的 hugepage、swap、透明大页、overcommit 策略。然后用同一镜像跨节点复现、同一节点换镜像复现，把问题收敛到镜像还是节点；同时结合 dmesg、kubectl describe、/sys/fs/cgroup 下的统计、jcmd 和 NMT 去看究竟是线程栈、直接内存还是 page cache 在涨。整体上我会先确认是谁在记账、谁先碰到了边界，再决定是调 JVM、调镜像还是调节点配置。",
+    "drop": "我会先把问题拆成进程实际占用和 cgroup 记账两层看。Java 堆小不代表容器占用就小，进程内除了堆，还有直接内存、JNI/native 库分配、每个线程的栈、metaspace、code cache、GC 自身结构，以及内存映射文件和 page cache，这些都可能把 RSS 或 cgroup 里的 usage 顶上去。像 Netty、NIO、ByteBuffer、解压缩库这类堆外内存，如果没单独约束，增长起来很隐蔽。线程数一多，哪怕单个栈不大，叠加也很可观。\n\n再往下我会看 cgroup 视角，因为 OOMKilled 本质上通常是容器所在 memcg 触发了限制，不是只看 JVM 堆。\n\n如果只在某些镜像或节点出现，我会做对比排查。镜像侧先比基础镜像和 JDK 发行版、版本差异，看看 glibc 或 musl、malloc 实现、默认时区字符集包这些有没有引入额外内存行为，再核对启动脚本有没有按节点环境拼出不同 JVM 参数。节点侧我会看内核版本、cgroup v1/v2、containerd 或 runc 版本，以及是否开了不同的 hugepage、swap、透明大页、overcommit 策略。然后用同一镜像跨节点复现、同一节点换镜像复现，把问题收敛到镜像还是节点；同时结合 dmesg、kubectl describe、/sys/fs/cgroup 下的统计、jcmd 和 NMT 去看究竟是线程栈、直接内存还是 page cache 在涨。整体上我会先确认是谁在记账、谁先碰到了边界，再决定是调 JVM、调镜像还是调节点配置。",
+    "fluff": "我一般会先按层次去看，不会只盯着一个指标。这个问题往往表面现象和根因不是一层，所以我会先把现象定义清楚，再逐步缩小范围。对于进程内部、容器限制和宿主机环境，我都会分别确认有没有异常，再结合运行时表现去判断哪个方向更可疑。\n\n如果有追问，我也会继续把影响因素展开，但我会优先抓最可能影响结果的部分，不会一开始就把排查铺得特别散。遇到只在部分环境出现的问题，我通常会做对比，找出哪些条件是一致的，哪些条件发生了变化，然后围绕这些差异去验证。这样做的好处是能比较快地把问题落到某一个层面，后面不管是调参数、换环境还是修复镜像，路径都会更清楚。",
+    "para": "我通常会先分成两部分理解：一部分是 Java 进程到底用了哪些内存，另一部分是容器 cgroup 是怎么记这些内存的。因为堆明显没到 limit，并不代表容器总占用就安全。除了堆本身，Java 还有堆外内存、JNI 或其他 native 分配、线程栈、metaspace、code cache、GC 的辅助结构，另外 mmap 和 page cache 也要算进去，所以最后顶到的可能是 RSS 或 cgroup usage，而不是 heap。比如用了 Netty、NIO 或 DirectByteBuffer，堆外涨起来很容易被忽略；线程多的时候，栈内存累计起来也可能不少。\n\n接着我会从 cgroup 角度确认是不是 memcg 命中了边界，因为 OOMKilled 一般是容器内存组超限，不是单纯 JVM 堆超了。这里我会重点检查容器的 memory limit、memory.current 或 memory.usage 之类的指标，确认 memory.max 是否逼近上限，也会看 page cache 有没有回收压力、tmpfs 或 emptyDir 是否在吃内存，以及宿主机整体内存紧张时是否放大了这个问题。然后回到 JVM，确认它是否正确识别了容器限制；如果 JDK 版本比较旧，或者 MaxRAMPercentage、Xmx、MaxDirectMemorySize 这些参数搭配得不好，就可能出现堆看起来留了余量，但 native 和堆外部分把 limit 撑爆。\n\n要是问题只在特定镜像或少数节点上发生，我会优先做横向对比。镜像方面先看基础镜像、JDK 版本和发行版差别，再看 glibc 还是 musl、malloc 的实现差异，以及启动脚本是否会根据环境带出不同 JVM 参数。节点方面我会检查内核版本、cgroup v1 还是 v2、containerd 和 runc 的版本，还有 hugepage、swap、透明大页、overcommit 等设置是否不同。之后用同一个镜像在不同节点跑，或者在同一节点切换镜像，尽量把变量隔离开；再结合 dmesg、kubectl describe、/sys/fs/cgroup 里的统计，以及 jcmd、NMT，去定位到底是线程栈、直接内存还是 page cache 在持续上涨。我的思路就是先弄清到底是哪一层在计费、哪一层先撞线，再决定后续是调 JVM 参数、修镜像还是处理节点环境。",
+    "offtopic": "我一般会在单库单表开始明显扛不住的时候，才认真考虑分库分表。比较典型的信号有几个：第一，数据量已经很大，比如单表到几千万甚至上亿，索引变大后查询、写入、维护都会变慢；第二，并发持续升高，单库的 CPU、IO、连接数成为瓶颈，靠加索引、读写分离、缓存都很难继续顶；第三，业务上已经出现明显的热点，比如某些大商户、大用户的数据访问特别集中。还有一种情况是业务增长预期很明确，短期内就会快速放量，那我也会提前设计好拆分方案。不过我不会把分库分表当成首选，因为它会带来跨库查询、事务、分页、扩容和运维复杂度。通常我会先评估是不是能通过优化 SQL、索引、归档冷数据、缓存、主从扩展来解决，只有这些手段都接近上限时，我才会推进分库分表。"
+  },
+  "truth": {
+    "wrongClaim": "容器的 OOMKilled 只会统计 JVM 堆，不会把 page cache 算进去",
+    "whyWrong": "容器是否 OOMKilled 取决于 cgroup 内存记账，而不是只看 JVM 堆。文件页缓存、匿名内存、部分内核相关内存以及 tmpfs 等都可能计入 memcg，具体还受 cgroup 版本和内核实现影响，所以 page cache 相关占用完全可能推动容器触发 OOM。",
+    "droppedMechanism": "重点会核对容器 limit、memory.current 或 memory.usage 这类值、是否有 memory.max 接近上限、是否存在 page cache 回收不及时、tmpfs 或 emptyDir 写内存、以及是不是宿主机整体吃紧导致更容易触发回收和 OOM。JVM 这边还要确认它有没有正确感知容器限制；如果镜像里的 JDK 偏老，或者启动参数把 MaxRAMPercentage、Xmx、MaxDirectMemorySize 配得不协调，就可能出现堆设得看着保守，但堆外和其他 native 区域把 limit 吃满。"
+  }
+}

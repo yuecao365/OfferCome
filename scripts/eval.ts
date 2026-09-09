@@ -208,7 +208,8 @@ async function scorerSourcesFromBriefs(resumeId: string, existing: Set<string>, 
       const jd = loadJdFixture(jdId);
       const brief = await generateEvalBrief(jdId, resumeId, "scorer-source");
       for (const area of brief.areas) {
-        if (area.kind === "project") continue;
+        // 只用技术领域：项目题绑定简历，行为题没有可插的技术错句。
+        if (area.kind !== "technical") continue;
         const questionId = `${jdId}:${area.id}`;
         if (existing.has(questionId)) continue;
         perRole[role].push({
@@ -224,7 +225,7 @@ async function scorerSourcesFromBriefs(resumeId: string, existing: Set<string>, 
           thread: { depth: area.ladder.length, targetDepth: area.depth, probeCount: area.ladder.length, rescues: 0, note: null },
         });
       }
-      console.log(`${role} / ${jdId}：${brief.areas.filter((area) => area.kind !== "project").length} 道`);
+      console.log(`${role} / ${jdId}：${brief.areas.filter((area) => area.kind === "technical").length} 道`);
     }
   }
   // 轮流从各岗位取，保证五个方向都有。
