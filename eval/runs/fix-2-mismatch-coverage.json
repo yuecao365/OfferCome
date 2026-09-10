@@ -1,0 +1,682 @@
+{
+  "label": "fix-2-mismatch",
+  "kind": "coverage",
+  "createdAt": "2026-09-10T05:42:00.043Z",
+  "git": {
+    "commit": "ba40e78",
+    "dirty": false
+  },
+  "models": {
+    "main": "openai/gpt-5.4-mini",
+    "aux": "deepseek/deepseek-chat",
+    "auxSameFamily": false
+  },
+  "promptVersions": {
+    "blueprint": "job_blueprint",
+    "brief": "brief-v6"
+  },
+  "k": 4,
+  "topicsGeneratedAt": "2026-09-09T12:51:39.682Z",
+  "judges": [
+    {
+      "kind": "topic",
+      "accuracy": {
+        "value": 1,
+        "numerator": 80,
+        "denominator": 80
+      },
+      "positives": {
+        "value": 1,
+        "numerator": 40,
+        "denominator": 40
+      },
+      "negatives": {
+        "value": 1,
+        "numerator": 40,
+        "denominator": 40
+      },
+      "trusted": true
+    }
+  ],
+  "metrics": {
+    "frontend.weightedCoverage": {
+      "value": 0.19230769230769232,
+      "numerator": 100,
+      "denominator": 520
+    },
+    "frontend.plainCoverage": {
+      "value": 0.140625,
+      "numerator": 45,
+      "denominator": 320
+    },
+    "frontend.ladderProgressRate": {
+      "value": 0.6818181818181818,
+      "numerator": 30,
+      "denominator": 44
+    },
+    "frontend.baselineAreaShare": {
+      "value": 0.11363636363636363,
+      "numerator": 5,
+      "denominator": 44
+    }
+  },
+  "roles": [
+    {
+      "role": "frontend",
+      "briefs": 8,
+      "weightedCoverage": {
+        "value": 0.19230769230769232,
+        "numerator": 100,
+        "denominator": 520
+      },
+      "plainCoverage": {
+        "value": 0.140625,
+        "numerator": 45,
+        "denominator": 320
+      },
+      "ladderProgressRate": {
+        "value": 0.6818181818181818,
+        "numerator": 30,
+        "denominator": 44
+      },
+      "baselineAreaShare": {
+        "value": 0.11363636363636363,
+        "numerator": 5,
+        "denominator": 44
+      },
+      "missed": [
+        {
+          "id": "routing-and-permission",
+          "name": "路由与权限控制",
+          "count": 3,
+          "missedIn": 8
+        },
+        {
+          "id": "code-index-and-analysis",
+          "name": "代码索引与静态分析",
+          "count": 2,
+          "missedIn": 8
+        },
+        {
+          "id": "vue-state-management",
+          "name": "Vue状态管理",
+          "count": 2,
+          "missedIn": 8
+        },
+        {
+          "id": "javascript-prototype",
+          "name": "JS原型链与继承",
+          "count": 2,
+          "missedIn": 8
+        },
+        {
+          "id": "ssr-and-nextjs",
+          "name": "SSR与Next.js",
+          "count": 2,
+          "missedIn": 8
+        },
+        {
+          "id": "database-index",
+          "name": "数据库索引",
+          "count": 2,
+          "missedIn": 8
+        },
+        {
+          "id": "css-animation",
+          "name": "CSS动画",
+          "count": 1,
+          "missedIn": 8
+        },
+        {
+          "id": "this-binding",
+          "name": "this绑定机制",
+          "count": 1,
+          "missedIn": 8
+        }
+      ]
+    }
+  ],
+  "briefs": [
+    {
+      "role": "frontend",
+      "jd": "tencent-valorant-frontend-ai",
+      "rep": 1,
+      "covered": {
+        "browser-storage-and-cookie": true,
+        "http-cache": true,
+        "ai-tooling-and-llm-usage": false,
+        "code-index-and-analysis": false,
+        "vue-state-management": false,
+        "frontend-performance-optimization": true,
+        "routing-and-permission": false,
+        "javascript-prototype": false,
+        "os-concurrency-basics": false,
+        "css-layout-and-responsive": true,
+        "css-animation": false,
+        "this-binding": false,
+        "browser-security-and-cross-origin": true,
+        "debounce-and-throttle": false,
+        "vue3-reactivity": false,
+        "ssr-and-nextjs": false,
+        "collaborative-editing": false,
+        "react-fiber": false,
+        "request-encapsulation": false,
+        "agent-and-mcp-integration": false,
+        "model-selection-evaluation": false,
+        "crawler-data-pipeline": false,
+        "vue-keep-alive": false,
+        "http-versions": false,
+        "project-refactoring": false,
+        "complex-component-design": false,
+        "build-tools-and-compilation": false,
+        "javascript-basics": false,
+        "react-event-system": false,
+        "markdown-render-pipeline": false,
+        "vue-component-basics": false,
+        "frontend-monitoring": false,
+        "database-index": false,
+        "tcp-udp": false,
+        "multi-tab-session-control": false,
+        "virtual-list": false,
+        "token-refresh": false,
+        "react-key-and-diff": false,
+        "layout-stability": true,
+        "typescript-generics": false
+      },
+      "ladderProgressRate": {
+        "value": 0.8,
+        "numerator": 4,
+        "denominator": 5
+      },
+      "areaCount": 5,
+      "baselineAreaCount": 1,
+      "skillPacks": [
+        "frontend",
+        "project-deep-dive",
+        "behavioral"
+      ],
+      "areas": [
+        "浏览器渲染流水线与首屏白屏定位（technical）",
+        "事件循环、微任务与输入卡顿（technical）",
+        "跨域、鉴权与 Web 安全边界（technical）",
+        "HTTP 缓存、发版一致性与 chunk 404（technical）",
+        "CSS 布局、CLS 与视觉稳定（technical，基线）"
+      ],
+      "text": "【浏览器渲染流水线与首屏白屏定位】围绕游戏官网/活动页的首屏白屏、加载慢、第三方脚本阻塞等现象，考察从 URL 输入到可见首屏的渲染流水线、长任务、资源阻塞与定位方法。。切入问题：一个游戏官网活动页移动端首屏白屏 3 秒，你只能打开线上地址和浏览器 DevTools，会按什么顺序定位？。追问阶梯：1. 先说从 URL 输入到页面可见的大致链路，以及你会先看哪两个指标。；2. 继续追：DOM/CSSOM、Layout/Paint/Composite 各自什么时候发生，哪些资源最容易阻塞首屏。；3. 如果发现一个 200KB 的第三方 SDK 同步加载，你会怎么改，并怎么证明改动真的缩短了白屏。；4. 如果改完 FCP 变快但 LCP 没变，说明问题可能在哪一段，下一步怎么拆。\n【事件循环、微任务与输入卡顿】从输入过滤两万条数据导致卡顿的具体场景切入，考察事件循环、微任务饿死渲染、长任务与切片/Worker 的取舍。。切入问题：一个表格页在输入框里每敲一个字就同步过滤两万条数据并更新 DOM，用户感觉明显卡顿，你会怎么改？。追问阶梯：1. 先判断卡顿更像是同步 JS 计算、频繁渲染，还是微任务/布局阻塞。；2. 再追：Promise/async、宏任务/微任务、requestAnimationFrame 在帧里的位置分别是什么。；3. 如果改成 Web Worker 和改成时间分片，两种方案各自的代价是什么，什么时候选哪一个。\n【跨域、鉴权与 Web 安全边界】围绕第三方评论组件、iframe/script 接入与数据泄露风险，考察 CORS、Cookie 属性、CSRF、XSS、防护边界与 CSP。。切入问题：你的页面要嵌一个第三方评论组件，假设对方既可能是 iframe 也可能是脚本，从安全角度你会设置哪些限制？。追问阶梯：1. 先说同源策略、CORS 和 Cookie 属性各管什么。；2. 继续追：如果对方脚本被投毒，你的页面里哪些数据可能泄露，哪些防护能挡住。；3. 最后比较 localStorage、Cookie、HttpOnly、SameSite 在前端业务里的取舍。\n【HTTP 缓存、发版一致性与 chunk 404】围绕发版后部分用户看到旧页面、chunk 404 或白屏的线上问题，考察 HTTP 缓存、CDN、Service Worker、发布保留策略与回滚。。切入问题：发版后部分用户白屏，控制台报某个 chunk 404，你能想到几种原因？。追问阶梯：1. 先区分强缓存、协商缓存、CDN 缓存、Service Worker 缓存各自会把问题藏在哪里。；2. 继续追：HTML 与静态资源分别该怎么配缓存头，为什么。；3. 如果要设计发布流程，怎么避免“新 HTML 配旧 JS”或“旧 HTML 配新 JS”。；4. 如果必须保留旧版本资源一段时间，成本和收益分别是什么。\n【CSS 布局、CLS 与视觉稳定】考察 flex/grid、BFC、层叠上下文、合成层与 CLS 来源，属于岗位基础里未明确点名但常考的前端原理。。切入问题：一个图文流页面的 CLS 达到 0.4，你会从哪几类来源查起？。追问阶梯：1. 先说 flex、grid、BFC 各适合什么布局问题。；2. 再追：图片占位、字体切换、动态插入横幅为什么会造成布局偏移。；3. 如果是 web 字体导致的闪烁，你有哪些处理策略，各自的视觉代价是什么。"
+    },
+    {
+      "role": "frontend",
+      "jd": "tencent-valorant-frontend-ai",
+      "rep": 2,
+      "covered": {
+        "browser-storage-and-cookie": true,
+        "http-cache": true,
+        "ai-tooling-and-llm-usage": false,
+        "code-index-and-analysis": false,
+        "vue-state-management": false,
+        "frontend-performance-optimization": true,
+        "routing-and-permission": false,
+        "javascript-prototype": false,
+        "os-concurrency-basics": false,
+        "css-layout-and-responsive": false,
+        "css-animation": false,
+        "this-binding": false,
+        "browser-security-and-cross-origin": true,
+        "debounce-and-throttle": false,
+        "vue3-reactivity": false,
+        "ssr-and-nextjs": false,
+        "collaborative-editing": false,
+        "react-fiber": false,
+        "request-encapsulation": false,
+        "agent-and-mcp-integration": false,
+        "model-selection-evaluation": false,
+        "crawler-data-pipeline": false,
+        "vue-keep-alive": false,
+        "http-versions": false,
+        "project-refactoring": false,
+        "complex-component-design": false,
+        "build-tools-and-compilation": false,
+        "javascript-basics": false,
+        "react-event-system": false,
+        "markdown-render-pipeline": false,
+        "vue-component-basics": false,
+        "frontend-monitoring": true,
+        "database-index": false,
+        "tcp-udp": false,
+        "multi-tab-session-control": false,
+        "virtual-list": false,
+        "token-refresh": false,
+        "react-key-and-diff": false,
+        "layout-stability": false,
+        "typescript-generics": true
+      },
+      "ladderProgressRate": {
+        "value": 0.8,
+        "numerator": 4,
+        "denominator": 5
+      },
+      "areaCount": 5,
+      "baselineAreaCount": 1,
+      "skillPacks": [
+        "frontend",
+        "project-deep-dive",
+        "behavioral"
+      ],
+      "areas": [
+        "浏览器渲染流水线与首屏白屏定位（technical）",
+        "事件循环、微任务与页面卡顿排查（technical）",
+        "TypeScript 类型系统与渐进式工程实践（technical，基线）",
+        "浏览器缓存、发版与 chunk 404 问题（technical）",
+        "跨域、鉴权与第三方脚本安全（technical）"
+      ],
+      "text": "【浏览器渲染流水线与首屏白屏定位】考察从用户看到首屏白屏/慢到能定位到网络、解析、脚本阻塞、渲染阶段的能力；重点追问 DOM/CSSOM、Layout/Paint/Composite、同步脚本阻塞、Performance 面板与 Lighthouse 的使用，以及关键资源优化手段的收益边界。。切入问题：线上游戏官网移动端首屏白屏 3 秒，你只有一个可访问的线上地址。你会按什么顺序定位，怎么判断时间花在了网络、解析、脚本执行还是渲染阻塞？。追问阶梯：1. 先把白屏拆成哪几段时间：TTFB、资源下载、HTML 解析、脚本执行、首屏渲染，各自怎么测。；2. 进一步追问 DOM/CSSOM、渲染树、Layout、Paint、Composite 的触发条件，以及同步脚本为什么会阻塞解析。；3. 如果发现一个第三方 SDK 同步加载占了主线程长任务，你怎么改，改成 async/defer/preload/拆包/延后初始化分别适合什么。；4. 改完后你用什么指标证明有效，FCP/LCP/INP 哪个会变，如何排除样本波动和缓存干扰。\n【事件循环、微任务与页面卡顿排查】考察 JS 异步模型与页面卡顿的因果关系，重点是宏任务/微任务顺序、Promise/async-await、requestAnimationFrame 的位置，以及把重计算切片、Web Worker 和时间分片的取舍。。切入问题：一个输入过滤页面每敲一个字就同步过滤两万条数据并更新 DOM，用户感觉明显卡顿。你会怎么改，怎么判断是同步计算、微任务饿死渲染，还是布局开销导致的？。追问阶梯：1. 先说清一帧里 JS、样式计算、布局、绘制的大致顺序，以及长任务为什么会影响交互响应。；2. 再追微任务和宏任务的执行顺序，Promise/async-await 为什么会把工作挤在渲染前。；3. 如果把过滤放到 Worker 或切成时间分片，两种方案分别解决什么、引入什么代价。\n【TypeScript 类型系统与渐进式工程实践】考察 TS 在业务里的真实使用深度：可辨识联合、条件类型、映射类型、infer、as const/satisfies，以及类型检查性能恶化时的排查与渐进式 strict 推进策略。。切入问题：你维护的前端项目里，如果一个接口返回 `{ type: 'a', payload: A } | { type: 'b', payload: B }`，你会怎么写一个事件处理函数签名，让调用处根据 type 自动推导 payload？。追问阶梯：1. 先问接口与联合类型的基础写法，以及 type 与 interface 在这类场景下的差异。；2. 再追条件类型、映射类型、infer、类型守卫如何配合实现可辨识联合。；3. 如果项目里 tsc 从 10 秒涨到 2 分钟，你会先看哪些类型特征和工具输出。\n【浏览器缓存、发版与 chunk 404 问题】考察 HTTP 缓存、CDN、Service Worker、静态资源 hash 与发布流程的耦合，能否定位发版后旧页面/白屏/chunk 404，并设计不会出现新旧资源错配的策略。。切入问题：发版后部分用户看到白屏，控制台报某个 chunk 404。你能想到几类原因？你会怎么设计 HTML 与静态资源的缓存和发布保留策略，避免新 HTML 配旧 JS 或旧 HTML 配新 JS？。追问阶梯：1. 先拆原因：HTML 被 CDN 缓存、Service Worker 缓存、静态资源未保留旧版本、hash 或发布顺序有问题。；2. 再追强缓存、协商缓存、no-cache/immutable、304 和 hash 资源的边界。；3. 如果要做灰度和回滚，发布流程里资源保留和失效策略怎么配合。；4. 你会如何验证修复有效：线上监控、回放、按版本下钻还是构造回归用例。\n【跨域、鉴权与第三方脚本安全】考察同源策略、CORS、Cookie 属性、CSRF/XSS、CSP/SRI/sandbox iframe 的实际防护方案，能否评估第三方脚本或评论组件引入的风险与隔离手段。。切入问题：你的活动页要接入一个第三方评论脚本或 iframe 组件。出于安全考虑，你会设置哪些限制？如果对方脚本被投毒，页面里哪些数据可能泄露，CSP 能挡住什么、挡不住什么？。追问阶梯：1. 先问同源策略、CORS、Cookie 的 SameSite/HttpOnly/Secure 分别解决什么。；2. 再追 XSS、CSRF、token 放 localStorage 还是 Cookie 的权衡。；3. 第三方脚本投毒时，SRI、CSP、sandbox iframe、权限收敛各自能隔离到哪一步。"
+    },
+    {
+      "role": "frontend",
+      "jd": "tencent-valorant-frontend-ai",
+      "rep": 3,
+      "covered": {
+        "browser-storage-and-cookie": true,
+        "http-cache": true,
+        "ai-tooling-and-llm-usage": false,
+        "code-index-and-analysis": false,
+        "vue-state-management": false,
+        "frontend-performance-optimization": true,
+        "routing-and-permission": false,
+        "javascript-prototype": false,
+        "os-concurrency-basics": false,
+        "css-layout-and-responsive": true,
+        "css-animation": false,
+        "this-binding": false,
+        "browser-security-and-cross-origin": true,
+        "debounce-and-throttle": false,
+        "vue3-reactivity": false,
+        "ssr-and-nextjs": false,
+        "collaborative-editing": false,
+        "react-fiber": false,
+        "request-encapsulation": false,
+        "agent-and-mcp-integration": false,
+        "model-selection-evaluation": false,
+        "crawler-data-pipeline": true,
+        "vue-keep-alive": false,
+        "http-versions": false,
+        "project-refactoring": true,
+        "complex-component-design": false,
+        "build-tools-and-compilation": true,
+        "javascript-basics": false,
+        "react-event-system": false,
+        "markdown-render-pipeline": false,
+        "vue-component-basics": false,
+        "frontend-monitoring": false,
+        "database-index": false,
+        "tcp-udp": false,
+        "multi-tab-session-control": false,
+        "virtual-list": false,
+        "token-refresh": false,
+        "react-key-and-diff": false,
+        "layout-stability": false,
+        "typescript-generics": false
+      },
+      "ladderProgressRate": {
+        "value": 0.3333333333333333,
+        "numerator": 2,
+        "denominator": 6
+      },
+      "areaCount": 6,
+      "baselineAreaCount": 0,
+      "skillPacks": [
+        "behavioral",
+        "project-deep-dive",
+        "frontend"
+      ],
+      "areas": [
+        "浏览器渲染流水线与首屏白屏定位（technical）",
+        "事件循环、微任务与输入卡顿（technical）",
+        "TypeScript 类型系统与渐进式工程化（technical）",
+        "HTTP 缓存、发布回滚与 chunk 404（technical）",
+        "跨域、鉴权与第三方脚本安全（technical）",
+        "Vite / Webpack 产物体积治理（technical）"
+      ],
+      "text": "【浏览器渲染流水线与首屏白屏定位】从用户感知的白屏/首屏慢切入，追问 URL 输入到首屏可见的关键阶段，重点覆盖 DOM/CSSOM、Layout/Paint/Composite、同步脚本阻塞、第三方 SDK 首屏阻塞，以及用 Performance/Lighthouse 定位瓶颈与验证优化效果。。切入问题：一个游戏官网活动页在移动端首屏白屏 3 秒，线上只有地址，没有埋点，你会怎么按顺序定位？。追问阶梯：1. 你会先看哪些指标或工具，怎么判断时间主要花在网络、脚本执行还是渲染阻塞上？；2. 如果发现一个 200KB 的第三方 SDK 同步加载阻塞了解析，你会怎么改加载方式，为什么？；3. 改完以后你会用什么证据证明真的变快了，FCP/LCP/长任务分别怎么变化才算有效？\n【事件循环、微任务与输入卡顿】从输入后卡顿切入，考察事件循环、宏任务/微任务顺序、Promise/async-await、requestAnimationFrame 以及重计算切片、Web Worker 和时间分片的取舍，要求能把现象倒回主线程阻塞原因。。切入问题：一个表格页在输入过滤关键字后明显卡顿，代码里是 input 事件里同步过滤两万条数据再 setState，你会怎么改？。追问阶梯：1. 先判断卡顿是同步计算太重、微任务饿死渲染，还是布局/绘制本身慢？；2. 如果把这段逻辑改成 Web Worker，你要付出哪些额外成本，什么时候不值得？；3. 如果改成时间分片，你会怎么切，怎么保证交互和结果一致？\n【TypeScript 类型系统与渐进式工程化】考察 TypeScript 在业务中的真实用途：可辨识联合、条件类型、映射类型、infer、as const / satisfies，以及大项目类型性能和渐进迁移策略，不问空泛概念，要求能落到接口和工程实践。。切入问题：给你一个接口返回 `{ type: 'a', payload: A } | { type: 'b', payload: B }`，你会怎么写一个根据 type 自动推导 payload 的处理函数签名？。追问阶梯：1. 为什么很多人写出来的版本在调用处 payload 会退化成联合类型？；2. 如果项目里类型检查从 10 秒涨到 2 分钟，你会先排查哪些地方？；3. 老项目全开 strict 太痛时，你会怎么渐进推进，而不是一刀切？\n【HTTP 缓存、发布回滚与 chunk 404】从发版后白屏或 chunk 404 切入，追问强缓存/协商缓存、HTML 与静态资源缓存策略、CDN/Service Worker 风险、发布保留旧版本资源和灰度回滚机制，重点是如何避免新旧资源错配。。切入问题：发版后部分用户看到白屏，控制台报某个 chunk 404，你能想到几类原因？。追问阶梯：1. 你会怎么判断是 HTML 被缓存、静态资源被回收，还是 Service Worker 仍在发旧版本？；2. HTML 和静态资源分别适合什么缓存策略，为什么不能一概而论强缓存？；3. 如果让你设计发布流程，怎么保证新 HTML 配旧 JS、旧 HTML 配新 JS 都尽量不出问题？\n【跨域、鉴权与第三方脚本安全】从接入第三方评论组件或营销脚本切入，考察 CORS、Cookie 属性、CSRF、XSS、CSP/SRI/sandbox iframe，以及 token 存放取舍，要求能识别数据泄露面和止血手段。。切入问题：你的页面要嵌一个第三方评论脚本或 iframe，从安全角度你会加哪些限制？。追问阶梯：1. 如果对方脚本被投毒，页面里哪些数据可能泄露，影响面怎么缩小？；2. CSP、SRI、sandbox iframe 分别能挡住什么，挡不住什么？；3. token 放 localStorage 和放 Cookie 各有什么风险和代价，你会怎么取舍？\n【Vite / Webpack 产物体积治理】考察构建产物分析与治理：如何定位 vendor 大头、重复依赖、polyfill 过量、拆包粒度与 modulepreload 瀑布，重点是基于分析报告做决策，而不是只会调 splitChunks。。切入问题：你接手一个前端项目，生产包 vendor chunk 有 2.4MB，先做什么？。追问阶梯：1. 你会用什么工具看大头，怎么判断是 lodash、moment、polyfill 还是重复依赖？；2. 如果拆包拆得太碎导致首屏加载瀑布变长，你怎么平衡粒度？"
+    },
+    {
+      "role": "frontend",
+      "jd": "tencent-valorant-frontend-ai",
+      "rep": 4,
+      "covered": {
+        "browser-storage-and-cookie": false,
+        "http-cache": false,
+        "ai-tooling-and-llm-usage": false,
+        "code-index-and-analysis": false,
+        "vue-state-management": false,
+        "frontend-performance-optimization": true,
+        "routing-and-permission": false,
+        "javascript-prototype": false,
+        "os-concurrency-basics": false,
+        "css-layout-and-responsive": false,
+        "css-animation": false,
+        "this-binding": false,
+        "browser-security-and-cross-origin": false,
+        "debounce-and-throttle": false,
+        "vue3-reactivity": false,
+        "ssr-and-nextjs": false,
+        "collaborative-editing": false,
+        "react-fiber": false,
+        "request-encapsulation": false,
+        "agent-and-mcp-integration": false,
+        "model-selection-evaluation": false,
+        "crawler-data-pipeline": false,
+        "vue-keep-alive": false,
+        "http-versions": false,
+        "project-refactoring": false,
+        "complex-component-design": false,
+        "build-tools-and-compilation": true,
+        "javascript-basics": false,
+        "react-event-system": false,
+        "markdown-render-pipeline": false,
+        "vue-component-basics": false,
+        "frontend-monitoring": false,
+        "database-index": false,
+        "tcp-udp": false,
+        "multi-tab-session-control": false,
+        "virtual-list": false,
+        "token-refresh": false,
+        "react-key-and-diff": false,
+        "layout-stability": false,
+        "typescript-generics": true
+      },
+      "ladderProgressRate": {
+        "value": 0.8,
+        "numerator": 4,
+        "denominator": 5
+      },
+      "areaCount": 5,
+      "baselineAreaCount": 0,
+      "skillPacks": [
+        "frontend",
+        "behavioral",
+        "project-deep-dive"
+      ],
+      "areas": [
+        "浏览器渲染流水线与首屏白屏定位（technical）",
+        "事件循环、长任务与输入卡顿排查（technical）",
+        "TypeScript 类型推导与工程性能（technical）",
+        "前端工程化、构建产物与拆包治理（technical）",
+        "H5/WebView/Electron 跨端兼容与性能（technical）"
+      ],
+      "text": "【浏览器渲染流水线与首屏白屏定位】从一个具体活动页白屏/首屏慢现象切入，追问 URL 到首屏可见的渲染流水线、阻塞脚本、关键资源加载与测量方法；结合多端营销页面、官网与活动页场景考察定位能力。。切入问题：如果一个游戏官网活动页移动端首屏白屏 3 秒，你拿到的只有线上地址，会按什么顺序定位？。追问阶梯：1. 先让你把从 URL 输入到页面可见的关键阶段按顺序说清，哪些阶段最可能拖慢首屏。；2. 继续追问 DOM/CSSOM、Layout、Paint、Composite 的区别，以及同步 script 为什么会阻塞解析。；3. 假设你在 Performance 面板里看到长任务和网络瀑布，怎么把时间归因到网络、解析、脚本执行或资源阻塞？；4. 如果确认是一个 200KB 的第三方 SDK 同步加载导致阻塞，你会怎么改，如何证明改动有效而不是感觉变快？\n【事件循环、长任务与输入卡顿排查】从输入过滤卡顿、交互延迟切入，追问宏/微任务、渲染时机、长任务识别，以及 Worker 和时间分片的工程取舍；适用于前端交互、AI 互动模块和小程序页面。。切入问题：一个表格页在输入过滤关键字后卡顿明显，代码里是 input 事件里同步过滤两万条数据再 setState，你会怎么改？。追问阶梯：1. 先让你把这次卡顿在浏览器里可能发生在哪一段说出来。；2. 再追宏任务、微任务、requestAnimationFrame 与渲染之间的关系。；3. 如果改成 Web Worker 和改成时间分片，分别会遇到什么数据传输、状态同步和可维护性问题？；4. 若你只能改一处、且页面还要兼顾低端机体验，你会优先动哪一层，怎么验证 INP 或交互延迟真的下降？\n【TypeScript 类型推导与工程性能】考查 TypeScript 的类型系统、可辨识联合、条件类型和类型性能问题；作为岗位要求的基础能力，重点看是否真正理解 TS 在工程中的边界与收益。。切入问题：给一个接口返回 `{ type: 'a', payload: A } | { type: 'b', payload: B }`，让你写一个根据 type 自动推导 payload 的事件处理函数签名，你会怎么写？。追问阶梯：1. 先说 interface、type、泛型、as const、satisfies 在这个场景里各自的作用。；2. 再追为什么很多人写出来的版本在调用处 payload 会退化成联合。；3. 如果项目类型检查从 10 秒涨到 2 分钟，你会先排查哪里。\n【前端工程化、构建产物与拆包治理】从组件库或业务包体过大切入，追问构建工具、依赖治理、tree shaking、按需加载与产物分析；适合考察组件库、工程化与自动化工具建设能力。。切入问题：如果你接手一个 Vite 项目，生产包 vendor chunk 有 2.4MB，先做什么？。追问阶梯：1. 先让你说明怎么定位大头、重复依赖和 polyfill 过量。；2. 再追 Vite 开发态快、生产态为什么还是要走 Rollup，以及 ESBuild/SWC/Babel/Terser 的分工。；3. 如果发现 lodash 和 lodash-es 同时存在、moment 带了全部 locale，你会怎么处理，拆包太碎又会带来什么问题？；4. 若团队还有 Monorepo 或微前端约束，你会如何在构建缓存、依赖版本统一和 CI 时间之间做取舍？\n【H5/WebView/Electron 跨端兼容与性能】从部分机型白屏、WebView 差异或 Electron 内嵌页面问题切入，追问内核差异、JSBridge、缓存、差异化打包和低端机排查；贴合桌面端生态与多端体验一致性。。切入问题：一个 H5 页面在 iOS 正常、部分 Android 机型白屏且无报错上报，你怎么拿到现场？。追问阶梯：1. 先说你会怎么收集现场信息：机型、WebView 版本、日志、远程调试。；2. 再追低版本 WebView 不支持某些语法或 API 时，语法降级与 polyfill 策略怎么定。；3. 如果问题只在 Electron 内嵌页出现，你会从缓存、渲染进程、JSBridge 和窗口生命周期里怎么排查？；4. 在现代包和 legacy 包同时存在时，如何决定浏览器支持矩阵与兼容成本边界。"
+    },
+    {
+      "role": "frontend",
+      "jd": "tencent-miniprogram-frontend",
+      "rep": 1,
+      "covered": {
+        "browser-storage-and-cookie": false,
+        "http-cache": true,
+        "ai-tooling-and-llm-usage": true,
+        "code-index-and-analysis": false,
+        "vue-state-management": false,
+        "frontend-performance-optimization": true,
+        "routing-and-permission": false,
+        "javascript-prototype": false,
+        "os-concurrency-basics": false,
+        "css-layout-and-responsive": false,
+        "css-animation": false,
+        "this-binding": false,
+        "browser-security-and-cross-origin": false,
+        "debounce-and-throttle": true,
+        "vue3-reactivity": false,
+        "ssr-and-nextjs": false,
+        "collaborative-editing": false,
+        "react-fiber": false,
+        "request-encapsulation": false,
+        "agent-and-mcp-integration": true,
+        "model-selection-evaluation": true,
+        "crawler-data-pipeline": false,
+        "vue-keep-alive": false,
+        "http-versions": false,
+        "project-refactoring": false,
+        "complex-component-design": false,
+        "build-tools-and-compilation": false,
+        "javascript-basics": false,
+        "react-event-system": false,
+        "markdown-render-pipeline": false,
+        "vue-component-basics": false,
+        "frontend-monitoring": false,
+        "database-index": false,
+        "tcp-udp": false,
+        "multi-tab-session-control": false,
+        "virtual-list": false,
+        "token-refresh": false,
+        "react-key-and-diff": false,
+        "layout-stability": false,
+        "typescript-generics": false
+      },
+      "ladderProgressRate": {
+        "value": 0.5,
+        "numerator": 3,
+        "denominator": 6
+      },
+      "areaCount": 6,
+      "baselineAreaCount": 0,
+      "skillPacks": [
+        "behavioral",
+        "project-deep-dive",
+        "frontend"
+      ],
+      "areas": [
+        "小程序运行机制：双线程模型、setData 与渲染边界（technical）",
+        "小程序首屏白屏与渲染阻塞定位（technical）",
+        "前端框架原理：响应式更新与虚拟 DOM 代价（technical）",
+        "浏览器事件循环与长任务：输入卡顿排查（technical）",
+        "HTTP 缓存与小程序资源发布一致性（technical）",
+        "RAG + 工具调用 + JSON Schema 校验（technical）"
+      ],
+      "text": "【小程序运行机制：双线程模型、setData 与渲染边界】考小程序框架原理中的运行时机制：逻辑层/渲染层双线程、数据通信、setData 的边界与成本、页面生命周期与更新触发条件。结合岗位对小程序基础框架开发迭代的要求，判断是否真理解小程序原理而不只是会写页面。。切入问题：小程序里一次用户点击按钮后，页面上一个文案变化的最短链路是什么？如果 setData 里一次传了一个 300KB 的对象，真正慢的通常是哪一步？。追问阶梯：1. 先讲清逻辑层到渲染层的数据流、setData 触发更新的路径，以及哪些操作会跨线程。；2. 继续追为什么大对象 setData 会慢：序列化、通信、Diff、渲染各自占什么成本。；3. 如果页面频繁局部更新但每次都整包 setData，你会怎么改数据结构或更新粒度，为什么？\n【小程序首屏白屏与渲染阻塞定位】从用户可感知的白屏、首屏慢切入，考小程序页面加载、脚本执行、资源体积、请求阻塞、骨架屏与分包等优化手段，并要求能用数据证明改动有效。。切入问题：如果一个微信小程序首页打开后白屏 2.5 秒，你只能拿到线上现象和埋点日志，你会按什么顺序定位？。追问阶梯：1. 先判断是网络慢、包体大、脚本执行慢，还是首屏渲染条件没满足。；2. 继续追你会看哪些指标和工具来证明瓶颈所在，比如包体、接口、首屏渲染时间。；3. 如果确认是某个同步初始化逻辑拖慢首屏，你会怎么拆分、延后或预取，改完怎么验证。\n【前端框架原理：响应式更新与虚拟 DOM 代价】围绕岗位要求的‘至少熟悉一种前端常见框架的原理，有深入理解’，考响应式依赖收集、更新调度、虚拟 DOM diff 与批量更新的边界，不限定具体框架名。。切入问题：当一个列表组件里某个状态变化时，为什么不一定会让整个页面重新渲染？你能从响应式依赖收集和更新调度的角度解释吗？。追问阶梯：1. 先讲响应式系统如何知道‘谁依赖了什么’，以及为什么会触发局部更新。；2. 继续追虚拟 DOM 和真实 DOM 更新各自解决了什么问题，为什么批量更新更稳。；3. 如果一个页面因为大量小状态变化而卡顿，你会从依赖拆分、memoization 或调度层怎么优化？\n【浏览器事件循环与长任务：输入卡顿排查】考前端基础中的事件循环、宏任务/微任务、长任务与页面卡顿，结合用户输入卡顿场景，判断候选人能否把‘卡’定位到同步计算、微任务饿死渲染或布局开销。。切入问题：一个表格页在输入关键字后明显卡顿，代码里是 input 事件里同步过滤两万条数据再更新视图，你会怎么改，先改哪一步？。追问阶梯：1. 先判断卡顿发生在同步计算、微任务队列还是 DOM 更新阶段。；2. 继续追为什么微任务也可能阻塞渲染，以及切片、Worker、节流各解决什么问题。；3. 如果要在可维护性和流畅度之间选，你怎么决定是上 Worker 还是做时间分片？\n【HTTP 缓存与小程序资源发布一致性】从发版后部分用户看到旧包、资源 404、白屏这类现象切入，考 HTTP 缓存、静态资源 hash、发布保留策略与回滚，适合覆盖小程序与前端通用的缓存问题。。切入问题：如果小程序或前端页面发版后，部分用户还在加载旧资源甚至报 404，你会想到哪几类原因？。追问阶梯：1. 先区分 HTML/入口配置和静态资源本身分别怎么缓存、怎么失配。；2. 继续追发布流程里哪些环节需要保留旧版本资源、做灰度或切换开关。；3. 如果你只能改一处流程来降低此类故障概率，会改缓存策略还是发布策略，为什么？\n【RAG + 工具调用 + JSON Schema 校验】围绕简历中的课程问答助手，深挖 RAG 的切分与检索、结构化输出、工具调用和参数校验，判断是否真的做过 AI 应用工程而不是只会拼装框架。。切入问题：你做的课程问答机器人里，为什么要把模型输出限制成带页码引用的结构化格式？如果模型给了一个不存在的页码，你们怎么处理？。追问阶梯：1. 先追结构化输出和证据约束解决了什么具体问题。；2. 继续追工具调用链路里函数选择、参数约束、失败重试分别怎么做。；3. 再追 RAG 里切分策略和检索评测怎么设计，为什么标题层级切分比固定长度切分更好。；4. 如果要把这个机器人接到真实业务流程里，你会先补什么评估和安全机制，为什么？"
+    },
+    {
+      "role": "frontend",
+      "jd": "tencent-miniprogram-frontend",
+      "rep": 2,
+      "covered": {
+        "browser-storage-and-cookie": false,
+        "http-cache": false,
+        "ai-tooling-and-llm-usage": true,
+        "code-index-and-analysis": false,
+        "vue-state-management": false,
+        "frontend-performance-optimization": false,
+        "routing-and-permission": false,
+        "javascript-prototype": false,
+        "os-concurrency-basics": false,
+        "css-layout-and-responsive": false,
+        "css-animation": false,
+        "this-binding": false,
+        "browser-security-and-cross-origin": false,
+        "debounce-and-throttle": false,
+        "vue3-reactivity": true,
+        "ssr-and-nextjs": false,
+        "collaborative-editing": false,
+        "react-fiber": false,
+        "request-encapsulation": false,
+        "agent-and-mcp-integration": true,
+        "model-selection-evaluation": false,
+        "crawler-data-pipeline": false,
+        "vue-keep-alive": false,
+        "http-versions": false,
+        "project-refactoring": false,
+        "complex-component-design": false,
+        "build-tools-and-compilation": false,
+        "javascript-basics": true,
+        "react-event-system": false,
+        "markdown-render-pipeline": false,
+        "vue-component-basics": false,
+        "frontend-monitoring": false,
+        "database-index": false,
+        "tcp-udp": false,
+        "multi-tab-session-control": false,
+        "virtual-list": false,
+        "token-refresh": false,
+        "react-key-and-diff": false,
+        "layout-stability": false,
+        "typescript-generics": false
+      },
+      "ladderProgressRate": {
+        "value": 0.6,
+        "numerator": 3,
+        "denominator": 5
+      },
+      "areaCount": 5,
+      "baselineAreaCount": 1,
+      "skillPacks": [
+        "project-deep-dive",
+        "behavioral",
+        "frontend"
+      ],
+      "areas": [
+        "小程序框架原理：生命周期、渲染与数据通信（technical）",
+        "前端框架原理：虚拟 DOM / 响应式更新与批量渲染（technical）",
+        "前端工程化：构建产物、拆包与缓存失效（technical）",
+        "AI Coding 基建：Agent 工程与工具调用链路（technical）",
+        "项目深挖：课程资料 RAG 的检索、引用校验与工具调用（project，基线）"
+      ],
+      "text": "【小程序框架原理：生命周期、渲染与数据通信】考微信小程序框架的核心运行机制：页面/组件生命周期、数据驱动渲染、setData 的批量与代价、事件回传与宿主渲染隔离。以候选人对小程序原理的深入理解为主，不依赖具体框架库细节。。切入问题：你做过一个小程序页面时，setData 更新后页面为什么不是立刻同步完成？从触发到视图更新，中间经历了什么，哪些操作最容易把它拖慢？。追问阶梯：1. 先说小程序页面/组件的生命周期顺序，以及 setData 到视图刷新的基本链路。；2. 继续追：数据更新为什么要分批传输，哪些字段变化会放大通信与 diff 成本。；3. 再给场景：如果一个列表页频繁滚动、每次滚动都触发局部刷新，你怎么判断瓶颈在 JS、通信还是渲染层？\n【前端框架原理：虚拟 DOM / 响应式更新与批量渲染】考一种常见前端框架的核心更新原理：响应式依赖收集、批量更新、虚拟 DOM diff、组件重渲染边界。用于验证候选人是否真懂至少一种前端框架原理。。切入问题：如果一个列表页里只有某个子组件的数据变了，为什么有时整个父组件树都会重新执行？你会从哪几个机制判断它到底是响应式触发、props 传递还是渲染边界设计的问题？。追问阶梯：1. 先讲响应式依赖收集和更新触发的基本机制。；2. 再追：批量更新、diff 和组件边界分别在什么层面减少开销。；3. 最后给场景：列表频繁更新但页面卡顿，你会怎么区分是数据流设计问题还是组件拆分问题？\n【前端工程化：构建产物、拆包与缓存失效】围绕前端工程化与构建治理，重点问打包产物、拆包策略、缓存策略和发版后资源失效。虽然岗位是小程序，但前端工程能力和构建判断力属于共通重点。。切入问题：如果你接手一个业务前端工程，发现首屏包体积很大、发版后还有用户看到旧页面或 chunk 404，你会怎么定位是构建、缓存还是发布流程的问题？。追问阶梯：1. 先追：你会先看哪些产物和分析工具，怎么找出最大的依赖和重复依赖。；2. 再追：HTML、静态资源和 Service Worker 的缓存策略应该怎么配合。；3. 最后追权衡：拆包越碎越好吗，什么时候会引入新的瀑布请求和维护成本。\n【AI Coding 基建：Agent 工程与工具调用链路】围绕研发流程中的 AI Coding 基建与 Agent 工程，考工具调用、上下文管理、失败重试、结构化输出与安全边界。对应岗位 JD 明确要求的 AI Coding 与 Agent 实践。。切入问题：你要给研发流程做一个 AI Coding Agent，让它能自动查资料、改代码、跑测试并提交建议。你会怎么设计它的工具链、状态流转和失败兜底？。追问阶梯：1. 先问最小闭环：Agent 第一步需要哪些工具，输入输出格式怎么定。；2. 继续追：上下文如何裁剪，什么时候该把任务拆成多步而不是一次性让模型完成。；3. 再追：工具调用失败、参数不合法、模型幻觉时怎么重试或降级。；4. 最后追权衡：如何控制成本、权限与误改风险，哪些操作必须保留人工确认。\n【项目深挖：课程资料 RAG 的检索、引用校验与工具调用】深挖候选人的 LLM/RAG 项目，验证是否真做过文档切分、检索评测、引用约束、工具调用和测试接入。。切入问题：你这个课程问答机器人里，为什么按标题层级切分比固定长度切分效果更好？18 个百分点的提升是怎么测出来的，评测集怎么构造？。追问阶梯：1. 先追评测集来源、样本量和命中率定义。；2. 再追：标题层级切分为什么更适合这类文档，失败样例是什么。；3. 继续追：引用页码校验是怎么拦住幻觉的，哪些错误仍然会漏过。；4. 最后追：工具调用和 JSON Schema 校验失败时，你怎么做重试与兜底。"
+    },
+    {
+      "role": "frontend",
+      "jd": "tencent-miniprogram-frontend",
+      "rep": 3,
+      "covered": {
+        "browser-storage-and-cookie": false,
+        "http-cache": false,
+        "ai-tooling-and-llm-usage": false,
+        "code-index-and-analysis": false,
+        "vue-state-management": false,
+        "frontend-performance-optimization": false,
+        "routing-and-permission": false,
+        "javascript-prototype": false,
+        "os-concurrency-basics": false,
+        "css-layout-and-responsive": true,
+        "css-animation": false,
+        "this-binding": false,
+        "browser-security-and-cross-origin": false,
+        "debounce-and-throttle": false,
+        "vue3-reactivity": true,
+        "ssr-and-nextjs": false,
+        "collaborative-editing": false,
+        "react-fiber": false,
+        "request-encapsulation": false,
+        "agent-and-mcp-integration": false,
+        "model-selection-evaluation": false,
+        "crawler-data-pipeline": false,
+        "vue-keep-alive": false,
+        "http-versions": false,
+        "project-refactoring": false,
+        "complex-component-design": false,
+        "build-tools-and-compilation": false,
+        "javascript-basics": false,
+        "react-event-system": false,
+        "markdown-render-pipeline": false,
+        "vue-component-basics": false,
+        "frontend-monitoring": false,
+        "database-index": false,
+        "tcp-udp": false,
+        "multi-tab-session-control": false,
+        "virtual-list": false,
+        "token-refresh": false,
+        "react-key-and-diff": false,
+        "layout-stability": true,
+        "typescript-generics": false
+      },
+      "ladderProgressRate": {
+        "value": 0.6666666666666666,
+        "numerator": 4,
+        "denominator": 6
+      },
+      "areaCount": 6,
+      "baselineAreaCount": 2,
+      "skillPacks": [
+        "frontend",
+        "ai-llm",
+        "project-deep-dive"
+      ],
+      "areas": [
+        "小程序框架渲染与生命周期：首屏白屏、setData、diff 与线程调度（technical）",
+        "小程序基础框架：组件通信、状态更新与原理边界（technical）",
+        "前端框架原理：响应式、虚拟 DOM 与更新机制（technical）",
+        "JS 异步与事件循环：长任务、微任务、渲染阻塞（technical，基线）",
+        "CSS/布局与视觉性能：首屏体验、CLS 与合成层（technical，基线）",
+        "RAG 检索链路：切分、召回、重排与失败归因（technical）"
+      ],
+      "text": "【小程序框架渲染与生命周期：首屏白屏、setData、diff 与线程调度】从小程序页面白屏、首屏慢、交互卡顿等可感知现象切入，考察小程序渲染链路、页面/组件生命周期、setData 的数据传输与更新代价、视图层与逻辑层通信，以及如何用具体指标定位瓶颈。聚焦小程序框架原理与基础框架迭代相关能力。。切入问题：如果一个微信小程序首页首屏白屏明显、进入后列表滚动也偶发卡顿，你会按什么顺序定位？你最先看哪些数据和埋点？。追问阶梯：1. 先讲你怎么把现象拆成网络、逻辑层执行、setData 传输、视图层渲染几段分别看。；2. 继续追问：setData 为什么可能成为瓶颈，数据量、频率、字段形状分别怎么影响更新成本？；3. 如果发现是某个组件反复触发大对象 setData，你会怎么改数据结构或交互方式，改完怎么证明有效？\n【小程序基础框架：组件通信、状态更新与原理边界】围绕小程序基础框架的核心机制，考察组件通信、状态管理、生命周期与框架边界。重点是能否从框架原理解释业务表现、并能判断哪些能力应由框架兜底、哪些应由业务层处理。。切入问题：小程序里父子组件通信、跨层通信、以及页面状态回流，你会怎么设计？如果某个状态更新后视图没有按预期刷新，你会先怀疑哪几层？。追问阶梯：1. 先说常见通信方式和你会如何选择，哪些场景适合事件、属性传递、全局状态。；2. 再追：从框架原理看，状态更新为什么会丢、合并或延迟，哪些限制是设计如此。；3. 给一个具体故障：某组件在频繁切换时偶发显示旧值，你怎么区分是数据没改、更新没到，还是视图层复用导致？\n【前端框架原理：响应式、虚拟 DOM 与更新机制】考察候选人对一种常见前端框架原理的深入理解，不限定 React/Vue 具体细节，但必须能解释响应式/状态更新、依赖收集或调度、虚拟 DOM 与批量更新的本质区别及代价。。切入问题：你熟悉的一种前端框架里，为什么状态改了之后不一定立刻更新 DOM？从数据变化到页面更新，中间经历了什么？。追问阶梯：1. 先说状态变化到视图更新的基本链路，哪些步骤是框架帮你做的。；2. 继续追：为什么批量更新、调度和 diff 机制会影响性能与一致性。；3. 如果一个列表页在高频更新时出现重复渲染或丢帧，你会怎么判断是响应式粒度、调度时机还是组件拆分的问题？\n【JS 异步与事件循环：长任务、微任务、渲染阻塞】从页面卡顿、输入延迟、任务阻塞切入，考察事件循环、宏任务/微任务、Promise/async-await 的调度，以及长任务如何影响用户体验。该题作为前端基础兜底，适合验证计算机基础是否扎实。。切入问题：如果一个页面里用户每输入一个字符就立刻卡顿，你如何判断是事件循环里哪一类任务把渲染阻塞了？。追问阶梯：1. 先说宏任务、微任务和渲染在一帧里的基本顺序。；2. 再追：为什么 Promise 链过长、同步计算过重会让输入和绘制都被饿死。\n【CSS/布局与视觉性能：首屏体验、CLS 与合成层】考察前端基础中的布局与视觉稳定性，覆盖首屏图片占位、动态插入内容、布局抖动、合成层与动画开销等。适合从用户感知现象倒推原因。。切入问题：如果某个移动端页面首屏加载后内容不断跳动，导致用户误点，你会怎么判断是图片、字体还是动态插入内容造成的？。追问阶梯：1. 先说你会如何定位 CLS 的来源。；2. 再追：哪些 CSS/布局手段能减少抖动，为什么有些优化会引入别的代价。\n【RAG 检索链路：切分、召回、重排与失败归因】围绕候选人的课程问答助手项目，深挖 RAG 端到端链路的真实能力：分块策略、embedding、检索评测集、召回失败与生成失败的区分，以及如何通过指标和样本定位问题。。切入问题：你简历里的课程问答助手如果用户说“答案和讲义不符”，你会按什么顺序排查？先看哪一层的指标，怎么区分是召回没到位还是生成胡编？。追问阶梯：1. 先把链路拆开：分块、向量化、召回、重排、生成，每层你会看什么。；2. 继续追：如果你发现是分块把表格或跨页内容切坏了，为什么会影响召回和回答忠实度？；3. 再往下：评测集怎么建，离线指标怎么设计，改了切分策略后哪些指标会变。；4. 最后追权衡：混合检索、重排、查询改写各自解决什么问题，什么时候不值得上。"
+    },
+    {
+      "role": "frontend",
+      "jd": "tencent-miniprogram-frontend",
+      "rep": 4,
+      "covered": {
+        "browser-storage-and-cookie": false,
+        "http-cache": false,
+        "ai-tooling-and-llm-usage": true,
+        "code-index-and-analysis": false,
+        "vue-state-management": false,
+        "frontend-performance-optimization": true,
+        "routing-and-permission": false,
+        "javascript-prototype": false,
+        "os-concurrency-basics": true,
+        "css-layout-and-responsive": false,
+        "css-animation": false,
+        "this-binding": false,
+        "browser-security-and-cross-origin": false,
+        "debounce-and-throttle": false,
+        "vue3-reactivity": true,
+        "ssr-and-nextjs": false,
+        "collaborative-editing": false,
+        "react-fiber": false,
+        "request-encapsulation": false,
+        "agent-and-mcp-integration": false,
+        "model-selection-evaluation": true,
+        "crawler-data-pipeline": true,
+        "vue-keep-alive": false,
+        "http-versions": false,
+        "project-refactoring": false,
+        "complex-component-design": true,
+        "build-tools-and-compilation": false,
+        "javascript-basics": false,
+        "react-event-system": false,
+        "markdown-render-pipeline": false,
+        "vue-component-basics": true,
+        "frontend-monitoring": false,
+        "database-index": false,
+        "tcp-udp": false,
+        "multi-tab-session-control": false,
+        "virtual-list": false,
+        "token-refresh": false,
+        "react-key-and-diff": true,
+        "layout-stability": false,
+        "typescript-generics": false
+      },
+      "ladderProgressRate": {
+        "value": 1,
+        "numerator": 6,
+        "denominator": 6
+      },
+      "areaCount": 6,
+      "baselineAreaCount": 0,
+      "skillPacks": [
+        "frontend",
+        "project-deep-dive",
+        "ai-llm",
+        "behavioral"
+      ],
+      "areas": [
+        "小程序框架原理：渲染/更新/事件分发与生命周期（technical）",
+        "前端框架原理：状态驱动渲染、diff 与更新边界（technical）",
+        "RAG 评测与召回失败排查（technical）",
+        "Agent 工程：工具调用、终止条件与防循环（technical）",
+        "AI Coding 基建：上下文工程、代码补全与安全边界（technical）",
+        "Web 与小程序性能：首屏、长任务与优化验证（technical）"
+      ],
+      "text": "【小程序框架原理：渲染/更新/事件分发与生命周期】结合小程序框架原理，考察页面渲染、数据驱动更新、事件分发与生命周期回调的运行机制，以及这些机制在业务开发和排障中的体现。。切入问题：你在小程序里点一次按钮后，页面状态更新到可见变化，框架内部大致经历了哪些步骤？如果出现“数据已改但界面没变”，你会先怀疑哪一层？。追问阶梯：1. 先说数据从 setData 到视图层更新的链路，以及什么时候会触发 diff 或批量更新。；2. 继续追生命周期和事件分发：页面/组件生命周期各自何时触发，事件冒泡、捕获、穿透限制分别影响什么。；3. 如果一个列表页偶发点击无响应或更新延迟，你怎么判断是框架批量合并、主线程阻塞，还是数据绑定写法的问题？\n【前端框架原理：状态驱动渲染、diff 与更新边界】考察至少一种常见前端框架的原理深度，重点放在响应式/状态驱动渲染、diff 与更新边界、组件重渲染触发条件。。切入问题：当你修改一个组件的状态后，为什么有些子树会重新渲染、有些不会？如果页面出现不必要的重渲染，你会怎么定位原因？。追问阶梯：1. 先说框架如何感知状态变化并决定更新范围，props/state/依赖收集分别起什么作用。；2. 继续追 diff/patch 的边界：key、引用变化、不可变更新为什么会影响更新结果。；3. 如果列表页切换筛选条件后卡顿明显，你如何判断是渲染粒度、状态设计，还是组件拆分不合理？\n【RAG 评测与召回失败排查】结合简历中的课程问答助手，考察 RAG 链路的评测闭环、召回失败与生成失败的区分、分块与检索策略的改进方法。。切入问题：你这个课程问答助手里，用户说“答案和讲义不符”时，你会按什么顺序排查？如果问题出在召回而不是生成，你怎么证明？。追问阶梯：1. 先追评测集怎么建、命中率/忠实度/上下文精确率分别怎么看。；2. 继续追分块、embedding、向量检索和重排分别影响哪一段链路，以及表格、标题层级、跨页内容为什么容易出错。；3. 如果你发现固定长度切分不如按标题层级切分，除了命中率变化，还要看哪些副作用或回归风险？；4. 最后追如果要把这套方案迁到另一门课或另一类文档，你会优先重建哪部分评测和索引。\n【Agent 工程：工具调用、终止条件与防循环】结合简历中的工具调用实现，考察 Agent 的工具编排、状态管理、终止条件、错误恢复与防重复调用机制。。切入问题：你这个问答助手里，模型偶发连续调用同一个工具很多次才停，你会怎么判断是提示词、工具设计还是终止条件的问题？。追问阶梯：1. 先说工具 schema、返回值结构和失败重试策略怎么影响调用准确率。；2. 继续追 ReAct 循环里状态、记忆、最大步数、预算和超时各自解决什么问题。；3. 如果加了步数上限后任务被截断，你怎么向用户交代，并避免“半完成”带来更差体验？\n【AI Coding 基建：上下文工程、代码补全与安全边界】围绕岗位的 AI Coding 基建方向，考察代码场景下的上下文组织、提示词约束、结构化输出、权限与安全边界，以及在研发流程中的落地判断。。切入问题：如果要把 AI Coding 接进研发流程，让它帮忙生成代码或改代码，你会怎么控制上下文、输出格式和越权风险？。追问阶梯：1. 先说上下文该放哪些内容：任务描述、代码片段、依赖、约束、测试用例分别扮演什么角色。；2. 继续追结构化输出和校验：怎样降低 JSON 或 patch 格式出错率，失败后怎么重试或降级。；3. 如果模型建议修改一个敏感文件或调用危险工具，你如何设计确认、审计与最小权限？\n【Web 与小程序性能：首屏、长任务与优化验证】考察用户可感知性能问题的定位方法，覆盖首屏白屏、长任务、渲染阻塞、资源加载与优化验证；适配小程序与前端场景。。切入问题：一个小程序页面打开很慢，但埋点只看到“加载时间长”，你会怎么拆分问题：网络、脚本、渲染、还是主线程卡住？。追问阶梯：1. 先说你会用哪些指标和工具把问题拆开，而不是直接猜。；2. 继续追首屏、长任务、资源阻塞和批量更新分别会造成什么现象。；3. 如果你做了某项优化后首屏快了，但交互更卡了，你怎么判断这是不是值得的取舍？"
+    }
+  ]
+}
