@@ -74,6 +74,7 @@ import { parseJsonValue } from "../src/lib/json";
 import { evidenceTargetForPace, parseStoredBrief, type InterviewBrief } from "../src/lib/mock-interviews/interviewer/brief";
 import { BRIEF_PROMPT_VERSION, generateInterviewBrief } from "../src/lib/mock-interviews/interviewer/brief-agent";
 import { INTERVIEWER_PROMPT_VERSION } from "../src/lib/mock-interviews/interviewer/prompt";
+import type { TurnData as WireTurnData } from "../src/lib/mock-interviews/interviewer/turn-payload";
 import { analyzeMockInterviewJob } from "../src/lib/mock-interviews/job-analysis-agent";
 import { parseStoredMemory, type MemoryPatch } from "../src/lib/mock-interviews/interviewer/memory";
 import { EVALUATION_PROMPT_VERSION, evaluateMockInterviewQuestion } from "../src/lib/mock-interviews/question-evaluation-agent";
@@ -641,7 +642,18 @@ async function commandScorer(models: EvalModels): Promise<void> {
 
 /* ------------------------------------------------------------- interviewer */
 
+/** 运行器只关心面试官说了什么、phase 与副作用；从接口的 TurnData（与体验版同形）里摘出来。 */
 type TurnData = { messages: { kind: string; content: string; turnIndex: number }[]; phase: string | null; effects: string[]; replay: boolean };
+
+function turnData(data: WireTurnData): TurnData {
+  if (data.replay) return { messages: data.messages, phase: null, effects: [], replay: true };
+  return {
+    messages: data.payload.newMessages.filter((message) => message.role === "interviewer"),
+    phase: data.payload.phase,
+    effects: data.payload.effects.map((effect) => effect.type),
+    replay: false,
+  };
+}
 
 async function postTurn(base: string, sessionId: string, body: Record<string, unknown>): Promise<{ data: TurnData; latencyMs: number }> {
   const startedAt = Date.now();
@@ -656,8 +668,8 @@ async function postTurn(base: string, sessionId: string, body: Record<string, un
   for (const line of text.split("\n")) {
     if (!line.startsWith("data: ")) continue;
     try {
-      const chunk = JSON.parse(line.slice(6)) as { type?: string; data?: TurnData };
-      if (chunk.type === "data-turn" && chunk.data) return { data: chunk.data, latencyMs: Date.now() - startedAt };
+      const chunk = JSON.parse(line.slice(6)) as { type?: string; data?: WireTurnData };
+      if (chunk.type === "data-turn" && chunk.data) return { data: turnData(chunk.data), latencyMs: Date.now() - startedAt };
     } catch {}
   }
   throw new Error(`回合没有返回 data-turn：${text.slice(-300)}`);
