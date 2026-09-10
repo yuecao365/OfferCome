@@ -2,10 +2,11 @@
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, isDataUIPart, isTextUIPart, type ChatTransport, type UIMessage } from "ai";
-import { ArrowLeft, Loader2, SendHorizontal } from "lucide-react";
+import { ArrowLeft, FileText, Loader2, SendHorizontal } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
+import { MockInterviewMaterialsDrawer } from "@/components/interviews/mock-interview-materials";
 import { ThemeButton } from "@/components/theme-button";
 import { Alert } from "@/components/ui/alert";
 import { Button, ButtonLink } from "@/components/ui/button";
@@ -23,7 +24,8 @@ import type {
  * 前端用它替换流中的临时内容。本地版真相在数据库，体验版真相在浏览器的会话文档，
  * 差别全部收在注入的 driver 里。
  *
- * 候选人看不到考察领域和面试官的计划，顶栏只有一个已用时的钟；计划与笔记在报告页揭晓。
+ * 候选人看不到考察领域和面试官的计划，顶栏只有一个已用时的钟和"资料"抽屉（简历原文与岗位描述，
+ * 面试官对质时引用的简历原句在里面高亮）；计划与笔记在报告页揭晓。
  */
 
 type Intent = "skip" | "hint" | "repeat" | "end";
@@ -138,6 +140,7 @@ export function MockInterviewChat({
   const [turnError, setTurnError] = useState("");
   const [completing, setCompleting] = useState(false);
   const [reportError, setReportError] = useState("");
+  const [materialsOpen, setMaterialsOpen] = useState(false);
   const startedRef = useRef(false);
   const finishedRef = useRef(false);
   const lastInterviewerAtRef = useRef<number | null>(null);
@@ -256,10 +259,20 @@ export function MockInterviewChat({
           {session.companyName} · {session.jobTitle}
         </p>
         <ElapsedClock startedAt={conversation.startedAt ?? openedAt} running={!ended} />
+        <Button aria-pressed={materialsOpen} onClick={() => setMaterialsOpen((open) => !open)} size="sm" type="button" variant="ghost">
+          <FileText aria-hidden="true" className="size-3.5" strokeWidth={1.5} />
+          资料
+        </Button>
         <ThemeButton />
       </header>
 
-      <div className="mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col">
+      <div className="relative mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col">
+        <MockInterviewMaterialsDrawer
+          materials={session.materials}
+          messages={transcript}
+          onClose={() => setMaterialsOpen(false)}
+          open={materialsOpen}
+        />
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-4 sm:px-4" ref={scrollRef}>
           {transcript.map((message) => (
             <MockInterviewBubble key={message.id} message={message} />

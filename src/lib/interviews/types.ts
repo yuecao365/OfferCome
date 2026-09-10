@@ -164,7 +164,7 @@ export const INTERVIEW_QUESTION_CATEGORY_LABELS: Record<
   string
 > = {
   resume_project: "实习/项目问题",
-  technical: "技术八股问题",
+  technical: "技术题",
   general: "通用问题",
 };
 

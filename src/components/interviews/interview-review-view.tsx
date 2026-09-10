@@ -24,7 +24,7 @@ import {
 } from "@/lib/interviews/review";
 
 const QUESTION_CATEGORY_LABELS: Record<InterviewReviewQuestionCategory, string> = {
-  technical: "技术八股",
+  technical: "技术题",
   general: "通用问题",
 };
 
@@ -72,7 +72,7 @@ export function InterviewReviewView({
         />
         <ReviewScopeCard
           count={data.technicalQuestionCount + data.generalQuestionCount}
-          description="查看技术八股或通用问题，按问题聚合历史回答。"
+          description="查看技术题或通用问题，按问题聚合历史回答。"
           href={reviewHref({ section: "question_bank", source: filters.source })}
           isActive={filters.section === "question_bank"}
           title="通用问题库"
@@ -213,7 +213,7 @@ export function InterviewReviewView({
           ) : (
             <Card>
               <CardContent className="flex min-h-40 items-center justify-center text-center text-sm text-muted-foreground">
-                请选择“技术八股”或“通用问题”，这里会展示对应的历史回答。
+                请选择“技术题”或“通用问题”，这里会展示对应的历史回答。
               </CardContent>
             </Card>
           )}

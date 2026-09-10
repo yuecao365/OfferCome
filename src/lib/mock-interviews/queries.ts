@@ -107,6 +107,7 @@ export async function getMockInterviewView(id: string): Promise<MockInterviewVie
     questionCount: session.questionCount,
     totalScore: session.totalScore,
     report: parseStoredReport(session.reportJson),
+    materials: { resumeText: session.resumeTextSnapshot, jobDescription: session.jdTextSnapshot },
     conversation: buildConversation(session),
     questions: session.interview.questions.map((question) => {
       const completedEvaluation =

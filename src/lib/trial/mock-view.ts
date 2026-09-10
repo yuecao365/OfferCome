@@ -27,6 +27,7 @@ export function trialInterviewToView(interview: TrialInterview): MockInterviewVi
     questionCount: closed,
     totalScore: interview.report?.totalScore ?? null,
     report: interview.report,
+    materials: { resumeText: interview.resume.text, jobDescription: interview.job.jobDescription },
     conversation: interview.brief
       ? conversationView({
           brief: interview.brief,
