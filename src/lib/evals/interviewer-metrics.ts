@@ -155,7 +155,7 @@ export function controlErrorWeaknesses(snapshot: SessionSnapshot): { question: s
   const fromThreads = snapshot.threads.flatMap((thread) =>
     (thread.evaluation?.weaknesses ?? []).filter((item) => item.kind === "error").map((item) => ({ question: thread.entryQuestion, point: item.point, quote: item.quote })),
   );
-  const fromReport = (snapshot.report?.weaknesses ?? []).filter((item) => item.kind === "error").map((item) => ({ question: "综合报告", point: item.point, quote: item.quote }));
+  const fromReport = (snapshot.report?.weaknesses ?? []).filter((item) => item.kind === "error").map((item) => ({ question: "综合报告", point: item.point, quote: null }));
   return [...fromThreads, ...fromReport];
 }
 
