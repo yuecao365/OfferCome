@@ -2,7 +2,7 @@
 
 > 基于三份流程文档描述的现状（interviewer-v4 / brief-v7）与用户 2026-09-10 在网页版跑的一场标准节奏面试（字节 AI 全栈实习，trace 见对话记录）。用户定的方向：**简化，不打补丁**；对质时要给候选人复查简历等资料的工具。
 > 2026-09-10 第一稿。只读代码，未改代码。
-> 执行状态：§8 三点按建议定；第 1 步已完成（2026-09-10），见文末执行记录。
+> 执行状态：§8 三点按建议定；第 1–3 步已完成（2026-09-10），见文末执行记录。
 
 ## 0. 那场面试暴露的三条主线
 
@@ -135,3 +135,24 @@
 - 覆盖率门禁 `coverage --k 4 --label simplify-1` 对比 profile-1（同日）：五岗加权覆盖率 Δ 在 −0.05 到 +0.06 之间，都在 §6.3 噪声内；40 场简报领域数分布 4×3、5×24、6×13（深入节奏有 3 场只到 4 个：兜底能力都已被用掉，补不出不重复的领域）。基线领域占比从 0.03–0.13 降到 0.00–0.08：删掉"至少两个 fundamentals"配额后模型更多绑 JD 能力，符合"覆盖率只作门禁"的原则。
 
 未做：面试中"不回访领域"要到第 2 步动 reducer 时一起改（现在 `THREADS_PER_AREA` 仍是 2）。
+
+### 9.2 第 2 步：动作集缩减 + 候选人分支归代码（提交 8bf625b）
+
+代码：
+- `actions.ts`：动作只剩 ask_intro / open_thread / probe / hint / close_thread / close_interview（+ note）；模型能提的只有中间四个（`MODEL_ACTIONS`），ask_intro 与 hint 由代码触发。候选人意图 skip / repeat / end / hint（不会 / 不懂 / 要提示 / 想考什么合一）/ deny（瞎写的 / 没做过 / 不是我做的），只识别 ≤ 40 字的短消息。
+- `reducer.ts`：`planTurn` 定分支——跳过 / 再说一遍 / 结束 / 卡住第二次是 fixed（不调模型，固定措辞直接流回）；开场 / 一次提示 / 否定简历是 forced（代码定动作，模型只写话）；其余交模型。否定简历只在考简历项目时成立（场景题上说"没做过"按卡住处理）：记失守、否定挂在该领域上的假设、同项目其余领域各写一条 skipped 线程；模型写对质并逐字引用简历，同一段话带出下一领域的切入问题。`fallbackAction` 只剩"关线程并开下一个没考察过的领域 / 收尾"。
+- 删掉：clarify、interrupt、面试官侧 aside（只在"再说一遍"复述时保留）、`rescues / clarifies / interrupts`（线程只留 `hinted`）、`IDLE_TURNS_BEFORE_FORCE` 与 `idleTurns`、`THREADS_PER_AREA` 与回访、`utterance()`、`CANDIDATE_INTENT_SIGNALS`、对话裁剪里的"澄清往来只留最近一对"。
+- 数据：`InterviewThread` 三列合并为 `hinted`（先 `UPDATE hinted = rescues > 0`，再 `db push` 丢列；138 条线程里 11 条置 true）；切段 metadata `rescues` → `hinted`，评分器用例 JSON 同步；体验版会话文档 v4。
+- 评测口径：删澄清占比 / 空转率；替换率的分母只算模型有提案的回合；新增"卡住后换题回合数"（从提示到线程以"候选人卡住"关闭，含两端）；hints 脚本里的 clarify 意图改为 hint。
+
+验收：`reducer.test.ts` 逐条覆盖开场 / 跳过 / 再说一遍 / 结束 / 卡住两次 / 否定简历 / 模型无动作 / 越界追问被换；`npm test` 418 通过。面试官评测与第 3 步合并跑（第 2 步单独跑时话语还在旧的单步里，数字没有意义）。
+
+### 9.3 第 3 步：一回合两步 + interviewer-v5
+
+代码：
+- `turn-agent.ts`：`decideTurn`（`toolChoice: "required"`，工具 = 推进动作 + note + load_skill，最多 4 步，有被接受的推进动作就停；文本丢弃）与 `speakTurn`（`toolChoice: "none"`，不给工具，流式）。`streamAgent` 加 `toolChoice`。
+- `reducer.ts`：`ruleTurn` 从 `applyTurn` 里拆出裁决（动作预算检查、close_thread 之后的接续、被换掉的提案），turn.ts 在两步之间调用它，说话的提示词里写明"本回合已定：X"（被换掉时连原提案与原因一起告诉模型）。模型的话不再被拼接：有话就整段用，没有才按固定措辞。
+- `prompt.ts`：`buildDecidePrompt` / `buildSpeakPrompt` 共用背景（人设、信息量、领域含 JD 原句、当前线程、记忆、JD、简历）；说话规则：先回应（追认 / 纠偏 / 对质三选一）再提问，对质逐字引用简历并用「」括起，追问可把 JD 场景当情境；开场 / 提示 / 对质各有专门说明。
+- 两次模型调用共用 `turn:<session>:<turnIndex>` 这个 runId；trace 页与评测按回合合并耗时与 token。
+
+真机（字节财经 AI 应用实习 JD，快速节奏，本地 3000）：面试官的话一次出完，6 秒、10 秒、16 秒三次截图内容一致，不再闪烁；开场只问自我介绍；第 2 回合切入项目时引用简历「从零构建」；要提示得到一句 33 字、只给方向的提示；再要提示直接换题（固定过渡 + JD 情境的场景题，不调模型）；trace 页每回合有提案 → 裁决与合并后的开销。开销基线：决定 12.0k token / 5.8 s + 说话 3.3k token / 2.9 s ≈ 8.8 s（有技能包查询的回合）；开场只说话 3.0k / 1.5 s；固定措辞回合 0。真机里发现场景题上说"瞎写的"被当成否认简历，随即把 deny 收窄到项目领域。

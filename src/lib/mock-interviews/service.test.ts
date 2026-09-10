@@ -141,12 +141,20 @@ mock.module("./context", {
   },
 });
 
+// 一回合两步：决定这一步取队列里的下一条；说话这一步用同一条的 speech（代码定动作的回合没有决定这一步，直接取队列）。
+let pendingSpeech: string | null = null;
 mock.module("./interviewer/turn-agent", {
   namedExports: {
-    streamInterviewerTurn: async () => {
-      stubs.turnCalls += 1;
+    decideTurn: async () => {
       const decision = stubs.decisions.shift() ?? { speech: "", action: null, memoryPatch: null, failed: true };
-      return { stream: null, settled: Promise.resolve({ decision, skillsLoaded: 0 }), outcome: Promise.resolve(null) };
+      pendingSpeech = decision.speech;
+      return { decision, skillsLoaded: 0 };
+    },
+    speakTurn: async () => {
+      stubs.turnCalls += 1;
+      const speech = pendingSpeech ?? stubs.decisions.shift()?.speech ?? "";
+      pendingSpeech = null;
+      return { stream: null, settled: Promise.resolve({ speech, failed: false }) };
     },
   },
 });

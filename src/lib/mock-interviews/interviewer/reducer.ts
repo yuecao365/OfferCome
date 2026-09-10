@@ -20,8 +20,9 @@ import {
  * 回合 reducer：把"候选人这条消息 + 模型的决定"应用到状态上。
  *
  * 面试官的自由只在"问什么、往哪追"；流程分支归代码：开场、候选人插话（跳过 / 再说一遍 /
- * 结束 / 卡住 / 否定简历）、不被允许的动作、模型失败，都由 `planTurn` 定成确定性的动作，
- * 模型只负责把定下的动作说成人话。全程纯函数，返回新状态、要落库的消息、副作用与一条决策记录。
+ * 结束 / 卡住 / 否定简历）、不被允许的动作、模型失败，都由 `planTurn` / `ruleTurn` 定成
+ * 确定性的动作，模型再把定下的动作说成人话（两步回合，见 turn.ts）。
+ * 全程纯函数，返回新状态、要落库的消息、副作用与一条决策记录。
  */
 
 export type TurnDecision = {
@@ -64,7 +65,7 @@ export type CandidateInput = {
   metrics?: MessageMetrics | null;
 };
 
-/** 模型只写话时的任务：开场白、一次提示、对质简历。 */
+/** 代码定动作、模型只写话时的任务：开场白、一次提示、对质简历。 */
 export type SpeechTask = "intro" | "hint" | "confront";
 
 /**
@@ -135,7 +136,9 @@ export function planTurn(state: InterviewerState, intent: CandidateIntent): Turn
     return { kind: "forced", action: { name: "ask_intro", input: {} }, task: "intro" };
   }
   const active = activeThread(state);
-  switch (intent) {
+  // "没做过"只在考简历项目时算否认简历；场景题 / 基础题上说没做过就是卡住。
+  const denying = intent === "deny" && active && areaById(state, active.areaId)?.kind === "project";
+  switch (denying ? "deny" : intent === "deny" ? "hint" : intent) {
     case "skip":
       return { kind: "fixed", action: active ? { name: "close_thread", input: { note: THREAD_NOTES.skipped } } : fallbackAction(state) };
     case "repeat":
@@ -205,14 +208,10 @@ function closeThread(state: InterviewerState, thread: ThreadState, input: { note
   return { state: updateThread(state, finalThread), effect };
 }
 
-/**
- * 候选人否定了简历内容：记失守、否定挂在这个领域上的简历假设、同一项目的其余领域直接标记跳过
- * （一条没有对话的 skipped 线程），面试不再回到这个项目。
- */
-function denyResume(state: InterviewerState, thread: ThreadState, effects: TurnEffect[]): InterviewerState {
-  const area = areaById(state, thread.areaId);
-  const areaName = area?.name ?? thread.areaId;
-  let next: InterviewerState = {
+/** 候选人否定了简历内容：记失守，否定挂在这个领域上的简历假设。 */
+function denyResume(state: InterviewerState, thread: ThreadState): InterviewerState {
+  const areaName = areaById(state, thread.areaId)?.name ?? thread.areaId;
+  return {
     ...state,
     memory: {
       ...state.memory,
@@ -223,19 +222,6 @@ function denyResume(state: InterviewerState, thread: ThreadState, effects: TurnE
       }),
     },
   };
-  if (!area?.projectId) return next;
-  for (const sibling of state.brief.areas) {
-    if (sibling.id === area.id || sibling.projectId !== area.projectId || threadOfArea(next, sibling.id)) continue;
-    const skipped: ThreadState = {
-      ...newThread(next, sibling.id, sibling.entryQuestion),
-      status: "skipped",
-      closedAtTurn: next.turnIndex,
-      note: THREAD_NOTES.deniedProject,
-    };
-    next = { ...next, threads: [...next.threads, skipped] };
-    effects.push({ type: "thread_closed", thread: skipped, segment: threadSegment(skipped, []) });
-  }
-  return next;
 }
 
 function canDo(state: InterviewerState, action: InterviewerAction) {
@@ -246,6 +232,77 @@ function truncateHint(text: string): string {
   return text.length > HINT_HARD_LIMIT ? `${text.slice(0, HINT_HARD_LIMIT).trimEnd()}……` : text;
 }
 
+/** 同一项目的其余领域：候选人否定这个项目后它们直接标记跳过。 */
+function deniedSiblings(state: InterviewerState, areaId: string): ThreadState[] {
+  const area = areaById(state, areaId);
+  if (!area?.projectId) return [];
+  return state.brief.areas
+    .filter((sibling) => sibling.id !== area.id && sibling.projectId === area.projectId && !threadOfArea(state, sibling.id))
+    .map((sibling) => ({
+      ...newThread(state, sibling.id, sibling.entryQuestion),
+      status: "skipped" as const,
+      closedAtTurn: state.turnIndex,
+      note: THREAD_NOTES.deniedProject,
+    }));
+}
+
+/**
+ * 关掉当前线程之后的状态（只算线程，不落消息）：接续动作的预算检查按它来算。
+ * 否定简历时同项目的其余领域也已标记跳过，接续不会再开到它们。
+ */
+function afterClose(state: InterviewerState, thread: ThreadState, intent: CandidateIntent): InterviewerState {
+  const closed = updateThread(state, { ...thread, status: "closed", closedAtTurn: state.turnIndex });
+  return intent === "deny" ? { ...closed, threads: [...closed.threads, ...deniedSiblings(closed, thread.areaId)] } : closed;
+}
+
+/** 这一回合最终要做的事：动作、close_thread 之后的接续、被换掉的提案。 */
+export type TurnRuling = {
+  plan: TurnPlan;
+  /** 本回合的动作；只有"再说一遍"为 null。 */
+  action: InterviewerAction | null;
+  /** close_thread 之后紧接的动作（open_thread / close_interview）。 */
+  next: InterviewerAction | null;
+  replaced: { requested: string | null; applied: string; reason: string }[];
+};
+
+/**
+ * 裁决：代码分支直接用；模型的提案过预算检查，不允许或模型失败时换成代码的下一步。
+ * 两步回合在这一步之后才让模型说话，所以模型永远在为最终动作说话。
+ */
+export function ruleTurn(state: InterviewerState, candidate: CandidateInput | null, decision: TurnDecision): TurnRuling {
+  const plan = planTurn(state, candidate?.intent ?? null);
+  const replaced: TurnRuling["replaced"] = [];
+  const replace = (requested: string | null, reason: string): InterviewerAction => {
+    const applied = fallbackAction(state);
+    replaced.push({ requested, applied: applied.name, reason });
+    return applied;
+  };
+  let action: InterviewerAction | null;
+  if (plan.kind === "model") {
+    action = decision.action;
+    if (action) {
+      const check = canDo(state, action);
+      if (!check.ok) action = replace(action.name, check.reason);
+    } else {
+      action = replace(null, decision.failed ? "模型回合失败" : "模型没有可用动作");
+    }
+  } else {
+    action = plan.action;
+  }
+
+  let next: InterviewerAction | null = null;
+  if (action?.name === "close_thread") {
+    // 关掉一段之后紧接着开下一段或收尾，候选人不用面对一句"到这里"却没有下文。
+    // 模型自己紧接着做的下一步优先；没有或不被允许时由代码决定。
+    const closed = afterClose(state, activeThread(state)!, candidate?.intent ?? null);
+    const wanted = plan.kind === "model" ? decision.followUp ?? null : null;
+    next = wanted && canDo(closed, wanted).ok ? wanted : fallbackAction(closed);
+    if (wanted && next !== wanted) replaced.push({ requested: wanted.name, applied: next.name, reason: "接续动作不被允许" });
+  }
+  return { plan, action, next, replaced };
+}
+
+/** 应用回合：候选人消息、记忆更新、裁决出的动作与面试官的话。 */
 export function applyTurn(
   initial: InterviewerState,
   candidate: CandidateInput | null,
@@ -254,52 +311,27 @@ export function applyTurn(
   let state = initial;
   const newMessages: MessageState[] = [];
   const effects: TurnEffect[] = [];
-  const plan = planTurn(state, candidate?.intent ?? null);
+  const ruling = ruleTurn(state, candidate, decision);
   const record: TurnDecisionRecord = {
-    proposed: plan.kind === "model" ? decision.action?.name ?? null : plan.action?.name ?? null,
-    applied: null,
-    followUp: plan.kind === "model" ? decision.followUp?.name ?? null : null,
-    replacedReason: null,
+    proposed: ruling.plan.kind === "model" ? decision.action?.name ?? null : ruling.plan.action?.name ?? null,
+    applied: ruling.action?.name ?? null,
+    followUp: ruling.next?.name ?? null,
+    replacedReason: ruling.replaced[0]?.reason ?? null,
     anchorHit: decision.anchorHit ?? null,
   };
 
   if (state.phase === "ended") {
     return { state, newMessages, effects, decision: record };
   }
+  for (const item of ruling.replaced) effects.push({ type: "action_replaced", ...item });
+  // 模型的话是为裁决出的动作说的（两步回合）；代码定话的分支没有模型的话。
+  const speech = ruling.plan.kind === "fixed" ? "" : decision.speech.trim();
+  const intent = candidate?.intent ?? null;
 
-  const replace = (requested: string | null, reason: string): InterviewerAction => {
-    const replaced = fallbackAction(state);
-    effects.push({ type: "action_replaced", requested, applied: replaced.name, reason });
-    record.replacedReason ??= reason;
-    return replaced;
-  };
-
-  // 1. 定动作：代码分支直接用；模型的提案过预算检查，不允许或模型失败时换成代码的下一步。
-  //    模型的话只在"它为最终动作说的"时采用；动作被换掉后由代码按固定措辞说。
-  let action: InterviewerAction | null;
-  let speech = decision.speech.trim();
-  if (plan.kind === "model") {
-    action = decision.action;
-    if (action) {
-      const check = canDo(state, action);
-      if (!check.ok) {
-        action = replace(action.name, check.reason);
-        speech = "";
-      }
-    } else {
-      action = replace(null, decision.failed ? "模型回合失败" : "模型没有可用动作");
-      speech = "";
-    }
-  } else {
-    action = plan.action;
-    if (plan.kind === "fixed") speech = "";
-  }
-  record.applied = action?.name ?? null;
-
-  // 2. 候选人消息落进当前线程（自我介绍等线程外的话 threadId 为空）。插话不算回答。
+  // 1. 候选人消息落进当前线程（自我介绍等线程外的话 threadId 为空）。插话不算回答。
   if (candidate) {
     newMessages.push(
-      message(state, "candidate", candidate.intent ? "aside" : "answer", candidate.content, {
+      message(state, "candidate", intent ? "aside" : "answer", candidate.content, {
         id: candidate.id,
         threadId: activeThread(state)?.id ?? null,
         metrics: candidate.metrics ?? null,
@@ -307,7 +339,7 @@ export function applyTurn(
     );
   }
 
-  // 3. 记忆更新（挂在当前线程的领域上）。
+  // 2. 记忆更新（挂在当前线程的领域上）。
   if (decision.memoryPatch) {
     state = {
       ...state,
@@ -318,7 +350,7 @@ export function applyTurn(
     };
   }
 
-  // 4. 应用动作。
+  // 3. 应用动作。
   const say = (kind: MessageKind, content: string, extra: { threadId?: string | null; toolName?: string | null } = {}) =>
     newMessages.push(message(state, "interviewer", kind, content, extra));
   const endInterview = (content: string) => {
@@ -326,7 +358,13 @@ export function applyTurn(
     state = { ...state, phase: "ended" };
     effects.push({ type: "interview_ended" });
   };
+  const openThread = (input: { areaId: string; question: string }, content: string) => {
+    const thread = newThread(state, input.areaId, input.question);
+    state = { ...state, threads: [...state.threads, thread], phase: "running" };
+    say("question", content || thread.entryQuestion, { threadId: thread.id, toolName: "open_thread" });
+  };
 
+  const action = ruling.action;
   if (!action) {
     // 只有"再说一遍"没有推进动作：复述上一问。
     const last = lastInterviewerQuestion(state);
@@ -339,9 +377,7 @@ export function applyTurn(
         break;
       }
       case "open_thread": {
-        const thread = newThread(state, action.input.areaId, action.input.question);
-        state = { ...state, threads: [...state.threads, thread], phase: "running" };
-        say("question", speech || thread.entryQuestion, { threadId: thread.id, toolName: action.name });
+        openThread(action.input, speech);
         break;
       }
       case "probe": {
@@ -358,39 +394,30 @@ export function applyTurn(
       }
       case "close_thread": {
         const active = activeThread(state)!;
-        const intent = candidate?.intent ?? null;
         const closed = closeThread(state, active, { note: action.input.note, skipped: intent === "skip" }, newMessages);
         state = closed.state;
         effects.push(closed.effect);
         if (intent === "hint") {
-          state = { ...state, memory: { ...state.memory, failed: [...state.memory.failed, { areaId: active.areaId, text: `${areaById(state, active.areaId)?.name ?? active.areaId}：${THREAD_NOTES.stuck}`, turn: state.turnIndex }] } };
+          const areaName = areaById(state, active.areaId)?.name ?? active.areaId;
+          state = { ...state, memory: { ...state.memory, failed: [...state.memory.failed, { areaId: active.areaId, text: `${areaName}：${THREAD_NOTES.stuck}`, turn: state.turnIndex }] } };
         }
-        if (intent === "deny") state = denyResume(state, active, effects);
-        // 关掉一段之后紧接着开下一段或收尾，候选人不用面对一句"到这里"却没有下文。
-        // 模型自己紧接着做的下一步优先；没有或不被允许时由代码决定，这时模型的话不是为
-        // 下一步说的，换成固定措辞（代码定动作、模型只写话的回合除外：它已被告知下一步）。
-        const wanted = plan.kind === "model" ? decision.followUp ?? null : null;
-        const next: InterviewerAction = wanted && canDo(state, wanted).ok ? wanted : fallbackAction(state);
-        if (wanted && next !== wanted) {
-          effects.push({ type: "action_replaced", requested: wanted.name, applied: next.name, reason: "接续动作不被允许" });
-          record.replacedReason ??= "接续动作不被允许";
+        if (intent === "deny") {
+          state = denyResume(state, active);
+          for (const sibling of deniedSiblings(state, active.areaId)) {
+            state = { ...state, threads: [...state.threads, sibling] };
+            effects.push({ type: "thread_closed", thread: sibling, segment: threadSegment(sibling, []) });
+          }
         }
-        if (plan.kind === "model" && next !== wanted) speech = "";
-        record.followUp = next.name;
         const prefix = intent === "skip" ? FALLBACK_SPEECH.skipped : intent === "hint" ? FALLBACK_SPEECH.stuck : FALLBACK_SPEECH.transition;
-        if (next.name === "open_thread") {
-          const thread = newThread(state, next.input.areaId, next.input.question);
-          state = { ...state, threads: [...state.threads, thread] };
-          say("question", speech || `${prefix}\n\n${thread.entryQuestion}`, { threadId: thread.id, toolName: "open_thread" });
-        } else {
-          endInterview(speech || FALLBACK_SPEECH.closeInterview);
-        }
+        const next = ruling.next!;
+        if (next.name === "open_thread") openThread(next.input, speech || `${prefix}\n\n${next.input.question}`);
+        else endInterview(speech || FALLBACK_SPEECH.closeInterview);
         break;
       }
       case "close_interview": {
         const active = activeThread(state);
         if (active) {
-          const closed = closeThread(state, active, { note: null, skipped: candidate?.intent === "skip" }, newMessages);
+          const closed = closeThread(state, active, { note: null, skipped: intent === "skip" }, newMessages);
           state = closed.state;
           effects.push(closed.effect);
         }

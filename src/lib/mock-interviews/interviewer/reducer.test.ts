@@ -6,7 +6,7 @@ import { areaTurnCost, fallbackBrief, padAreas, plannedTurns, plannedTurnsForPac
 import { canAct, canClose, coverageComplete, probeLimit, safetyCap } from "./budget";
 import { evidenceSummary, questionTurnsUsed } from "./evidence";
 import { applyMemoryPatch, emptyMemory } from "./memory";
-import { applyTurn, FALLBACK_SPEECH, fallbackAction, HINT_MAX_CHARS, planTurn, THREAD_NOTES, type TurnDecision } from "./reducer";
+import { applyTurn, FALLBACK_SPEECH, fallbackAction, HINT_MAX_CHARS, planTurn, ruleTurn, THREAD_NOTES, type TurnDecision } from "./reducer";
 import { threadSegment } from "./segments";
 import { activeThread, createInterviewerState, type InterviewerState } from "./state";
 
@@ -100,15 +100,21 @@ test("open_thread then probe climbs the ladder; probing past the cap closes the 
   assert.equal(activeThread(state)?.depth, limit);
   assert.equal(canAct(state, "probe").ok, false);
 
-  const over = applyTurn(state, { id: "a9", content: "还有一点补充。", intent: null }, probe("补充", "第五层？"));
-  const replaced = over.effects.find((effect) => effect.type === "action_replaced");
-  assert.ok(replaced && replaced.applied === "close_thread");
+  // 决定这一步提了越界的追问：裁决换成关线程开下一领域，说话这一步是为换后的动作说的。
+  const proposal = say("", { name: "probe", input: { anchor: "补充", question: "第五层？" } });
+  const ruling = ruleTurn(state, { id: "a9", content: "还有一点补充。", intent: null }, proposal);
+  assert.equal(ruling.action?.name, "close_thread");
+  assert.equal(ruling.next?.name, "open_thread");
+  assert.equal(ruling.replaced[0]?.requested, "probe");
+  const over = applyTurn(state, { id: "a9", content: "还有一点补充。", intent: null }, proposal);
+  assert.ok(over.effects.some((effect) => effect.type === "action_replaced" && effect.applied === "close_thread"));
   assert.ok(over.effects.some((effect) => effect.type === "thread_closed"));
-  // 关掉之后紧接着开了下一个领域，过渡话固定、切入问题来自简报，模型那句被拒的追问不出现。
+  // 关掉之后紧接着开了下一个领域；模型没说话时过渡话固定、切入问题来自简报。
   const next = activeThread(over.state);
   assert.ok(next && next.areaId !== "area-project");
   assert.equal(over.newMessages.at(-1)?.content, `${FALLBACK_SPEECH.transition}\n\n${next.entryQuestion}`);
-  assert.ok(!over.newMessages.some((m) => m.content.includes("第五层")));
+  const spoken = applyTurn(state, { id: "a9", content: "还有一点补充。", intent: null }, { ...proposal, speech: "这块到这里。接下来聊聊工具调用：你们的工具是怎么注册的？" });
+  assert.equal(spoken.newMessages.at(-1)?.content, "这块到这里。接下来聊聊工具调用：你们的工具是怎么注册的？");
 });
 
 test("closing a thread yields a segment with entry question, probes and concatenated answers", () => {
@@ -130,12 +136,12 @@ test("每个领域只考察一次：开过的领域不能再开，领域用尽�
   state = applyTurn(state, { id: "c1", content: "回答", intent: null }, say("", { name: "close_thread", input: { note: "ok" } })).state;
   assert.equal(canAct(state, "open_thread", { areaId: "area-project" }).ok, false);
   assert.equal(canAct(state, "open_thread", { areaId: "area-project" }).ok, false);
-  // 每回合关线程，代码替它开下一个没考察过的领域，领域用尽后收尾，最后一条只能是告别语。
-  let result = applyTurn(state, { id: "c2", content: "回答", intent: null }, say("到这里。你怎么看 X？", { name: "close_thread", input: { note: "ok" } }));
+  // 每回合关线程，代码替它开下一个没考察过的领域，领域用尽后收尾；模型没说话时最后一条是固定告别语。
+  let result = applyTurn(state, { id: "c2", content: "回答", intent: null }, say("", { name: "close_thread", input: { note: "ok" } }));
   let guard = 0;
   while (result.state.phase !== "ended" && guard < 12) {
     guard += 1;
-    result = applyTurn(result.state, { id: `c${guard + 2}`, content: "回答", intent: null }, say("到这里。你怎么看 X？", { name: "close_thread", input: { note: "ok" } }));
+    result = applyTurn(result.state, { id: `c${guard + 2}`, content: "回答", intent: null }, say("", { name: "close_thread", input: { note: "ok" } }));
   }
   assert.equal(result.state.phase, "ended");
   assert.equal(result.newMessages.at(-1)?.content, FALLBACK_SPEECH.closeInterview);
@@ -222,6 +228,9 @@ test("否定简历：记失守、否定该领域的假设、同项目其余领�
   const intent = detectCandidateIntent("这个其实是瞎写的，没做过");
   assert.equal(intent, "deny");
   assert.equal(planTurn(state, intent).kind, "forced");
+  // 场景题上说"没做过"不是否认简历，按卡住处理。
+  const scenario = { ...state, threads: state.threads.map((thread) => ({ ...thread, areaId: "area-1" })) };
+  assert.deepEqual(planTurn(scenario, "deny"), planTurn(scenario, "hint"));
   const confronted = applyTurn(state, { id: "d1", content: "这个其实是瞎写的，没做过", intent }, say("简历上写着「响应时间下降 40%」，但你说没做过。我们换个方向：你们的工具是怎么注册的？"));
   assert.equal(confronted.newMessages[0].kind, "aside");
   const closed = confronted.effects.filter((e) => e.type === "thread_closed");
@@ -240,11 +249,12 @@ test("否定简历：记失守、否定该领域的假设、同项目其余领�
 
 test("模型没给可用动作或回合失败：关线程并开下一领域，用固定措辞", () => {
   const state = opened();
-  const idle = applyTurn(state, { id: "i1", content: "嗯。", intent: null }, say("你说得很有意思，那么架构呢？", null));
+  const idle = applyTurn(state, { id: "i1", content: "嗯。", intent: null }, say("", null));
   assert.ok(idle.effects.some((e) => e.type === "action_replaced" && e.reason === "模型没有可用动作"));
   assert.ok(idle.effects.some((e) => e.type === "thread_closed"));
-  assert.ok(activeThread(idle.state) && activeThread(idle.state)!.areaId !== "area-project");
-  assert.ok(!idle.newMessages.some((m) => m.content.includes("架构呢")));
+  const next = activeThread(idle.state);
+  assert.ok(next && next.areaId !== "area-project");
+  assert.equal(idle.newMessages.at(-1)?.content, `${FALLBACK_SPEECH.transition}\n\n${next.entryQuestion}`);
 
   const failed = applyTurn(state, { id: "f1", content: "回答", intent: null }, { speech: "", action: null, memoryPatch: null, failed: true });
   assert.equal(failed.decision.replacedReason, "模型回合失败");

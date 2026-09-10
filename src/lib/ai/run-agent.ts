@@ -244,6 +244,8 @@ export type AgentStreamOptions = {
   /** 对话历史；最后一条通常是候选人刚说的话。 */
   messages: ModelMessage[];
   tools: ToolSet;
+  /** required = 这一步必须调工具（只做决定）；none = 不许调工具（只说话）。 */
+  toolChoice?: "auto" | "none" | "required";
   stopWhen?: StopCondition<ToolSet>;
   timeoutMs: number;
   maxOutputTokens?: number;
@@ -312,6 +314,7 @@ export function streamAgent(options: AgentStreamOptions): {
   const stream = streamText({
     model: options.model ?? createTextModel(config),
     tools: options.tools,
+    ...(options.toolChoice ? { toolChoice: options.toolChoice } : {}),
     ...(options.stopWhen ? { stopWhen: options.stopWhen } : {}),
     ...(options.maxOutputTokens ? { maxOutputTokens: options.maxOutputTokens } : {}),
     abortSignal: AbortSignal.timeout(options.timeoutMs),

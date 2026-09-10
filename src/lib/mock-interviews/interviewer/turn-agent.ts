@@ -1,6 +1,6 @@
 import "server-only";
 
-import { isStepCount, tool, type ModelMessage, type ToolSet } from "ai";
+import { tool, type ModelMessage, type ToolSet } from "ai";
 
 import { streamAgent, type AgentStreamOutcome } from "@/lib/ai/run-agent";
 import { getAiTaskConfig } from "@/lib/settings/ai";
@@ -12,20 +12,25 @@ import { ACTION_DESCRIPTIONS, actionSchemas, isModelAction, MODEL_ACTIONS, type 
 import { canAct } from "./budget";
 import { buildConversation } from "./conversation";
 import { memoryPatchSchema } from "./memory";
-import { buildInterviewerSystemPrompt, INTERVIEWER_PROMPT_VERSION, type ForcedSpeech } from "./prompt";
-import type { TurnDecision } from "./reducer";
+import { buildDecidePrompt, buildSpeakPrompt, INTERVIEWER_PROMPT_VERSION } from "./prompt";
+import type { TurnDecision, TurnRuling } from "./reducer";
 import type { InterviewerState } from "./state";
 
+/**
+ * 一回合两步：先决定（只用工具，文本丢弃），代码裁决，再说话（不给工具，流式返回）。
+ * 模型因此永远在为最终动作说话，不需要拼接，候选人看到的话一次出完。
+ */
+
 const TURN_TIMEOUT_MS = 45_000;
-/** 查技能包 ≤2 次 + note + 推进动作（被拒后可换一次）+ 收口说话。 */
-const MAX_STEPS = 5;
-/** 只写话的回合：最多查一次技能包 + note + 说话。 */
-const MAX_SPEECH_STEPS = 3;
+/** 决定这一步：查技能包 ≤2 次 + note + 推进动作（被拒后可换一次）。 */
+const MAX_DECIDE_STEPS = 4;
 /** 追问锚点最多被拒这么多次；再不过就照常应用并记为 anchor_missing。 */
 const ANCHOR_RETRIES = 2;
 
-type TurnTools = {
+type DecideTools = {
   tools: ToolSet;
+  /** 已有一个被接受的推进动作（close_thread 之后还要等接续动作）：决定这一步可以停了。 */
+  decided: () => boolean;
   /** 流结束后读取：追问锚点是否命中（没追问为 null）、本回合加载的技能包数。 */
   outcome: () => { anchorHit: boolean | null; skillsLoaded: number };
 };
@@ -35,9 +40,8 @@ type TurnTools = {
  * 真正的状态变更由 reducer 在流结束后统一应用（保证原子，也保证不越权）。
  *
  * 追问的锚点在这里校验：必须是候选人这条回答里的原话，让追问贴着回答走。
- * 代码已定下动作的回合（forced）不给推进工具，模型只能记笔记、查技能包、说话。
  */
-function buildTools(initial: InterviewerState, candidateContent: string | null, packs: SkillPack[], withActions: boolean): TurnTools {
+function buildDecideTools(initial: InterviewerState, candidateContent: string | null, packs: SkillPack[]): DecideTools {
   const tools: ToolSet = {};
   // close_thread 之后允许在同一回合紧接着 open_thread / close_interview（"这块到这里，接下来聊 X"），
   // 所以接受 close_thread 后，后续检查按"当前线程已关闭"的状态来算。
@@ -45,8 +49,10 @@ function buildTools(initial: InterviewerState, candidateContent: string | null, 
   const answer = normalizedText(candidateContent ?? "");
   let anchorMisses = 0;
   let anchorHit: boolean | null = null;
+  let accepted: InterviewerAction["name"] | null = null;
+  let closedThenDecided = false;
 
-  for (const name of withActions ? MODEL_ACTIONS : []) {
+  for (const name of MODEL_ACTIONS) {
     tools[name] = tool({
       description: ACTION_DESCRIPTIONS[name],
       inputSchema: actionSchemas[name],
@@ -63,6 +69,8 @@ function buildTools(initial: InterviewerState, candidateContent: string | null, 
           }
           anchorHit = hit;
         }
+        if (accepted === "close_thread") closedThenDecided = true;
+        accepted ??= name;
         if (name === "close_thread") {
           state = {
             ...state,
@@ -70,12 +78,9 @@ function buildTools(initial: InterviewerState, candidateContent: string | null, 
               thread.status === "active" ? { ...thread, status: "closed" as const } : thread,
             ),
           };
-          return {
-            accepted: true,
-            next: "这一段已结束。紧接着调用 open_thread 或 close_interview；然后把要对候选人说的话说出来。",
-          };
+          return { accepted: true, next: "这一段已结束。紧接着调用 open_thread 或 close_interview。" };
         }
-        return { accepted: true, next: "本回合的推进动作已用完，不要再调用其他推进动作；把要对候选人说的话说出来。" };
+        return { accepted: true, next: "本回合的推进动作已定，不要再调用其他推进动作。" };
       },
     });
   }
@@ -87,7 +92,11 @@ function buildTools(initial: InterviewerState, candidateContent: string | null, 
   const skills = createSkillTools(packs);
   Object.assign(tools, skills.tools);
 
-  return { tools, outcome: () => ({ anchorHit, skillsLoaded: skills.loaded.length }) };
+  return {
+    tools,
+    decided: () => accepted !== null && (accepted !== "close_thread" || closedThenDecided),
+    outcome: () => ({ anchorHit, skillsLoaded: skills.loaded.length }),
+  };
 }
 
 function wasAccepted(output: unknown): boolean {
@@ -95,9 +104,9 @@ function wasAccepted(output: unknown): boolean {
 }
 
 /**
- * 从流的结果里提取决定：第一个被预算接受的推进动作（模型偶尔会在一回合里连做两步，
+ * 从决定这一步的结果里提取决定：第一个被预算接受的推进动作（模型偶尔会在一回合里连做两步，
  * 后面的作废；唯一例外是 close_thread 之后紧接的 open_thread / close_interview，作为
- * followUp 一起应用）、最后一次记忆更新、最后一步的话。全被拒绝时交最后一个给 reducer 兜底。
+ * followUp 一起应用）、最后一次记忆更新。全被拒绝时交最后一个给 reducer 兜底。
  */
 export function decisionFromOutcome(outcome: AgentStreamOutcome, anchorHit: boolean | null = null): TurnDecision {
   let memoryPatch: TurnDecision["memoryPatch"] = null;
@@ -122,15 +131,13 @@ export function decisionFromOutcome(outcome: AgentStreamOutcome, anchorHit: bool
     action?.name === "close_thread" && second && (second.name === "open_thread" || second.name === "close_interview")
       ? second
       : null;
-  // 推理型模型常在工具调用之后再单独说一步，且会把前一步的话复述一遍：只取最后一步。
-  const speech = [...outcome.stepTexts].reverse().find((text) => text.trim()) ?? outcome.text;
   return {
-    speech: speech.trim(),
+    speech: "",
     action,
     followUp,
     memoryPatch,
     anchorHit: action?.name === "probe" ? anchorHit : null,
-    failed: outcome.error !== null && outcome.text.trim().length === 0,
+    failed: outcome.error !== null && action === null,
   };
 }
 
@@ -141,46 +148,63 @@ export type TurnAgentInput = {
   context: { jobTitle: string; jobDescription: string; resumeText: string };
   /** 本场可查的技能包（备课时加载过的及其父包）。 */
   skillPacks: SkillPack[];
-  /** 代码已定下动作：模型只写话，不给推进工具。 */
-  forced: ForcedSpeech | null;
 };
 
-/**
- * 一个面试官回合。返回流（给 HTTP 响应）与决定（流结束后解析）。
- * 候选人这条消息由调用方追加到 messages 末尾；开场回合没有候选人消息。
- */
-export async function streamInterviewerTurn(input: TurnAgentInput) {
-  const config = await getAiTaskConfig("text");
-  const conversation: ModelMessage[] = buildConversation(input.state);
+function conversationFor(input: TurnAgentInput): ModelMessage[] {
+  const conversation = buildConversation(input.state);
   if (input.candidate?.content) {
     conversation.push({ role: "user", content: input.candidate.content });
   } else if (conversation.length === 0) {
     conversation.push({ role: "user", content: "（候选人已就座，请开场。）" });
   }
-  const turnTools = buildTools(input.state, input.candidate?.content ?? null, input.skillPacks, input.forced === null);
+  return conversation;
+}
 
+/** 第 1 步：决定。不流式，文本丢弃；返回提案与记忆更新。 */
+export async function decideTurn(input: TurnAgentInput): Promise<{ decision: TurnDecision; skillsLoaded: number }> {
+  const config = await getAiTaskConfig("text");
+  const decideTools = buildDecideTools(input.state, input.candidate?.content ?? null, input.skillPacks);
   const { stream, outcome } = streamAgent({
-    agent: "interviewer_turn",
+    agent: "interviewer_decide",
     runId: input.runId,
     config,
     feature: "AI 模拟面试",
     promptVersion: INTERVIEWER_PROMPT_VERSION,
-    system: buildInterviewerSystemPrompt(
-      input.state,
-      { ...input.context, skillIndex: input.skillPacks.length > 0 ? renderSkillIndex(input.skillPacks) : "" },
-      input.forced,
-    ),
+    system: buildDecidePrompt(input.state, {
+      ...input.context,
+      skillIndex: input.skillPacks.length > 0 ? renderSkillIndex(input.skillPacks) : "",
+    }),
     untrustedInputs: "候选人的回答、简历和岗位描述",
-    messages: conversation,
-    tools: turnTools.tools,
-    stopWhen: isStepCount(input.forced ? MAX_SPEECH_STEPS : MAX_STEPS),
+    messages: conversationFor(input),
+    tools: decideTools.tools,
+    toolChoice: "required",
+    stopWhen: ({ steps }) => steps.length >= MAX_DECIDE_STEPS || decideTools.decided(),
     timeoutMs: TURN_TIMEOUT_MS,
-    maxOutputTokens: 1_200,
+    maxOutputTokens: 800,
   });
+  await stream.consumeStream();
+  const result = await outcome;
+  const extras = decideTools.outcome();
+  return { decision: decisionFromOutcome(result, extras.anchorHit), skillsLoaded: extras.skillsLoaded };
+}
 
-  const settled = outcome.then((result) => {
-    const extras = turnTools.outcome();
-    return { decision: decisionFromOutcome(result, extras.anchorHit), skillsLoaded: extras.skillsLoaded };
+/** 第 2 步：说话。不给工具，流式返回面试官的话。 */
+export async function speakTurn(input: TurnAgentInput & { ruling: TurnRuling }) {
+  const config = await getAiTaskConfig("text");
+  const { stream, outcome } = streamAgent({
+    agent: "interviewer_speak",
+    runId: input.runId,
+    config,
+    feature: "AI 模拟面试",
+    promptVersion: INTERVIEWER_PROMPT_VERSION,
+    system: buildSpeakPrompt(input.state, { ...input.context, skillIndex: "" }, input.ruling),
+    untrustedInputs: "候选人的回答、简历和岗位描述",
+    messages: conversationFor(input),
+    tools: {},
+    toolChoice: "none",
+    timeoutMs: TURN_TIMEOUT_MS,
+    maxOutputTokens: 600,
   });
-  return { stream, settled, outcome };
+  const settled = outcome.then((result) => ({ speech: result.text.trim(), failed: result.error !== null && result.text.trim().length === 0 }));
+  return { stream, settled };
 }

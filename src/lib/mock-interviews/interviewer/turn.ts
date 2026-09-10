@@ -8,17 +8,17 @@ import type { SkillPack } from "../skills/types";
 import type { CandidateIntent } from "./actions";
 import { evidenceSummary } from "./evidence";
 import type { MemoryPatch } from "./memory";
-import type { ForcedSpeech } from "./prompt";
-import { applyTurn, fallbackAction, planTurn, type CandidateInput, type TurnResult } from "./reducer";
+import { applyTurn, planTurn, ruleTurn, type CandidateInput, type TurnDecision, type TurnResult } from "./reducer";
 import type { InterviewerState, MessageMetrics, MessageState } from "./state";
-import { streamInterviewerTurn } from "./turn-agent";
+import { decideTurn, speakTurn } from "./turn-agent";
 
 /**
- * 一个面试官回合的纯核心：定分支 → （需要时）跑模型 → reducer。不知道状态从哪来、写到哪去：
+ * 一个面试官回合的纯核心：定分支 → 决定 → 裁决 → 说话 → reducer。不知道状态从哪来、写到哪去：
  * 本地版从数据库装配并落库（session.ts），体验版从浏览器带上来、结果原样带回去。
  *
  * 候选人的插话由代码定分支（reducer.planTurn）：跳过 / 再说一遍 / 结束 / 卡住第二次不调模型，
- * 固定措辞直接流回；开场、一次提示、对质简历由代码定动作、模型只写话；其余回合模型自己决定。
+ * 固定措辞直接流回；开场、一次提示、对质简历由代码定动作、模型只写话；其余回合模型先用工具
+ * 决定（decideTurn），代码裁决（ruleTurn）后再让模型为最终动作说话（speakTurn，流式）。
  */
 
 export type TurnCandidate = {
@@ -93,15 +93,6 @@ function decisionRow(
   };
 }
 
-/** 代码定的 close_thread 之后会接什么：让模型在对质时把下一段的切入问题一起说出来。 */
-function nextAfterClose(state: InterviewerState) {
-  const closed: InterviewerState = {
-    ...state,
-    threads: state.threads.map((thread) => (thread.status === "active" ? { ...thread, status: "closed" as const } : thread)),
-  };
-  return fallbackAction(closed);
-}
-
 export async function runInterviewerTurn(input: {
   runId: string;
   state: InterviewerState;
@@ -122,23 +113,23 @@ export async function runInterviewerTurn(input: {
     };
   }
 
-  const forced: ForcedSpeech | null =
-    plan.kind === "forced"
-      ? { task: plan.task, action: plan.action, next: plan.action.name === "close_thread" ? nextAfterClose(input.state) : null }
-      : null;
-  const { stream, settled } = await streamInterviewerTurn({
+  const agentInput = {
     runId: input.runId,
     state: input.state,
     candidate: input.candidate ? { content: input.candidate.content } : null,
     context: input.context,
     skillPacks: input.skillPacks,
-    forced,
-  });
+  };
+  let decision: TurnDecision = { speech: "", action: null, memoryPatch: null };
+  let skillsLoaded = 0;
+  if (plan.kind === "model") ({ decision, skillsLoaded } = await decideTurn(agentInput));
+  const ruling = ruleTurn(input.state, candidateInput, decision);
+  const { stream, settled } = await speakTurn({ ...agentInput, ruling });
   return {
     stream,
     finalize: async () => {
-      const { decision, skillsLoaded } = await settled;
-      const result = applyTurn(input.state, candidateInput, decision);
+      const { speech } = await settled;
+      const result = applyTurn(input.state, candidateInput, { ...decision, speech });
       return { result, decision: decisionRow(input, result, decision.memoryPatch, skillsLoaded) };
     },
   };

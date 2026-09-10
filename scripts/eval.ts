@@ -793,6 +793,21 @@ function loadSessionForSnapshot(sessionId: string) {
   });
 }
 
+/** 一回合两次模型调用（决定 + 说话）共用一个 runId：按回合合并耗时与 token。 */
+function runsPerTurn(runs: { runId: string; durationMs: number; totalTokens: number | null }[]): SessionSnapshot["runs"] {
+  const byTurn = new Map<number, SessionSnapshot["runs"][number]>();
+  for (const run of runs) {
+    const turnIndex = Number(run.runId.split(":").pop());
+    const previous = byTurn.get(turnIndex);
+    byTurn.set(turnIndex, {
+      turnIndex,
+      durationMs: (previous?.durationMs ?? 0) + run.durationMs,
+      totalTokens: run.totalTokens === null && previous?.totalTokens == null ? null : (previous?.totalTokens ?? 0) + (run.totalTokens ?? 0),
+    });
+  }
+  return [...byTurn.values()].sort((a, b) => a.turnIndex - b.turnIndex);
+}
+
 async function loadSnapshot(sessionId: string, item: EvalCase, rep: number, drive: { latency: number[]; endedBy: SessionSnapshot["endedBy"]; error: string | null }): Promise<SessionSnapshot> {
   const session = await loadSessionForSnapshot(sessionId);
   if (!session) throw new Error(`会话 ${sessionId} 不存在`);
@@ -853,7 +868,7 @@ async function loadSnapshot(sessionId: string, item: EvalCase, rep: number, driv
       skillsLoaded: decision.skillsLoaded,
     })),
     report: parseStoredReport(session.reportJson),
-    runs: runs.map((run) => ({ turnIndex: Number(run.runId.split(":").pop()), durationMs: run.durationMs, totalTokens: run.totalTokens })),
+    runs: runsPerTurn(runs),
     endedBy: drive.endedBy,
     error: drive.error,
     judged: { related: {}, pushback: null, wrongQuotes: {} },
