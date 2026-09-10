@@ -37,7 +37,7 @@ flowchart TD
 | seedQuestionId | 可选，从复盘页或画像页"针对练习"进来时带上；真实面试与模拟面试的题都可以 |
 | applicationId | 可选，关联投递记录，并把 JD 回填到还没有描述的投递上 |
 
-创建时写入 `Interview`（kind=mock）和 `MockInterviewSession`：`jdTextSnapshot`、`resumeTextSnapshot`（原文快照，之后不再读源文件）、`contextSnapshotJson`（上下文 id 清单与生成参数，备课阶段补入蓝图）、`pace`、`promptVersion`（interviewer-v4）、`status=generating`。接口返回 `{ id, href }`，备课由 `after()` 调度的后台任务执行，页面轮询 `GET /api/interviews/mock/[id]/status`。
+创建时写入 `Interview`（kind=mock）和 `MockInterviewSession`：`jdTextSnapshot`、`resumeTextSnapshot`（原文快照，之后不再读源文件）、`contextSnapshotJson`（上下文 id 清单与生成参数，备课阶段补入蓝图）、`pace`、`promptVersion`（interviewer-v5）、`status=generating`。接口返回 `{ id, href }`，备课由 `after()` 调度的后台任务执行，页面轮询 `GET /api/interviews/mock/[id]/status`。
 
 ## 2. 装配上下文（`context.ts`）
 
