@@ -2,7 +2,7 @@
 
 > 基于三份流程文档描述的本地版现状与 [next-steps.md](next-steps.md) §4。体验版现状：`src/lib/trial/`、`src/app/api/trial/`、`src/components/trial/pages/`，架构见记忆 `trial-parity-architecture`（View + 注入 + 纯函数复用）。
 > 2026-09-10 第一稿；同日第二稿按用户要求改目标：**网页版功能与本地版一模一样**，只去掉评测这类只有作者用的工具，以及网页上真做不到的（§10 逐项判定）。只读代码与库，未改代码。
-> 执行状态：§12 四点已定，2026-09-10 开工。
+> 执行状态：第 1–5 步已完成并本地提交（880a855、3e5c7b3，2026-09-10），见文末的执行记录。
 
 ## 0. 现状与结论
 
@@ -177,3 +177,25 @@ TrialSegment = segmentRecord(...) + { id, threadId, evaluation: 评分 v3 全量
 2. 进行中的会话与本地版一致：按 id 各存一份（localStorage 键 `offercome.trial.interview.<id>`），可多场并行、各自随时退出再继续；列表页把所有进行中的会话列出来。原来"一次只有一场"的单键存储删掉。
 3. Boss 同步走浏览器扩展，作为阶段 2 之后的独立一段（阶段 2b），前提是能稳定实现；本阶段网页版投递记录仍手动录入。
 4. 真实面试录音导入阶段 3 再定。
+
+## 13. 执行记录（2026-09-10）
+
+### 13.1 代码
+
+- 第 1 步（880a855）：`interviewer/turn.ts`（回合纯核心 + 决策记录）、`segments.ts` 的 `segmentRecord`、`outcome.ts`、`views.ts`；`session.ts` / `completion.ts` / `queries.ts` 只剩存取。
+- 第 2–5 步（3e5c7b3）：会话文档 v3 按 id 存 `offercome.trial.interviews`（多场并行，已完成的也留着给报告 / trace 页）；五个接口 blueprint / brief / turn / evaluate / complete；`MockInterviewChat`、`MockInterviewGenerationProgress` 注入 driver，`MockInterviewSessionView` 去掉旧房间分支；`mock-actions.ts` 在浏览器里驱动备课、评分、交卷；画像推导、岗位视角与合并（`trialRoles` / `mergeTrialRoles`，视角键用岗位名归一而不是哈希）、备战页（`InterviewPrepareView` + `prepare-rules.ts` 纯口径，本地版也改用）、JD 文件（`documents/job-description.ts` 两端共用）；trace 页体验版读文档。删除清单全部执行；`isJobDescriptionEvidence` 搬到 `text/evidence.ts` 更名 `isVerbatimEvidence`；库里 2 条 v1 报告一次性升 v2。
+
+### 13.2 验证
+
+- `npm test` 416 通过（新增 `trial/interview.test.ts`：备课两步与重试、回合结果应用到文档、旧版本文档丢弃）；`tsc`、`eslint` 只剩评测代码里早于本次的两处类型错误。
+- 体验版端到端（脚本打 `localhost:3100`，Key 只进请求头，与浏览器编排同步骤）：蓝图 11 s、简报 20 s（2 个领域、3 个技能包）、回合 2–6 s × 5（开场 → 切入 → 追问 → 打断 → 收尾）、评分 12 s（60 分、2 条短板、有示范）、交卷 5 s；产物 40 KB。把产物注入浏览器后，列表页（带节奏与总分）、报告页（总分、领域、站得住 / 失守、逐段维度分与缺口、示范）与 trace 页（5 回合的提案 / 裁决 / 信息量 / 记忆增量）都正常渲染；画像页在未连模型时给出设置页引导。
+- 面试官评测回归：见 13.3。
+
+### 13.3 面试官回归（本地版回合路径）
+
+（待填）
+
+### 13.4 没做完 / 留给后续
+
+- 真机的对话式房间（流式回合、逐段评分后台跑、结束后交卷）需要在浏览器里连模型 Key 才能走，Key 由你输入；脚本已把同一条链路走通，房间组件在体验版的实际点击流程请你验证一遍。
+- Boss 浏览器扩展（阶段 2b）、语音作答（阶段 3）未动。
