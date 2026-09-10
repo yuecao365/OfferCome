@@ -47,13 +47,6 @@ export function profileSourceWeight(sourceType: ProfileSourceType): number {
   return PROFILE_SOURCE_WEIGHTS[sourceType];
 }
 
-/** Compatibility helper used by older callers. */
-export function profileEvidenceWeight(sourceKind: "real" | "mock"): number {
-  return sourceKind === "mock"
-    ? PROFILE_SOURCE_WEIGHTS.mock_text
-    : PROFILE_SOURCE_WEIGHTS.real_audio;
-}
-
 export function timeDecayWeight(date: Date, now: Date): number {
   const ageDays = Math.max(0, (now.getTime() - date.getTime()) / 86_400_000);
   return 0.5 ** (ageDays / PROFILE_HALF_LIFE_DAYS);

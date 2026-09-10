@@ -141,14 +141,19 @@ advice: 补一版完整的 Agent 主循环设计稿，重点写清上下文构�
 
 报告 v2 形状：`{ version: 2, totalScore, summary, strengths[], weaknesses[], advice[], hypotheses[] }`。旧报告（v1：strengths / improvements / actionPlan）读出时映射：improvements + actionPlan → advice，weaknesses 与 hypotheses 为空。体验版的浏览器存档仍是 v1：`/api/trial/evaluate` 与 `/api/trial/report` 把 v2 折回旧形状，报告页再映射回来。
 
-## 5. 能力画像刷新（`candidate-profile/`，后台）
+## 5. 能力画像刷新（`candidate-profile/`，后台，ability-assessment-v5）
 
-两段：
+一条链：观察 → 分维度指标 → 洞察。六个维度（知识准确性、分析深度与取舍、经历证据与结果、复盘学习与改进、表达结构与清晰度、口语流畅与节奏）都有明确来源，没有来源的维度不设。
 
-- **评估器（profile_assessment）**：逐题判断哪些画像维度适用，只输出适用维度，用带行为锚点的 1–5 级量表，`evidenceExcerpt` 必须逐字摘自回答；明确禁止从文本推断口语、情绪、性格、身份或录用概率
-- **合成器（profile_synthesis）**：服务端已算好等级、趋势、证据权重，模型只提炼洞察（弱项、训练重点等），不能重新打分
+- **观察**（`assessment.ts`，每场面试一次，按 sourceHash 幂等）
+  - 模拟面试：**纯代码从逐段评分推导**（`derive.ts`），零模型调用。评分表维度按 `interviewer/brief.ts` 的 `PROFILE_DIMENSION_BY_RUBRIC` 归属画像维度（技术正确性 / 准确性 → 知识准确性；分析与取舍 / 原理深度 → 分析深度；表达结构 / 复盘与表达 → 表达结构；事实与细节 / 证据充分性 → 经历证据；判断与反思 → 复盘改进；岗位关联不进画像）。分数按共同分带对齐：< 50 → 1，50–69 → 2，70–79 → 3，80–89 → 4，≥ 90 → 5。证据用评分给出的回答原话（逐句去引号后逐字校验，置信度 0.9），没有原话就用维度缺口（"缺口：…"，0.6），两者都没有不产出。评分重跑过（`evaluatedAt` 变）就重新推导。
+  - 真实面试：没有评分表，由**评估器（profile_assessment）**逐题判断适用维度，1–5 级带行为锚点，`evidenceExcerpt` 必须逐字摘自回答；禁止从文本推断口语、情绪、性格、身份或录用概率。
+  - 语音：`delivery_fluency` 只由语音指标代码推导（模拟面试按题、真实录音按整场）。
+  - 用户改过维度或排除过的观察，重新评估后按（题，原维度）对上照旧生效。
+- **指标**（`rules.ts`）：每场取一个点（组内按置信度加权），来源权重 × 180 天半衰期，趋势要三个日期。
+- **合成器（profile_synthesis）**：服务端已算好等级、趋势、证据权重，模型只提炼洞察（弱项、训练重点等），不能重新打分。
 
-画像页的"近期定性反馈"卡直接读逐段评分的 strengths / weaknesses 要点。这些洞察下一次备课时作为 `knownWeaknesses` 进入简报 agent，形成闭环。
+反哺备课不走洞察：画像页的"近期定性反馈"卡和下一场备课的 `recentWeaknesses` 读的都是逐段评分的短板（`mock-interviews/recent-feedback.ts`），见面试前一篇 §2。洞察是维度级的教练话术，备课需要的是考点。
 
 评测会话的隔离：`Interview.evalTag` 非空的面试由评测运行器创建（见 [eval.md](eval.md)），面试历史、工作台最近面试、最近模拟面试、画像的已完成面试与近期反馈、训练种子都用 `REAL_USAGE_INTERVIEW_WHERE`（`evalTag: null`）排除它们。
 

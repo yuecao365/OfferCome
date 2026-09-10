@@ -11,7 +11,7 @@ import {
 import { persistProfileViews } from "./persist";
 import { acquireProfileRefreshLease, ensureCandidateProfileState } from "./state";
 import { buildProfileViews } from "./synthesis";
-import { normalizeProfileDimension } from "./types";
+import { parseProfileDimension } from "./types";
 import {
   PROFILE_AGGREGATION_VERSION,
   PROFILE_ASSESSMENT_VERSION,
@@ -268,7 +268,7 @@ export async function correctAbilityObservation(input: {
   const observation = await prisma.abilityObservation.findUnique({ where: { id: input.id } });
   if (!observation) throw new Error("能力证据不存在。");
   if (input.action === "reassign_dimension") {
-    const dimension = input.dimension ? normalizeProfileDimension(input.dimension) : null;
+    const dimension = input.dimension ? parseProfileDimension(input.dimension) : null;
     if (!dimension) throw new Error("请选择有效的能力维度。");
     await prisma.abilityObservation.update({
       where: { id: input.id },

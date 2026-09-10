@@ -43,10 +43,7 @@ export default async function MockInterviewsPage({
       getRecentMockInterviews(),
       getAiTaskConfig("text"),
       getAiTaskConfig("transcription"),
-      resolveMockInterviewSeed({
-        seedQuestionId: firstParam(params.seedQuestionId),
-        seedInsightId: firstParam(params.seedInsightId),
-      }),
+      resolveMockInterviewSeed(firstParam(params.seedQuestionId)),
       applicationId
         ? prisma.bossContact.findUnique({
             where: { id: applicationId },

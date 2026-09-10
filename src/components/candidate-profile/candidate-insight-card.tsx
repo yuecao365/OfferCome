@@ -6,7 +6,7 @@ import { useState } from "react";
 
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Button, ButtonLink } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { FieldLabel, Input, Textarea } from "@/components/ui/form-controls";
 import {
@@ -142,15 +142,6 @@ export function CandidateInsightCard({
 
       {error ? <Alert className="mt-3" tone="danger">{error}</Alert> : null}
       <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-4">
-        {insight.kind === "weakness" || insight.kind === "training_focus" ? (
-          <ButtonLink
-            href={`/interviews/mock?seedInsightId=${encodeURIComponent(insight.id)}`}
-            size="sm"
-            variant="outline"
-          >
-            针对性训练
-          </ButtonLink>
-        ) : null}
         {editing ? (
           <>
             <Button disabled={pending} onClick={() => update("edit")} size="sm">保存并保护</Button>

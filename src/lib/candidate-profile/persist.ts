@@ -6,7 +6,7 @@ import type { synthesizeCandidateInsights } from "./agent";
 import { detectInsightConflict } from "./conflict";
 import { isTentativeProfileMetric } from "./rules";
 import { validateSynthesis, type ProfileView } from "./synthesis";
-import { PROFILE_ASSESSMENT_VERSION } from "./types";
+import { PROFILE_ASSESSMENT_VERSION, PROFILE_DIMENSIONS } from "./types";
 
 /**
  * 画像流水线第三相：把指标、洞察和快照写库。
@@ -33,6 +33,10 @@ export async function persistProfileViews(
   let insightCount = 0;
   await prisma.$transaction(async (tx) => {
     for (const view of views) {
+      // 维度集合变化后，已删维度的指标行不再更新，直接清掉。
+      await tx.candidateProfileMetric.deleteMany({
+        where: { roleKey: view.roleKey, dimension: { notIn: [...PROFILE_DIMENSIONS] } },
+      });
       for (const metric of view.metrics) {
         await tx.candidateProfileMetric.upsert({
           where: { roleKey_dimension: { roleKey: view.roleKey, dimension: metric.dimension } },

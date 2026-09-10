@@ -6,14 +6,12 @@ import { isTrialMode } from "@/lib/runtime-mode";
 import { CandidateProfileDashboard } from "@/components/candidate-profile/candidate-profile-dashboard";
 import {
   PROFILE_INSIGHT_KINDS,
-  normalizeProfileDimension,
+  parseProfileDimension,
   normalizeProfileSourceType,
   type ProfileInsightKind,
 } from "@/lib/candidate-profile/types";
-import {
-  getCandidateProfilePageData,
-  getRecentQualitativeFeedback,
-} from "@/lib/candidate-profile/queries";
+import { getCandidateProfilePageData } from "@/lib/candidate-profile/queries";
+import { getRecentEvaluatedQuestions } from "@/lib/mock-interviews/recent-feedback";
 import { RecentFeedbackCard } from "@/components/candidate-profile/recent-feedback-card";
 
 function isKind(value: string): value is ProfileInsightKind {
@@ -32,10 +30,10 @@ export default async function CandidateProfilePage() {
   await connection();
   const [data, recentFeedback] = await Promise.all([
     getCandidateProfilePageData(),
-    getRecentQualitativeFeedback(),
+    getRecentEvaluatedQuestions(),
   ]);
   const insights = data.insights.flatMap((insight) => {
-    const dimension = normalizeProfileDimension(insight.dimension);
+    const dimension = parseProfileDimension(insight.dimension);
     if (!dimension || !isKind(insight.kind)) return [];
     return [
       {
@@ -75,7 +73,7 @@ export default async function CandidateProfilePage() {
     ];
   });
   const metrics = data.metrics.flatMap((metric) => {
-    const dimension = normalizeProfileDimension(metric.dimension);
+    const dimension = parseProfileDimension(metric.dimension);
     return dimension ? [{
       roleKey: metric.roleKey,
       dimension,
@@ -95,7 +93,7 @@ export default async function CandidateProfilePage() {
     const snapshotMetrics = Array.isArray(parsed) ? parsed.flatMap((item) => {
       if (!item || typeof item !== "object") return [];
       const record = item as Record<string, unknown>;
-      const dimension = typeof record.dimension === "string" ? normalizeProfileDimension(record.dimension) : null;
+      const dimension = typeof record.dimension === "string" ? parseProfileDimension(record.dimension) : null;
       return dimension ? [{
         dimension,
         level: typeof record.level === "number" ? record.level : null,

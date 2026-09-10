@@ -126,6 +126,7 @@ export function buildTrialContext(input: {
     projects: input.resume.projects,
     history: [],
     profile: { revision: 0, insights: [] },
+    recentWeaknesses: [],
   };
 }
 

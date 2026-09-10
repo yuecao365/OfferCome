@@ -13,11 +13,13 @@ import {
   type ProfileDimension,
 } from "./types";
 
-// delivery_fluency 由语音指标代码推导；reflection_growth 逐题几乎观察不到
-// （候选人很少在单题回答里展示复盘），降级为合成阶段的跨场洞察信号，不再逐题打分。
+/**
+ * 真实面试的逐题评估：真实面试没有评分表和逐段评分，只能让模型读回答。
+ * 模拟面试不走这里（观察由逐段评分推导，见 derive.ts）。delivery_fluency 只由语音指标代码推导。
+ */
 const TEXT_ASSESSMENT_DIMENSIONS = PROFILE_DIMENSIONS.filter(
-  (dimension) => dimension !== "delivery_fluency" && dimension !== "reflection_growth",
-) as Exclude<ProfileDimension, "delivery_fluency" | "reflection_growth">[];
+  (dimension) => dimension !== "delivery_fluency",
+) as Exclude<ProfileDimension, "delivery_fluency">[];
 
 const observationSchema = z.object({
   observations: z.array(
@@ -60,13 +62,7 @@ export async function assessInterviewQuestions(input: {
   companyName: string;
   jobTitle: string;
   sourceType: string;
-  questions: Array<{
-    id: string;
-    question: string;
-    answer: string;
-    category: string;
-    existingEvaluation?: { score: number | null; feedback: string | null } | null;
-  }>;
+  questions: Array<{ id: string; question: string; answer: string; category: string }>;
 }): Promise<{
   observations: AssessedObservation[];
   provider: string;
@@ -87,7 +83,7 @@ ${TEXT_ASSESSMENT_DIMENSIONS.map((id) => `- ${id}: ${PROFILE_DIMENSION_LABELS[id
 
 每项使用带行为锚点的 1–5 级量表：1=关键内容明显缺失或错误，2=有基本尝试但不稳定，3=达到常规面试要求且大体完整，4=证据充分并有清晰分析，5=准确、深入、可迁移且有明确取舍。
 
-evidenceExcerpt 必须逐字摘自对应回答，不得改写。confidence 只表示本次观察能否由摘录支持。不要从文本推断口语流畅度、节奏、情绪、性格、口音、身份或录用概率。既有模拟面试反馈只能作为辅助，不能替代逐字证据。版本：${PROFILE_ASSESSMENT_VERSION}`,
+evidenceExcerpt 必须逐字摘自对应回答，不得改写。confidence 只表示本次观察能否由摘录支持。不要从文本推断口语流畅度、节奏、情绪、性格、口音、身份或录用概率。版本：${PROFILE_ASSESSMENT_VERSION}`,
     payload: input,
   });
   const answers = new Map(input.questions.map((item) => [item.id, item.answer]));

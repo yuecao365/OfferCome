@@ -275,12 +275,10 @@ model InterviewQuestionEvaluation {
   id                       String               @id @default(cuid())
   interviewQuestionId      String               @unique
   interviewQuestion        InterviewQuestion    @relation(fields: [interviewQuestionId], references: [id], onDelete: Cascade)
-  assessmentId             String?
-  assessment               InterviewAssessment? @relation(fields: [assessmentId], references: [id], onDelete: SetNull)
-  sourceKind               String               @default("profile")
+  /// 领域类型（technical / project / behavioral）；旧题库流程写的是出题来源。
+  sourceKind               String
   rubricJson               String               @default("{}")
   expectedSignalsJson      String               @default("[]")
-  applicableDimensionsJson String?
   generationMetadataJson   String               @default("{}")
   evaluationStatus         String               @default("pending")
   evaluationError          String?
@@ -297,7 +295,6 @@ model InterviewQuestionEvaluation {
   updatedAt                DateTime             @updatedAt
 
   @@index([score])
-  @@index([assessmentId])
   @@index([evaluationStatus])
 }
 
@@ -344,7 +341,6 @@ model InterviewAssessment {
   error               String?
   startedAt           DateTime                      @default(now())
   completedAt         DateTime?
-  questionEvaluations InterviewQuestionEvaluation[]
   observations        AbilityObservation[]
   createdAt           DateTime                      @default(now())
   updatedAt           DateTime                      @updatedAt

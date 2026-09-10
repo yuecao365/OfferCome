@@ -7,7 +7,7 @@
 - 产品：OfferCome，本地优先的求职工作台，核心是 AI 模拟面试。技术栈 Next.js 16（App Router）+ Prisma 7 / SQLite + Vercel AI SDK v7。`AGENTS.md` 的可维护性规则必须遵守。
 - 面试流程现状见四份流程文档：[总览](interview-flow-overview.md) · [面试前](interview-flow-before.md) · [面试中](interview-flow-during.md) · [面试后](interview-flow-after.md)；评测现状见 [eval.md](eval.md)。它们是"现状描述"，改完代码要原地更新。
 - 已完成的计划（都标了执行状态）：[面试前](interview-before-plan.md)（第 5 步"简报结构指标"已并入评测）、[面试中](interview-during-plan.md)、[面试后](interview-after-plan.md)。
-- 版本号：备课简报 v4、备课提示词 brief-v6、面试官提示词 interviewer-v4、评分 evaluation-v3、汇总 summary-v2、示范 exemplar-v1、报告 reportJson v2。
+- 版本号：备课简报 v4、备课提示词 brief-v7、面试官提示词 interviewer-v4、评分 evaluation-v3、汇总 summary-v2、示范 exemplar-v1、报告 reportJson v2、画像 ability-assessment-v5。
 - 体验版（网页版，`src/lib/trial/`、`src/app/api/trial/`）仍走旧题库流程（question-generation-agent、follow-up-agent、planning），与本地版的对话式流程不同步；它只通过两个接口把评分 v2 折回旧形状。
 - 未推送：`origin/main` 停在 `c974b9e`，本地领先约 30 个提交。推送前问用户。
 - 用户的 `.local/` 上传目录曾丢失，默认简历以 txt 恢复，原 PDF 需用户重传。
@@ -37,7 +37,9 @@
 
 ## 3. 阶段 1：能力画像检查
 
-要回答的问题：
+已完成（2026-09-10）：计划、答案与实验记录见 [profile-plan.md](profile-plan.md)。结果：模拟面试的观察改由逐段评分推导（零模型调用），画像收敛到六维并把评分表→画像维度的映射写进代码，反哺备课改喂考点级的最近短板（`recentWeaknesses`），`seedInsightId` 与报告页的画像卡删除。
+
+当时要回答的问题：
 
 1. `candidate-profile/assessment-agent.ts` 逐题重读回答产出 1–5 级观察，与评分 v2 的维度分 + 证据 + 缺口是否重复；能否直接从评分结果推导观察，去掉一次模型调用。
 2. 画像维度（`PROFILE_DIMENSION_LABELS`）与评分表维度、简报领域 kind / style 之间的映射是否清楚。

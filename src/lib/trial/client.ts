@@ -168,7 +168,6 @@ export async function assessInterview(input: {
     question: string;
     answer: string;
     category: string;
-    existingEvaluation?: { score: number | null; feedback: string | null } | null;
   }>;
 }): Promise<
   Array<{

@@ -11,7 +11,7 @@ import {
 import {
   PROFILE_DIMENSIONS,
   PROFILE_INSIGHT_KINDS,
-  normalizeProfileDimension,
+  parseProfileDimension,
   normalizeProfileSourceType,
   type ProfileInsightKind,
 } from "@/lib/candidate-profile/types";
@@ -89,7 +89,7 @@ function aggregationObservations(
   );
   return trialProfile(workspace).observations.flatMap((observation) => {
     const interview = interviews.get(observation.interviewId);
-    const dimension = normalizeProfileDimension(observation.dimension);
+    const dimension = parseProfileDimension(observation.dimension);
     if (!interview || !dimension) return [];
     return [
       {
@@ -136,7 +136,7 @@ export function trialProfileInsightViews(
   );
 
   return profile.insights.flatMap((insight) => {
-    const dimension = normalizeProfileDimension(insight.dimension);
+    const dimension = parseProfileDimension(insight.dimension);
     if (!dimension || !isInsightKind(insight.kind)) return [];
     const metric = metrics.find((item) => item.dimension === dimension);
 
@@ -244,7 +244,7 @@ export function applyTrialSynthesis(
   const locked = profile.insights.filter((insight) => insight.isUserLocked);
   const fresh = insights.map((insight) => {
     const metric = metrics.find(
-      (item) => item.dimension === normalizeProfileDimension(insight.dimension),
+      (item) => item.dimension === parseProfileDimension(insight.dimension),
     );
     const supportingInterviewIds = insight.evidence.flatMap((reference) => {
       const observation = observations.get(reference.observationId);
@@ -339,7 +339,7 @@ export function correctTrialObservation(
         if (observation.id !== input.id) return observation;
         if (input.action === "reassign_dimension") {
           const dimension = input.dimension
-            ? normalizeProfileDimension(input.dimension)
+            ? parseProfileDimension(input.dimension)
             : null;
           return dimension
             ? { ...observation, dimension, status: "active" as const }

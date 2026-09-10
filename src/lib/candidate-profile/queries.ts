@@ -1,13 +1,10 @@
 import "server-only";
 
 import { prisma } from "@/lib/db";
-import { REAL_USAGE_INTERVIEW_WHERE } from "@/lib/interviews/types";
-import { parseJsonValue } from "@/lib/json";
-import { parseStoredEvaluationList } from "@/lib/mock-interviews/question-evaluation";
 
 import {
   PROFILE_INSIGHT_KINDS,
-  normalizeProfileDimension,
+  parseProfileDimension,
   type CandidateProfileContext,
   type ProfileInsightKind,
 } from "./types";
@@ -31,11 +28,11 @@ export async function getCandidateProfileContext(): Promise<CandidateProfileCont
   return {
     revision: state.revision,
     insights: insights.flatMap((insight) =>
-      normalizeProfileDimension(insight.dimension) && isKind(insight.kind)
+      parseProfileDimension(insight.dimension) && isKind(insight.kind)
         ? [
             {
               id: insight.id,
-              dimension: normalizeProfileDimension(insight.dimension)!,
+              dimension: parseProfileDimension(insight.dimension)!,
               kind: insight.kind,
               title: insight.title,
               statement: insight.statement,
@@ -45,76 +42,6 @@ export async function getCandidateProfileContext(): Promise<CandidateProfileCont
         : [],
     ),
   };
-}
-
-export type RecentFeedbackItem = {
-  questionId: string;
-  question: string;
-  companyName: string;
-  jobTitle: string;
-  score: number | null;
-  strengths: string[];
-  weaknesses: string[];
-};
-
-/**
- * 冷启动叙事卡的数据源：直接聚合最近几场面试的逐题反馈（评分 agent 已产出，
- * 零额外模型调用）。画像门槛不足时页面靠它保持"有东西可看"。
- */
-export async function getRecentQualitativeFeedback(
-  limit = 3,
-): Promise<RecentFeedbackItem[]> {
-  const interviews = await prisma.interview.findMany({
-    where: {
-      ...REAL_USAGE_INTERVIEW_WHERE,
-      status: "completed",
-      questions: { some: { evaluation: { evaluationStatus: "completed" } } },
-    },
-    orderBy: [{ interviewedAt: "desc" }, { updatedAt: "desc" }],
-    take: limit,
-    select: {
-      companyName: true,
-      jobTitle: true,
-      questions: {
-        orderBy: { sortOrder: "asc" },
-        select: {
-          id: true,
-          question: true,
-          evaluation: {
-            select: {
-              evaluationStatus: true,
-              score: true,
-              strengthsJson: true,
-              weaknessesJson: true,
-            },
-          },
-        },
-      },
-    },
-  });
-
-  // 评分 v2 的 strengths / weaknesses 带原话引用，这里只取要点；旧记录是字符串数组，同样兼容。
-  const points = (json: string | null) =>
-    parseStoredEvaluationList<{ point: string }>(parseJsonValue(json), (point) => ({ point })).map((item) => item.point);
-  return interviews.flatMap((interview) =>
-    interview.questions.flatMap((question) => {
-      if (question.evaluation?.evaluationStatus !== "completed") return [];
-      const strengths = points(question.evaluation.strengthsJson);
-      const weaknesses = points(question.evaluation.weaknessesJson);
-      if (strengths.length === 0 && weaknesses.length === 0) return [];
-      return [
-        {
-          questionId: question.id,
-          question: question.question,
-          companyName: interview.companyName,
-          jobTitle: interview.jobTitle,
-          score: question.evaluation.score,
-          strengths,
-          weaknesses,
-        },
-      ];
-    }),
-  );
 }
 
 export async function getCandidateProfilePageData() {

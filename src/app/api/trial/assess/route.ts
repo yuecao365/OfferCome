@@ -13,7 +13,6 @@ type Body = {
     question: string;
     answer: string;
     category: string;
-    existingEvaluation?: { score: number | null; feedback: string | null } | null;
   }>;
 };
 

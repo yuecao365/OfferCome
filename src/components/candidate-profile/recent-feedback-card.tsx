@@ -1,7 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import type { RecentFeedbackItem } from "@/lib/candidate-profile/queries";
+import type { EvaluatedQuestion } from "@/lib/mock-interviews/recent-feedback";
 
 type FeedbackEntry = {
   questionId: string;
@@ -11,8 +11,8 @@ type FeedbackEntry = {
 };
 
 function collect(
-  items: RecentFeedbackItem[],
-  pick: (item: RecentFeedbackItem) => string[],
+  items: EvaluatedQuestion[],
+  pick: (item: EvaluatedQuestion) => string[],
   limit: number,
 ): FeedbackEntry[] {
   const seen = new Set<string>();
@@ -38,9 +38,9 @@ function collect(
  * 冷启动叙事卡：画像还在积累时，直接把最近几场的逐题反馈聚合成
  * "保持什么 / 练什么"，弱点直达针对性练习。零模型调用。
  */
-export function RecentFeedbackCard({ items }: { items: RecentFeedbackItem[] }) {
+export function RecentFeedbackCard({ items }: { items: EvaluatedQuestion[] }) {
   const strengths = collect(items, (item) => item.strengths, 4);
-  const weaknesses = collect(items, (item) => item.weaknesses, 4);
+  const weaknesses = collect(items, (item) => item.weaknesses.map((weakness) => weakness.point), 4);
   if (strengths.length === 0 && weaknesses.length === 0) return null;
 
   return (

@@ -18,7 +18,6 @@ export type GenerationSnapshot = {
     difficulty?: unknown;
     round?: unknown;
     seedQuestionId?: unknown;
-    seedInsightId?: unknown;
   };
   generationErrorContext?: unknown;
   [key: string]: unknown;

@@ -1,12 +1,10 @@
 export const PROFILE_DIMENSIONS = [
-  "answer_relevance",
   "knowledge_accuracy",
   "reasoning_depth",
-  "problem_solving",
   "experience_evidence",
+  "reflection_growth",
   "communication_clarity",
   "delivery_fluency",
-  "reflection_growth",
 ] as const;
 
 export const PROFILE_INSIGHT_KINDS = [
@@ -31,15 +29,18 @@ export type ProfileTrend = "up" | "down" | "stable" | "insufficient";
 export type ProfileLevelLabel = "待积累" | "基础" | "稳定" | "熟练" | "突出";
 export type EvidenceConfidenceLabel = "待积累" | "较低" | "中等" | "较高";
 
+/**
+ * 六个维度都有明确的来源：模拟面试由逐段评分的评分表维度映射而来（见
+ * `interviewer/brief.ts` 的 PROFILE_DIMENSION_BY_RUBRIC），真实面试由评估器逐题判断，
+ * delivery_fluency 只由语音指标代码推导。没有来源的维度不设。
+ */
 export const PROFILE_DIMENSION_LABELS: Record<ProfileDimension, string> = {
-  answer_relevance: "扣题与完整性",
   knowledge_accuracy: "知识准确性",
   reasoning_depth: "分析深度与取舍",
-  problem_solving: "问题拆解与方案",
   experience_evidence: "经历证据与结果",
+  reflection_growth: "复盘学习与改进",
   communication_clarity: "表达结构与清晰度",
   delivery_fluency: "口语流畅与节奏",
-  reflection_growth: "复盘学习与改进",
 };
 
 export const PROFILE_INSIGHT_KIND_LABELS: Record<ProfileInsightKind, string> = {
@@ -49,23 +50,19 @@ export const PROFILE_INSIGHT_KIND_LABELS: Record<ProfileInsightKind, string> = {
   training_focus: "训练建议",
 };
 
-/**
- * 页面按三组呈现，8 维保留为底层观察信号（历史数据零迁移）。
- * reflection_growth 不在任何组里：它在逐题层面几乎不可观察，
- * 只作为洞察合成阶段的跨场信号存在。
- */
+/** 页面按三组呈现，维度保留为底层观察信号。 */
 export const PROFILE_DIMENSION_GROUPS = [
   {
     key: "content",
     label: "内容力",
-    description: "知识、分析与方案能力",
-    dimensions: ["knowledge_accuracy", "reasoning_depth", "problem_solving"],
+    description: "知识准确与分析取舍",
+    dimensions: ["knowledge_accuracy", "reasoning_depth"],
   },
   {
     key: "evidence",
     label: "证据力",
-    description: "扣题程度与经历支撑",
-    dimensions: ["answer_relevance", "experience_evidence"],
+    description: "经历支撑与复盘改进",
+    dimensions: ["experience_evidence", "reflection_growth"],
   },
   {
     key: "delivery",
@@ -98,20 +95,13 @@ export function normalizeProfileSourceType(
   return "real_summary";
 }
 
-const LEGACY_DIMENSION_MAP: Record<string, ProfileDimension> = {
-  technical_knowledge: "knowledge_accuracy",
-  problem_solving: "problem_solving",
-  project_storytelling: "experience_evidence",
-  behavioral_examples: "experience_evidence",
-  communication_structure: "communication_clarity",
-  learning_progress: "reflection_growth",
-};
+export function isProfileDimension(value: string): value is ProfileDimension {
+  return (PROFILE_DIMENSIONS as readonly string[]).includes(value);
+}
 
-export function normalizeProfileDimension(value: string): ProfileDimension | null {
-  if ((PROFILE_DIMENSIONS as readonly string[]).includes(value)) {
-    return value as ProfileDimension;
-  }
-  return LEGACY_DIMENSION_MAP[value] ?? null;
+/** 库里存的是字符串；不认识的维度（已删除的旧维度）按不存在处理。 */
+export function parseProfileDimension(value: string): ProfileDimension | null {
+  return isProfileDimension(value) ? value : null;
 }
 
 export type CandidateProfileContextInsight = {
@@ -128,22 +118,6 @@ export type CandidateProfileContext = {
   insights: CandidateProfileContextInsight[];
 };
 
-export type ProfileEvidenceItem = {
-  observationId?: string;
-  interviewId: string;
-  questionId: string;
-  sourceType: ProfileSourceType;
-  companyName: string;
-  jobTitle: string;
-  roleKey: string | null;
-  question: string;
-  answer: string;
-  category: string;
-  score: number | null;
-  feedback: string;
-  updatedAt: string;
-};
-
 export type ProfileRefreshStatus = {
   status: string;
   phase: string;
@@ -157,8 +131,8 @@ export type ProfileRefreshStatus = {
 };
 
 export const PROFILE_STATE_ID = "default";
-// v4：评估前加了回答信息量闸门，升版本触发全量重建，冲掉垃圾回答产生的观察。
-export const PROFILE_ASSESSMENT_VERSION = "ability-assessment-v4";
+// v5：模拟面试的观察改由逐段评分推导，维度收敛到六个；升版本触发全量重建。
+export const PROFILE_ASSESSMENT_VERSION = "ability-assessment-v5";
 export const PROFILE_AGGREGATION_VERSION = "candidate-profile-scoring-v3-real-priority";
 export const PROFILE_PROMPT_VERSION = "candidate-profile-v4-coach";
 export const PROFILE_DEBOUNCE_MS = 60_000;

@@ -5,7 +5,6 @@ import {
   aggregateProfileDimension,
   deriveInsightStatus,
   isAssessableAnswer,
-  profileEvidenceWeight,
   profileSourceWeight,
   sanitizeInsightText,
   timeDecayWeight,
@@ -42,7 +41,7 @@ function observation(input: Partial<AggregationObservation> = {}): AggregationOb
   return {
     interviewId: "interview-1",
     interviewDate: now,
-    dimension: "answer_relevance",
+    dimension: "knowledge_accuracy",
     score: 3,
     modelConfidence: 1,
     sourceType: "real_transcript",
@@ -55,13 +54,12 @@ test("uses the fixed source weights", () => {
   assert.equal(profileSourceWeight("real_transcript"), 0.9);
   assert.equal(profileSourceWeight("real_summary"), 0.75);
   assert.equal(profileSourceWeight("mock_text"), 0.5);
-  assert.equal(profileEvidenceWeight("mock"), 0.5);
   assert.ok(profileSourceWeight("real_summary") > profileSourceWeight("mock_text"));
 });
 
 test("lets real interview evidence influence the profile more than AI simulation", () => {
   const metric = aggregateProfileDimension(
-    "answer_relevance",
+    "knowledge_accuracy",
     [
       observation({
         interviewId: "real",
@@ -89,19 +87,19 @@ test("caps each interview to one aggregate point and keeps N/A out of the score"
   const repeated = Array.from({ length: 10 }, (_, index) =>
     observation({ score: index % 2 ? 5 : 1 }),
   );
-  const metric = aggregateProfileDimension("answer_relevance", repeated, now);
+  const metric = aggregateProfileDimension("knowledge_accuracy", repeated, now);
   assert.equal(metric.interviewCount, 1);
   assert.equal(metric.evidenceCount, 10);
   // 门槛下放：1 场面试即给出等级（展示层按 interviewCount 标注"初步"）。
   assert.equal(metric.levelLabel, "熟练");
-  const notApplicable = aggregateProfileDimension("knowledge_accuracy", repeated, now);
+  const notApplicable = aggregateProfileDimension("reasoning_depth", repeated, now);
   assert.equal(notApplicable.level, null);
   assert.equal(notApplicable.evidenceCount, 0);
 });
 
 test("weights recent interviews more heavily without erasing older evidence", () => {
   const metric = aggregateProfileDimension(
-    "answer_relevance",
+    "knowledge_accuracy",
     [
       observation({ interviewId: "old", interviewDate: new Date("2025-07-22"), score: 1 }),
       observation({ interviewId: "new", score: 5 }),
@@ -114,7 +112,7 @@ test("weights recent interviews more heavily without erasing older evidence", ()
 
 test("requires three dates and a 0.25-level estimated change for trend", () => {
   const rising = aggregateProfileDimension(
-    "answer_relevance",
+    "knowledge_accuracy",
     [
       observation({ interviewId: "one", interviewDate: new Date("2026-01-01"), score: 2 }),
       observation({ interviewId: "two", interviewDate: new Date("2026-03-01"), score: 3 }),
@@ -124,7 +122,7 @@ test("requires three dates and a 0.25-level estimated change for trend", () => {
   );
   assert.equal(rising.trend, "up");
   const insufficient = aggregateProfileDimension(
-    "answer_relevance",
+    "knowledge_accuracy",
     [observation({ interviewId: "one" }), observation({ interviewId: "two" })],
     now,
   );
@@ -133,7 +131,7 @@ test("requires three dates and a 0.25-level estimated change for trend", () => {
 
 test("excludes user-rejected evidence and never creates text-only fluency", () => {
   const excluded = aggregateProfileDimension(
-    "answer_relevance",
+    "knowledge_accuracy",
     [observation({ status: "excluded", score: 5 }), observation({ interviewId: "kept", score: 2 })],
     now,
   );

@@ -65,7 +65,7 @@ export function MockInterviewSetup({
   resumes: ResumeOption[];
   textConfigured: boolean;
   transcriptionConfigured: boolean;
-  seed?: { id: string; kind: "question" | "insight"; title: string } | null;
+  seed?: { id: string; title: string } | null;
   application?: MockInterviewApplication | null;
   /** 覆盖默认的创建接口（体验版走无状态 API + 浏览器存储）。 */
   createSession?: (formData: FormData) => Promise<{ href: string }>;
@@ -135,11 +135,7 @@ export function MockInterviewSetup({
           <Link className="ml-2 font-medium underline" href="/interviews/mock">
             关闭
           </Link>
-          <input
-            name={seed.kind === "question" ? "seedQuestionId" : "seedInsightId"}
-            type="hidden"
-            value={seed.id}
-          />
+          <input name="seedQuestionId" type="hidden" value={seed.id} />
         </Alert>
       ) : null}
       {!textConfigured ? (

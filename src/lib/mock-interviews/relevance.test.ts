@@ -63,6 +63,7 @@ function contextWithHistory(
       category: "technical",
     })),
     profile: { revision: 1, insights: [] },
+    recentWeaknesses: [],
   };
 }
 

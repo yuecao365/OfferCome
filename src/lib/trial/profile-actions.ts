@@ -75,10 +75,6 @@ export async function refreshTrialProfile(): Promise<void> {
             question: question.question,
             answer: question.answer,
             category: question.category,
-            existingEvaluation:
-              question.score != null || question.feedback
-                ? { score: question.score ?? null, feedback: question.feedback ?? null }
-                : null,
           })),
       });
       mutateWorkspace((current) =>

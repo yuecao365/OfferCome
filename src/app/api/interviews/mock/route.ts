@@ -66,7 +66,6 @@ export async function POST(request: Request) {
       interactionMode: stringValue(formData, "interactionMode") || "text",
       pace: stringValue(formData, "pace"),
       seedQuestionId: stringValue(formData, "seedQuestionId") || null,
-      seedInsightId: stringValue(formData, "seedInsightId") || null,
       applicationId: stringValue(formData, "applicationId") || null,
     });
     if (!result.mockSession) throw new Error("模拟面试会话创建失败。");

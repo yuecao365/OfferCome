@@ -113,6 +113,7 @@ beforeEach(async () => {
   await prisma.candidateProfileSnapshot.deleteMany();
   await prisma.candidateProfileRun.deleteMany();
   await prisma.candidateProfileState.deleteMany();
+  await prisma.interviewQuestionEvaluation.deleteMany();
   await prisma.interviewQuestion.deleteMany();
   await prisma.interview.deleteMany();
   await prisma.roleContext.deleteMany();
@@ -120,16 +121,16 @@ beforeEach(async () => {
 
 let interviewCounter = 0;
 
-/** 造一场已完成、有回答的真实面试——这是画像的唯一素材来源。 */
+/** 造一场已完成、有回答的真实面试：真实面试要走评估器。 */
 async function seedCompletedInterview(
-  overrides: { jobTitle?: string; kind?: string; answer?: string } = {},
+  overrides: { jobTitle?: string; answer?: string } = {},
 ) {
   interviewCounter += 1;
   const answer = overrides.answer ?? `第 ${interviewCounter} 场的详细回答内容，包含具体机制说明。`;
   return prisma.interview.create({
     data: {
-      kind: overrides.kind ?? "real",
-      sourceType: overrides.kind === "mock" ? "mock" : "real_summary",
+      kind: "real",
+      sourceType: "real_summary",
       companyName: `公司 ${interviewCounter}`,
       jobTitle: overrides.jobTitle ?? "后端工程师",
       status: "completed",
@@ -141,6 +142,47 @@ async function seedCompletedInterview(
             answer,
             category: "technical",
             sortOrder: 0,
+          },
+        ],
+      },
+    },
+    include: { questions: true },
+  });
+}
+
+/** 造一场已完成、有逐段评分的模拟面试：观察从评分推导，不调评估器。 */
+async function seedCompletedMockInterview() {
+  interviewCounter += 1;
+  const answer = "队列满了才会去创建非核心线程。到了核心数以后先把任务塞进 workQueue。";
+  return prisma.interview.create({
+    data: {
+      kind: "mock",
+      sourceType: "mock",
+      companyName: `公司 ${interviewCounter}`,
+      jobTitle: "后端工程师",
+      status: "completed",
+      interviewedAt: new Date(2026, 0, interviewCounter),
+      questions: {
+        create: [
+          {
+            question: "线程池核心数到了之后任务去哪了？",
+            answer,
+            category: "technical",
+            sortOrder: 0,
+            evaluation: {
+              create: {
+                sourceKind: "technical",
+                rubricJson: JSON.stringify([{ name: "准确性", weight: 60 }, { name: "原理深度", weight: 25 }, { name: "表达结构", weight: 15 }]),
+                evaluationStatus: "completed",
+                score: 78,
+                evaluatedAt: new Date(),
+                dimensionsJson: JSON.stringify([
+                  { name: "准确性", score: 88, evidence: "“队列满了才会去创建非核心线程。”", gap: null },
+                  { name: "原理深度", score: 60, evidence: "改写过的引用", gap: "没有讲为什么大队列会掩盖问题" },
+                  { name: "表达结构", score: 80, evidence: "改写过的引用", gap: null },
+                ]),
+              },
+            },
           },
         ],
       },
@@ -195,6 +237,25 @@ test("assesses interviews, synthesises insights and stores a snapshot", async ()
   assert.ok(finalState.lastRefreshedAt);
 });
 
+test("derives mock interview observations from the segment scores without calling the agent", async () => {
+  await seedCompletedMockInterview();
+  await state.markCandidateProfileDirty({ debounceMs: 0 });
+
+  const result = await service.refreshCandidateProfile({ force: true });
+
+  assert.equal(result.status, "success");
+  assert.equal(stubs.assessCalls.length, 0);
+  const observations = await prisma.abilityObservation.findMany({ orderBy: { dimension: "asc" } });
+  assert.deepEqual(
+    observations.map((item) => [item.dimension, item.score, item.evidenceExcerpt]),
+    [
+      ["knowledge_accuracy", 4, "队列满了才会去创建非核心线程。"],
+      ["reasoning_depth", 2, "缺口：没有讲为什么大队列会掩盖问题"],
+    ],
+  );
+  assert.ok(observations.every((item) => item.sourceType === "mock_text"));
+});
+
 test("processes long backlogs in batches instead of one long run", async () => {
   for (let index = 0; index < 4; index += 1) await seedCompletedInterview();
   await state.markCandidateProfileDirty({ debounceMs: 0 });
@@ -227,8 +288,6 @@ test("does not re-assess an interview whose content has not changed", async () =
   await service.refreshCandidateProfile({ force: true });
 
   // sourceHash 没变就跳过模型调用——这是省钱也是幂等的关键。
-  // 回归点：评估会给真实面试补一条空的评分记录，这条记录一度让哈希变化，
-  // 导致每场真实面试都被白白重评一次。
   assert.equal(stubs.assessCalls.length, 0);
 });
 

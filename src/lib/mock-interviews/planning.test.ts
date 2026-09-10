@@ -43,6 +43,7 @@ const context: MockInterviewContext = {
   ],
   history: [],
   profile: { revision: 0, insights: [] },
+  recentWeaknesses: [],
 };
 const personalization: RelevantPersonalizationContext = {
   history: [],

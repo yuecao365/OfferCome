@@ -23,7 +23,7 @@ import {
 } from "./brief";
 const BRIEF_TIMEOUT_MS = 90_000;
 /** 备课提示词版本，独立于面试官提示词；变更备课规则时升级。 */
-export const BRIEF_PROMPT_VERSION = "brief-v6";
+export const BRIEF_PROMPT_VERSION = "brief-v7";
 /** 最多加载几个技能包再产出简报：每次 load_skill 一步，最后一步出结构化结果。 */
 const BRIEF_MAX_STEPS = 5;
 
@@ -63,6 +63,11 @@ export async function generateInterviewBrief(input: {
     round: input.round,
     askIntro,
   };
+  // 只在真有失守考点时才提"复测"：提示词里一旦出现这个词，模型会在没有素材时也编一个。
+  const retestRule =
+    input.context.recentWeaknesses.length > 0
+      ? `候选人最近几场失守的考点在 recentWeaknesses 里（说错了 / 没答上 / 要求重练，来自上几场的逐段评分）：与本岗位相关的，安排一个领域或阶梯中的一级重新验证，并在该领域的 description 里以"复测：<失守的点>"注明；与本岗位无关的忽略。`
+      : "";
   const startedAt = Date.now();
   const finish = (level: 1 | 3, brief: InterviewBrief) => {
     logAgentRun({
@@ -120,7 +125,7 @@ ${renderSkillIndex(index)}
 4. 期望信号：好回答会出现的要点，用于面试后评价，不会给候选人看。
 5. 简历假设（最多 6 条）：要在面试里验证的具体点——写了数字的成果、只写框架名的经历、时间线的空洞。每条 evidence 必须逐字复制简历原文片段，不得改写；没有依据的假设不要写。
 
-已知的候选人弱项（来自历史面试反馈）可以转化为假设去验证。提示词版本：${BRIEF_PROMPT_VERSION}`,
+${retestRule}提示词版本：${BRIEF_PROMPT_VERSION}`,
       payload: {
         jobTitle: input.jobTitle,
         round: input.round ?? "未指定",
@@ -128,10 +133,7 @@ ${renderSkillIndex(index)}
         jobBlueprint: input.blueprint,
         resume: input.context.resume.text,
         projects: input.context.projects,
-        knownWeaknesses: input.context.profile.insights
-          .filter((item) => item.kind === "weakness" || item.kind === "training_focus")
-          .slice(0, 6)
-          .map((item) => ({ title: item.title, statement: item.statement })),
+        recentWeaknesses: input.context.recentWeaknesses,
       },
     });
     const brief = buildBriefFromOutput({

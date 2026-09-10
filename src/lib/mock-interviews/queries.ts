@@ -23,21 +23,6 @@ import {
   type MockInterviewGenerationErrorContext,
 } from "./types";
 
-async function getProfileContributionCount(
-  interviewId: string,
-): Promise<number | null> {
-  const assessment = await prisma.interviewAssessment.findFirst({
-    where: { interviewId, status: "completed" },
-    orderBy: [{ completedAt: "desc" }, { createdAt: "desc" }],
-    select: { id: true },
-  });
-  if (!assessment) return null;
-
-  return prisma.abilityObservation.count({
-    where: { assessmentId: assessment.id, status: "active" },
-  });
-}
-
 function parseArray<T>(value: string | null): T[] {
   return parseJsonArray(value) as T[];
 }
@@ -140,11 +125,6 @@ export async function getMockInterviewView(id: string): Promise<MockInterviewVie
     typeof snapshot.generationErrorContext === "object"
       ? (snapshot.generationErrorContext as MockInterviewGenerationErrorContext)
       : null;
-  const profileContributionCount =
-    session.status === "completed"
-      ? await getProfileContributionCount(session.interviewId)
-      : undefined;
-
   return {
     id: session.id,
     interviewId: session.interviewId,
@@ -162,7 +142,6 @@ export async function getMockInterviewView(id: string): Promise<MockInterviewVie
     questionCount: session.questionCount,
     totalScore: session.totalScore,
     report: parseStoredReport(session.reportJson),
-    ...(profileContributionCount !== undefined ? { profileContributionCount } : {}),
     conversation: buildConversation(session),
     questions: session.interview.questions.map((question) => {
       const completedEvaluation =

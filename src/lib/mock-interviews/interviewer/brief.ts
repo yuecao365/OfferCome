@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import type { ProfileDimension } from "@/lib/candidate-profile/types";
+
 import { normalizedText } from "@/lib/text/similarity";
 
 import type { MockInterviewJobBlueprint } from "../types";
@@ -83,6 +85,23 @@ export function areaTurnCost(depth: number): number {
 const OPENING_TURNS = 1;
 
 export type RubricItem = { name: string; description: string; weight: number };
+
+/**
+ * 评分表维度 → 能力画像维度。评分表按名称固定（rubricForArea），画像从逐段评分推导观察时按此表归属；
+ * "岗位关联"是项目与岗位的匹配度，不是候选人的稳定能力，不进画像。
+ */
+export const PROFILE_DIMENSION_BY_RUBRIC: Record<string, ProfileDimension | null> = {
+  技术正确性: "knowledge_accuracy",
+  准确性: "knowledge_accuracy",
+  分析与取舍: "reasoning_depth",
+  原理深度: "reasoning_depth",
+  表达结构: "communication_clarity",
+  复盘与表达: "communication_clarity",
+  事实与细节: "experience_evidence",
+  证据充分性: "experience_evidence",
+  判断与反思: "reflection_growth",
+  岗位关联: null,
+};
 
 /** 领域评分表：按类型与风格固定，同一份 JD 生成同一套，评分只对照它。 */
 export function rubricForArea(kind: AreaKind, style: AreaStyle | null): RubricItem[] {

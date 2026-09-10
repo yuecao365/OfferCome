@@ -69,7 +69,7 @@ test("turns shared observations into cross-dimension relations and bridge nodes"
     insight(),
     insight({
       id: "insight-2",
-      dimension: "problem_solving",
+      dimension: "reasoning_depth",
       title: "方案拆解完整",
       evidence: [evidence({ id: "evidence-2" })],
     }),
@@ -86,14 +86,14 @@ test("turns shared observations into cross-dimension relations and bridge nodes"
 test("gives real interview relations more visual strength than AI simulation", () => {
   const realRelation = buildInsightRelations([
     insight(),
-    insight({ id: "real-2", dimension: "problem_solving" }),
+    insight({ id: "real-2", dimension: "reasoning_depth" }),
   ])[0];
   const mockEvidence = evidence({ sourceKind: "mock_text" });
   const mockRelation = buildInsightRelations([
     insight({ id: "mock-1", evidence: [mockEvidence] }),
     insight({
       id: "mock-2",
-      dimension: "problem_solving",
+      dimension: "reasoning_depth",
       evidence: [mockEvidence],
     }),
   ])[0];

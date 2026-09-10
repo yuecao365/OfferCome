@@ -5,15 +5,17 @@ import { createHash } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { REAL_USAGE_INTERVIEW_WHERE } from "@/lib/interviews/types";
 import { deriveDeliveryObservation } from "@/lib/interviews/voice-metrics";
+import { parseJsonArray } from "@/lib/json";
 
 import { assessInterviewQuestions } from "./assessment-agent";
+import { deriveObservationsFromEvaluation, type ScoredDimension } from "./derive";
 import { isAssessableAnswer, profileSourceWeight } from "./rules";
 import { normalizeRoleTitle, roleContextKey } from "./role-context";
 import {
   PROFILE_ASSESSMENT_VERSION,
   PROFILE_PROMPT_VERSION,
   PROFILE_SOURCE_TYPES,
-  normalizeProfileDimension,
+  parseProfileDimension,
   type ProfileDimension,
   type ProfileSourceType,
 } from "./types";
@@ -21,13 +23,21 @@ import {
 /**
  * 画像流水线第一相：把一场已完成的面试变成可聚合的能力观察。
  *
- * 幂等的关键是 sourceHash——面试内容没变就直接复用已完成的评估，
- * 不再花一次模型调用。
+ * 模拟面试的观察由逐段评分推导（纯代码），真实面试由评估器逐题判断（一次模型调用）；
+ * 之后走同一条路：套用用户纠正、补语音观察、一个事务落库。
+ * 幂等的关键是 sourceHash——面试内容与评分没变就直接复用已完成的评估。
  */
 
 export type CompletedInterview = Awaited<
   ReturnType<typeof getCompletedInterviews>
 >[number];
+
+type ObservationDraft = {
+  dimension: ProfileDimension;
+  score: number;
+  confidence: number;
+  evidenceExcerpt: string;
+};
 
 export function isProfileSourceType(value: string): value is ProfileSourceType {
   return (PROFILE_SOURCE_TYPES as readonly string[]).includes(value);
@@ -39,7 +49,6 @@ function sourceTypeForInterview(interview: { kind: string; sourceType: string })
     ? interview.sourceType
     : "real_summary";
 }
-
 
 export function interviewSourceHash(interview: CompletedInterview): string {
   return createHash("sha256")
@@ -70,18 +79,8 @@ export function interviewSourceHash(interview: CompletedInterview): string {
           answer: question.answer,
           category: question.category,
           voiceMetricsJson: question.voiceMetricsJson,
-          // 评估过程本身会给真实面试补一条空的评分记录（只为记录适用维度）。
-          // 空记录和"没有记录"必须算同一个哈希，否则每场真实面试都会被
-          // 重新评估一次，白花一次模型调用。
-          evaluation:
-            question.evaluation &&
-            (question.evaluation.score !== null ||
-              question.evaluation.feedback !== null)
-              ? {
-                  score: question.evaluation.score,
-                  feedback: question.evaluation.feedback,
-                }
-              : null,
+          // 模拟面试的观察来自评分，评分重跑过就要重新推导。
+          evaluatedAt: question.evaluation?.evaluatedAt?.toISOString() ?? null,
         })),
       }),
     )
@@ -140,6 +139,45 @@ async function ensureInterviewRole(interview: CompletedInterview): Promise<strin
   return key;
 }
 
+type TextObservations = {
+  observations: (ObservationDraft & { questionId: string })[];
+  provider: string | null;
+  model: string | null;
+};
+
+/** 模拟面试：每段的评分表维度分直接映射成观察，零模型调用。 */
+function deriveMockObservations(interview: CompletedInterview): TextObservations {
+  const observations = interview.questions.flatMap((question) => {
+    const answer = question.answer?.trim();
+    if (!answer || question.evaluation?.evaluationStatus !== "completed") return [];
+    return deriveObservationsFromEvaluation({
+      questionId: question.id,
+      answer,
+      dimensions: parseJsonArray(question.evaluation.dimensionsJson) as ScoredDimension[],
+    });
+  });
+  return { observations, provider: null, model: null };
+}
+
+/** 真实面试：没有评分表，让评估器读回答；太短的回答没有信息量，不送。 */
+async function assessRealObservations(
+  interview: CompletedInterview,
+  sourceType: ProfileSourceType,
+): Promise<TextObservations> {
+  const questions = interview.questions.flatMap((question) => {
+    const answer = question.answer?.trim();
+    return answer && isAssessableAnswer(answer)
+      ? [{ id: question.id, question: question.question, answer: answer.slice(0, 8_000), category: question.category }]
+      : [];
+  });
+  return assessInterviewQuestions({
+    companyName: interview.companyName,
+    jobTitle: interview.jobTitle,
+    sourceType,
+    questions,
+  });
+}
+
 export async function assessInterview(interview: CompletedInterview, sourceHash: string) {
   const existing = await prisma.interviewAssessment.findUnique({
     where: {
@@ -173,26 +211,12 @@ export async function assessInterview(interview: CompletedInterview, sourceHash:
   });
 
   try {
-    const questions = interview.questions.flatMap((question) => {
-      const answer = question.answer?.trim();
-      return answer && isAssessableAnswer(answer)
-        ? [{
-            id: question.id,
-            question: question.question,
-            answer: answer.slice(0, 8_000),
-            category: question.category,
-            existingEvaluation: question.evaluation
-              ? { score: question.evaluation.score, feedback: question.evaluation.feedback }
-              : null,
-          }]
-        : [];
-    });
-    const analyzed = await assessInterviewQuestions({
-      companyName: interview.companyName,
-      jobTitle: interview.jobTitle,
-      sourceType,
-      questions,
-    });
+    const analyzed =
+      interview.kind === "mock"
+        ? deriveMockObservations(interview)
+        : await assessRealObservations(interview, sourceType);
+
+    // 用户改过维度或排除过的观察，重新评估后照旧生效：按（题，原维度）对上。
     const priorCorrections = await prisma.abilityObservation.findMany({
       where: {
         interviewId: interview.id,
@@ -207,121 +231,42 @@ export async function assessInterview(interview: CompletedInterview, sourceHash:
       const key = `${correction.questionId ?? "voice"}:${sourceDimension}`;
       if (!correctionBySource.has(key)) correctionBySource.set(key, correction);
     }
-    const correctedObservations = analyzed.observations.map((item) => {
-      const correction = correctionBySource.get(`${item.questionId}:${item.dimension}`);
+    const toRow = (questionId: string | null, draft: ObservationDraft, speechMetricsJson: string | null = null) => {
+      const correction = correctionBySource.get(`${questionId ?? "voice"}:${draft.dimension}`);
       return {
-        ...item,
-        dimension: normalizeProfileDimension(correction?.dimension ?? item.dimension) ?? item.dimension,
+        assessmentId: assessment.id,
+        interviewId: interview.id,
+        questionId,
+        dimension: parseProfileDimension(correction?.dimension ?? draft.dimension) ?? draft.dimension,
+        score: draft.score,
+        modelConfidence: draft.confidence,
+        evidenceExcerpt: draft.evidenceExcerpt,
+        sourceType,
+        sourceWeight: profileSourceWeight(sourceType),
+        roleKey,
+        speechMetricsJson,
         status: correction?.status === "excluded" ? "excluded" : "active",
         originalDimension: correction?.originalDimension ?? null,
         userCorrectedAt: correction?.userCorrectedAt ?? null,
       };
-    });
-    const mockDeliveryObservations =
-      interview.kind === "mock"
-        ? interview.questions.flatMap((question) => {
-            if (!question.voiceMetricsJson) return [];
-            const delivery = deriveDeliveryObservation(question.voiceMetricsJson);
-            if (!delivery) return [];
-            const correction = correctionBySource.get(
-              `${question.id}:delivery_fluency`,
-            );
-            return [
-              {
-                assessmentId: assessment.id,
-                interviewId: interview.id,
-                questionId: question.id,
-                dimension: normalizeProfileDimension(
-                  correction?.dimension ?? "delivery_fluency",
-                )!,
-                score: delivery.score,
-                modelConfidence: delivery.confidence,
-                evidenceExcerpt: delivery.summary,
-                sourceType: "mock_text" as const,
-                sourceWeight: profileSourceWeight("mock_text"),
-                roleKey,
-                speechMetricsJson: question.voiceMetricsJson,
-                status: correction?.status === "excluded" ? "excluded" : "active",
-                originalDimension: correction?.originalDimension ?? null,
-                userCorrectedAt: correction?.userCorrectedAt ?? null,
-              },
-            ];
-          })
+    };
+    const deliveryRow = (questionId: string | null, voiceMetricsJson: string | null) => {
+      const delivery = voiceMetricsJson ? deriveDeliveryObservation(voiceMetricsJson) : null;
+      return delivery
+        ? [toRow(questionId, { dimension: "delivery_fluency", score: delivery.score, confidence: delivery.confidence, evidenceExcerpt: delivery.summary }, voiceMetricsJson)]
         : [];
-    const dimensionsByQuestion = new Map<string, ProfileDimension[]>();
-    for (const item of correctedObservations) {
-      dimensionsByQuestion.set(item.questionId, [
-        ...(dimensionsByQuestion.get(item.questionId) ?? []),
-        item.dimension,
-      ]);
-    }
-    for (const item of mockDeliveryObservations) {
-      dimensionsByQuestion.set(item.questionId, [
-        ...(dimensionsByQuestion.get(item.questionId) ?? []),
-        item.dimension,
-      ]);
-    }
-    const delivery =
-      sourceType === "real_audio" && interview.importArtifact?.voiceMetricsJson
-        ? deriveDeliveryObservation(interview.importArtifact.voiceMetricsJson)
-        : null;
+    };
+
+    const rows = [
+      ...analyzed.observations.map((item) => toRow(item.questionId, item)),
+      // 语音观察：模拟面试按题（语音面试的落点），真实录音按整场。
+      ...interview.questions.flatMap((question) => deliveryRow(question.id, question.voiceMetricsJson)),
+      ...(sourceType === "real_audio" ? deliveryRow(null, interview.importArtifact?.voiceMetricsJson ?? null) : []),
+    ];
 
     await prisma.$transaction(async (tx) => {
       await tx.abilityObservation.deleteMany({ where: { assessmentId: assessment.id } });
-      if (correctedObservations.length > 0) {
-        await tx.abilityObservation.createMany({
-          data: correctedObservations.map((item) => ({
-            assessmentId: assessment.id,
-            interviewId: interview.id,
-            questionId: item.questionId,
-            dimension: item.dimension,
-            score: item.score,
-            modelConfidence: item.confidence,
-            evidenceExcerpt: item.evidenceExcerpt,
-            sourceType,
-            sourceWeight: profileSourceWeight(sourceType),
-            roleKey,
-            status: item.status,
-            originalDimension: item.originalDimension,
-            userCorrectedAt: item.userCorrectedAt,
-          })),
-        });
-      }
-      if (mockDeliveryObservations.length > 0) {
-        await tx.abilityObservation.createMany({
-          data: mockDeliveryObservations,
-        });
-      }
-      if (delivery) {
-        await tx.abilityObservation.create({
-          data: {
-            assessmentId: assessment.id,
-            interviewId: interview.id,
-            dimension: "delivery_fluency",
-            score: delivery.score,
-            modelConfidence: delivery.confidence,
-            evidenceExcerpt: delivery.summary,
-            sourceType,
-            sourceWeight: 1,
-            roleKey,
-            speechMetricsJson: interview.importArtifact!.voiceMetricsJson,
-          },
-        });
-      }
-      for (const question of questions) {
-        await tx.interviewQuestionEvaluation.upsert({
-          where: { interviewQuestionId: question.id },
-          create: {
-            interviewQuestionId: question.id,
-            assessmentId: assessment.id,
-            applicableDimensionsJson: JSON.stringify(dimensionsByQuestion.get(question.id) ?? []),
-          },
-          update: {
-            assessmentId: assessment.id,
-            applicableDimensionsJson: JSON.stringify(dimensionsByQuestion.get(question.id) ?? []),
-          },
-        });
-      }
+      if (rows.length > 0) await tx.abilityObservation.createMany({ data: rows });
       await tx.interviewAssessment.update({
         where: { id: assessment.id },
         data: {

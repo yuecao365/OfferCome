@@ -7,7 +7,7 @@ import { aggregateProfileDimension, sanitizeInsightText } from "./rules";
 import {
   PROFILE_ASSESSMENT_VERSION,
   PROFILE_DIMENSIONS,
-  normalizeProfileDimension,
+  parseProfileDimension,
 } from "./types";
 import type { ProfileSynthesis } from "./agent";
 
@@ -47,7 +47,7 @@ export async function buildProfileViews() {
       : latest.filter((item) => item.interview.roleKey === roleKey);
     const observations = scoped.flatMap((assessment) =>
       assessment.observations.flatMap((observation) => {
-        const dimension = normalizeProfileDimension(observation.dimension);
+        const dimension = parseProfileDimension(observation.dimension);
         const sourceType = isProfileSourceType(observation.sourceType)
           ? observation.sourceType
           : null;

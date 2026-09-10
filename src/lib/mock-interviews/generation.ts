@@ -56,7 +56,6 @@ async function loadGeneratingSession(sessionId: string) {
 type GenerationRequest = {
   round: string | null;
   seedQuestionId: string | null;
-  seedInsightId: string | null;
 };
 
 /** 创建会话时写进快照的生成参数。历史数据字段可能缺失，逐个兜底。 */
@@ -66,8 +65,6 @@ function readGenerationRequest(snapshot: GenerationSnapshot): GenerationRequest 
     round: typeof request.round === "string" ? request.round : null,
     seedQuestionId:
       typeof request.seedQuestionId === "string" ? request.seedQuestionId : null,
-    seedInsightId:
-      typeof request.seedInsightId === "string" ? request.seedInsightId : null,
   };
 }
 
@@ -180,7 +177,6 @@ export async function prepareMockInterview(sessionId: string): Promise<void> {
       jobTitle: session.interview.jobTitle,
       jobDescription: session.jdTextSnapshot,
       seedQuestionId: request.seedQuestionId,
-      seedInsightId: request.seedInsightId,
     });
 
     const blueprint = await ensureBlueprint(session, snapshot, generationId);

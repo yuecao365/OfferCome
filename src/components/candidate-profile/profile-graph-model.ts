@@ -95,14 +95,12 @@ export function compareGraphNodePriority(
 const CANVAS_WIDTH = 1_000;
 const CANVAS_HEIGHT = 700;
 const DIMENSION_ANCHORS: Record<ProfileDimension, GraphPosition> = {
-  answer_relevance: { x: 175, y: 130 },
-  knowledge_accuracy: { x: 445, y: 90 },
-  reasoning_depth: { x: 770, y: 145 },
-  problem_solving: { x: 870, y: 350 },
-  experience_evidence: { x: 720, y: 585 },
-  communication_clarity: { x: 405, y: 620 },
-  delivery_fluency: { x: 125, y: 465 },
-  reflection_growth: { x: 245, y: 315 },
+  knowledge_accuracy: { x: 330, y: 110 },
+  reasoning_depth: { x: 700, y: 110 },
+  experience_evidence: { x: 860, y: 350 },
+  reflection_growth: { x: 700, y: 590 },
+  communication_clarity: { x: 330, y: 590 },
+  delivery_fluency: { x: 170, y: 350 },
 };
 
 function stableHash(value: string): number {

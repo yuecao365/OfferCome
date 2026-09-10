@@ -1,12 +1,22 @@
 import "server-only";
 
 import { getCandidateProfileContext } from "@/lib/candidate-profile/queries";
-import { normalizeProfileDimension } from "@/lib/candidate-profile/types";
 import { prisma } from "@/lib/db";
 import { ensureResumeExperiences } from "@/lib/resumes/experience-store";
 import { extractResumeTextFromFile } from "@/lib/resumes/extract";
 
+import { getRecentEvaluatedQuestions, type EvaluatedQuestion } from "./recent-feedback";
 import type { MockInterviewJobBlueprint } from "./types";
+
+/** 备课要复测的考点：上几场失守的短板，或用户点"针对练习"指定的题。 */
+export type RecentWeakness = {
+  /** 失守的领域名；没有领域（真实面试的题）时是题目本身。 */
+  area: string;
+  point: string;
+  /** error 说错了、missing 没答上、practice 用户要求重练。 */
+  kind: "error" | "missing" | "practice";
+  quote: string | null;
+};
 
 export type MockInterviewContext = {
   jobDescription: string;
@@ -18,6 +28,7 @@ export type MockInterviewContext = {
     organization: string;
     description: string;
   }[];
+  /** 旧题库流程的素材，阶段 2 随该流程一起删除。 */
   history: {
     interviewId: string;
     companyName: string;
@@ -28,16 +39,32 @@ export type MockInterviewContext = {
     category: string;
   }[];
   profile: Awaited<ReturnType<typeof getCandidateProfileContext>>;
+  recentWeaknesses: RecentWeakness[];
 };
+
+/** 最近几场面试取多少条失守点给备课；再多模型也只会挑几条。 */
+const RECENT_WEAKNESS_LIMIT = 6;
+const RECENT_WEAKNESS_INTERVIEWS = 5;
+
+/**
+ * 一道题 → 要复测的点。有短板就用短板；没有评分的题（真实面试）只有在用户指定要练时才带上，
+ * 作为"重练"项，让备课围绕这道题开一个领域。
+ */
+function weaknessesOf(item: EvaluatedQuestion, seeded: boolean): RecentWeakness[] {
+  const area = item.areaName ?? item.question.slice(0, 80);
+  if (item.weaknesses.length > 0) {
+    return item.weaknesses.map((weakness) => ({ area, point: weakness.point, kind: weakness.kind, quote: weakness.quote }));
+  }
+  return seeded ? [{ area, point: "候选人要求重练这道题。", kind: "practice", quote: null }] : [];
+}
 
 export async function buildMockInterviewContext(input: {
   resumeId: string;
   jobTitle: string;
   jobDescription: string;
   seedQuestionId?: string | null;
-  seedInsightId?: string | null;
 }): Promise<MockInterviewContext> {
-  const [resume, historyRows, profile, seedQuestion, seedInsight] = await Promise.all([
+  const [resume, historyRows, profile, recentQuestions] = await Promise.all([
     prisma.resume.findUnique({
       where: { id: input.resumeId },
       include: {
@@ -58,24 +85,11 @@ export async function buildMockInterviewContext(input: {
       take: 12,
     }),
     getCandidateProfileContext(),
-    input.seedQuestionId
-      ? prisma.interviewQuestion.findFirst({
-          where: {
-            id: input.seedQuestionId,
-            answer: { not: null },
-            interview: { kind: "real", status: "completed" },
-          },
-          include: { interview: true },
-        })
-      : null,
-    input.seedInsightId
-      ? prisma.candidateInsight.findFirst({
-          where: {
-            id: input.seedInsightId,
-            kind: { in: ["weakness", "training_focus"] },
-          },
-        })
-      : null,
+    getRecentEvaluatedQuestions({
+      limit: RECENT_WEAKNESS_INTERVIEWS,
+      jobTitle: input.jobTitle,
+      seedQuestionId: input.seedQuestionId,
+    }),
   ]);
   if (!resume) throw new Error("所选简历不存在，请重新选择。");
 
@@ -106,12 +120,12 @@ export async function buildMockInterviewContext(input: {
   }
 
   const normalizedJobTitle = input.jobTitle.trim().toLocaleLowerCase();
-  const sortedHistory = historyRows.toSorted((left, right) => {
-    const leftMatch = left.jobTitle.trim().toLocaleLowerCase() === normalizedJobTitle;
-    const rightMatch = right.jobTitle.trim().toLocaleLowerCase() === normalizedJobTitle;
-    return Number(rightMatch) - Number(leftMatch);
-  });
-  let history = sortedHistory
+  const history = historyRows
+    .toSorted((left, right) => {
+      const leftMatch = left.jobTitle.trim().toLocaleLowerCase() === normalizedJobTitle;
+      const rightMatch = right.jobTitle.trim().toLocaleLowerCase() === normalizedJobTitle;
+      return Number(rightMatch) - Number(leftMatch);
+    })
     .flatMap((interview) =>
       interview.questions.flatMap((question) => {
         const answer = question.answer?.trim();
@@ -130,35 +144,10 @@ export async function buildMockInterviewContext(input: {
       }),
     )
     .slice(0, 30);
-  if (seedQuestion?.answer && !history.some((item) => item.questionId === seedQuestion.id)) {
-    history = [
-      {
-        interviewId: seedQuestion.interview.id,
-        companyName: seedQuestion.interview.companyName,
-        jobTitle: seedQuestion.interview.jobTitle,
-        questionId: seedQuestion.id,
-        question: seedQuestion.question,
-        answer: seedQuestion.answer.slice(0, 2_000),
-        category: seedQuestion.category,
-      },
-      ...history.slice(0, 29),
-    ];
-  }
 
-  const profileInsights = [...profile.insights];
-  if (seedInsight && !profileInsights.some((item) => item.id === seedInsight.id)) {
-    const dimension = normalizeProfileDimension(seedInsight.dimension);
-    if (dimension) {
-      profileInsights.unshift({
-        id: seedInsight.id,
-        dimension,
-        kind: seedInsight.kind as "weakness" | "training_focus",
-        title: seedInsight.title,
-        statement: seedInsight.statement,
-        confidence: seedInsight.confidence,
-      });
-    }
-  }
+  const recentWeaknesses = recentQuestions
+    .flatMap((item) => weaknessesOf(item, item.questionId === input.seedQuestionId))
+    .slice(0, RECENT_WEAKNESS_LIMIT);
 
   const projectsById = new Map<
     string,
@@ -184,7 +173,8 @@ export async function buildMockInterviewContext(input: {
     },
     projects: Array.from(projectsById.values()),
     history,
-    profile: { ...profile, insights: profileInsights },
+    profile,
+    recentWeaknesses,
   };
 }
 
@@ -198,7 +188,7 @@ export function serializeMockInterviewContext(
     projectIds: context.projects.map((project) => project.id),
     historyQuestionIds: context.history.map((item) => item.questionId),
     profileRevision: context.profile.revision,
-    profileInsightIds: context.profile.insights.map((insight) => insight.id),
+    recentWeaknesses: context.recentWeaknesses,
     jobBlueprint: generation?.blueprint ?? null,
   });
 }

@@ -3,7 +3,7 @@ import "server-only";
 import { roleContextKey } from "@/lib/candidate-profile/role-context";
 import {
   PROFILE_DIMENSION_LABELS,
-  normalizeProfileDimension,
+  parseProfileDimension,
   type ProfileDimension,
 } from "@/lib/candidate-profile/types";
 import { prisma } from "@/lib/db";
@@ -102,7 +102,7 @@ async function getWeakDimensions(jobTitle: string): Promise<{
     if (metrics.length === 0) continue;
 
     const dimensions = metrics.flatMap((metric) => {
-      const dimension = normalizeProfileDimension(metric.dimension);
+      const dimension = parseProfileDimension(metric.dimension);
       return dimension ? [{ metric, dimension }] : [];
     });
     if (dimensions.length === 0) continue;

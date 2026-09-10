@@ -10,7 +10,7 @@ import {
 } from "@/components/candidate-profile/candidate-profile-dashboard";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { normalizeProfileDimension } from "@/lib/candidate-profile/types";
+import { parseProfileDimension } from "@/lib/candidate-profile/types";
 import { trialAiTokenDocument } from "@/lib/trial/browser-store";
 import { createTrialProfileTransport } from "@/lib/trial/profile-actions";
 import { useStoredDocument } from "@/lib/trial/stored-document";
@@ -58,7 +58,7 @@ export function TrialProfilePage() {
     roleKey: "all",
     createdAt: snapshot.createdAt,
     metrics: snapshot.metrics.flatMap((metric) => {
-      const dimension = normalizeProfileDimension(metric.dimension);
+      const dimension = parseProfileDimension(metric.dimension);
       return dimension
         ? [{ dimension, level: metric.level, levelLabel: metric.levelLabel }]
         : [];

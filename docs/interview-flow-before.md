@@ -34,7 +34,7 @@ flowchart TD
 | round | first_interview / second_interview / hr_interview，影响面试官人设 |
 | pace | quick / standard / deep，默认 standard |
 | interactionMode | text（语音在 P2） |
-| seedQuestionId / seedInsightId | 可选，从复盘页或画像页"针对这个再练"进来时带上 |
+| seedQuestionId | 可选，从复盘页或画像页"针对练习"进来时带上；真实面试与模拟面试的题都可以 |
 | applicationId | 可选，关联投递记录，并把 JD 回填到还没有描述的投递上 |
 
 创建时写入 `Interview`（kind=mock）和 `MockInterviewSession`：`jdTextSnapshot`、`resumeTextSnapshot`（原文快照，之后不再读源文件）、`contextSnapshotJson`（上下文 id 清单与生成参数，备课阶段补入蓝图）、`pace`、`promptVersion`（interviewer-v4）、`status=generating`。接口返回 `{ id, href }`，备课由 `after()` 调度的后台任务执行，页面轮询 `GET /api/interviews/mock/[id]/status`。
@@ -46,8 +46,9 @@ flowchart TD
 | 简历 | 从文件抽取文本（PDF 走 pdfjs 带 CJK 字体映射；DOCX 走 mammoth；其他按可打印文本） | 3 万字符 |
 | 项目 / 实习 | `ResumeProjectSource → ResumeProject`；简历从没识别过项目时**自动识别一次并落库**，失败不拦路 | 每条描述 2000 字 |
 | 历史真实面试 | 最近 12 场已完成、有回答的真实面试，岗位名相同的排前面；展开成题目级 | 30 条 |
-| 能力画像 | 洞察（弱项、训练重点等） | — |
-| 种子 | seedQuestion 插到历史首位；seedInsight 插到洞察首位 | — |
+| 最近失守的考点 | 真实使用的最近 5 场已完成模拟面试的逐段短板（`recent-feedback.ts`，零模型调用），岗位名相同的排前面；每条 `{ area（领域名）, point, kind: error \| missing \| practice, quote }` | 6 条 |
+| 种子 | seedQuestion 的短板插到最前；这道题没有评分（真实面试）时作为一条 `practice`（"候选人要求重练这道题"）带上 | — |
+| 能力画像 | 洞察（只有旧题库流程读，阶段 2 随之删除） | — |
 
 ## 3. 岗位蓝图（`job-analysis-agent.ts`）
 
@@ -92,7 +93,7 @@ flowchart TD
 
 ### 5.2 模型输入
 
-蓝图、JD、简历全文、项目列表、轮次、`knownWeaknesses`（画像里的弱项 / 训练重点，最多 6 条），加上技能包索引与 `load_skill` 工具。模型循环最多 5 步（≤4 次加载 + 最后一步产出简报），超时 90 秒。
+蓝图、JD、简历全文、项目列表、轮次、`recentWeaknesses`（最近失守的考点，见 §2），加上技能包索引与 `load_skill` 工具。模型循环最多 5 步（≤4 次加载 + 最后一步产出简报），超时 90 秒。
 
 ### 5.3 模型输出 schema（严格模式）
 
@@ -131,6 +132,10 @@ hypotheses[0..6]: { id, text≤300, evidence≤300（简历原文逐字）, area
 > 3. 每个领域的深度阶梯（与 depth 同长）：每级一句"接下来往下追什么"，并标出这一级的风格——fact、principle、scenario、tradeoff。项目领域也可以在中间层插入 principle 或 scenario，把基础题和场景题融进项目追问里。
 > 4. 期望信号：好回答会出现的要点，用于面试后评价，不会给候选人看。
 > 5. 简历假设（最多 6 条）：每条 evidence 必须逐字复制简历原文片段，不得改写；没有依据的假设不要写。
+>
+> 候选人最近几场失守的考点在 recentWeaknesses 里（说错了 / 没答上 / 要求重练，来自上几场的逐段评分）：与本岗位相关的，安排一个领域或阶梯中的一级重新验证，并在该领域的 description 里以"复测：<失守的点>"注明；与本岗位无关的忽略。
+>
+> （这一段只在 recentWeaknesses 非空时加入：提示词里一旦出现"复测"，模型在没有素材时也会编一个。）
 
 ### 5.5 代码后处理（`buildBriefFromOutput`）
 

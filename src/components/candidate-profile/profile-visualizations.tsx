@@ -40,14 +40,12 @@ type ProfileSnapshot = {
 };
 
 const DIMENSION_COLORS: Record<ProfileDimension, string> = {
-  answer_relevance: "var(--brand)",
   knowledge_accuracy: "var(--info)",
   reasoning_depth: "var(--success)",
-  problem_solving: "var(--warning)",
   experience_evidence: "var(--danger)",
+  reflection_growth: "var(--foreground)",
   communication_clarity: "var(--accent-foreground)",
   delivery_fluency: "var(--muted-foreground)",
-  reflection_growth: "var(--foreground)",
 };
 
 function confidenceClass(confidence: number): string {
@@ -57,7 +55,7 @@ function confidenceClass(confidence: number): string {
 }
 
 /**
- * 数据稀疏时 8 维平铺只会得到一排空表盘，因此按"内容力/证据力/表达力"
+ * 数据稀疏时六维平铺只会得到一排空表盘，因此按"内容力/证据力/表达力"
  * 三组呈现；组内没有数据的稀疏信号（如无录音时的口语维度）不再占位。
  * 面试少于 3 场的等级标注"初步"，给结论但留有余地。
  */

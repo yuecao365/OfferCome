@@ -165,14 +165,6 @@ export type MockInterviewQuestionTeaching = {
   sourceKind: string;
 };
 
-export type MockInterviewPersonalizationUsed = {
-  profileInsights: { id: string; title: string; kind: string }[];
-  historyQuestions: {
-    id: string;
-    question: string;
-    companyName: string;
-  }[];
-};
 
 export type MockInterviewConversationMessage = {
   id: string;
@@ -232,8 +224,6 @@ export type MockInterviewView = {
   questionCount: number;
   totalScore: number | null;
   report: MockInterviewReport | null;
-  personalizationUsed?: MockInterviewPersonalizationUsed;
-  profileContributionCount?: number | null;
   /** 旧的分步会话没有简报，为 null，房间按只读回放处理。 */
   conversation?: MockInterviewConversation | null;
   questions: {

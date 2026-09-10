@@ -1,7 +1,7 @@
 # AI 模拟面试：整体流程（人人可读版）
 
 > 配套细节文档：[面试开始前](interview-flow-before.md) · [面试中](interview-flow-during.md) · [面试后](interview-flow-after.md) · [评测](eval.md)。
-> 代码版本：interviewer-v4 / 简报 v4（2026-09-08）。
+> 代码版本：interviewer-v4 / 简报 v4 / brief-v7 / 画像 ability-assessment-v5（2026-09-10）。
 
 ## 一句话
 
