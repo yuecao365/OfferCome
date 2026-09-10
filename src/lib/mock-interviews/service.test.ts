@@ -50,13 +50,14 @@ function defaultBlueprint() {
 
 function testBrief(): InterviewBrief {
   return {
-    version: 4,
+    version: 5,
     pace: "standard",
     plannedTurns: 11,
     round: "first_interview",
     askIntro: true,
     source: "model",
     skillPacks: ["project-deep-dive"],
+    droppedAreas: [],
     hypotheses: [{ id: "h1", text: "验证压测经历", evidence: "压测", areaId: "area-1" }],
     areas: [
       {
@@ -65,7 +66,9 @@ function testBrief(): InterviewBrief {
         kind: "technical",
         style: "scenario",
         description: "缓存一致性与消息队列",
+        projectId: null,
         competencyIds: ["bp-1"],
+        jdEvidence: null,
         baseline: null,
         weight: 2,
         depth: 3,
@@ -85,7 +88,9 @@ function testBrief(): InterviewBrief {
         kind: "project",
         style: null,
         description: "简历项目",
+        projectId: null,
         competencyIds: ["bp-2"],
+        jdEvidence: null,
         baseline: null,
         weight: 3,
         depth: 3,

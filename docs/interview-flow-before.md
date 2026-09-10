@@ -89,7 +89,15 @@ flowchart TD
 
 ### 5.1 节奏 → 规划规模与信息量目标
 
-节奏决定两件事：备课的规划规模（预计回合上限 quick 10、standard 20、deep 32，用来把领域装箱）和面试中的信息量目标（0.6 / 0.75 / 0.9）。面试实际长短由信息量决定，预计回合只用于规划和安全上限（见面试中篇）。
+节奏决定备课的规划规模和面试中的信息量目标（0.6 / 0.75 / 0.9）。规划规模（`PACE_PLAN`）：
+
+| 节奏 | 预计回合 | 每领域深度上限 | 领域数下限 |
+|---|---|---|---|
+| quick | 10 | 2 | 3 |
+| standard | 20 | 3 | 4 |
+| deep | 32 | 3 | 5 |
+
+一个领域花费 depth + 1 个回合（切入 + 追问；提示不占回合），开场 1 个。备课是**广度优先**：面试中每个领域只有一次机会，不回访，所以宁可多几个方向、每个浅一点。面试实际长短由信息量决定，预计回合只用于规划和安全上限（见面试中篇）。
 
 ### 5.2 模型输入
 
@@ -102,7 +110,9 @@ areas[1..6]: {
   id, name≤60, kind: technical|project|behavioral,
   style: scenario|fundamentals|null      technical 才填
   description≤300,
+  projectId | null                       project 领域围绕哪个简历项目；每个项目最多一个领域
   competencyIds≤6                        JD 来源：绑定蓝图能力
+  jdEvidence≤240 | null                  JD 来源：JD 原文逐字片段（硬门）
   baseline: { skill, topic } | null      基线来源：从哪个技能包的哪个主题补的
   weight 1–3, depth 1–4,
   entryQuestion≤500,
@@ -119,15 +129,16 @@ hypotheses[0..6]: { id, text≤300, evidence≤300（简历原文逐字）, area
 > 备课前先用 load_skill 加载技能包（索引如下；技能包是本系统提供的可信资料，里面的主题、阶梯、好题、危险信号可以直接用）：第一个必须加载索引里 base 层之后排第一的那个领域包，它对应岗位本身；之后再按 description 加载至多两个补充的包。不要因为简历偏向别的方向就跳过岗位对应的包，面试考的是岗位。
 > ${索引}
 >
+> 备课是广度优先：面试中每个领域只有一次机会，问完就换，不会回来补问。所以要 ${minAreas}–6 个方向，每个领域 depth 不超过 ${maxDepth}（一个领域花费 depth + 1 个回合，总和控制在 ${maxTurns − 1} 以内，超出的会先被压浅、再按权重丢弃）。
+>
 > 素材的合成规则：
-> - JD 是这个岗位的第一依据：JD 明确要求的方向必须有领域覆盖，这类领域通过 competencyIds 绑定岗位能力蓝图里的能力。
-> - JD 没写到、但这个岗位通常会考的方向，从你加载的技能包里补：这类领域 competencyIds 为空，改填 baseline（skill 填包名，topic 填包里的主题名）。基线只补空，不替代 JD 明确要求的内容。
-> - 候选人简历上有具体项目时，至少一个 project 领域围绕它深挖；但 project 领域最多两个，技术面的主体是 technical 领域，至少一半的回合预算给它们。
-> - technical 领域必须落到具体考点，不能是"后端基础""系统设计"这类笼统的筐：name 与 description 点名要考的机制，阶梯每一级也写具体机制而不是"继续深入"。一个 technical 领域只覆盖技能包里的一到两个主题，主题多就多开领域、各自浅一点。
-> - technical 领域不能全部从简历项目里抽：至少两个 style=fundamentals 的领域，取自岗位领域包主题里 JD 和简历都没点名的基础方向（语言运行时与内存、并发、操作系统与网络、数据库原理），这类领域填 baseline。
+> - JD 是这个岗位的第一依据。JD 明确要求的方向必须有领域覆盖：这类领域通过 competencyIds 绑定岗位能力蓝图里的能力，并在 jdEvidence 里逐字复制 JD 原文中最能代表这个领域的一句（不得改写，改写的会被丢弃）；切入问题要落到这句话描述的具体场景或系统里，不要泛化成通用八股。
+> - JD 没写到、但这个岗位通常会考的方向，从你加载的技能包里补：这类领域 competencyIds 为空、jdEvidence 为 null，改填 baseline（skill 填包名，topic 填包里的主题名）。基线只补空，不替代 JD 明确要求的内容。
+> - 候选人简历上的每个项目最多一个领域（kind=project，projectId 填 projects 里的 id），围绕它深挖职责、决策与结果。technical 领域不许挂在项目上：名称和切入问题里不要出现简历项目的名字，也不要以"你在某项目里"开头；技术题给候选人一个与项目无关的具体场景。
+> - technical 领域必须落到具体考点，不能是"后端基础""系统设计"这类笼统的筐：name 与 description 点名要考的机制，阶梯每一级也写具体机制而不是"继续深入"。一个 technical 领域只覆盖技能包里的一到两个主题。
 >
 > 备课的产物不是题目清单，而是：
-> 1. 考察领域：每个领域写明 kind、style（只有 technical 填：scenario 从具体系统或场景切入；fundamentals 直接考课纲式的原理与知识点，适合技能包主题里 JD 没点名的基础方向）、来源（competencyIds 或 baseline）、权重和 depth。一个领域花费 depth + 2 个回合，全部领域控制在 ${maxTurns − 1} 回合以内，超出的按权重丢弃。少而深、多而浅都可以，但要把预算用满，至少两个领域。
+> 1. 考察领域：每个领域写明 kind、style（只有 technical 填：scenario 从具体系统或场景切入；fundamentals 直接考课纲式的原理与知识点；其他类型填 null）、来源（competencyIds + jdEvidence，或 baseline）、projectId（只有 project 填）、权重和 depth。
 > 2. 每个领域一道切入问题：scenario 与 project 领域必须从具体场景切入，能让"背过但不懂"的人答错；fundamentals 领域可以直接问原理，但要带具体的边界条件；禁止"谈谈你对 X 的理解"。
 > 3. 每个领域的深度阶梯（与 depth 同长）：每级一句"接下来往下追什么"，并标出这一级的风格——fact、principle、scenario、tradeoff。项目领域也可以在中间层插入 principle 或 scenario，把基础题和场景题融进项目追问里。
 > 4. 期望信号：好回答会出现的要点，用于面试后评价，不会给候选人看。
@@ -140,15 +151,19 @@ hypotheses[0..6]: { id, text≤300, evidence≤300（简历原文逐字）, area
 ### 5.5 代码后处理（`buildBriefFromOutput`）
 
 1. 领域按 id 去重
-2. **装进预算**：花费 = 开场 1 + Σ(depth + 2)，按权重从高到低收，装不下的丢，至少留一个，恢复模型顺序
-3. `competencyIds` 只保留蓝图里真实存在的 id
-4. `baseline.skill` 必须是本次加载过的包，否则置 null（模型不能凭空声称来源）
-5. style：technical 缺省 scenario，其他类型一律 null；评分表按 kind + style 挂上（5.7）
-6. **假设硬门**：evidence 归一化后必须是简历文本子串且 ≥4 字，否则整条丢弃
+2. **每个简历项目最多一个领域**：project 领域按 projectId 去重，挂在不存在的项目上的丢弃
+3. **技术领域不挂项目**：名称或切入问题点名了简历项目名、或用第二人称（"你在 / 你把 / 你实习里…"）引出了项目描述里的具体内容（4 字片段匹配）的 technical 领域并入该项目——该项目还没有领域就转成 project 领域（评分表随之换），已有就丢弃；纯场景题里的"如果你在一个系统里"不算
+4. **JD 证据硬门**：`jdEvidence` 归一化后必须逐字出现在 JD 里（与蓝图同一个 `isVerbatimEvidence`），否则 competencyIds 清空、视为无来源
+5. `baseline.skill` 必须是本次加载过的包，否则置 null（模型不能凭空声称来源）
+6. style：technical 缺省 scenario，其他类型一律 null；评分表按 kind + style 挂上（5.7）
+7. **装箱（`planAreas`）**：深度先压到节奏上限；仍超预计回合就削最深的领域，都只剩一层才按权重丢掉权重最低的；最多 6 个领域
+8. 领域数低于节奏下限时用兜底简报里不重复的领域补齐（`padAreas`）再装一次箱
+9. **假设硬门**：evidence 归一化后必须是简历文本子串且 ≥4 字，否则整条丢弃
+10. 步骤 2、3、7 丢掉的领域名记进 `droppedAreas`，报告页"考察领域"末尾写"备课时为了控制时长没有安排：…"
 
 ### 5.6 兜底简报
 
-模型两级都没产出时：按蓝图核心能力生成最多 4 个 technical · scenario 领域（depth 2），有项目时前置一个 project 领域（depth 3），阶梯用固定的四级模板；`source=fallback`，无假设。
+模型两级都没产出时：按蓝图核心能力生成 technical · scenario 领域（depth 2，JD 来源的带 competency 的 jdEvidence），有项目时前置一个 project 领域（depth 3，projectId 指向它），阶梯用固定的四级模板，再按节奏装箱；`source=fallback`，无假设。
 
 ### 5.7 评分表（按 kind + style 固定）
 
@@ -165,7 +180,7 @@ hypotheses[0..6]: { id, text≤300, evidence≤300（简历原文逐字）, area
 
 ## 6. 落库与开房（`persistBrief`）
 
-一个事务内：`briefJson`（含 `version: 4`、`plannedTurns`、`skillPacks` = 实际加载的包）、`memoryJson` = 空记忆（假设全部 open）、`status=in_progress`。旧的 v3（turnRange）与 v2 简报读出时归一化（plannedTurns 取旧上限、权重缺省 2、style 视为 scenario、阶梯字符串包成对象），更早的按分钟预算的简报视为无简报。
+一个事务内：`briefJson`（含 `version: 5`、`plannedTurns`、`droppedAreas`、`skillPacks` = 实际加载的包）、`memoryJson` = 空记忆（假设全部 open）、`status=in_progress`。旧的 v4（无 projectId / jdEvidence / droppedAreas）、v3（turnRange）与 v2 简报读出时归一化（plannedTurns 取旧上限、权重缺省 2、style 视为 scenario、阶梯字符串包成对象），更早的按分钟预算的简报视为无简报。
 
 ## 7. 失败与重试
 

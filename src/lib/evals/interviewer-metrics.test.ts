@@ -281,7 +281,7 @@ test("claimNeedle drops trailing punctuation so a claim said with a comma still 
 });
 
 test("controlAssertions excuses error weaknesses whose quote the wrong judge confirmed", () => {
-  const thread = { ...snapshot().threads[0], evaluation: { score: 70, weaknesses: [{ kind: "error", point: "说错了", quote: "free -m 看 cgroup 限制" }] } } as SnapshotThread;
+  const thread = { ...snapshot().threads[0], evaluation: { score: 70, weaknesses: [{ kind: "error", point: "说错了", quote: "free -m 看 cgroup 限制" }] } } as unknown as SnapshotThread;
   const snap = snapshot({ threads: [thread], judged: { related: {}, pushback: null, wrongQuotes: { "free -m 看 cgroup 限制": true } } });
   const errorAssertion = controlAssertions(snap).find((item) => item.name === "对照：无 error 类短板")!;
   assert.equal(errorAssertion.pass, true);

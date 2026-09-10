@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { detectCandidateIntent } from "./actions";
-import { areaTurnCost, ensureTwoAreas, fallbackBrief, plannedTurns, plannedTurnsForPace, type InterviewBrief } from "./brief";
+import { areaTurnCost, fallbackBrief, padAreas, plannedTurns, plannedTurnsForPace, type InterviewBrief } from "./brief";
 import { canAct, canClose, coverageComplete, probeLimit, safetyCap } from "./budget";
 import { evidenceSummary, questionTurnsUsed } from "./evidence";
 import { applyMemoryPatch, emptyMemory } from "./memory";
@@ -57,7 +57,7 @@ test("fallback brief fits the pace's turn budget and keeps the project area firs
   assert.ok(plannedTurns(quick.areas, true) <= plannedTurnsForPace("quick"));
   assert.equal(quick.plannedTurns, plannedTurns(quick.areas, true));
   assert.equal(quick.areas[0].kind, "project");
-  assert.equal(areaTurnCost(3), 5);
+  assert.equal(areaTurnCost(3), 4);
 });
 
 test("opening turn asks for an intro even if the model says nothing useful", () => {
@@ -401,13 +401,14 @@ test("an exhausted rescue or clarify becomes a plain reply instead of closing th
   assert.equal(again.newMessages.at(-1)?.kind, "aside");
 });
 
-test("a single-area brief gets a second area squeezed into the pace budget", () => {
+test("a brief with too few areas is padded from the fallback up to the pace minimum", () => {
   const fallback = fallbackBrief({ blueprint, projects: [{ id: "p1", name: "Study Assistant" }], pace: "quick", round: null, askIntro: true });
   const single: InterviewBrief = { ...fallback, areas: [{ ...fallback.areas[0], depth: 4 }], plannedTurns: plannedTurns([{ depth: 4 }], true) };
-  const fixed = ensureTwoAreas(single, fallback);
-  assert.equal(fixed.areas.length, 2);
-  assert.notEqual(fixed.areas[1].kind, fixed.areas[0].kind);
+  const fixed = padAreas(single, fallback);
+  assert.equal(fixed.areas.length, 3);
+  // 同一个项目不会被补进来第二次，补的是能力领域。
+  assert.equal(fixed.areas.filter((area) => area.kind === "project").length, 1);
   assert.ok(fixed.plannedTurns <= plannedTurnsForPace("quick"));
   assert.equal(fixed.plannedTurns, plannedTurns(fixed.areas, true));
-  assert.equal(ensureTwoAreas(fallback, fallback), fallback);
+  assert.equal(padAreas(fallback, fallback), fallback);
 });

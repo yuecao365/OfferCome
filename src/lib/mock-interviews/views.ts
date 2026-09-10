@@ -37,6 +37,7 @@ export function conversationView(input: {
         status: threads.some((thread) => thread.status === "active") ? "active" : threads.length > 0 ? "covered" : "pending",
       };
     }),
+    droppedAreas: input.brief.droppedAreas,
     threads: input.threads.map((thread) => ({
       id: thread.id,
       areaId: thread.areaId,

@@ -121,6 +121,8 @@ export type MockInterviewConversation = {
     depthReached: number;
     status: "pending" | "active" | "covered";
   }[];
+  /** 备课装箱时丢掉的方向，报告页告诉用户这场没问到。 */
+  droppedAreas: string[];
   threads: {
     id: string;
     areaId: string;

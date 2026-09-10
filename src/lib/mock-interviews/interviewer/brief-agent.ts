@@ -14,16 +14,16 @@ import type { MockInterviewJobBlueprint } from "../types";
 import {
   briefOutputSchema,
   buildBriefFromOutput,
-  ensureTwoAreas,
   fallbackBrief,
-  MAX_AREA_DEPTH,
-  plannedTurnsForPace,
+  MAX_AREAS,
+  PACE_PLAN,
+  padAreas,
   type InterviewBrief,
   type InterviewPace,
 } from "./brief";
 const BRIEF_TIMEOUT_MS = 90_000;
 /** 备课提示词版本，独立于面试官提示词；变更备课规则时升级。 */
-export const BRIEF_PROMPT_VERSION = "brief-v7";
+export const BRIEF_PROMPT_VERSION = "brief-v8";
 /** 最多加载几个技能包再产出简报：每次 load_skill 一步，最后一步出结构化结果。 */
 const BRIEF_MAX_STEPS = 5;
 
@@ -56,7 +56,8 @@ export async function generateInterviewBrief(input: {
   );
   const skills = createSkillTools(index);
   const askIntro = true;
-  const maxTurns = plannedTurnsForPace(input.pace);
+  const plan = PACE_PLAN[input.pace];
+  const maxTurns = plan.turns;
   const base = {
     blueprint: input.blueprint,
     pace: input.pace,
@@ -83,6 +84,7 @@ export async function generateInterviewBrief(input: {
         level,
         plannedTurns: brief.plannedTurns,
         areaCount: brief.areas.length,
+        droppedAreaCount: brief.droppedAreas.length,
         hypothesisCount: brief.hypotheses.length,
         skillsLoaded: skills.loaded.length,
       },
@@ -111,15 +113,16 @@ export async function generateInterviewBrief(input: {
 备课前先用 load_skill 加载技能包（索引如下；技能包是本系统提供的可信资料，里面的主题、阶梯、好题、危险信号可以直接用）：第一个必须加载索引里 base 层之后排第一的那个领域包，它对应岗位本身；之后再按 description 加载至多两个补充的包。不要因为简历偏向别的方向就跳过岗位对应的包，面试考的是岗位。
 ${renderSkillIndex(index)}
 
+备课是广度优先：面试中每个领域只有一次机会，问完就换，不会回来补问。所以要 ${plan.minAreas}–${MAX_AREAS} 个方向，每个领域 depth 不超过 ${plan.maxDepth}（一个领域花费 depth + 1 个回合，总和控制在 ${maxTurns - 1} 以内，超出的会先被压浅、再按权重丢弃）。
+
 素材的合成规则：
-- JD 是这个岗位的第一依据：JD 明确要求的方向必须有领域覆盖，这类领域通过 competencyIds 绑定岗位能力蓝图里的能力。
-- JD 没写到、但这个岗位通常会考的方向，从你加载的技能包里补：这类领域 competencyIds 为空，改填 baseline（skill 填包名，topic 填包里的主题名）。基线只补空，不替代 JD 明确要求的内容。
-- 候选人简历上有具体项目时，至少一个 project 领域围绕它深挖；但 project 领域最多两个，技术面的主体是 technical 领域，至少一半的回合预算给它们。
-- technical 领域必须落到具体考点，不能是"后端基础""系统设计"这类笼统的筐：name 与 description 点名要考的机制（例如"MySQL 索引：B+ 树、回表与最左前缀""Redis 缓存一致性与击穿 / 雪崩""JVM 内存分区与 GC 选择"），阶梯每一级也写具体机制而不是"继续深入"。一个 technical 领域只覆盖技能包里的一到两个主题，主题多就多开领域、各自浅一点。真实面试的技术题大多是这类具体考点，笼统的领域会让面试官只能泛泛地问。
-- technical 领域不能全部从简历项目里抽：至少两个 style=fundamentals 的领域，取自岗位领域包主题里 JD 和简历都没点名的基础方向（语言运行时与内存、并发、操作系统与网络、数据库原理这一类），这是真实面试里基础题的来源；这类领域填 baseline。
+- JD 是这个岗位的第一依据。JD 明确要求的方向必须有领域覆盖：这类领域通过 competencyIds 绑定岗位能力蓝图里的能力，并在 jdEvidence 里逐字复制 JD 原文中最能代表这个领域的一句（不得改写，改写的会被丢弃）；切入问题要落到这句话描述的具体场景或系统里，不要泛化成通用八股。
+- JD 没写到、但这个岗位通常会考的方向，从你加载的技能包里补：这类领域 competencyIds 为空、jdEvidence 为 null，改填 baseline（skill 填包名，topic 填包里的主题名）。基线只补空，不替代 JD 明确要求的内容。
+- 候选人简历上的每个项目最多一个领域（kind=project，projectId 填 projects 里的 id），围绕它深挖职责、决策与结果。technical 领域不许挂在项目上：名称和切入问题里不要出现简历项目的名字，也不要以"你在某项目里"开头；技术题给候选人一个与项目无关的具体场景。
+- technical 领域必须落到具体考点，不能是"后端基础""系统设计"这类笼统的筐：name 与 description 点名要考的机制（例如"MySQL 索引：B+ 树、回表与最左前缀""Redis 缓存一致性与击穿 / 雪崩"），阶梯每一级也写具体机制而不是"继续深入"。一个 technical 领域只覆盖技能包里的一到两个主题。
 
 备课的产物不是题目清单，而是：
-1. 考察领域：每个领域写明 kind（technical / project / behavioral）、style（只有 technical 填：scenario 从具体系统或场景切入；fundamentals 直接考课纲式的原理与知识点，适合技能包主题里 JD 没点名的基础方向；其他类型填 null）、来源（competencyIds 或 baseline）、权重（1–3，越重要越大）和 depth（打算追问几层，1–${MAX_AREA_DEPTH}）。领域数量和深度由你分配：一个领域花费 depth + 2 个回合，全部领域加起来控制在 ${maxTurns - 1} 回合以内，超出的会按权重被丢弃。少而深、多而浅都可以，但要把预算用满，总花费尽量接近上限，至少两个领域。
+1. 考察领域：每个领域写明 kind（technical / project / behavioral）、style（只有 technical 填：scenario 从具体系统或场景切入；fundamentals 直接考课纲式的原理与知识点；其他类型填 null）、来源（competencyIds + jdEvidence，或 baseline）、projectId（只有 project 填）、权重（1–3，越重要越大）和 depth。
 2. 每个领域一道切入问题：scenario 与 project 领域必须从具体场景切入，能让"背过但不懂"的人答错；fundamentals 领域可以直接问原理，但要带具体的边界条件；禁止"谈谈你对 X 的理解"这类空洞问法。
 3. 每个领域的深度阶梯（与 depth 同长）：每级一句"接下来往下追什么"，并标出这一级的风格——fact（事实与做法）、principle（原理）、scenario（场景排查）、tradeoff（权衡取舍）。项目领域也可以在中间层插入 principle 或 scenario，把基础题和场景题融进项目追问里。
 4. 期望信号：好回答会出现的要点，用于面试后评价，不会给候选人看。
@@ -138,11 +141,13 @@ ${retestRule}提示词版本：${BRIEF_PROMPT_VERSION}`,
     });
     const brief = buildBriefFromOutput({
       output,
+      jobDescription: input.context.jobDescription,
       resumeText: input.context.resume.text,
+      projects: input.context.projects,
       loadedSkills: skills.loaded,
       ...base,
     });
-    return finish(1, ensureTwoAreas(brief, fallbackBrief({ ...base, projects: input.context.projects })));
+    return finish(1, padAreas(brief, fallbackBrief({ ...base, projects: input.context.projects })));
   } catch (error) {
     console.warn(
       "[interviewer] brief generation failed, using fallback brief:",

@@ -93,6 +93,11 @@ function AreaOverview({ session }: { session: MockInterviewView }) {
             {note ? <p className="text-sm leading-6 text-muted-foreground">面试官：{note}</p> : null}
           </div>
         ))}
+        {conversation.droppedAreas.length > 0 ? (
+          <p className="border-t border-border pt-3 text-xs text-muted-foreground">
+            备课时为了控制时长没有安排：{conversation.droppedAreas.join("、")}
+          </p>
+        ) : null}
       </div>
     </Card>
   );

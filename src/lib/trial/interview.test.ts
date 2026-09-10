@@ -23,7 +23,7 @@ import {
  */
 
 const brief: InterviewBrief = {
-  version: 4,
+  version: 5,
   source: "model",
   pace: "quick",
   plannedTurns: 10,
@@ -37,7 +37,9 @@ const brief: InterviewBrief = {
       kind: "technical",
       style: "scenario",
       description: "缓存与数据库双写",
+      projectId: null,
       competencyIds: ["c1"],
+      jdEvidence: null,
       baseline: null,
       weight: 3,
       depth: 2,
@@ -47,6 +49,7 @@ const brief: InterviewBrief = {
       rubric: [{ name: "技术正确性", description: "", weight: 50 }, { name: "分析与取舍", description: "", weight: 30 }, { name: "表达结构", description: "", weight: 20 }],
     },
   ],
+  droppedAreas: [],
   hypotheses: [],
 };
 

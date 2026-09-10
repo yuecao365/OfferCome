@@ -23,7 +23,7 @@ const topics: Topic[] = [
 
 function brief(areas: Partial<InterviewBrief["areas"][number]>[]): InterviewBrief {
   return {
-    version: 4,
+    version: 5,
     pace: "quick",
     plannedTurns: 6,
     round: null,
@@ -34,7 +34,9 @@ function brief(areas: Partial<InterviewBrief["areas"][number]>[]): InterviewBrie
       kind: "technical",
       style: "scenario",
       description: "描述",
+      projectId: null,
       competencyIds: [],
+      jdEvidence: null,
       baseline: null,
       weight: 2,
       depth: 2,
@@ -44,6 +46,7 @@ function brief(areas: Partial<InterviewBrief["areas"][number]>[]): InterviewBrie
       rubric: [],
       ...area,
     })),
+    droppedAreas: [],
     hypotheses: [],
     skillPacks: [],
     source: "model",
