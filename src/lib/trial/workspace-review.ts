@@ -18,7 +18,7 @@ import type { TrialWorkspace } from "./workspace";
  * 与本地版一样支持按单个项目聚焦与归类调整。
  */
 
-function reviewRows(
+export function questionReviewSources(
   workspace: TrialWorkspace,
   source: InterviewReviewFilters["source"],
 ): QuestionReviewSource[] {
@@ -67,7 +67,7 @@ export function trialReviewPageData(
   workspace: TrialWorkspace,
   filters: InterviewReviewFilters,
 ): InterviewReviewPageData {
-  const rows = reviewRows(workspace, filters.source);
+  const rows = questionReviewSources(workspace, filters.source);
   const countsByCategory = new Map<string, number>();
   const countsByProjectId = new Map<string, number>();
   for (const row of rows) {

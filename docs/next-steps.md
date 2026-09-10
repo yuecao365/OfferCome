@@ -48,11 +48,9 @@
 
 ## 4. 阶段 2：P3 网页端全同步
 
-- 目标：体验版跑与本地版相同的对话式流程，状态存浏览器，服务端无状态。架构见记忆 `trial-parity-architecture`（View + 注入 + 纯函数复用）。
-- 新接口：`/api/trial/brief`（备课）、`/api/trial/turn`（回合，流式）、`/api/trial/complete`（交卷）；纯函数（reducer、evidence、budget、conversation、report）直接复用。
-- 删除：question-generation-agent、follow-up-agent、follow-up-policy、planning、体验版旧房间 `mock-interview-room.tsx`、创建页的难度 / 题目数量下拉、`MOCK_INTERVIEW_DIFFICULTIES`、`LegacyMockInterviewReport` 与两处改名映射。
-- Vercel 超时（记忆 `trial-interview-vercel-timeout`）：备课拆成可轮询的两步，回合接口流式返回。
-- 不可对齐项（trace 页、画像后台）保持本地版专属。
+计划与执行记录见 [trial-sync-plan.md](trial-sync-plan.md)。目标改为**网页版与本地版功能一模一样**（用户 2026-09-10 定调），只排除评测工具与网页上做不到的（Boss 无感同步只能走浏览器扩展，作为阶段 2b；真实面试整场录音导入阶段 3 定）。
+
+已完成（2026-09-10）：本地版拆出纯核心（turn / segments / outcome / views）；体验版会话文档 v3 与五个无状态接口（blueprint、brief、turn、evaluate、complete）；房间、进度卡、报告、trace 两端同一棵组件树；旧题库流程、旧房间、难度 / 题量下拉、v1 报告兼容全部删除。
 
 ## 5. 阶段 3：P2 语音面试
 

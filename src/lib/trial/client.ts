@@ -1,15 +1,17 @@
-import type { LegacyMockInterviewReport } from "@/lib/mock-interviews/report";
+import { DefaultChatTransport, type UIMessage } from "ai";
+
+import type { RecentWeakness } from "@/lib/mock-interviews/context";
+import type { InterviewBrief, InterviewPace } from "@/lib/mock-interviews/interviewer/brief";
+import type { InterviewMemory } from "@/lib/mock-interviews/interviewer/memory";
+import type { SegmentRecord } from "@/lib/mock-interviews/interviewer/segments";
+import type { MessageState, ThreadState } from "@/lib/mock-interviews/interviewer/state";
+import type { OutcomeQuestion, OutcomeThread } from "@/lib/mock-interviews/outcome";
+import type { MockInterviewReport } from "@/lib/mock-interviews/report";
 import type { MockInterviewJobBlueprint } from "@/lib/mock-interviews/types";
 
-import { TRIAL_AI_HEADER } from "./protocol";
 import { readAiToken } from "./browser-store";
-import type {
-  TrialEvaluation,
-  TrialInterview,
-  TrialJobInput,
-  TrialQuestion,
-  TrialResumeInput,
-} from "./interview";
+import type { TrialEvaluation, TrialJobInput, TrialResumeInput } from "./interview";
+import { TRIAL_AI_HEADER } from "./protocol";
 import { readTrialResponse, TrialRequestError, isTrialRequestError } from "./response";
 import type { TrialResumeParseResult } from "./resume";
 
@@ -30,20 +32,21 @@ export function isMissingAiConfig(error: unknown): boolean {
 /** required：没有 Key 直接拦下；optional：有就带上，让服务端能用模型。 */
 type AiTokenPolicy = "required" | "optional" | "none";
 
+function requireAiToken(): string {
+  const token = readAiToken();
+  if (!token) {
+    throw new TrialRequestError({ message: "请先连接你自己的模型服务。", status: 401, kind: "not_configured" });
+  }
+  return token;
+}
+
 async function request<T>(
   path: string,
   init: { body: BodyInit; json?: boolean; ai?: AiTokenPolicy },
   fallbackMessage: string,
 ): Promise<T> {
   const policy = init.ai ?? "none";
-  const token = policy === "none" ? null : readAiToken();
-  if (policy === "required" && !token) {
-    throw new TrialRequestError({
-      message: "请先连接你自己的模型服务。",
-      status: 401,
-      kind: "not_configured",
-    });
-  }
+  const token = policy === "required" ? requireAiToken() : policy === "optional" ? readAiToken() : null;
 
   const response = await fetch(path, {
     method: "POST",
@@ -103,62 +106,88 @@ export function parseResumeForm(input: {
   return parseResume({ body: JSON.stringify(input) });
 }
 
-export async function startInterview(input: {
+/** 岗位描述文件 → 文本（无状态解析，与本地版创建接口同一个解析器）。 */
+export async function parseJobDescriptionFile(file: File): Promise<string> {
+  const formData = new FormData();
+  formData.append("jobDescriptionFile", file);
+  const { text } = await request<{ text: string }>("/api/trial/document", { body: formData, json: false }, "岗位描述解析失败。");
+  return text;
+}
+
+/* ------------------------------ 模拟面试 ------------------------------ */
+
+export async function requestBlueprint(input: { jobTitle: string; jobDescription: string }): Promise<MockInterviewJobBlueprint> {
+  const { blueprint } = await postWithAi<{ blueprint: MockInterviewJobBlueprint }>("/api/trial/blueprint", input);
+  return blueprint;
+}
+
+export async function requestBrief(input: {
   job: TrialJobInput;
   resume: TrialResumeInput;
-  options?: {
-    questionCount?: number;
-    difficulty?: string;
-    round?: string | null;
-    followUpsEnabled?: boolean;
-  };
-}): Promise<TrialInterview> {
-  const { interview } = await postWithAi<{ interview: TrialInterview }>(
-    "/api/trial/interview",
-    input,
-  );
-  return interview;
+  blueprint: MockInterviewJobBlueprint;
+  pace: InterviewPace;
+  round: string | null;
+  recentWeaknesses: RecentWeakness[];
+}): Promise<{ brief: InterviewBrief; memory: InterviewMemory }> {
+  return postWithAi("/api/trial/brief", input);
 }
 
-export async function evaluateAnswer(input: {
-  question: TrialQuestion;
-  answer: string;
+export type TurnRequestState = { brief: InterviewBrief; memory: InterviewMemory; threads: ThreadState[]; messages: MessageState[] };
+
+/**
+ * 回合走 AI SDK 的聊天传输（流式）。状态从浏览器文档现取，随每个请求带上；
+ * 房间组件发的 body 只有候选人这条消息，这里把它和状态拼成回合接口的请求体。
+ */
+export function createTrialTurnTransport(input: {
+  readState: () => TurnRequestState;
+  context: { jobTitle: string; jobDescription: string; resumeText: string };
+}): DefaultChatTransport<UIMessage> {
+  return new DefaultChatTransport<UIMessage>({
+    api: "/api/trial/turn",
+    prepareSendMessagesRequest: ({ body }) => {
+      const message = (body ?? {}) as { kind?: string; content?: string; intent?: string | null; composeMs?: number | null };
+      return {
+        headers: { [TRIAL_AI_HEADER]: requireAiToken() },
+        body: {
+          state: input.readState(),
+          context: input.context,
+          candidate:
+            message.kind === "start"
+              ? null
+              : { content: message.content ?? "", intent: message.intent ?? null, composeMs: message.composeMs ?? null },
+        },
+      };
+    },
+  });
+}
+
+export async function evaluateSegment(input: {
+  segment: SegmentRecord;
+  targetDepth: number;
+  round: string | null;
   jobTitle: string;
   jobDescription: string;
+  resumeText: string;
+  skillPacks: string[];
 }): Promise<TrialEvaluation> {
-  const { evaluation } = await postWithAi<{ evaluation: TrialEvaluation }>(
-    "/api/trial/evaluate",
-    input,
-  );
+  const { evaluation } = await postWithAi<{ evaluation: TrialEvaluation }>("/api/trial/evaluate", input);
   return evaluation;
-}
-
-export async function requestFollowUp(input: {
-  question: TrialQuestion;
-  answer: string;
-  blueprint: MockInterviewJobBlueprint;
-  mainQuestionCount: number;
-  existingFollowUpCount: number;
-}): Promise<{ question: string; expectedSignals: string[] } | null> {
-  const { followUp } = await postWithAi<{
-    followUp: { question: string; expectedSignals: string[] } | null;
-  }>("/api/trial/follow-up", input);
-  return followUp;
 }
 
 export async function requestReport(input: {
   jobTitle: string;
-  answered: { question: string; score: number; feedback: string }[];
-  scores: number[];
-}): Promise<LegacyMockInterviewReport> {
-  const { report } = await postWithAi<{ report: LegacyMockInterviewReport }>(
-    "/api/trial/report",
-    input,
-  );
+  brief: InterviewBrief;
+  memory: InterviewMemory;
+  threads: OutcomeThread[];
+  questions: OutcomeQuestion[];
+}): Promise<MockInterviewReport> {
+  const { report } = await postWithAi<{ report: MockInterviewReport }>("/api/trial/complete", input);
   return report;
 }
 
-/** 一场面试的问答 → 能力观察（画像流水线第一相）。 */
+/* ------------------------------ 能力画像（真实面试） ------------------------------ */
+
+/** 一场真实面试的问答 → 能力观察；模拟面试的观察在浏览器里由评分推导，不经这里。 */
 export async function assessInterview(input: {
   companyName: string;
   jobTitle: string;

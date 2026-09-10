@@ -1,13 +1,7 @@
-import path from "node:path";
-
-import { extractDocumentText } from "@/lib/documents/extract-text";
+import { MAX_JD_TEXT, readJobDescriptionFile } from "@/lib/documents/job-description";
 import { isMockInterviewGenerationError } from "@/lib/mock-interviews/errors";
 import { createMockInterview } from "@/lib/mock-interviews/service";
 import { scheduleMockInterviewGeneration } from "@/lib/mock-interviews/generation-background";
-
-const MAX_JD_BYTES = 10 * 1024 * 1024;
-const MAX_JD_TEXT = 100_000;
-const JD_EXTENSIONS = new Set([".txt", ".md", ".docx", ".pdf"]);
 
 function stringValue(formData: FormData, name: string): string {
   const value = formData.get(name);
@@ -31,20 +25,7 @@ async function readJobDescription(formData: FormData): Promise<{
   originalName: string | null;
 }> {
   const file = formData.get("jobDescriptionFile");
-  if (file instanceof File && file.name) {
-    const extension = path.extname(file.name).toLowerCase();
-    if (!JD_EXTENSIONS.has(extension)) {
-      throw new Error("岗位描述只支持 TXT、MD、DOCX 或 PDF 文件。");
-    }
-    if (file.size > MAX_JD_BYTES) throw new Error("岗位描述文件不能超过 10MB。");
-    const text = await extractDocumentText({
-      bytes: Buffer.from(await file.arrayBuffer()),
-      fileName: file.name,
-      mimeType: file.type,
-    });
-    if (!text.trim()) throw new Error("没有从岗位描述中提取到文本。");
-    return { text: text.slice(0, MAX_JD_TEXT), originalName: file.name };
-  }
+  if (file instanceof File && file.name) return readJobDescriptionFile(file);
 
   const text = stringValue(formData, "jobDescriptionText");
   if (!text) throw new Error("请上传或粘贴岗位描述。");

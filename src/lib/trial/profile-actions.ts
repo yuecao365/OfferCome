@@ -1,6 +1,7 @@
 "use client";
 
 import type { CandidateProfileTransport } from "@/components/candidate-profile/candidate-profile-dashboard";
+import { deriveObservationsFromEvaluation } from "@/lib/candidate-profile/derive";
 
 import { assessInterview, isMissingAiConfig, synthesizeInsights } from "./client";
 import {
@@ -8,10 +9,14 @@ import {
   applyTrialSynthesis,
   assessableTrialInterviews,
   correctTrialObservation,
+  mergeTrialRoles,
   pendingAssessmentInterviews,
   trialProfile,
   trialProfileMetrics,
+  trialRoleKey,
+  trialRoles,
   updateTrialInsight,
+  type TrialSynthesizedView,
 } from "./workspace-profile";
 import { currentWorkspace, mutateWorkspace } from "./workspace-store";
 
@@ -64,19 +69,27 @@ export async function refreshTrialProfile(): Promise<void> {
 
   try {
     for (const interview of pending.slice(0, ASSESSMENT_BATCH_SIZE)) {
-      const observations = await assessInterview({
-        companyName: interview.companyName,
-        jobTitle: interview.jobTitle,
-        sourceType: interview.kind === "mock" ? "mock_text" : "real_summary",
-        questions: interview.questions
-          .filter((question) => question.question.trim() && question.answer.trim())
-          .map((question) => ({
-            id: question.id,
-            question: question.question,
-            answer: question.answer,
-            category: question.category,
-          })),
-      });
+      // 与本地版同一口径：模拟面试的观察由逐段评分推导（零模型调用），真实面试才调评估器。
+      const observations =
+        interview.kind === "mock"
+          ? interview.questions.flatMap((question) =>
+              question.evaluation && question.answer.trim()
+                ? deriveObservationsFromEvaluation({ questionId: question.id, answer: question.answer, dimensions: question.evaluation.dimensions })
+                : [],
+            )
+          : await assessInterview({
+              companyName: interview.companyName,
+              jobTitle: interview.jobTitle,
+              sourceType: "real_summary",
+              questions: interview.questions
+                .filter((question) => question.question.trim() && question.answer.trim())
+                .map((question) => ({
+                  id: question.id,
+                  question: question.question,
+                  answer: question.answer,
+                  category: question.category,
+                })),
+            });
       mutateWorkspace((current) =>
         applyTrialAssessment(
           current,
@@ -105,43 +118,7 @@ export async function refreshTrialProfile(): Promise<void> {
     }
 
     runState.phase = "synthesis";
-    const assessed = currentWorkspace();
-    const metrics = trialProfileMetrics(assessed);
-    // 与本地版同一道门槛：1 场面试即可合成"初步印象"。
-    const eligibleMetrics = metrics.filter((metric) => metric.interviewCount >= 1);
-    if (eligibleMetrics.length > 0) {
-      const eligibleDimensions = new Set(
-        eligibleMetrics.map((metric) => metric.dimension),
-      );
-      const profile = trialProfile(assessed);
-      const insights = await synthesizeInsights({
-        roleKey: "all",
-        metrics: eligibleMetrics,
-        observations: profile.observations
-          .filter(
-            (observation) =>
-              observation.status === "active" &&
-              eligibleDimensions.has(
-                observation.dimension as (typeof eligibleMetrics)[number]["dimension"],
-              ),
-          )
-          .slice(0, 120),
-        lockedInsights: profile.insights.filter((insight) => insight.isUserLocked),
-      });
-      mutateWorkspace((current) =>
-        applyTrialSynthesis(
-          current,
-          insights.map((insight) => ({
-            dimension: insight.dimension,
-            kind: insight.kind,
-            title: insight.title,
-            statement: insight.statement,
-            evidence: insight.evidence,
-          })),
-          metrics,
-        ),
-      );
-    }
+    await synthesizeAllViews();
 
     runState.status = "idle";
     runState.phase = "idle";
@@ -151,6 +128,51 @@ export async function refreshTrialProfile(): Promise<void> {
     runState.lastError = friendlyMessage(caught, "画像刷新失败，请重试。");
     throw new Error(runState.lastError);
   }
+}
+
+/**
+ * 每个视角（all + 各岗位）各总结一次，与本地版 refreshCandidateProfile 的循环同口径：
+ * 1 场面试即可合成"初步印象"；一个视角一次模型调用。
+ */
+async function synthesizeAllViews(): Promise<void> {
+  const workspace = currentWorkspace();
+  const profile = trialProfile(workspace);
+  const interviews = new Map(workspace.interviews.map((interview) => [interview.id, interview]));
+  const views: TrialSynthesizedView[] = [];
+  for (const roleKey of ["all", ...trialRoles(workspace).map((role) => role.key)]) {
+    const metrics = trialProfileMetrics(workspace, roleKey);
+    const eligibleMetrics = metrics.filter((metric) => metric.interviewCount >= 1);
+    if (eligibleMetrics.length === 0) continue;
+    const eligibleDimensions = new Set(eligibleMetrics.map((metric) => metric.dimension));
+    const insights = await synthesizeInsights({
+      roleKey,
+      metrics: eligibleMetrics,
+      observations: profile.observations
+        .filter((observation) => {
+          const interview = interviews.get(observation.interviewId);
+          return (
+            observation.status === "active" &&
+            interview !== undefined &&
+            (roleKey === "all" || trialRoleKey(interview) === roleKey) &&
+            eligibleDimensions.has(observation.dimension as (typeof eligibleMetrics)[number]["dimension"])
+          );
+        })
+        .slice(0, 120),
+      lockedInsights: profile.insights.filter((insight) => insight.isUserLocked && (insight.roleKey ?? "all") === roleKey),
+    });
+    views.push({
+      roleKey,
+      metrics,
+      insights: insights.map((insight) => ({
+        dimension: insight.dimension,
+        kind: insight.kind,
+        title: insight.title,
+        statement: insight.statement,
+        evidence: insight.evidence,
+      })),
+    });
+  }
+  if (views.length > 0) mutateWorkspace((current) => applyTrialSynthesis(current, views));
 }
 
 /** 是否该自动跑一轮：有未评估的已完成面试，且上一轮没有在跑也没有失败。 */
@@ -184,6 +206,18 @@ export function createTrialProfileTransport(): CandidateProfileTransport {
     },
     async updateInsight(id, body) {
       mutateWorkspace((current) => updateTrialInsight(current, { id, ...body }));
+    },
+    async mergeRoles(sourceKey, targetKey) {
+      mutateWorkspace((current) => mergeTrialRoles(current, sourceKey, targetKey));
+      // 与本地版一样，合并后重新总结（观察不变，只重跑洞察）。
+      runState.status = "running";
+      runState.phase = "synthesis";
+      try {
+        await synthesizeAllViews();
+      } finally {
+        runState.status = "idle";
+        runState.phase = "idle";
+      }
     },
   };
 }

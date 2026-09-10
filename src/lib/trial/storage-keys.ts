@@ -14,8 +14,8 @@ const PREFIX = "offercome.trial";
 export const AI_TOKEN_KEY = `${PREFIX}.ai`;
 /** 是否跨会话记住连接。 */
 export const AI_REMEMBER_KEY = `${PREFIX}.ai.remember`;
-/** 进行中的模拟面试，关掉网页再回来要能接着交卷。 */
-export const INTERVIEW_KEY = `${PREFIX}.interview`;
+/** 模拟面试会话表（按 id），进行中与已完成的都在；关掉网页再回来要能接着答。 */
+export const INTERVIEWS_KEY = `${PREFIX}.interviews`;
 /** 工作台文档：投递、面试、简历索引。 */
 export const WORKSPACE_KEY = `${PREFIX}.workspace`;
 /** 简历原件仓库（IndexedDB 库名，不是 localStorage 键）。 */

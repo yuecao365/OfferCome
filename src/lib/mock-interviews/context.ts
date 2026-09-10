@@ -1,6 +1,5 @@
 import "server-only";
 
-import { getCandidateProfileContext } from "@/lib/candidate-profile/queries";
 import { prisma } from "@/lib/db";
 import { ensureResumeExperiences } from "@/lib/resumes/experience-store";
 import { extractResumeTextFromFile } from "@/lib/resumes/extract";
@@ -28,17 +27,6 @@ export type MockInterviewContext = {
     organization: string;
     description: string;
   }[];
-  /** 旧题库流程的素材，阶段 2 随该流程一起删除。 */
-  history: {
-    interviewId: string;
-    companyName: string;
-    jobTitle: string;
-    questionId: string;
-    question: string;
-    answer: string;
-    category: string;
-  }[];
-  profile: Awaited<ReturnType<typeof getCandidateProfileContext>>;
   recentWeaknesses: RecentWeakness[];
 };
 
@@ -64,7 +52,7 @@ export async function buildMockInterviewContext(input: {
   jobDescription: string;
   seedQuestionId?: string | null;
 }): Promise<MockInterviewContext> {
-  const [resume, historyRows, profile, recentQuestions] = await Promise.all([
+  const [resume, recentQuestions] = await Promise.all([
     prisma.resume.findUnique({
       where: { id: input.resumeId },
       include: {
@@ -74,17 +62,6 @@ export async function buildMockInterviewContext(input: {
         },
       },
     }),
-    prisma.interview.findMany({
-      where: {
-        kind: "real",
-        status: "completed",
-        questions: { some: { answer: { not: null } } },
-      },
-      include: { questions: { orderBy: { sortOrder: "asc" } } },
-      orderBy: { updatedAt: "desc" },
-      take: 12,
-    }),
-    getCandidateProfileContext(),
     getRecentEvaluatedQuestions({
       limit: RECENT_WEAKNESS_INTERVIEWS,
       jobTitle: input.jobTitle,
@@ -119,32 +96,6 @@ export async function buildMockInterviewContext(input: {
     }
   }
 
-  const normalizedJobTitle = input.jobTitle.trim().toLocaleLowerCase();
-  const history = historyRows
-    .toSorted((left, right) => {
-      const leftMatch = left.jobTitle.trim().toLocaleLowerCase() === normalizedJobTitle;
-      const rightMatch = right.jobTitle.trim().toLocaleLowerCase() === normalizedJobTitle;
-      return Number(rightMatch) - Number(leftMatch);
-    })
-    .flatMap((interview) =>
-      interview.questions.flatMap((question) => {
-        const answer = question.answer?.trim();
-        if (!answer) return [];
-        return [
-          {
-            interviewId: interview.id,
-            companyName: interview.companyName,
-            jobTitle: interview.jobTitle,
-            questionId: question.id,
-            question: question.question,
-            answer: answer.slice(0, 2_000),
-            category: question.category,
-          },
-        ];
-      }),
-    )
-    .slice(0, 30);
-
   const recentWeaknesses = recentQuestions
     .flatMap((item) => weaknessesOf(item, item.questionId === input.seedQuestionId))
     .slice(0, RECENT_WEAKNESS_LIMIT);
@@ -172,8 +123,6 @@ export async function buildMockInterviewContext(input: {
       text: resumeText.trim().slice(0, 30_000),
     },
     projects: Array.from(projectsById.values()),
-    history,
-    profile,
     recentWeaknesses,
   };
 }
@@ -186,8 +135,6 @@ export function serializeMockInterviewContext(
     resumeId: context.resume.id,
     resumeName: context.resume.name,
     projectIds: context.projects.map((project) => project.id),
-    historyQuestionIds: context.history.map((item) => item.questionId),
-    profileRevision: context.profile.revision,
     recentWeaknesses: context.recentWeaknesses,
     jobBlueprint: generation?.blueprint ?? null,
   });

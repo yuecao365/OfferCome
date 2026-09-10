@@ -8,6 +8,7 @@ import {
   type ProfileMetricValue,
   type ProfileSnapshotValue,
 } from "@/components/candidate-profile/candidate-profile-dashboard";
+import { RecentFeedbackCard } from "@/components/candidate-profile/recent-feedback-card";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { parseProfileDimension } from "@/lib/candidate-profile/types";
@@ -18,19 +19,18 @@ import {
   trialProfile,
   trialProfileInsightViews,
   trialProfileMetrics,
+  trialRoles,
 } from "@/lib/trial/workspace-profile";
 import { useTrialWorkspace } from "@/lib/trial/workspace-store";
 
 /**
  * 体验版的能力画像页：渲染与本地版相同的 CandidateProfileDashboard，
- * 评估/总结走无状态 API，聚合与状态推导复用本地版纯函数。
- * 本地版由后台调度器驱动刷新，体验版改为打开页面时自动补齐。
+ * 评估/总结走无状态 API，聚合与状态推导复用本地版纯函数；岗位视角与合并同样有。
+ * 本地版由后台调度器驱动刷新，体验版由 AppShell 上的调度器在浏览器里跑。
  */
 export function TrialProfilePage() {
   const workspace = useTrialWorkspace();
   const aiReady = useStoredDocument(trialAiTokenDocument) !== null;
-  // 自动补齐评估由 AppShell 上的 TrialProfileRefreshScheduler 负责，
-  // 这里只负责把浏览器里的画像渲染成与本地版相同的表盘。
   const transport = useMemo(() => createTrialProfileTransport(), []);
 
   if (!workspace) {
@@ -39,23 +39,28 @@ export function TrialProfilePage() {
   }
 
   const profile = trialProfile(workspace);
-  const aggregated = trialProfileMetrics(workspace);
-  const metrics: ProfileMetricValue[] = aggregated.map((metric) => ({
-    roleKey: "all",
-    dimension: metric.dimension,
-    level: metric.level,
-    levelLabel: metric.levelLabel,
-    trend: metric.trend,
-    evidenceConfidence: metric.evidenceConfidence,
-    confidenceLabel: metric.confidenceLabel,
-    interviewCount: metric.interviewCount,
-    realInterviewCount: metric.realInterviewCount,
-    evidenceCount: metric.evidenceCount,
-  }));
+  const roles = trialRoles(workspace);
+  const metricsByRole = new Map(
+    ["all", ...roles.map((role) => role.key)].map((roleKey) => [roleKey, trialProfileMetrics(workspace, roleKey)] as const),
+  );
+  const metrics: ProfileMetricValue[] = [...metricsByRole.entries()].flatMap(([roleKey, aggregated]) =>
+    aggregated.map((metric) => ({
+      roleKey,
+      dimension: metric.dimension,
+      level: metric.level,
+      levelLabel: metric.levelLabel,
+      trend: metric.trend,
+      evidenceConfidence: metric.evidenceConfidence,
+      confidenceLabel: metric.confidenceLabel,
+      interviewCount: metric.interviewCount,
+      realInterviewCount: metric.realInterviewCount,
+      evidenceCount: metric.evidenceCount,
+    })),
+  );
   const snapshots: ProfileSnapshotValue[] = profile.snapshots.map((snapshot) => ({
-    id: `trial-snapshot-${snapshot.revision}`,
+    id: `trial-snapshot-${snapshot.roleKey ?? "all"}-${snapshot.revision}`,
     revision: snapshot.revision,
-    roleKey: "all",
+    roleKey: snapshot.roleKey ?? "all",
     createdAt: snapshot.createdAt,
     metrics: snapshot.metrics.flatMap((metric) => {
       const dimension = parseProfileDimension(metric.dimension);
@@ -64,15 +69,38 @@ export function TrialProfilePage() {
         : [];
     }),
   }));
+  const insights = trialProfileInsightViews(workspace, metricsByRole);
+
+  // 冷启动：有逐段反馈就先展示定性反馈卡（与本地版同一张卡）；连模型都没连时提示去设置页。
+  const recentFeedback = workspace.interviews
+    .filter((interview) => interview.kind === "mock" && interview.status === "completed")
+    .slice(0, 3)
+    .flatMap((interview) =>
+      interview.questions.flatMap((question) =>
+        question.evaluation
+          ? [
+              {
+                questionId: question.id,
+                question: question.question,
+                companyName: interview.companyName,
+                jobTitle: interview.jobTitle,
+                areaName: null,
+                strengths: question.evaluation.strengths.map((item) => item.point),
+                weaknesses: question.evaluation.weaknesses,
+              },
+            ]
+          : [],
+      ),
+    );
 
   return (
     <CandidateProfileDashboard
       coldStartCard={
-        aiReady ? null : (
+        !aiReady ? (
           <Card className="grid gap-3 p-5 text-sm text-muted-foreground">
             <p className="font-semibold text-foreground">连接模型后自动生成画像</p>
             <p>
-              能力画像由 AI 逐题评估已完成的面试并聚合而成。在设置页连接你自己的
+              能力画像由逐段评分推导并由 AI 归纳而成。在设置页连接你自己的
               模型服务后，打开本页会自动分析工作台里的面试记录。
             </p>
             <div>
@@ -82,9 +110,11 @@ export function TrialProfilePage() {
               </ButtonLink>
             </div>
           </Card>
-        )
+        ) : recentFeedback.length > 0 ? (
+          <RecentFeedbackCard items={recentFeedback} />
+        ) : null
       }
-      insights={trialProfileInsightViews(workspace, aggregated)}
+      insights={insights}
       metrics={metrics}
       profileStatus={{
         status: "idle",
@@ -96,7 +126,7 @@ export function TrialProfilePage() {
         lastError: null,
         needsFullRebuild: false,
       }}
-      roles={[]}
+      roles={roles.map((role) => ({ key: role.key, displayName: role.displayName }))}
       snapshots={snapshots}
       transport={transport}
     />

@@ -9,7 +9,7 @@ import {
 } from "@/components/interviews/mock-interviews-view";
 import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { trialAiTokenDocument, trialInterviewDocument } from "@/lib/trial/browser-store";
+import { trialAiTokenDocument, trialInterviewsDocument } from "@/lib/trial/browser-store";
 import {
   createTrialMockSession,
   deleteTrialMockSession,
@@ -25,7 +25,7 @@ export function TrialMockPage() {
   const searchParams = useSearchParams();
   const workspace = useTrialWorkspace();
   const aiReady = useStoredDocument(trialAiTokenDocument) !== null;
-  const activeSession = useStoredDocument(trialInterviewDocument);
+  const sessions = useStoredDocument(trialInterviewsDocument);
 
   const resume = workspace?.resume ?? null;
 
@@ -54,35 +54,27 @@ export function TrialMockPage() {
         }
       : null;
 
-  const recent: MockInterviewListItem[] = [
-    // 进行中的会话单独保存；完成后由工作台记录接管展示。
-    ...(activeSession && activeSession.status !== "completed"
-      ? [
-          {
-            id: activeSession.id,
-            interviewId: activeSession.id,
-            status: activeSession.status,
-            currentQuestionIndex: activeSession.currentIndex,
-            questionCount: activeSession.questions.length,
-            totalScore: null,
-            companyName: activeSession.job.companyName,
-            jobTitle: activeSession.job.jobTitle,
-          },
-        ]
-      : []),
-    ...(workspace?.interviews ?? [])
-      .filter((item) => item.kind === "mock")
-      .map((item) => ({
-        id: item.id,
-        interviewId: item.id,
-        status: "completed",
-        currentQuestionIndex: item.questions.length,
-        questionCount: item.questions.length,
-        totalScore: item.totalScore,
-        companyName: item.companyName,
-        jobTitle: item.jobTitle,
-      })),
-  ];
+  // "针对练习"带来的题：从工作台里找到它，预填岗位并让备课复测它的短板。
+  const seedQuestionId = searchParams.get("seedQuestionId");
+  const seedRecord = seedQuestionId
+    ? (workspace?.interviews.find((interview) => interview.questions.some((question) => question.id === seedQuestionId)) ?? null)
+    : null;
+  const seedQuestion = seedRecord?.questions.find((question) => question.id === seedQuestionId) ?? null;
+
+  const recent: MockInterviewListItem[] = Object.values(sessions ?? {})
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+    .slice(0, 8)
+    .map((session) => ({
+      id: session.id,
+      interviewId: session.id,
+      status: session.status,
+      currentQuestionIndex: session.questions.length,
+      questionCount: session.questions.length,
+      totalScore: session.report?.totalScore ?? null,
+      companyName: session.job.companyName,
+      jobTitle: session.job.jobTitle,
+      pace: session.pace,
+    }));
 
   return (
     <MockInterviewsView
@@ -91,9 +83,13 @@ export function TrialMockPage() {
       setup={
         resume ? (
           <MockInterviewSetup
-            application={application}
+            application={
+              application ??
+              (seedRecord
+                ? { id: null, companyName: seedRecord.companyName, jobTitle: seedRecord.jobTitle, jobUrl: "", jobDescription: "" }
+                : null)
+            }
             createSession={(formData) => createTrialMockSession(formData, resume)}
-            jdFileEnabled={false}
             resumes={[
               {
                 id: "trial-resume",
@@ -101,6 +97,7 @@ export function TrialMockPage() {
                 isDefault: true,
               },
             ]}
+            seed={seedQuestion ? { id: seedQuestion.id, title: seedQuestion.question } : null}
             textConfigured={aiReady}
             transcriptionConfigured={false}
             voiceDisabledHint="语音作答依赖本地版的转写服务，网页版暂不支持。"

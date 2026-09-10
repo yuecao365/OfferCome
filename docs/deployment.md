@@ -56,3 +56,5 @@ The full local app needs persistent database and file storage, a Node.js runtime
 Moving that mode to a serverless host requires addressing function timeouts, request-size limits, background-task execution, and persistent storage. The web mode avoids server-side persistence by using browser storage and stateless request handlers, but AI requests remain subject to the host's time and payload limits.
 
 Vercel defaults to web mode unless explicitly overridden. Changing the mode flag alone does not provide the infrastructure needed by the full local app.
+
+Web-mode API routes each make a single model call and declare their own `maxDuration` (`/api/trial/brief` needs up to 90 s; the others 60 s). On the Vercel Hobby plan, enable Fluid Compute so the 90 s budget applies; without it functions are capped at 60 s and a slow model can time out during briefing (the progress card then offers a retry that only reruns the failed step).

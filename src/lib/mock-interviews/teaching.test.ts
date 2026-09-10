@@ -3,49 +3,40 @@ import test from "node:test";
 
 import { buildQuestionTeaching } from "./teaching";
 
-const evaluation = {
-  expectedSignalsJson: JSON.stringify(["说明取舍", "给出验证方式"]),
-  generationMetadataJson: JSON.stringify({
-    jobCompetencyId: "system_design",
-    jdEvidence: "负责高并发系统设计",
-    rationale: "验证候选人的架构判断",
-  }),
-  sourceKind: "job_description",
-};
-
-test("buildQuestionTeaching resolves competency and persisted generation evidence", () => {
-  const teaching = buildQuestionTeaching(
-    JSON.stringify({
-      jobBlueprint: {
-        competencies: [{ id: "system_design", name: "系统设计" }],
-      },
-    }),
-    evaluation,
-  );
+test("buildQuestionTeaching reads the segment metadata written at thread close", () => {
+  const teaching = buildQuestionTeaching({
+    metadata: {
+      areaId: "a1",
+      areaName: "MySQL 索引",
+      areaKind: "technical",
+      areaStyle: "fundamentals",
+      competencyOrigin: "baseline",
+      skillPack: "backend",
+      note: "机制清楚，取舍偏弱",
+      depth: 2,
+      probeCount: 2,
+      rescues: 0,
+      answerSeconds: 95,
+    },
+    expectedSignals: ["说明取舍", "给出验证方式"],
+    sourceKind: "technical",
+  });
 
   assert.deepEqual(teaching, {
-    competencyName: "系统设计",
-    competencyOrigin: "jd",
-    skillPack: null,
-    areaStyle: null,
-    answerSeconds: null,
-    sourceUrl: null,
-    jdEvidence: "负责高并发系统设计",
+    areaName: "MySQL 索引",
+    competencyOrigin: "baseline",
+    skillPack: "backend",
+    areaStyle: "fundamentals",
+    answerSeconds: 95,
     expectedSignals: ["说明取舍", "给出验证方式"],
-    rationale: "验证候选人的架构判断",
-    sourceKind: "job_description",
+    note: "机制清楚，取舍偏弱",
+    sourceKind: "technical",
   });
 });
 
-test("buildQuestionTeaching degrades safely when snapshot data is malformed", () => {
-  const teaching = buildQuestionTeaching("not-json", {
-    ...evaluation,
-    expectedSignalsJson: "{}",
-    generationMetadataJson: "not-json",
-  });
-
-  assert.equal(teaching.competencyName, null);
-  assert.equal(teaching.jdEvidence, null);
+test("buildQuestionTeaching degrades safely when stored data is malformed", () => {
+  const teaching = buildQuestionTeaching({ metadata: "not-json", expectedSignals: {}, sourceKind: "technical" });
+  assert.equal(teaching.areaName, null);
   assert.deepEqual(teaching.expectedSignals, []);
-  assert.equal(teaching.rationale, null);
+  assert.equal(teaching.note, null);
 });

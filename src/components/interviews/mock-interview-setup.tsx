@@ -22,8 +22,6 @@ import {
   INTERVIEW_PACES,
 } from "@/lib/mock-interviews/interviewer/brief";
 import {
-  MOCK_INTERVIEW_DIFFICULTIES,
-  MOCK_INTERVIEW_DIFFICULTY_LABELS,
   MOCK_INTERVIEW_MODES,
   MOCK_INTERVIEW_MODE_LABELS,
 } from "@/lib/mock-interviews/types";
@@ -58,8 +56,6 @@ export function MockInterviewSetup({
   seed,
   application,
   createSession,
-  jdFileEnabled = true,
-  questionCounts,
   voiceDisabledHint = "需先在设置页配置语音转写模型。",
 }: {
   resumes: ResumeOption[];
@@ -69,10 +65,6 @@ export function MockInterviewSetup({
   application?: MockInterviewApplication | null;
   /** 覆盖默认的创建接口（体验版走无状态 API + 浏览器存储）。 */
   createSession?: (formData: FormData) => Promise<{ href: string }>;
-  /** JD 文件解析依赖服务端落盘，体验版关闭、只留粘贴文本。 */
-  jdFileEnabled?: boolean;
-  /** 旧的分步流程按题量创建；只有体验版还在传，P2 同构后删除。 */
-  questionCounts?: { options: number[]; defaultValue: number };
   voiceDisabledHint?: string;
 }) {
   const router = useRouter();
@@ -170,8 +162,7 @@ export function MockInterviewSetup({
             />
           </FieldLabel>
         </div>
-        <div className={`mt-4 grid gap-4 ${jdFileEnabled ? "lg:grid-cols-2" : ""}`}>
-          {jdFileEnabled ? (
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
           <FieldLabel>
             上传 Job Description
             <Input
@@ -182,9 +173,8 @@ export function MockInterviewSetup({
             />
             <span className="font-normal leading-5">支持 TXT、MD、DOCX、PDF。上传文件后无需再粘贴文本。</span>
           </FieldLabel>
-          ) : null}
           <FieldLabel>
-            {jdFileEnabled ? "或粘贴 Job Description" : "粘贴 Job Description"}
+            或粘贴 Job Description
             <Textarea
               name="jobDescriptionText"
               onChange={(event) => setJobDescriptionText(event.target.value)}
@@ -207,7 +197,7 @@ export function MockInterviewSetup({
           <summary className="flex cursor-pointer select-none flex-wrap items-baseline gap-x-3 gap-y-1 [&::-webkit-details-marker]:hidden">
             <h2 className="text-sm font-semibold text-foreground">面试设置</h2>
             <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground group-open:hidden">
-              {resumes.find((resume) => resume.isDefault)?.name ?? resumes[0]?.name} · 第一轮 · {questionCounts ? `${questionCounts.defaultValue} 题` : `${INTERVIEW_PACE_LABELS[DEFAULT_INTERVIEW_PACE]}节奏`} · 文字作答
+              {resumes.find((resume) => resume.isDefault)?.name ?? resumes[0]?.name} · 第一轮 · {INTERVIEW_PACE_LABELS[DEFAULT_INTERVIEW_PACE]}节奏 · 文字作答
             </span>
             <span className="text-xs text-muted-foreground group-open:hidden">调整</span>
             <span className="w-full text-[0.8125rem] text-muted-foreground group-open:block hidden">选择面试使用的简历、轮次、时长和作答方式。面试官会根据岗位和简历备课，题目在对话中临场提出。</span>
@@ -232,35 +222,14 @@ export function MockInterviewSetup({
               ))}
             </Select>
           </FieldLabel>
-          {questionCounts ? (
-            <>
-              <FieldLabel>
-                难度
-                <Select defaultValue="standard" name="difficulty">
-                  {MOCK_INTERVIEW_DIFFICULTIES.map((difficulty) => (
-                    <option key={difficulty} value={difficulty}>{MOCK_INTERVIEW_DIFFICULTY_LABELS[difficulty]}</option>
-                  ))}
-                </Select>
-              </FieldLabel>
-              <FieldLabel>
-                题目数量
-                <Select defaultValue={String(questionCounts.defaultValue)} name="questionCount">
-                  {questionCounts.options.map((count) => (
-                    <option key={count} value={count}>{count} 题</option>
-                  ))}
-                </Select>
-              </FieldLabel>
-            </>
-          ) : (
-            <FieldLabel>
-              面试节奏
-              <Select defaultValue={DEFAULT_INTERVIEW_PACE} name="pace">
-                {INTERVIEW_PACES.map((pace) => (
-                  <option key={pace} value={pace}>{INTERVIEW_PACE_LABELS[pace]}</option>
-                ))}
-              </Select>
-            </FieldLabel>
-          )}
+          <FieldLabel>
+            面试节奏
+            <Select defaultValue={DEFAULT_INTERVIEW_PACE} name="pace">
+              {INTERVIEW_PACES.map((pace) => (
+                <option key={pace} value={pace}>{INTERVIEW_PACE_LABELS[pace]}</option>
+              ))}
+            </Select>
+          </FieldLabel>
         </div>
         <fieldset className="mt-5 grid gap-2">
           <legend className="text-xs font-medium text-muted-foreground">

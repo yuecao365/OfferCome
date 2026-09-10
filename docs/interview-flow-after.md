@@ -139,7 +139,7 @@ advice: 补一版完整的 Agent 主循环设计稿，重点写清上下文构�
 8. 任一步失败 → 退回 ready_to_evaluate，房间超时后给重试
 9. 事务外：`enqueueCandidateProfileRefresh()`；评测运行器跑出的面试（`Interview.evalTag` 非空）跳过这一步，不进画像
 
-报告 v2 形状：`{ version: 2, totalScore, summary, strengths[], weaknesses[], advice[], hypotheses[] }`。旧报告（v1：strengths / improvements / actionPlan）读出时映射：improvements + actionPlan → advice，weaknesses 与 hypotheses 为空。体验版的浏览器存档仍是 v1：`/api/trial/evaluate` 与 `/api/trial/report` 把 v2 折回旧形状，报告页再映射回来。
+报告 v2 形状：`{ version: 2, totalScore, summary, strengths[], weaknesses[], advice[], hypotheses[] }`。库里两条 v1 报告已一次性升成 v2（improvements + actionPlan → advice），代码不再读 v1。
 
 ## 5. 能力画像刷新（`candidate-profile/`，后台，ability-assessment-v5）
 
@@ -192,3 +192,12 @@ advice: 补一版完整的 Agent 主循环设计稿，重点写清上下文构�
 - 汇总的假设结论一开始把状态词写进结论开头、没问到的写成"open"，现在由代码统一：没问到的固定措辞，其余去掉状态前缀
 
 顺带修掉的面试中问题：提示 / 澄清次数用完后模型再提就被换成 close_thread，单领域的面试因此在第 6 回合结束。现在用完只剩一句话不关线程，连续空转仍由两回合规则收住；简报只给一个领域时代码补第二个。
+
+## 9. 体验版（网页版）怎么走这一段
+
+| 本地版 | 体验版 |
+|---|---|
+| 线程关闭 → `after()` 跑 `evaluatePersistedMockInterviewQuestion`（评分 + 示范） | 线程关闭 → 页面后台调 `POST /api/trial/evaluate`（同一个评分 agent + 示范 agent，一次请求），结果写进文档段落；失败标 failed，交卷时补跑 |
+| 面试结束 → `after()` 自动交卷 `completeMockInterview` | 面试结束 → 房间页 `completeTrialMockSession`：等在途评分、补跑 pending / failed，调 `POST /api/trial/complete`（`outcome.ts` 同一套拼装 + 汇总 agent），报告写进文档并把这场投影到工作台历史（`addCompletedMockInterview`，题目带完整评分） |
+| 报告页读库（`queries.ts` → `views.ts`） | 报告页读文档（`mock-view.ts` → 同一个 `views.ts` / `teaching.ts`），逐段维度分、短板、示范、面试官记忆、假设都在 |
+| 画像后台任务：模拟面试由评分推导，真实面试调评估器 | 浏览器里跑（`profile-actions.ts`）：模拟面试同样由 `deriveObservationsFromEvaluation` 推导，零模型调用；真实面试调 `/api/trial/assess` |

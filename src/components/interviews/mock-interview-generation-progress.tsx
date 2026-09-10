@@ -2,17 +2,39 @@
 
 import { LoaderCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
-type GenerationState = {
+export type GenerationState = {
   status: string;
   generationPhase: string | null;
   error: string | null;
 };
+
+/** 进度的来源：本地版轮询服务端状态，体验版读浏览器里的会话文档。 */
+export type GenerationProgressDriver = {
+  poll(): Promise<GenerationState>;
+  retry(): Promise<void>;
+};
+
+async function readJson<T>(response: Response, fallback: string): Promise<T> {
+  const result = (await response.json()) as T & { error?: string };
+  if (!response.ok) throw new Error(result.error ?? fallback);
+  return result;
+}
+
+export function createLocalGenerationDriver(sessionId: string): GenerationProgressDriver {
+  return {
+    poll: async () =>
+      readJson<GenerationState>(await fetch(`/api/interviews/mock/${sessionId}/status`, { cache: "no-store" }), "读取生成进度失败。"),
+    retry: async () => {
+      await readJson(await fetch(`/api/interviews/mock/${sessionId}/retry-generation`, { method: "POST" }), "重试生成失败。");
+    },
+  };
+}
 
 function phaseLabel(phase: string | null): string {
   if (phase === "brief") {
@@ -21,32 +43,37 @@ function phaseLabel(phase: string | null): string {
   return "正在分析岗位能力";
 }
 
-/** 备课进度卡：轮询状态；失败时只有一个动作——从头重新备课。 */
+/** 备课进度卡：轮询状态；失败时只有一个动作——从失败的那一步重新备课。 */
 export function MockInterviewGenerationProgress({
   sessionId,
   initial,
+  driver: injectedDriver,
+  onReady,
 }: {
   sessionId: string;
   initial: GenerationState;
+  driver?: GenerationProgressDriver;
+  /** 备课完成后的刷新方式；缺省重取服务端视图。 */
+  onReady?: () => void;
 }) {
   const router = useRouter();
+  const driver = useMemo(() => injectedDriver ?? createLocalGenerationDriver(sessionId), [injectedDriver, sessionId]);
   const [state, setState] = useState(initial);
   const [retrying, setRetrying] = useState(false);
 
   const refreshStatus = useCallback(async () => {
-    const response = await fetch(`/api/interviews/mock/${sessionId}/status`, {
-      cache: "no-store",
-    });
-    const next = (await response.json()) as GenerationState & { error?: string };
-    if (!response.ok) throw new Error(next.error ?? "读取生成进度失败。");
+    const next = await driver.poll();
     setState(next);
-    if (next.status !== "generating") router.refresh();
-  }, [router, sessionId]);
+    if (next.status !== "generating") {
+      if (onReady) onReady();
+      else router.refresh();
+    }
+  }, [driver, onReady, router]);
 
   useEffect(() => {
     if (state.status !== "generating") return;
     const interval = window.setInterval(() => {
-      void refreshStatus();
+      void refreshStatus().catch(() => {});
     }, 2_500);
     return () => window.clearInterval(interval);
   }, [refreshStatus, state.status]);
@@ -54,13 +81,12 @@ export function MockInterviewGenerationProgress({
   const retry = async () => {
     setRetrying(true);
     try {
-      const response = await fetch(`/api/interviews/mock/${sessionId}/retry-generation`, { method: "POST" });
-      const result = (await response.json()) as { error?: string };
-      if (!response.ok) throw new Error(result.error ?? "重试生成失败。");
-      setState({ status: "generating", generationPhase: "job_blueprint", error: null });
+      setState({ status: "generating", generationPhase: state.generationPhase ?? "job_blueprint", error: null });
+      await driver.retry();
     } catch (error) {
       setState((current) => ({
         ...current,
+        status: "generation_failed",
         error: error instanceof Error ? error.message : "重试生成失败。",
       }));
     } finally {

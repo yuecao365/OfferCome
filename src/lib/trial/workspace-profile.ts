@@ -2,6 +2,7 @@ import type {
   ProfileGraphInsight,
 } from "@/components/candidate-profile/profile-graph-model";
 import { detectInsightConflict } from "@/lib/candidate-profile/conflict";
+import { normalizeRoleTitle } from "@/lib/candidate-profile/role-title";
 import {
   aggregateProfileDimension,
   deriveInsightStatus,
@@ -27,12 +28,11 @@ import type {
 /**
  * 体验版能力画像的纯函数层。
  *
- * 流水线与本地版同构：评估（agent，走无状态 API）→ 聚合（rules.ts，
+ * 流水线与本地版同构：观察（模拟面试由评分推导、真实面试走无状态评估接口）→ 聚合（rules.ts，
  * 直接复用）→ 总结（agent，走无状态 API）→ 存储（浏览器工作台）。
  * 等级、趋势、置信度、洞察状态的推导全部**引用**本地版实现，不复制。
  *
- * 体验版只有单一"all"视角：没有岗位视角切分与合并（那依赖服务端的
- * 角色上下文实体），数据量级也用不上。
+ * 岗位视角与本地版一致："all" 之外按岗位名归一切出视角，可以把一个视角并入另一个。
  */
 
 const emptyProfile = (): TrialProfile => ({
@@ -77,12 +77,32 @@ export function pendingAssessmentInterviews(
   );
 }
 
+/* ------------------------------ 岗位视角 ------------------------------ */
+
+/** 一场面试属于哪个岗位视角：合并过的按覆盖值，否则按岗位名归一（浏览器里不用哈希）。 */
+export function trialRoleKey(interview: Pick<TrialWorkspaceInterview, "jobTitle" | "roleKey">): string {
+  return interview.roleKey ?? `role:${normalizeRoleTitle(interview.jobTitle) || "未分类岗位"}`;
+}
+
+export type TrialRole = { key: string; displayName: string };
+
+/** 有面试记录的岗位视角，显示名取该视角下最早一场的岗位名。 */
+export function trialRoles(workspace: TrialWorkspace): TrialRole[] {
+  const roles = new Map<string, string>();
+  for (const interview of [...workspace.interviews].toSorted((left, right) => left.createdAt.localeCompare(right.createdAt))) {
+    const key = trialRoleKey(interview);
+    if (!roles.has(key)) roles.set(key, interview.jobTitle.trim());
+  }
+  return [...roles.entries()].map(([key, displayName]) => ({ key, displayName }));
+}
+
 function interviewDate(interview: TrialWorkspaceInterview): Date {
   return new Date(interview.interviewedAt ?? interview.updatedAt);
 }
 
 function aggregationObservations(
   workspace: TrialWorkspace,
+  roleKey: string,
 ): AggregationObservation[] {
   const interviews = new Map(
     workspace.interviews.map((interview) => [interview.id, interview]),
@@ -91,6 +111,7 @@ function aggregationObservations(
     const interview = interviews.get(observation.interviewId);
     const dimension = parseProfileDimension(observation.dimension);
     if (!interview || !dimension) return [];
+    if (roleKey !== "all" && trialRoleKey(interview) !== roleKey) return [];
     return [
       {
         interviewId: observation.interviewId,
@@ -108,24 +129,30 @@ function aggregationObservations(
   });
 }
 
+/** 一个视角的分维度指标；缺省是全部面试的 "all" 视角。 */
 export function trialProfileMetrics(
   workspace: TrialWorkspace,
+  roleKey = "all",
   now = new Date(),
 ): AggregatedProfileMetric[] {
-  const observations = aggregationObservations(workspace);
+  const observations = aggregationObservations(workspace, roleKey);
   return PROFILE_DIMENSIONS.map((dimension) =>
     aggregateProfileDimension(dimension, observations, now),
   );
+}
+
+export function insightRoleKey(insight: Pick<TrialProfileInsight, "roleKey">): string {
+  return insight.roleKey ?? "all";
 }
 
 function isInsightKind(value: string): value is ProfileInsightKind {
   return (PROFILE_INSIGHT_KINDS as readonly string[]).includes(value);
 }
 
-/** 组装 CandidateProfileDashboard 吃的洞察形状（含证据联查）。 */
+/** 组装 CandidateProfileDashboard 吃的洞察形状（含证据联查）；每条洞察按自己的视角取指标。 */
 export function trialProfileInsightViews(
   workspace: TrialWorkspace,
-  metrics: AggregatedProfileMetric[],
+  metricsByRole: Map<string, AggregatedProfileMetric[]>,
 ): ProfileGraphInsight[] {
   const profile = trialProfile(workspace);
   const interviews = new Map(
@@ -138,7 +165,8 @@ export function trialProfileInsightViews(
   return profile.insights.flatMap((insight) => {
     const dimension = parseProfileDimension(insight.dimension);
     if (!dimension || !isInsightKind(insight.kind)) return [];
-    const metric = metrics.find((item) => item.dimension === dimension);
+    const roleKey = insightRoleKey(insight);
+    const metric = metricsByRole.get(roleKey)?.find((item) => item.dimension === dimension);
 
     const evidence = insight.evidence.flatMap((reference) => {
       const observation = observations.get(reference.observationId);
@@ -175,7 +203,7 @@ export function trialProfileInsightViews(
     return [
       {
         id: insight.id,
-        roleKey: "all",
+        roleKey,
         dimension,
         kind: insight.kind,
         title: insight.title,
@@ -231,57 +259,91 @@ export function applyTrialAssessment(
   };
 }
 
+export type TrialSynthesizedView = {
+  roleKey: string;
+  metrics: AggregatedProfileMetric[];
+  insights: Omit<TrialProfileInsight, "id" | "status" | "isUserLocked" | "roleKey">[];
+};
+
+/** 一轮总结的结果落盘：每个视角的非锁定洞察整体替换，快照按视角各记一份。 */
 export function applyTrialSynthesis(
   workspace: TrialWorkspace,
-  insights: Omit<TrialProfileInsight, "id" | "status" | "isUserLocked">[],
-  metrics: AggregatedProfileMetric[],
+  views: TrialSynthesizedView[],
 ): TrialWorkspace {
   const profile = trialProfile(workspace);
   const observations = new Map(
     profile.observations.map((observation) => [observation.id, observation]),
   );
+  const refreshed = new Set(views.map((view) => view.roleKey));
   // 用户锁定的洞察永远不被新一轮总结覆盖，与本地版同一条规则。
-  const locked = profile.insights.filter((insight) => insight.isUserLocked);
-  const fresh = insights.map((insight) => {
-    const metric = metrics.find(
-      (item) => item.dimension === parseProfileDimension(insight.dimension),
-    );
-    const supportingInterviewIds = insight.evidence.flatMap((reference) => {
-      const observation = observations.get(reference.observationId);
-      return observation ? [observation.interviewId] : [];
-    });
-    return {
-      ...insight,
-      id: crypto.randomUUID(),
-      isUserLocked: false,
-      status: deriveInsightStatus({
+  const kept = profile.insights.filter((insight) => insight.isUserLocked || !refreshed.has(insightRoleKey(insight)));
+  const fresh = views.flatMap((view) =>
+    view.insights.map((insight) => {
+      const metric = view.metrics.find(
+        (item) => item.dimension === parseProfileDimension(insight.dimension),
+      );
+      const supportingInterviewIds = insight.evidence.flatMap((reference) => {
+        const observation = observations.get(reference.observationId);
+        return observation ? [observation.interviewId] : [];
+      });
+      return {
+        ...insight,
+        id: crypto.randomUUID(),
+        roleKey: view.roleKey,
         isUserLocked: false,
-        confidence: metric?.evidenceConfidence ?? 0,
-        supportingInterviewIds,
-      }),
-    };
-  });
+        status: deriveInsightStatus({
+          isUserLocked: false,
+          confidence: metric?.evidenceConfidence ?? 0,
+          supportingInterviewIds,
+        }),
+      };
+    }),
+  );
 
   const revision = profile.revision + 1;
+  const createdAt = new Date().toISOString();
   return {
     ...workspace,
     profile: {
       ...profile,
       revision,
-      refreshedAt: new Date().toISOString(),
-      insights: [...locked, ...fresh],
+      refreshedAt: createdAt,
+      insights: [...kept, ...fresh],
       snapshots: [
         ...profile.snapshots,
-        {
+        ...views.map((view) => ({
           revision,
-          createdAt: new Date().toISOString(),
-          metrics: metrics.map((metric) => ({
+          roleKey: view.roleKey,
+          createdAt,
+          metrics: view.metrics.map((metric) => ({
             dimension: metric.dimension,
             level: metric.level,
             levelLabel: metric.levelLabel,
           })),
-        },
-      ].slice(-12),
+        })),
+      ].slice(-60),
+    },
+  };
+}
+
+/** 与本地版 mergeRoleContexts 同语义：源视角的面试改挂到目标视角，源视角的洞察与快照清掉（锁定的搬过去）。 */
+export function mergeTrialRoles(workspace: TrialWorkspace, sourceKey: string, targetKey: string): TrialWorkspace {
+  if (!sourceKey || !targetKey || sourceKey === targetKey || sourceKey === "all" || targetKey === "all") {
+    throw new Error("请选择两个不同的岗位视角。");
+  }
+  const profile = trialProfile(workspace);
+  return {
+    ...workspace,
+    interviews: workspace.interviews.map((interview) =>
+      trialRoleKey(interview) === sourceKey ? { ...interview, roleKey: targetKey } : interview,
+    ),
+    profile: {
+      ...profile,
+      insights: profile.insights.flatMap((insight) => {
+        if (insightRoleKey(insight) !== sourceKey) return [insight];
+        return insight.isUserLocked ? [{ ...insight, roleKey: targetKey }] : [];
+      }),
+      snapshots: profile.snapshots.filter((snapshot) => (snapshot.roleKey ?? "all") !== sourceKey),
     },
   };
 }

@@ -21,9 +21,9 @@ import {
   type InterviewStatusCount,
 } from "@/lib/interviews/types";
 import type { UpcomingInterviews } from "@/lib/interviews/upcoming";
-import type { LegacyMockInterviewReport } from "@/lib/mock-interviews/report";
+import type { MockInterviewReport } from "@/lib/mock-interviews/report";
 
-import type { TrialWorkspace, TrialWorkspaceInterview } from "./workspace";
+import type { TrialWorkspace, TrialWorkspaceInterview, TrialWorkspaceQuestion } from "./workspace";
 
 /**
  * 体验版工作台的面试查询与统计。
@@ -88,32 +88,32 @@ export function deleteInterview(
   };
 }
 
-/** 体验版完成一场模拟面试后写入历史，供列表、复盘与画像使用。 */
+/** 体验版完成一场模拟面试后写入历史（本地版 Interview 行的投影），供列表、复盘与画像使用；会话文档另存。 */
 export function addCompletedMockInterview(
   workspace: TrialWorkspace,
   input: {
     /** 复用会话 id，让历史列表的"打开"链接能找回这场面试。 */
-    id?: string;
+    id: string;
     companyName: string;
     jobTitle: string;
+    round: string | null;
     questions: {
       question: string;
       answer: string | null;
       category: string;
-      score: number | null;
-      feedback: string | null;
+      evaluation: TrialWorkspaceQuestion["evaluation"];
     }[];
     totalScore: number;
-    report: LegacyMockInterviewReport;
+    report: MockInterviewReport;
   },
 ): TrialWorkspace {
   const now = new Date().toISOString();
   const record: TrialWorkspaceInterview = {
-    id: input.id ?? crypto.randomUUID(),
+    id: input.id,
     kind: "mock",
     companyName: input.companyName,
     jobTitle: input.jobTitle,
-    round: null,
+    round: input.round,
     status: "completed",
     interviewedAt: now,
     note: "AI 模拟面试",
@@ -123,8 +123,7 @@ export function addCompletedMockInterview(
       answer: question.answer ?? "",
       category: question.category === "resume_project" ? "resume_project" : question.category === "technical" ? "technical" : "general",
       sortOrder: index,
-      score: question.score,
-      feedback: question.feedback,
+      evaluation: question.evaluation ?? null,
     })),
     totalScore: input.totalScore,
     report: input.report,

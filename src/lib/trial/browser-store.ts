@@ -2,7 +2,7 @@ import { isTrialInterview, type TrialInterview } from "./interview";
 import {
   AI_REMEMBER_KEY,
   AI_TOKEN_KEY,
-  INTERVIEW_KEY,
+  INTERVIEWS_KEY,
 } from "./storage-keys";
 import { createStoredDocument } from "./stored-document";
 
@@ -10,8 +10,8 @@ import { createStoredDocument } from "./stored-document";
  * 网页版的两类浏览器数据：
  * - AI 连接：默认 localStorage（关掉网页也不用重连），访客可以改成
  *   "只在本次会话保留"，那样落在 sessionStorage、关标签页即清；
- * - 进行中的模拟面试：localStorage——逐题评分已经花掉访客的额度，
- *   关掉网页再回来必须还能接着交卷。
+ * - 模拟面试会话：localStorage，按 id 存一张表，与本地版一样可以多场并行、
+ *   随时退出再回来接着答；已完成的也留在这里给报告页与 trace 页用。
  * （工作台数据在 workspace-store.ts，同样用 localStorage 跨访问保留。）
  *
  * 连接串里含访客自己的 API Key，所以"记不记得住"必须由访客自己决定：
@@ -77,11 +77,20 @@ const aiToken = createStoredDocument<string>({
   parse: (value) => (typeof value === "string" && value ? value : null),
 });
 
-const interview = createStoredDocument<TrialInterview>({
-  key: INTERVIEW_KEY,
+type TrialInterviewTable = Record<string, TrialInterview>;
+
+const interviews = createStoredDocument<TrialInterviewTable>({
+  key: INTERVIEWS_KEY,
   storage: () => window.localStorage,
-  // 版本不匹配一律丢弃重来：体验数据是一次性的，不值得写迁移。
-  parse: (value) => (isTrialInterview(value) ? value : null),
+  // 版本不匹配的会话一律丢弃：体验数据是一次性的，不值得写迁移。
+  parse: (value) => {
+    if (!value || typeof value !== "object") return null;
+    const table: TrialInterviewTable = {};
+    for (const item of Object.values(value as Record<string, unknown>)) {
+      if (isTrialInterview(item)) table[item.id] = item;
+    }
+    return table;
+  },
 });
 
 /** 切换"记住连接"，并把已有连接搬到对应存储，避免两处各留一份。 */
@@ -122,12 +131,35 @@ export function writeAiToken(token: string | null): void {
   aiToken.write(token);
 }
 
-export function writeInterview(value: TrialInterview | null): void {
-  interview.write(value);
+export function readTrialInterview(id: string): TrialInterview | null {
+  return interviews.read()?.[id] ?? null;
+}
+
+export function listTrialInterviews(): TrialInterview[] {
+  return Object.values(interviews.read() ?? {}).sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+}
+
+export function writeTrialInterview(value: TrialInterview): void {
+  interviews.write({ ...(interviews.read() ?? {}), [value.id]: value });
+}
+
+/** 读—改—写一步完成：并发的评分回调不会互相覆盖。 */
+export function mutateTrialInterview(id: string, mutate: (current: TrialInterview) => TrialInterview): TrialInterview | null {
+  const current = readTrialInterview(id);
+  if (!current) return null;
+  const next = mutate(current);
+  writeTrialInterview(next);
+  return next;
+}
+
+export function removeTrialInterview(id: string): void {
+  const table = { ...(interviews.read() ?? {}) };
+  delete table[id];
+  interviews.write(table);
 }
 
 /** React 绑定用的文档实例（配合 useStoredDocument）。 */
-export const trialInterviewDocument = interview;
+export const trialInterviewsDocument = interviews;
 export const trialAiTokenDocument = aiToken;
 /** 未设置过时读到 null，调用方按"默认记住"处理。 */
 export const trialRememberDocument = rememberFlag;

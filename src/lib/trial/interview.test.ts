@@ -1,211 +1,140 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import type { InterviewBrief } from "@/lib/mock-interviews/interviewer/brief";
+import type { TurnPayload } from "@/lib/mock-interviews/interviewer/turn-payload";
+
 import {
-  TRIAL_INTERVIEW_VERSION,
-  buildTrialContext,
-  completeTrialInterview,
+  applyTurnPayload,
   createTrialInterview,
-  followUpCount,
-  insertTrialFollowUp,
+  interviewerState,
   isTrialInterview,
-  mainQuestionCount,
-  pendingEvaluationIndexes,
-  recordTrialAnswer,
-  recordTrialEvaluation,
-  type TrialInterview,
+  retryGeneration,
+  segmentsToEvaluate,
+  setSegmentEvaluation,
+  withBlueprint,
+  withBrief,
+  withGenerationError,
 } from "./interview";
 
 /**
- * 体验版会话的状态迁移测试。这一层是纯函数，是体验版正确性的核心——
- * 服务端无状态，所有推进逻辑都在这里。
+ * 体验版会话文档的状态迁移。这一层是纯函数，服务端无状态，所有推进逻辑都在这里；
+ * 回合结果的形状与本地版落库的是同一个 TurnPayload。
  */
 
-const job = {
-  companyName: "示例公司",
-  jobTitle: "后端工程师",
-  jobDescription: "负责服务端开发，熟悉缓存一致性与消息队列。",
-};
-
-const resume = {
-  text: "三年后端开发经验，主技术栈 Go 与 MySQL。",
-  projects: [
+const brief: InterviewBrief = {
+  version: 4,
+  source: "model",
+  pace: "quick",
+  plannedTurns: 10,
+  round: "first_interview",
+  askIntro: true,
+  skillPacks: ["backend"],
+  areas: [
     {
-      id: "trial-project-0",
-      name: "订单中台",
-      type: "project",
-      organization: "某电商",
-      description: "订单服务拆分与幂等设计。",
+      id: "a1",
+      name: "缓存一致性",
+      kind: "technical",
+      style: "scenario",
+      description: "缓存与数据库双写",
+      competencyIds: ["c1"],
+      baseline: null,
+      weight: 3,
+      depth: 2,
+      entryQuestion: "缓存和数据库双写时你怎么保证一致性？",
+      ladder: [{ text: "先删缓存还是先写库？", style: "principle" }, { text: "失败怎么补偿？", style: "tradeoff" }],
+      expectedSignals: ["延迟双删"],
+      rubric: [{ name: "技术正确性", description: "", weight: 50 }, { name: "分析与取舍", description: "", weight: 30 }, { name: "表达结构", description: "", weight: 20 }],
     },
   ],
+  hypotheses: [],
 };
 
-function draft(index: number) {
-  return {
-    question: `第 ${index + 1} 题`,
-    category: "technical",
-    difficulty: "standard",
-    sourceKind: "job_description",
-    jobCompetencyId: "bp-1",
-    jdEvidence: "JD 片段",
-    relevanceScore: 0.9,
-    resumeProjectId: null,
-    personalizationSourceId: null,
-    rationale: "考察点",
-    expectedSignals: ["信号"],
-    rubric: [{ name: "准确性", description: "是否正确", weight: 1 }],
-  };
+const blueprint = { summary: "后端", completeness: "complete" as const, missingInformation: [], competencies: [] };
+
+function seeded() {
+  const created = createTrialInterview({
+    job: { companyName: "示例公司", jobTitle: "后端工程师", jobDescription: "负责服务端开发。" },
+    resume: { text: "三年后端开发经验。", projects: [] },
+    round: "first_interview",
+    pace: "quick",
+  });
+  return withBrief(withBlueprint(created, blueprint), brief, { established: [], doubtful: [], failed: [], hypotheses: [] });
 }
 
-function newInterview(questionCount = 3): TrialInterview {
-  return createTrialInterview({
-    job,
-    resume,
-    blueprint: {
-      summary: "岗位摘要",
-      completeness: "complete",
-      missingInformation: [],
-      competencies: [
-        {
-          id: "bp-1",
-          name: "缓存一致性",
-          description: "描述",
-          priority: "core",
-          jdEvidence: "JD 片段",
-          origin: "jd",
-          sourceUrl: null,
-        },
-      ],
-    },
-    plan: {
-      questions: Array.from({ length: questionCount }, (_, index) => draft(index)),
-    } as never,
+test("备课两步各自落文档，失败后重试只重跑失败的那一步", () => {
+  const created = createTrialInterview({
+    job: { companyName: "示例公司", jobTitle: "后端工程师", jobDescription: "负责服务端开发。" },
+    resume: { text: "简历", projects: [] },
+    round: null,
+    pace: "standard",
   });
-}
+  assert.equal(created.status, "generating");
+  assert.equal(created.generationPhase, "job_blueprint");
+  assert.equal(retryGeneration(withGenerationError(created, "网络断了")).generationPhase, "job_blueprint");
 
-test("builds an interview context without history or profile", () => {
-  const context = buildTrialContext({ job, resume });
+  const withPlan = withBlueprint(created, blueprint);
+  assert.equal(withPlan.generationPhase, "brief");
+  const failed = withGenerationError(withPlan, "超时");
+  assert.equal(failed.status, "generation_failed");
+  assert.equal(failed.generationError, "超时");
+  // 蓝图已在文档里，重试直接备课。
+  assert.equal(retryGeneration(failed).generationPhase, "brief");
 
-  assert.equal(context.jobDescription, job.jobDescription);
-  assert.equal(context.resume.text, resume.text);
-  assert.deepEqual(context.projects, resume.projects);
-  // 体验版没有历史面试，也没有能力画像——出题只靠简历和 JD。
-  assert.deepEqual(context.history, []);
-  assert.deepEqual(context.profile, { revision: 0, insights: [] });
+  const ready = seeded();
+  assert.equal(ready.status, "in_progress");
+  assert.equal(interviewerState(ready).phase, "opening");
 });
 
-test("starts every question unanswered and unscored", () => {
-  const interview = newInterview();
-
-  assert.equal(interview.version, TRIAL_INTERVIEW_VERSION);
-  assert.equal(interview.status, "in_progress");
-  assert.equal(interview.currentIndex, 0);
-  assert.equal(interview.questions.length, 3);
-  assert.ok(interview.answers.every((item) => item === null));
-  assert.ok(interview.evaluations.every((item) => item === null));
-  // 出题时就带上 rubric，保证同一道题对所有回答用同一把尺子。
-  assert.ok(interview.questions[0]!.rubric.length > 0);
-});
-
-test("advances the pointer and closes the interview after the last answer", () => {
-  let interview = newInterview(2);
-
-  interview = recordTrialAnswer(interview, 0, "第一题的回答");
-  assert.equal(interview.currentIndex, 1);
-  assert.equal(interview.status, "in_progress");
-
-  interview = recordTrialAnswer(interview, 1, "第二题的回答");
-  assert.equal(interview.currentIndex, 2);
-  assert.equal(interview.status, "ready_to_evaluate");
-});
-
-test("ignores answers submitted out of order", () => {
-  const interview = newInterview();
-  // 重复提交或乱序提交不能把进度多推一格。
-  assert.equal(recordTrialAnswer(interview, 2, "跳着答").currentIndex, 0);
-  assert.equal(recordTrialAnswer(interview, 0, "答").currentIndex, 1);
-});
-
-test("records a skip distinctly from an unanswered question", () => {
-  const interview = recordTrialAnswer(newInterview(), 0, null);
-
-  // 跳过是空字符串、未作答是 null：交卷时前者不参与评分，后者会拦住交卷。
-  assert.equal(interview.answers[0], "");
-  assert.notEqual(interview.answers[0], null);
-  assert.deepEqual(pendingEvaluationIndexes(interview), []);
-});
-
-test("inserts a follow-up right after its parent and shifts the rest", () => {
-  let interview = newInterview(3);
-  interview = recordTrialAnswer(interview, 0, "留有缺口的回答");
-  interview = insertTrialFollowUp(interview, 0, {
-    question: "追问：再展开一下",
-    expectedSignals: ["更具体"],
-  });
-
-  assert.equal(interview.questions.length, 4);
-  assert.equal(interview.questions[1]!.question, "追问：再展开一下");
-  assert.equal(interview.questions[1]!.parentIndex, 0);
-  // 后面的题整体后移，答案与评分数组同步对齐。
-  assert.equal(interview.questions[2]!.question, "第 2 题");
-  assert.equal(interview.answers.length, 4);
-  assert.equal(interview.evaluations.length, 4);
-  assert.equal(interview.answers[1], null);
-  // 指针已经指向刚插入的追问，状态回到进行中。
-  assert.equal(interview.currentIndex, 1);
-  assert.equal(interview.status, "in_progress");
-  // 追问继承父题的能力项与评分标准。
-  assert.equal(interview.questions[1]!.jobCompetencyId, "bp-1");
-  assert.deepEqual(interview.questions[1]!.rubric, interview.questions[0]!.rubric);
-});
-
-test("counts main questions and follow-ups separately for the budget", () => {
-  let interview = newInterview(3);
-  interview = recordTrialAnswer(interview, 0, "回答");
-  interview = insertTrialFollowUp(interview, 0, {
-    question: "追问",
-    expectedSignals: [],
-  });
-
-  // 追问不占主题目配额，与本地版的追问预算口径一致。
-  assert.equal(mainQuestionCount(interview), 3);
-  assert.equal(followUpCount(interview), 1);
-});
-
-test("tracks which answered questions still need scoring", () => {
-  let interview = newInterview(3);
-  interview = recordTrialAnswer(interview, 0, "已答待评分");
-  assert.deepEqual(pendingEvaluationIndexes(interview), [0]);
-
-  interview = recordTrialEvaluation(interview, 0, {
-    score: 80,
-    feedback: "回答完整。",
-    strengths: [],
-    improvements: [],
-    dimensions: [],
-  });
-  assert.deepEqual(pendingEvaluationIndexes(interview), []);
-});
-
-test("keeps the report on the completed interview", () => {
-  const report = {
-    totalScore: 80,
-    summary: "整体不错。",
-    strengths: ["优势"],
-    improvements: ["改进"],
-    actionPlan: ["行动"],
+test("回合结果应用到文档：消息、线程、记忆、切段与决策记录，与本地版落库同语义", () => {
+  const interview = seeded();
+  const thread = { id: "t1", areaId: "a1", entryQuestion: brief.areas[0].entryQuestion, status: "closed" as const, depth: 1, rescues: 0, clarifies: 0, interrupts: 0, openedAtTurn: 1, closedAtTurn: 3, note: "机制清楚" };
+  const payload: TurnPayload = {
+    newMessages: [
+      { id: "m1", turnIndex: 3, role: "candidate", kind: "answer", content: "先写库再删缓存。", threadId: "t1", toolName: null },
+      { id: "m2", turnIndex: 3, role: "interviewer", kind: "closing", content: "这一块够了。", threadId: "t1", toolName: "close_thread" },
+    ],
+    threads: [thread],
+    memory: { established: [{ areaId: "a1", text: "知道延迟双删", turn: 3 }], doubtful: [], failed: [], hypotheses: [] },
+    phase: "running",
+    effects: [
+      { type: "thread_closed", thread, segment: { question: "缓存和数据库双写时你怎么保证一致性？\n追问 1：先删缓存还是先写库？", answer: "我们用延迟双删。\n\n先写库再删缓存。", skipped: false, probeCount: 1, answerSeconds: 40 } },
+    ],
+    decision: { turnIndex: 3, runId: "trial-turn:3", proposedAction: "close_thread", appliedAction: "close_thread", followUp: null, replacedReason: null, anchorHit: null, memoryPatch: null, evidenceBefore: 0.4, evidenceAfter: 0.8, skillsLoaded: 0, effects: ["thread_closed"] },
   };
-  const interview = completeTrialInterview(newInterview(), report);
 
-  assert.equal(interview.status, "completed");
-  assert.deepEqual(interview.report, report);
+  const next = applyTurnPayload(interview, payload);
+  assert.equal(next.messages.length, 2);
+  assert.deepEqual(next.threads, [thread]);
+  assert.equal(next.memory.established[0]?.text, "知道延迟双删");
+  assert.equal(next.decisions.length, 1);
+  assert.ok(next.startedAt);
+  assert.equal(next.status, "in_progress");
+
+  const [segment] = next.questions;
+  assert.equal(segment.threadId, "t1");
+  assert.equal(segment.category, "technical");
+  assert.equal(segment.sourceKind, "technical");
+  assert.deepEqual(segment.rubric.map((item) => item.name), ["技术正确性", "分析与取舍", "表达结构"]);
+  assert.equal(segment.metadata.areaName, "缓存一致性");
+  assert.equal(segment.metadata.competencyOrigin, "jd");
+  assert.equal(segment.metadata.note, "机制清楚");
+  assert.equal(segment.evaluationStatus, "pending");
+  assert.deepEqual(segmentsToEvaluate(next).map((item) => item.id), [segment.id]);
+
+  const evaluated = setSegmentEvaluation(next, segment.id, {
+    evaluationStatus: "completed",
+    evaluation: { score: 80, dimensions: [], strengths: [], weaknesses: [], advice: [], feedback: "好", exemplar: null },
+  });
+  assert.equal(segmentsToEvaluate(evaluated).length, 0);
+  assert.equal(evaluated.questions[0].evaluation?.score, 80);
+
+  const ended = applyTurnPayload(evaluated, { ...payload, newMessages: [], effects: [{ type: "interview_ended" }], decision: { ...payload.decision, turnIndex: 4 } });
+  assert.equal(ended.status, "ready_to_evaluate");
+  assert.equal(interviewerState(ended).phase, "ended");
 });
 
-test("rejects stored documents that do not match the current version", () => {
-  const interview = newInterview();
-  assert.equal(isTrialInterview(interview), true);
-  // 版本不匹配一律丢弃重来：体验数据是一次性的，不值得写迁移。
-  assert.equal(isTrialInterview({ ...interview, version: 0 }), false);
-  assert.equal(isTrialInterview(null), false);
-  assert.equal(isTrialInterview({ questions: [] }), false);
+test("版本不匹配的旧文档一律丢弃", () => {
+  assert.equal(isTrialInterview({ version: 2, id: "x", questions: [], answers: [], evaluations: [] }), false);
+  assert.equal(isTrialInterview(seeded()), true);
 });

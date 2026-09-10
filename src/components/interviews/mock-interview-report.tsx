@@ -38,13 +38,6 @@ const HYPOTHESIS_STATUS: Record<string, { label: string; tone: "success" | "warn
   refuted: { label: "没有讲清楚", tone: "warning" },
   open: { label: "没问到", tone: "neutral" },
 };
-const SOURCE_LABELS: Record<string, string> = {
-  job_description: "岗位描述",
-  resume: "简历经历",
-  history: "历史回答",
-  profile: "能力画像",
-  general_role: "通用岗位题",
-};
 
 function formatSeconds(seconds: number): string {
   if (seconds < 60) return `${seconds} 秒`;
@@ -164,8 +157,8 @@ function Teaching({ question }: { question: Question }) {
       <summary className="cursor-pointer text-sm font-medium text-foreground">这道题在考察什么</summary>
       <div className="mt-3 grid gap-3 text-sm leading-6 text-muted-foreground">
         <div className="flex flex-wrap gap-2">
-          {teaching.competencyName ? <Badge>{teaching.competencyName}</Badge> : null}
-          <Badge>{SOURCE_LABELS[teaching.sourceKind] ?? AREA_KIND_LABELS[teaching.sourceKind] ?? "综合出题"}</Badge>
+          {teaching.areaName ? <Badge>{teaching.areaName}</Badge> : null}
+          <Badge>{AREA_KIND_LABELS[teaching.sourceKind] ?? teaching.sourceKind}</Badge>
           {teaching.areaStyle ? (
             <Badge>{AREA_STYLE_LABELS[teaching.areaStyle as AreaStyle] ?? teaching.areaStyle}</Badge>
           ) : null}
@@ -178,17 +171,6 @@ function Teaching({ question }: { question: Question }) {
               {teaching.skillPack ? "（技能包 " + teaching.skillPack + "）" : ""}，不是你提供的岗位描述里写明的。
             </p>
           </div>
-        ) : teaching.competencyOrigin === "inferred" ? (
-          <div className="rounded-control border border-border bg-surface p-3">
-            <p className="font-medium text-foreground">该岗位的常见要求（非你提供的岗位描述）</p>
-            {teaching.sourceUrl ? (
-              <a className="mt-1 inline-block font-medium text-foreground underline" href={teaching.sourceUrl} rel="noreferrer" target="_blank">
-                查看公开来源
-              </a>
-            ) : null}
-          </div>
-        ) : teaching.jdEvidence ? (
-          <blockquote className="border-l-2 border-border-strong pl-3">JD 依据：{teaching.jdEvidence}</blockquote>
         ) : null}
         {teaching.expectedSignals.length > 0 ? (
           <div>
@@ -200,10 +182,10 @@ function Teaching({ question }: { question: Question }) {
             </ul>
           </div>
         ) : null}
-        {teaching.rationale ? (
+        {teaching.note ? (
           <p>
             <span className="font-medium text-foreground">面试官的判断：</span>
-            {teaching.rationale}
+            {teaching.note}
           </p>
         ) : null}
       </div>
@@ -268,24 +250,6 @@ function Evaluation({ evaluation }: { evaluation: NonNullable<Question["evaluati
       ) : null}
     </div>
   );
-}
-
-function FollowUps({ session, parentId }: { session: MockInterviewView; parentId: string }) {
-  const followUps = session.questions.filter((item) => item.parentQuestionId === parentId);
-  return followUps.map((followUp) => (
-    <div className="mt-4 border-l-2 border-border-strong pl-4" key={followUp.id}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h5 className="text-sm font-medium text-foreground">追问：{followUp.question}</h5>
-        {followUp.skipped ? <Badge tone="warning">已跳过</Badge> : <Score value={followUp.evaluation?.score ?? 0} />}
-      </div>
-      {!followUp.skipped ? (
-        <>
-          <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{followUp.answer}</p>
-          {followUp.evaluation ? <p className="mt-2 text-sm leading-6 text-muted-foreground">{followUp.evaluation.feedback}</p> : null}
-        </>
-      ) : null}
-    </div>
-  ));
 }
 
 export function MockInterviewReport({ session }: { session: MockInterviewView }) {
@@ -354,9 +318,7 @@ export function MockInterviewReport({ session }: { session: MockInterviewView })
 
       <section className="grid gap-3">
         <h3 className="text-sm font-semibold text-foreground">逐段反馈</h3>
-        {session.questions
-          .filter((question) => !question.isFollowUp)
-          .map((question, index) => (
+        {session.questions.map((question, index) => (
             <Card className="p-4" key={question.id}>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
@@ -376,7 +338,6 @@ export function MockInterviewReport({ session }: { session: MockInterviewView })
               ) : null}
               <Teaching question={question} />
               {!question.skipped && question.evaluation ? <Evaluation evaluation={question.evaluation} /> : null}
-              <FollowUps parentId={question.id} session={session} />
             </Card>
           ))}
       </section>

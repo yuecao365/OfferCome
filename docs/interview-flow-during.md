@@ -250,3 +250,14 @@ turn 13 代码强制 close_thread（连续无推进动作）
 - 面试自然收尾于 turn 12，两条线程，没有卡死。
 
 顺手修掉的一处：面试官没有推进动作的那句话（aside）落库时没挂线程，导致上一条线程的过渡语境丢一句，且对话里出现两条相邻的 user 消息。现在 aside 挂在当前线程上，裁剪后相邻的同角色消息合并成一条。
+
+## 体验版（网页版）怎么走这一段
+
+回合核心是同一个 `runInterviewerTurn`（`interviewer/turn.ts`：模型回合 + reducer + 决策记录），本地版由 `session.ts` 从库装配、落库；体验版由 `POST /api/trial/turn` 从请求体装配（`createInterviewerState`，与本地版从库装配是同一个函数）、把结果原样交回：
+
+- 房间组件 `MockInterviewChat` 两端同一个，差别在注入的 driver：`transport` 打哪个接口（体验版用 `prepareSendMessagesRequest` 把文档里的简报、记忆、线程、消息塞进请求体，并带上 Key 头）、`onTurn` 拿到回合结果后做什么（体验版 `applyTurnPayload` 写文档，本地版已落库不需要）。
+- 两个回合接口的 `data-turn` 数据块是同一形状 `TurnPayload`（`interviewer/turn-payload.ts`：新消息、线程、记忆、phase、副作用、决策记录）。
+- 线程关闭切出的段落在体验版进文档 `questions[]`（`segmentRecord` 与本地版写 InterviewQuestion 用的是同一个函数），页面随即后台调 `/api/trial/evaluate`，与本地版的 `after()` 同时机。
+- 作答时长：本地版按上一条面试官消息的落库时间算；体验版由浏览器算好随消息带上（`composeMs`）。
+- 体验版没有 clientId 回放：无服务端可回放，重复发送由房间的 busy 状态挡住。
+- trace 页：决策记录随回合结果存在文档里，`/interviews/mock/[id]/trace` 渲染同一个视图，只缺模型耗时与 token 两列（AgentRun 记账是本地版的）。

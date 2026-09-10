@@ -6,7 +6,7 @@ import { assertAiConfigured, logAgentRun, runAgent } from "@/lib/ai/run-agent";
 import { salvageJson } from "@/lib/ai/salvage-json";
 import { getAiTaskConfig } from "@/lib/settings/ai";
 
-import { isJobDescriptionEvidence } from "./relevance";
+import { isVerbatimEvidence } from "@/lib/text/evidence";
 import {
   MOCK_INTERVIEW_GENERATION_TIMEOUT_MS,
   MOCK_INTERVIEW_PROMPT_VERSION,
@@ -30,7 +30,7 @@ function cleanBlueprint(
     seenIds.add(competency.id);
     if (
       competency.origin !== "jd" ||
-      isJobDescriptionEvidence(jobDescription, competency.jdEvidence)
+      isVerbatimEvidence(jobDescription, competency.jdEvidence)
     ) {
       return [competency];
     }

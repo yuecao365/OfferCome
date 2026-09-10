@@ -21,7 +21,7 @@ import {
   type ThreadState,
   type ThreadStatus,
 } from "./state";
-import { runInterviewerTurn, type TurnDecisionRow } from "./turn";
+import { runInterviewerTurn, type TurnDecisionRow, type TurnOutcome } from "./turn";
 
 /**
  * 面试官回合的本地版存取：从数据库装配状态 → 跑纯核心（turn.ts）→ 一个事务落库。
@@ -276,8 +276,8 @@ export type TurnReplay = { replay: true; messages: MessageState[] };
 export type TurnStart = {
   replay: false;
   stream: Awaited<ReturnType<typeof runInterviewerTurn>>["stream"];
-  /** 流结束后调用：应用 reducer 并落库，返回本回合的结果。 */
-  finalize: () => Promise<TurnResult>;
+  /** 流结束后调用：应用 reducer 并落库，返回本回合的结果与决策记录。 */
+  finalize: () => Promise<TurnOutcome>;
 };
 
 /**
@@ -323,9 +323,9 @@ export async function startInterviewerTurn(input: {
     replay: false,
     stream: run.stream,
     finalize: async () => {
-      const { result, decision } = await run.finalize();
-      await persistTurn(loaded, loaded.state, result, input.candidate, decision);
-      return result;
+      const outcome = await run.finalize();
+      await persistTurn(loaded, loaded.state, outcome.result, input.candidate, outcome.decision);
+      return outcome;
     },
   };
 }

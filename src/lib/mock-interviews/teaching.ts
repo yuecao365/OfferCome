@@ -1,32 +1,10 @@
 import { z } from "zod";
 
-import { parseJsonValue } from "@/lib/json";
-
 import type { MockInterviewQuestionTeaching } from "./types";
 
-const snapshotSchema = z.object({
-  jobBlueprint: z
-    .object({
-      competencies: z.array(
-        z.object({
-          id: z.string(),
-          name: z.string(),
-          origin: z.enum(["jd", "inferred"]).default("jd"),
-          sourceUrl: z.string().nullable().default(null),
-        }),
-      ),
-    })
-    .nullable()
-    .optional(),
-});
-
-/** 旧分步流程写 jobCompetencyId / jdEvidence / rationale；对话式线程写 areaName / areaKind / note。 */
-const generationMetadataSchema = z.object({
-  jobCompetencyId: z.string().optional(),
-  jdEvidence: z.string().optional(),
-  rationale: z.string().optional(),
+/** 切段时写进题目的过程信号（interviewer/segments.ts 的 SegmentMetadata），坏数据按缺省处理。 */
+const metadataSchema = z.object({
   areaName: z.string().nullable().optional(),
-  areaKind: z.string().nullable().optional(),
   areaStyle: z.string().nullable().optional(),
   competencyOrigin: z.enum(["jd", "baseline"]).nullable().optional(),
   skillPack: z.string().nullable().optional(),
@@ -36,42 +14,23 @@ const generationMetadataSchema = z.object({
 
 const expectedSignalsSchema = z.array(z.string());
 
-export function buildQuestionTeaching(
-  contextSnapshotJson: string,
-  evaluation: {
-    expectedSignalsJson: string;
-    generationMetadataJson: string;
-    sourceKind: string;
-  },
-): MockInterviewQuestionTeaching {
-  const snapshot = snapshotSchema.safeParse(parseJsonValue(contextSnapshotJson));
-  const metadata = generationMetadataSchema.safeParse(
-    parseJsonValue(evaluation.generationMetadataJson),
-  );
-  const expectedSignals = expectedSignalsSchema.safeParse(
-    parseJsonValue(evaluation.expectedSignalsJson),
-  );
-  const competencyId = metadata.success
-    ? metadata.data.jobCompetencyId
-    : undefined;
-  const competency =
-    snapshot.success && competencyId
-      ? snapshot.data.jobBlueprint?.competencies.find(
-          (competency) => competency.id === competencyId,
-        ) ?? null
-      : null;
-
-  const areaName = metadata.success ? metadata.data.areaName ?? null : null;
+/** 报告页"这道题在考察什么"：领域、来源、风格、期望信号、面试官关线程时的判断。 */
+export function buildQuestionTeaching(input: {
+  metadata: unknown;
+  expectedSignals: unknown;
+  sourceKind: string;
+}): MockInterviewQuestionTeaching {
+  const metadata = metadataSchema.safeParse(input.metadata);
+  const expectedSignals = expectedSignalsSchema.safeParse(input.expectedSignals);
+  const data = metadata.success ? metadata.data : {};
   return {
-    competencyName: competency?.name ?? areaName,
-    competencyOrigin: competency?.origin ?? (metadata.success ? metadata.data.competencyOrigin ?? null : null),
-    skillPack: metadata.success ? metadata.data.skillPack ?? null : null,
-    areaStyle: metadata.success ? metadata.data.areaStyle ?? null : null,
-    answerSeconds: metadata.success ? metadata.data.answerSeconds ?? null : null,
-    sourceUrl: competency?.sourceUrl ?? null,
-    jdEvidence: metadata.success ? metadata.data.jdEvidence ?? null : null,
+    areaName: data.areaName ?? null,
+    competencyOrigin: data.competencyOrigin ?? null,
+    skillPack: data.skillPack ?? null,
+    areaStyle: data.areaStyle ?? null,
+    answerSeconds: data.answerSeconds ?? null,
     expectedSignals: expectedSignals.success ? expectedSignals.data : [],
-    rationale: metadata.success ? metadata.data.rationale ?? metadata.data.note ?? null : null,
-    sourceKind: evaluation.sourceKind,
+    note: data.note ?? null,
+    sourceKind: input.sourceKind,
   };
 }

@@ -1,11 +1,10 @@
 import { InterviewDeleteButton } from "@/components/interviews/interview-delete-button";
 import { MockInterviewBubble } from "@/components/interviews/mock-interview-chat";
-import { MockInterviewGenerationProgress } from "@/components/interviews/mock-interview-generation-progress";
-import { MockInterviewReport } from "@/components/interviews/mock-interview-report";
 import {
-  MockInterviewRoom,
-  type MockInterviewRoomTransport,
-} from "@/components/interviews/mock-interview-room";
+  MockInterviewGenerationProgress,
+  type GenerationProgressDriver,
+} from "@/components/interviews/mock-interview-generation-progress";
+import { MockInterviewReport } from "@/components/interviews/mock-interview-report";
 import { PageHeader } from "@/components/page-header";
 import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -16,21 +15,23 @@ import {
 
 /**
  * 单场模拟面试页的呈现层。本地版与体验版渲染同一棵组件树，
- * 差别只在注入的删除动作与房间数据通道。
+ * 差别只在注入的删除动作与备课进度来源。
  *
  * 进行中的对话式面试不经过这里（页面直接渲染全屏房间）；这里只负责备课中、
- * 已完成（报告 + 对话记录）这几种带导航的状态。体验版在 P2 同构前仍走旧的分步房间（transport 注入）。
- * 旧的分步会话没有简报：已完成的照常看报告，未完成的不再支持继续。
+ * 已完成（报告 + 对话记录）这几种带导航的状态。
  */
 export function MockInterviewSessionView({
   session,
   deleteAction,
-  transport,
+  generationDriver,
+  onReady,
 }: {
   session: MockInterviewView;
   /** 体验版在此注入浏览器删除动作。 */
   deleteAction?: (formData: FormData) => Promise<void>;
-  transport?: MockInterviewRoomTransport;
+  /** 体验版在此注入浏览器里的备课进度来源。 */
+  generationDriver?: GenerationProgressDriver;
+  onReady?: () => void;
 }) {
   return (
     <>
@@ -53,11 +54,13 @@ export function MockInterviewSessionView({
       />
       {session.status === "generating" || session.status === "generation_failed" ? (
         <MockInterviewGenerationProgress
+          driver={generationDriver}
           initial={{
             status: session.status,
             generationPhase: session.generationPhase,
             error: session.generationError,
           }}
+          onReady={onReady}
           sessionId={session.id}
         />
       ) : session.conversation && session.report ? (
@@ -75,15 +78,11 @@ export function MockInterviewSessionView({
             </div>
           </details>
         </div>
-      ) : transport ? (
-        <MockInterviewRoom initial={session} transport={transport} />
-      ) : session.status === "completed" && session.report ? (
-        <MockInterviewReport session={session} />
       ) : (
         <EmptyState
           action={<ButtonLink href="/interviews/mock">重新发起一场</ButtonLink>}
-          description="这场面试来自旧的分步流程，模拟面试已改为对话式，旧会话不再支持继续作答。"
-          title="这场面试无法继续"
+          description="这场面试还没有报告：评分没有完成，或数据已不完整。"
+          title="这场面试暂时无法查看"
         />
       )}
     </>

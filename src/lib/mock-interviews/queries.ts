@@ -119,14 +119,13 @@ export async function getMockInterviewView(id: string): Promise<MockInterviewVie
         category: question.category,
         sortOrder: question.sortOrder,
         skipped: Boolean(question.skippedAt),
-        isFollowUp: Boolean(question.parentQuestionId),
-        parentQuestionId: question.parentQuestionId,
         ...(completedEvaluation
           ? {
-              teaching: buildQuestionTeaching(
-                session.contextSnapshotJson,
-                completedEvaluation,
-              ),
+              teaching: buildQuestionTeaching({
+                metadata: parseJsonValue(completedEvaluation.generationMetadataJson),
+                expectedSignals: parseJsonValue(completedEvaluation.expectedSignalsJson),
+                sourceKind: completedEvaluation.sourceKind,
+              }),
             }
           : {}),
         evaluation: completedEvaluation ? buildEvaluationView(completedEvaluation) : null,

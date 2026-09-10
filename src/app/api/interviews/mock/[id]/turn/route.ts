@@ -6,6 +6,7 @@ import {
   type CandidateIntent,
 } from "@/lib/mock-interviews/interviewer/actions";
 import { startInterviewerTurn } from "@/lib/mock-interviews/interviewer/session";
+import { turnPayload, type TurnData } from "@/lib/mock-interviews/interviewer/turn-payload";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -68,25 +69,15 @@ export async function POST(
     execute: async ({ writer }) => {
       // 重复提交：不调模型，直接把当时落库的面试官消息作为数据块回放。
       if (started.replay) {
-        writer.write({
-          type: "data-turn",
-          data: { messages: started.messages, phase: null, threads: null, effects: [], replay: true },
-        });
+        const data: TurnData = { replay: true, messages: started.messages };
+        writer.write({ type: "data-turn", data });
         return;
       }
       writer.merge(started.stream.toUIMessageStream());
-      const result = await started.finalize();
-      // 落库的消息交给前端替换流中的临时内容；体验版的同名接口在这里返回完整回合结果。
-      writer.write({
-        type: "data-turn",
-        data: {
-          messages: result.newMessages.filter((message) => message.role === "interviewer"),
-          phase: result.state.phase,
-          threads: result.state.threads,
-          effects: result.effects.map((effect) => effect.type),
-          replay: false,
-        },
-      });
+      const { result, decision } = await started.finalize();
+      // 与体验版的回合接口同一形状：前端用落库的消息替换流中的临时内容。
+      const data: TurnData = { replay: false, payload: turnPayload(result, decision) };
+      writer.write({ type: "data-turn", data });
     },
     onError: (error) => (error instanceof Error ? error.message : "回合失败。"),
   });

@@ -1,7 +1,7 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport, isDataUIPart, isTextUIPart } from "ai";
+import { DefaultChatTransport, isDataUIPart, isTextUIPart, type ChatTransport, type UIMessage } from "ai";
 import { ArrowLeft, Loader2, SendHorizontal } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
@@ -10,6 +10,7 @@ import { ThemeButton } from "@/components/theme-button";
 import { Alert } from "@/components/ui/alert";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { CANDIDATE_INTENT_PLACEHOLDERS } from "@/lib/mock-interviews/interviewer/actions";
+import type { TurnData, TurnPayload } from "@/lib/mock-interviews/interviewer/turn-payload";
 import type {
   MockInterviewConversation,
   MockInterviewConversationMessage,
@@ -18,8 +19,9 @@ import type {
 
 /**
  * 对话式面试房间：独占整个视口，没有应用导航——像真的坐进面试间。
- * 面试官的话经流式返回，流结束时服务端把真正落库的消息以 data-turn 数据块交回，
- * 前端用它替换流中的临时内容——真相始终在服务端。
+ * 面试官的话经流式返回，流结束时服务端把回合结果以 data-turn 数据块交回，
+ * 前端用它替换流中的临时内容。本地版真相在数据库，体验版真相在浏览器的会话文档，
+ * 差别全部收在注入的 driver 里。
  *
  * 候选人看不到考察领域和面试官的计划，顶栏只有一个已用时的钟；计划与笔记在报告页揭晓。
  */
@@ -28,18 +30,52 @@ type Intent = "skip" | "hint" | "repeat" | "end";
 
 /** 自动生成报告的等待上限：评分最多等 32 s，汇总再 40 s；超过就给重试入口。 */
 const REPORT_WAIT_MS = 90_000;
+const REPORT_POLL_MS = 3_000;
 
-type TurnBody =
+export type TurnBody =
   | { kind: "start" }
-  | { kind: "message"; clientId: string; content: string; intent: Intent | null };
+  | { kind: "message"; clientId: string; content: string; intent: Intent | null; composeMs: number | null };
 
-type TurnData = {
-  messages: MockInterviewConversationMessage[];
-  phase: MockInterviewConversation["phase"] | null;
-  threads: MockInterviewConversation["threads"] | null;
-  effects: string[];
-  replay: boolean;
+/** 房间的数据通道：本地版打服务端接口，体验版打无状态接口并把结果写进浏览器文档。 */
+export type MockInterviewChatDriver = {
+  transport: ChatTransport<UIMessage>;
+  /** 流结束、回合结果到手（本地版已落库，无需处理；体验版写进会话文档）。 */
+  onTurn?: (payload: TurnPayload) => void;
+  /**
+   * 面试结束后把报告做出来：resolve 表示报告已就绪。
+   * 本地版等服务端后台自动交卷（重试时主动请求交卷）；体验版在浏览器里跑评分与汇总。
+   */
+  finish: (options: { retry: boolean }) => Promise<void>;
 };
+
+async function readJson<T>(response: Response, fallback: string): Promise<T> {
+  const result = (await response.json()) as T & { error?: string };
+  if (!response.ok) throw new Error(result.error ?? fallback);
+  return result;
+}
+
+/** 本地版：回合走 /turn，报告由服务端自动生成，这里只等它出现。 */
+export function createLocalChatDriver(sessionId: string): MockInterviewChatDriver {
+  return {
+    transport: new DefaultChatTransport({ api: `/api/interviews/mock/${sessionId}/turn` }),
+    async finish({ retry }) {
+      if (retry) {
+        await readJson(await fetch(`/api/interviews/mock/${sessionId}/complete`, { method: "POST" }), "生成面试报告失败。");
+        return;
+      }
+      const startedAt = Date.now();
+      while (Date.now() - startedAt < REPORT_WAIT_MS) {
+        await new Promise((resolve) => setTimeout(resolve, REPORT_POLL_MS));
+        const status = await readJson<{ status: string }>(
+          await fetch(`/api/interviews/mock/${sessionId}/status`, { cache: "no-store" }),
+          "读取面试状态失败。",
+        );
+        if (status.status === "completed") return;
+      }
+      throw new Error("报告生成得比预期慢，可以重试一次。");
+    },
+  };
+}
 
 export function MockInterviewBubble({ message }: { message: MockInterviewConversationMessage }) {
   const interviewer = message.role === "interviewer";
@@ -85,8 +121,14 @@ function subscribeNoop(): () => void {
 
 export function MockInterviewChat({
   session,
+  driver: injectedDriver,
+  onCompleted,
 }: {
   session: MockInterviewView & { conversation: MockInterviewConversation };
+  /** 体验版注入浏览器实现；缺省是本地版接口。 */
+  driver?: MockInterviewChatDriver;
+  /** 报告就绪后的刷新方式；缺省重取服务端视图。 */
+  onCompleted?: () => void;
 }) {
   const router = useRouter();
   const conversation = session.conversation;
@@ -95,28 +137,32 @@ export function MockInterviewChat({
   const [input, setInput] = useState("");
   const [turnError, setTurnError] = useState("");
   const [completing, setCompleting] = useState(false);
-  const [reportStalled, setReportStalled] = useState(false);
+  const [reportError, setReportError] = useState("");
   const startedRef = useRef(false);
+  const finishedRef = useRef(false);
+  const lastInterviewerAtRef = useRef<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  // 开场回合落库前服务端还没有开始时间，先按进入房间的时刻计时。
+  // 开场回合落下前还没有开始时间，先按进入房间的时刻计时。
   const [openedAt] = useState(() => new Date().toISOString());
 
-  const transport = useMemo(
-    () => new DefaultChatTransport({ api: `/api/interviews/mock/${session.id}/turn` }),
-    [session.id],
-  );
+  const driver = useMemo(() => injectedDriver ?? createLocalChatDriver(session.id), [injectedDriver, session.id]);
+  const refresh = useCallback(() => (onCompleted ? onCompleted() : router.refresh()), [onCompleted, router]);
 
   const { messages, sendMessage, setMessages, status, error } = useChat({
-    transport,
+    transport: driver.transport,
     onFinish: ({ message }) => {
       const part = message.parts.find((item) => isDataUIPart(item) && item.type === "data-turn");
       const data = part && "data" in part ? (part.data as TurnData) : null;
       if (data) {
+        const arrived = data.replay ? data.messages : data.payload.newMessages.filter((item) => item.role === "interviewer");
         setTranscript((current) => {
           const known = new Set(current.map((item) => item.id));
-          return [...current, ...data.messages.filter((item) => !known.has(item.id))];
+          return [...current, ...arrived.filter((item) => !known.has(item.id))];
         });
-        if (data.phase) setPhase(data.phase);
+        if (!data.replay) {
+          setPhase(data.payload.phase);
+          driver.onTurn?.(data.payload);
+        }
       }
       setMessages([]);
     },
@@ -146,7 +192,8 @@ export function MockInterviewChat({
       if (!trimmed && !intent) return;
       const clientId = crypto.randomUUID();
       const text = trimmed || (intent ? CANDIDATE_INTENT_PLACEHOLDERS[intent] : "");
-      const body: TurnBody = { kind: "message", clientId, content: trimmed, intent };
+      const composeMs = lastInterviewerAtRef.current ? Math.max(0, Date.now() - lastInterviewerAtRef.current) : null;
+      const body: TurnBody = { kind: "message", clientId, content: trimmed, intent, composeMs };
       setTurnError("");
       setTranscript((current) => [
         ...current,
@@ -170,32 +217,33 @@ export function MockInterviewChat({
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [transcript, streamingText]);
 
-  // 面试一结束服务端就自动生成报告：这里只轮询，报告一出现页面会切回带导航的报告视图。
-  // 超过等待上限还没出来（评分失败会退回 ready_to_evaluate），再给一个重试入口。
+  // 面试官刚说完话的时刻：候选人下一条消息的作答时长从这里起算。
   useEffect(() => {
-    if (!ended) return;
-    const startedAt = Date.now();
-    const timer = window.setInterval(() => {
-      router.refresh();
-      if (Date.now() - startedAt > REPORT_WAIT_MS) setReportStalled(true);
-    }, 3_000);
-    return () => window.clearInterval(timer);
-  }, [ended, router]);
+    if (transcript.at(-1)?.role === "interviewer") lastInterviewerAtRef.current = Date.now();
+  }, [transcript]);
 
-  async function retryReport() {
-    setCompleting(true);
-    setTurnError("");
-    try {
-      const response = await fetch(`/api/interviews/mock/${session.id}/complete`, { method: "POST" });
-      const result = (await response.json()) as { error?: string };
-      if (!response.ok) throw new Error(result.error ?? "生成面试报告失败。");
-      router.refresh();
-    } catch (caught) {
-      setTurnError(caught instanceof Error ? caught.message : "生成面试报告失败。");
-    } finally {
-      setCompleting(false);
-    }
-  }
+  const finish = useCallback(
+    async (retry: boolean) => {
+      setCompleting(true);
+      setReportError("");
+      try {
+        await driver.finish({ retry });
+        refresh();
+      } catch (caught) {
+        setReportError(caught instanceof Error ? caught.message : "生成面试报告失败。");
+      } finally {
+        setCompleting(false);
+      }
+    },
+    [driver, refresh],
+  );
+
+  // 面试一结束就把报告做出来；报告一出现页面会切回带导航的报告视图。
+  useEffect(() => {
+    if (!ended || finishedRef.current) return;
+    finishedRef.current = true;
+    void finish(false);
+  }, [ended, finish]);
 
   return (
     <div className="flex h-dvh flex-col bg-background text-foreground">
@@ -237,12 +285,14 @@ export function MockInterviewChat({
 
         {ended ? (
           <div className="flex flex-wrap items-center gap-3 border-t border-border px-3 py-4 sm:px-4">
-            <Loader2 aria-hidden="true" className="size-4 animate-spin text-muted-foreground" strokeWidth={1.5} />
+            {completing ? (
+              <Loader2 aria-hidden="true" className="size-4 animate-spin text-muted-foreground" strokeWidth={1.5} />
+            ) : null}
             <p className="text-sm text-muted-foreground">
-              {reportStalled ? "报告生成得比预期慢，可以重试一次。" : "面试已结束，正在评分并生成报告。"}
+              {reportError || "面试已结束，正在评分并生成报告。"}
             </p>
-            {reportStalled ? (
-              <Button disabled={completing} onClick={retryReport} type="button" variant="outline">
+            {reportError ? (
+              <Button disabled={completing} onClick={() => finish(true)} type="button" variant="outline">
                 {completing ? "生成中…" : "重新生成报告"}
               </Button>
             ) : null}

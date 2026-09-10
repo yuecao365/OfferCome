@@ -1,89 +1,79 @@
-import { fromLegacyReport } from "@/lib/mock-interviews/report";
-import type { MockInterviewView } from "@/lib/mock-interviews/types";
+import { evidenceTargetForPace } from "@/lib/mock-interviews/interviewer/brief";
+import { buildQuestionTeaching } from "@/lib/mock-interviews/teaching";
+import type { MockInterviewTrace, MockInterviewView } from "@/lib/mock-interviews/types";
+import { conversationView, traceTurns } from "@/lib/mock-interviews/views";
 
-import type { TrialEvaluation, TrialInterview } from "./interview";
-import type { TrialWorkspaceInterview } from "./workspace";
+import type { TrialInterview } from "./interview";
 
 /**
- * 把体验版的两种数据形态适配成本地版房间/报告组件吃的 MockInterviewView：
- * - 进行中的会话文档；
- * - 已完成后写入工作台的模拟面试记录（localStorage）。
- * 组件层由此完全感知不到数据来自浏览器还是数据库。体验版存的是旧形状，这里映射成评分 v2 的视图。
+ * 把体验版的会话文档适配成本地版房间 / 报告 / trace 组件吃的视图。
+ * 拼装函数与本地版 queries.ts 用的是同一批（views.ts、teaching.ts），组件层感知不到数据来自浏览器还是数据库。
  */
 
-type EvaluationView = NonNullable<MockInterviewView["questions"][number]["evaluation"]>;
-
-function evaluationView(input: { score: number; feedback: string; strengths?: string[]; improvements?: string[]; dimensions?: TrialEvaluation["dimensions"] }): EvaluationView {
-  return {
-    score: input.score,
-    dimensions: (input.dimensions ?? []).map((dimension) => ({ ...dimension, gap: null })),
-    strengths: (input.strengths ?? []).map((point) => ({ point, quote: null })),
-    weaknesses: [],
-    advice: input.improvements ?? [],
-    feedback: input.feedback,
-    exemplar: null,
-  };
-}
-
 export function trialInterviewToView(interview: TrialInterview): MockInterviewView {
+  const closed = interview.questions.length;
+  const completed = interview.status === "completed";
   return {
     id: interview.id,
     interviewId: interview.id,
     companyName: interview.job.companyName,
     jobTitle: interview.job.jobTitle,
     status: interview.status,
-    generationPhase: null,
+    generationPhase: interview.generationPhase,
     generationErrorCode: null,
-    generationError: null,
+    generationError: interview.generationError,
     interactionMode: "text",
-    currentQuestionIndex: interview.currentIndex,
-    questionCount: interview.questions.length,
+    currentQuestionIndex: closed,
+    questionCount: closed,
     totalScore: interview.report?.totalScore ?? null,
-    report: interview.report ? fromLegacyReport(interview.report) : null,
-    questions: interview.questions.map((question, index) => {
-      const evaluation = interview.evaluations[index];
-      return {
-        id: question.uid,
-        question: question.question,
-        answer: interview.answers[index] ?? "",
-        category: question.category,
-        sortOrder: index,
-        skipped: interview.answers[index] === "",
-        isFollowUp: question.parentIndex !== null,
-        parentQuestionId:
-          question.parentIndex !== null ? (interview.questions[question.parentIndex]?.uid ?? null) : null,
-        evaluation: evaluation ? evaluationView(evaluation) : null,
-      };
-    }),
+    report: interview.report,
+    conversation: interview.brief
+      ? conversationView({
+          brief: interview.brief,
+          status: interview.status,
+          startedAt: interview.startedAt,
+          threads: interview.threads.map((thread) => ({
+            ...thread,
+            questionId: interview.questions.find((segment) => segment.threadId === thread.id)?.id ?? null,
+          })),
+          messages: interview.messages,
+          memory: interview.memory,
+        })
+      : null,
+    questions: interview.questions.map((segment, index) => ({
+      id: segment.id,
+      question: segment.question,
+      answer: segment.answer ?? "",
+      category: segment.category,
+      sortOrder: index,
+      skipped: segment.skipped,
+      ...(completed && segment.evaluation
+        ? {
+            teaching: buildQuestionTeaching({
+              metadata: segment.metadata,
+              expectedSignals: segment.expectedSignals,
+              sourceKind: segment.sourceKind,
+            }),
+            evaluation: segment.evaluation,
+          }
+        : { evaluation: null }),
+    })),
   };
 }
 
-/** 已完成的模拟面试从工作台记录还原成报告视图。 */
-export function trialMockRecordToView(record: TrialWorkspaceInterview): MockInterviewView {
+export function trialInterviewToTrace(interview: TrialInterview): MockInterviewTrace | null {
+  if (!interview.brief) return null;
   return {
-    id: record.id,
-    interviewId: record.id,
-    companyName: record.companyName,
-    jobTitle: record.jobTitle,
-    status: "completed",
-    generationPhase: null,
-    generationErrorCode: null,
-    generationError: null,
-    interactionMode: "text",
-    currentQuestionIndex: record.questions.length,
-    questionCount: record.questions.length,
-    totalScore: record.totalScore,
-    report: record.report ? fromLegacyReport(record.report) : null,
-    questions: record.questions.map((question, index) => ({
-      id: question.id,
-      question: question.question,
-      answer: question.answer,
-      category: question.category,
-      sortOrder: index,
-      skipped: question.answer === "",
-      isFollowUp: false,
-      parentQuestionId: null,
-      evaluation: question.score == null ? null : evaluationView({ score: question.score, feedback: question.feedback ?? "" }),
-    })),
+    id: interview.id,
+    companyName: interview.job.companyName,
+    jobTitle: interview.job.jobTitle,
+    status: interview.status,
+    pace: interview.brief.pace,
+    evidenceTarget: evidenceTargetForPace(interview.brief.pace),
+    areas: interview.brief.areas.map((area) => ({ id: area.id, name: area.name, kind: area.kind, depth: area.depth })),
+    turns: traceTurns({
+      messages: interview.messages.map((message) => ({ ...message, composeMs: message.metrics?.composeMs ?? null })),
+      decisions: interview.decisions,
+    }),
   };
 }

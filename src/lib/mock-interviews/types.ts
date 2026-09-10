@@ -1,9 +1,6 @@
 import { z } from "zod";
 
-import {
-  INTERVIEW_QUESTION_CATEGORIES,
-  type InterviewStatus,
-} from "@/lib/interviews/types";
+import type { InterviewStatus } from "@/lib/interviews/types";
 
 import type { InterviewHypothesis, InterviewPace } from "./interviewer/brief";
 import type { InterviewMemory } from "./interviewer/memory";
@@ -30,18 +27,6 @@ export function mockInterviewDeleteConfirmMessage(status: string): string {
     ? "删除后这场模拟面试的报告和评分记录都会消失，确定删除吗？"
     : "这场模拟面试还没有完成，删除后已作答的内容和进度都会一起消失，确定删除吗？";
 }
-
-export const MOCK_INTERVIEW_DIFFICULTIES = [
-  "foundational",
-  "standard",
-  "challenging",
-] as const;
-
-export const MOCK_INTERVIEW_DIFFICULTY_LABELS = {
-  foundational: "基础",
-  standard: "标准",
-  challenging: "压力面",
-} as const;
 
 const jobCompetencySchema = z.object({
   id: z.string().min(1).max(40),
@@ -87,81 +72,24 @@ export const storedJobBlueprintSchema = mockInterviewJobBlueprintSchema.extend({
     .max(10),
 });
 
-const mockInterviewQuestionDraftSchema = z.object({
-  question: z.string().min(1).max(800),
-  category: z.enum(INTERVIEW_QUESTION_CATEGORIES),
-  difficulty: z.enum(MOCK_INTERVIEW_DIFFICULTIES),
-  sourceKind: z.enum([
-    "job_description",
-    "resume",
-    "history",
-    "profile",
-    "general_role",
-  ]),
-  jobCompetencyId: z.string().min(1).max(40),
-  jdEvidence: z
-    .string()
-    .min(1)
-    .max(240)
-    .describe("从输入 JD 原文逐字截取、能直接支持本题的证据"),
-  relevanceScore: z.number().min(0.65).max(1),
-  resumeProjectId: z.string().nullable(),
-  personalizationSourceId: z
-    .string()
-    .nullable()
-    .describe("history 时填历史 questionId，profile 时填 insightId，否则为 null"),
-  rationale: z.string().min(1).max(500),
-  expectedSignals: z.array(z.string().min(1).max(240)).min(1).max(5),
-});
-
-/** 低于这个数就不值得开场了；其余场景宁可少几题也要交付。 */
-export const MIN_MOCK_INTERVIEW_QUESTIONS = 3;
-
-export function createMockInterviewQuestionBatchSchema(questionCount: number) {
-  // 恰好 N 道对小模型过脆：允许区间，宁可少几题也不要整批作废。
-  return z.object({
-    questions: z
-      .array(mockInterviewQuestionDraftSchema)
-      .min(MIN_MOCK_INTERVIEW_QUESTIONS)
-      .max(questionCount)
-      .describe(`目标 ${questionCount} 道不重复的问题，最少 ${MIN_MOCK_INTERVIEW_QUESTIONS} 道`),
-  });
-}
-
-export const providerMockInterviewQuestionBatchSchema = z.object({
-  questions: z.array(mockInterviewQuestionDraftSchema),
-});
-
-export const looseMockInterviewQuestionBatchSchema = z.object({
-  questions: z.array(mockInterviewQuestionDraftSchema).max(12),
-});
-
 export type MockInterviewJobBlueprint = z.infer<
   typeof mockInterviewJobBlueprintSchema
 >;
-export type MockInterviewQuestionDraft = z.infer<
-  typeof mockInterviewQuestionDraftSchema
->;
-export type MockInterviewQuestionPlan = {
-  questions: (MockInterviewQuestionDraft & {
-    rubric: { name: string; description: string; weight: number }[];
-  })[];
-};
-
+/** 报告页"这道题在考察什么"：这段所属领域的来源与风格、期望信号、面试官关线程时的判断。 */
 export type MockInterviewQuestionTeaching = {
-  competencyName: string | null;
-  /** jd：JD 明确要求；inferred：兜底蓝图推断；baseline：技能包补的岗位常见要求。 */
-  competencyOrigin: "jd" | "inferred" | "baseline" | null;
+  areaName: string | null;
+  /** jd：JD 明确要求；baseline：技能包补的岗位常见要求。 */
+  competencyOrigin: "jd" | "baseline" | null;
   /** baseline 来源时是哪个技能包。 */
   skillPack: string | null;
-  /** 对话式面试的领域风格（scenario / fundamentals），旧流程为 null。 */
+  /** 领域风格（scenario / fundamentals）；非技术领域为 null。 */
   areaStyle: string | null;
   /** 候选人在这条线程里的作答总时长（秒），只作辅助信号；没有记录为 null。 */
   answerSeconds: number | null;
-  sourceUrl: string | null;
-  jdEvidence: string | null;
   expectedSignals: string[];
-  rationale: string | null;
+  /** 面试官关线程时的判断；代码被迫关线程时为 null。 */
+  note: string | null;
+  /** 领域类型（technical / project / behavioral）。 */
   sourceKind: string;
 };
 
@@ -233,8 +161,6 @@ export type MockInterviewView = {
     category: string;
     sortOrder: number;
     skipped: boolean;
-    isFollowUp: boolean;
-    parentQuestionId: string | null;
     teaching?: MockInterviewQuestionTeaching;
     evaluation: null | {
       score: number | null;

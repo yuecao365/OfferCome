@@ -4,7 +4,9 @@ import type {
   ApplicationStage,
 } from "@/lib/applications/types";
 
-import type { TrialResumeInput } from "./interview";
+import type { MockInterviewReport } from "@/lib/mock-interviews/report";
+
+import type { TrialEvaluation, TrialResumeInput } from "./interview";
 
 /**
  * 体验版工作台的浏览器数据文档。
@@ -18,8 +20,8 @@ import type { TrialResumeInput } from "./interview";
  * `version` 用于将来结构变更：不匹配一律丢弃重来，体验数据不值得写迁移。
  */
 
-/** v2：新增 interviews。体验数据一次性，旧版本直接丢弃重种，不写迁移。 */
-export const TRIAL_WORKSPACE_VERSION = 2;
+/** v3：模拟面试记录带完整评分与 v2 报告。体验数据一次性，旧版本直接丢弃重种，不写迁移。 */
+export const TRIAL_WORKSPACE_VERSION = 3;
 
 export type TrialWorkspaceQuestion = {
   /** 关联的实习/项目（可选字段，指向 resume.projects 里的条目）。 */
@@ -29,9 +31,8 @@ export type TrialWorkspaceQuestion = {
   answer: string;
   category: string;
   sortOrder: number;
-  /** 模拟面试的逐题评分；真实面试没有。 */
-  score?: number | null;
-  feedback?: string | null;
+  /** 模拟面试的逐段评分（v3 全量，画像推导与报告页都读它）；真实面试没有。 */
+  evaluation?: TrialEvaluation | null;
 };
 
 export type TrialWorkspaceInterview = {
@@ -40,13 +41,15 @@ export type TrialWorkspaceInterview = {
   companyName: string;
   jobTitle: string;
   round: string | null;
+  /** 画像岗位视角的覆盖（合并视角时写入）；缺省按岗位名归一。 */
+  roleKey?: string | null;
   status: string;
   /** ISO 字符串；真实面试必填（状态由它推导）。 */
   interviewedAt: string | null;
   note: string;
   questions: TrialWorkspaceQuestion[];
   totalScore: number | null;
-  report: import("@/lib/mock-interviews/report").LegacyMockInterviewReport | null;
+  report: MockInterviewReport | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -95,6 +98,8 @@ export type TrialProfileObservation = {
 
 export type TrialProfileInsight = {
   id: string;
+  /** 所属画像视角；旧文档缺省视为 "all"。 */
+  roleKey?: string;
   dimension: string;
   kind: string;
   title: string;
@@ -106,6 +111,7 @@ export type TrialProfileInsight = {
 
 export type TrialProfileSnapshot = {
   revision: number;
+  roleKey?: string;
   createdAt: string;
   metrics: { dimension: string; level: number | null; levelLabel: string }[];
 };

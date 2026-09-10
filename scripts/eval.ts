@@ -401,8 +401,6 @@ async function generateEvalBrief(jdId: string, resumeId: string, runLabel: strin
       jobDescription: jd.jobDescription,
       resume: { id: `eval-${resumeId}`, name: `eval-${resumeId}.md`, text: loadResumeText(resumeId) },
       projects: [],
-      history: [],
-      profile: { revision: 0, insights: [] },
       recentWeaknesses: [],
     },
     // 深入节奏：看备课最多能规划出什么；真实面试按用户节奏裁剪，是另一回事。

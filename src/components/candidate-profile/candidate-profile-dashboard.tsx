@@ -69,6 +69,8 @@ export type CandidateProfileTransport = {
   ): Promise<void>;
   /** 省略时洞察卡走它自己的默认实现（本地版 API）。 */
   updateInsight?: InsightUpdateAction;
+  /** 把一个岗位视角并入另一个。 */
+  mergeRoles(sourceKey: string, targetKey: string): Promise<void>;
 };
 
 async function readJsonOrThrow(response: Response, fallback: string): Promise<void> {
@@ -98,6 +100,14 @@ const defaultTransport: CandidateProfileTransport = {
       body: JSON.stringify(body),
     });
     await readJsonOrThrow(response, "纠正证据失败。");
+  },
+  async mergeRoles(sourceKey, targetKey) {
+    const response = await fetch("/api/candidate-profile/roles/merge", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ sourceKey, targetKey }),
+    });
+    await readJsonOrThrow(response, "合并岗位视角失败。");
   },
 };
 
@@ -243,18 +253,15 @@ export function CandidateProfileDashboard({
     if (roleKey === "all" || !mergeTarget) return;
     setMutating(true);
     setMessage("");
-    const response = await fetch("/api/candidate-profile/roles/merge", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ sourceKey: roleKey, targetKey: mergeTarget }),
-    });
-    const payload = (await response.json()) as { error?: string };
-    setMutating(false);
-    if (!response.ok) {
+    try {
+      await transport.mergeRoles(roleKey, mergeTarget);
+    } catch (caught) {
+      setMutating(false);
       setIsError(true);
-      setMessage(payload.error ?? "合并岗位视角失败。");
+      setMessage(caught instanceof Error ? caught.message : "合并岗位视角失败。");
       return;
     }
+    setMutating(false);
     setRoleKey("all");
     setMergeTarget("");
     setMessage("岗位视角已合并，能力画像会自动更新。");
