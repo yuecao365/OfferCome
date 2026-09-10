@@ -48,7 +48,7 @@ export const personaSchema = z.object({
 });
 export type Persona = z.infer<typeof personaSchema>;
 
-export const CANDIDATE_INTENTS = ["hint", "clarify", "skip", "repeat", "end"] as const;
+export const CANDIDATE_INTENTS = ["hint", "skip", "repeat", "end"] as const;
 
 const scriptMessageSchema = z.object({
   content: z.string().optional(),
@@ -92,7 +92,7 @@ export const scorerCaseSchema = z.object({
     depth: z.number().int().min(0),
     targetDepth: z.number().int().min(0),
     probeCount: z.number().int().min(0),
-    rescues: z.number().int().min(0),
+    hinted: z.boolean(),
     note: z.string().nullable(),
   }),
   answers: z.record(z.enum(SCORER_VARIANTS), z.string().min(1)),

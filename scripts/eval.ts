@@ -190,7 +190,7 @@ async function scorerSources(limit: number, existing: Set<string>, evalTag: stri
         depth: Number(metadata.depth ?? 0),
         targetDepth: area?.depth ?? Number(metadata.depth ?? 1),
         probeCount: Number(metadata.probeCount ?? 0),
-        rescues: Number(metadata.rescues ?? 0),
+        hinted: metadata.hinted === true,
         note: typeof metadata.note === "string" ? metadata.note : null,
       },
     });
@@ -229,7 +229,7 @@ async function scorerSourcesFromBriefs(existing: Set<string>, limit: number): Pr
           question: [area.entryQuestion.trim(), ...area.ladder.map((rung, index) => `追问 ${index + 1}：${rung.text.trim()}`)].join("\n"),
           rubric: area.rubric,
           expectedSignals: area.expectedSignals,
-          thread: { depth: area.ladder.length, targetDepth: area.depth, probeCount: area.ladder.length, rescues: 0, note: null },
+          thread: { depth: area.ladder.length, targetDepth: area.depth, probeCount: area.ladder.length, hinted: false, note: null },
         });
       }
       console.log(`${role} / ${jdId}：${brief.areas.filter((area) => area.kind === "technical").length} 道`);
@@ -811,9 +811,7 @@ async function loadSnapshot(sessionId: string, item: EvalCase, rep: number, driv
       entryQuestion: thread.entryQuestion,
       status: thread.status as SnapshotThread["status"],
       depth: thread.depth,
-      rescues: thread.rescues,
-      clarifies: thread.clarifies,
-      interrupts: thread.interrupts,
+      hinted: thread.hinted,
       openedAtTurn: thread.openedAtTurn,
       closedAtTurn: thread.closedAtTurn,
       note: thread.note,
@@ -869,7 +867,7 @@ function relatedItems(snapshot: SessionSnapshot): { turnIndex: number; item: Jud
   let lastAnswer: string | null = null;
   for (const message of snapshot.messages) {
     if (message.role === "candidate" && message.kind === "answer") lastAnswer = message.content;
-    if (message.role === "interviewer" && (message.kind === "probe" || message.kind === "interrupt") && lastAnswer) {
+    if (message.role === "interviewer" && message.kind === "probe" && lastAnswer) {
       items.push({ turnIndex: message.turnIndex, item: { a: lastAnswer, b: message.content } });
     }
   }

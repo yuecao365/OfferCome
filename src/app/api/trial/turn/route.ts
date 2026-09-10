@@ -1,10 +1,6 @@
 import { createUIMessageStream, createUIMessageStreamResponse } from "ai";
 
-import {
-  CANDIDATE_INTENT_PLACEHOLDERS,
-  detectCandidateIntent,
-  type CandidateIntent,
-} from "@/lib/mock-interviews/interviewer/actions";
+import { CANDIDATE_INTENT_PLACEHOLDERS, detectCandidateIntent, type ButtonIntent } from "@/lib/mock-interviews/interviewer/actions";
 import type { InterviewBrief } from "@/lib/mock-interviews/interviewer/brief";
 import type { InterviewMemory } from "@/lib/mock-interviews/interviewer/memory";
 import { createInterviewerState, type MessageState, type ThreadState } from "@/lib/mock-interviews/interviewer/state";
@@ -17,7 +13,7 @@ import { withTrialAiResponse } from "@/lib/trial/route-handler";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const INTENTS = Object.keys(CANDIDATE_INTENT_PLACEHOLDERS) as NonNullable<CandidateIntent>[];
+const INTENTS = Object.keys(CANDIDATE_INTENT_PLACEHOLDERS) as ButtonIntent[];
 const MAX_CONTENT_LENGTH = 20_000;
 
 type Body = {

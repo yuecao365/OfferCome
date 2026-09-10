@@ -14,11 +14,9 @@ const KIND_LABELS: Record<string, string> = {
   intro_request: "开场",
   question: "切入问题",
   probe: "追问",
-  rescue: "提示",
-  clarify: "澄清",
-  interrupt: "打断",
+  hint: "提示",
   closing: "收尾",
-  aside: "只说话",
+  aside: "插话",
   answer: "回答",
 };
 

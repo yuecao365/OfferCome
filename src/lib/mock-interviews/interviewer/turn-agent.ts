@@ -8,17 +8,19 @@ import { normalizedText } from "@/lib/text/similarity";
 
 import { createSkillTools, renderSkillIndex } from "../skills/tools";
 import type { SkillPack } from "../skills/types";
-import { ACTION_DESCRIPTIONS, ACTION_NAMES, actionSchemas, isActionName, type CandidateIntent, type InterviewerAction } from "./actions";
+import { ACTION_DESCRIPTIONS, actionSchemas, isModelAction, MODEL_ACTIONS, type InterviewerAction } from "./actions";
 import { canAct } from "./budget";
-import { memoryPatchSchema } from "./memory";
 import { buildConversation } from "./conversation";
-import { buildInterviewerSystemPrompt, INTERVIEWER_PROMPT_VERSION } from "./prompt";
+import { memoryPatchSchema } from "./memory";
+import { buildInterviewerSystemPrompt, INTERVIEWER_PROMPT_VERSION, type ForcedSpeech } from "./prompt";
 import type { TurnDecision } from "./reducer";
 import type { InterviewerState } from "./state";
 
 const TURN_TIMEOUT_MS = 45_000;
 /** 查技能包 ≤2 次 + note + 推进动作（被拒后可换一次）+ 收口说话。 */
 const MAX_STEPS = 5;
+/** 只写话的回合：最多查一次技能包 + note + 说话。 */
+const MAX_SPEECH_STEPS = 3;
 /** 追问锚点最多被拒这么多次；再不过就照常应用并记为 anchor_missing。 */
 const ANCHOR_RETRIES = 2;
 
@@ -33,8 +35,9 @@ type TurnTools = {
  * 真正的状态变更由 reducer 在流结束后统一应用（保证原子，也保证不越权）。
  *
  * 追问的锚点在这里校验：必须是候选人这条回答里的原话，让追问贴着回答走。
+ * 代码已定下动作的回合（forced）不给推进工具，模型只能记笔记、查技能包、说话。
  */
-function buildTools(initial: InterviewerState, candidateContent: string | null, packs: SkillPack[]): TurnTools {
+function buildTools(initial: InterviewerState, candidateContent: string | null, packs: SkillPack[], withActions: boolean): TurnTools {
   const tools: ToolSet = {};
   // close_thread 之后允许在同一回合紧接着 open_thread / close_interview（"这块到这里，接下来聊 X"），
   // 所以接受 close_thread 后，后续检查按"当前线程已关闭"的状态来算。
@@ -43,7 +46,7 @@ function buildTools(initial: InterviewerState, candidateContent: string | null, 
   let anchorMisses = 0;
   let anchorHit: boolean | null = null;
 
-  for (const name of ACTION_NAMES) {
+  for (const name of withActions ? MODEL_ACTIONS : []) {
     tools[name] = tool({
       description: ACTION_DESCRIPTIONS[name],
       inputSchema: actionSchemas[name],
@@ -69,7 +72,7 @@ function buildTools(initial: InterviewerState, candidateContent: string | null, 
           };
           return {
             accepted: true,
-            next: "这一段已结束。如果你已经想好下一段，紧接着调用 open_thread 或 close_interview；然后把要对候选人说的话说出来。",
+            next: "这一段已结束。紧接着调用 open_thread 或 close_interview；然后把要对候选人说的话说出来。",
           };
         }
         return { accepted: true, next: "本回合的推进动作已用完，不要再调用其他推进动作；把要对候选人说的话说出来。" };
@@ -106,7 +109,7 @@ export function decisionFromOutcome(outcome: AgentStreamOutcome, anchorHit: bool
       if (parsed.success) memoryPatch = parsed.data;
       continue;
     }
-    if (!isActionName(call.toolName)) continue;
+    if (!isModelAction(call.toolName)) continue;
     const parsed = actionSchemas[call.toolName].safeParse(call.input);
     if (!parsed.success) continue;
     const action = { name: call.toolName, input: parsed.data } as InterviewerAction;
@@ -134,10 +137,12 @@ export function decisionFromOutcome(outcome: AgentStreamOutcome, anchorHit: bool
 export type TurnAgentInput = {
   runId: string;
   state: InterviewerState;
-  candidate: { content: string; intent: CandidateIntent } | null;
+  candidate: { content: string } | null;
   context: { jobTitle: string; jobDescription: string; resumeText: string };
   /** 本场可查的技能包（备课时加载过的及其父包）。 */
   skillPacks: SkillPack[];
+  /** 代码已定下动作：模型只写话，不给推进工具。 */
+  forced: ForcedSpeech | null;
 };
 
 /**
@@ -152,7 +157,7 @@ export async function streamInterviewerTurn(input: TurnAgentInput) {
   } else if (conversation.length === 0) {
     conversation.push({ role: "user", content: "（候选人已就座，请开场。）" });
   }
-  const turnTools = buildTools(input.state, input.candidate?.content ?? null, input.skillPacks);
+  const turnTools = buildTools(input.state, input.candidate?.content ?? null, input.skillPacks, input.forced === null);
 
   const { stream, outcome } = streamAgent({
     agent: "interviewer_turn",
@@ -160,15 +165,15 @@ export async function streamInterviewerTurn(input: TurnAgentInput) {
     config,
     feature: "AI 模拟面试",
     promptVersion: INTERVIEWER_PROMPT_VERSION,
-    system: buildInterviewerSystemPrompt(input.state, {
-      ...input.context,
-      skillIndex: input.skillPacks.length > 0 ? renderSkillIndex(input.skillPacks) : "",
-      candidateIntent: input.candidate?.intent ?? null,
-    }),
+    system: buildInterviewerSystemPrompt(
+      input.state,
+      { ...input.context, skillIndex: input.skillPacks.length > 0 ? renderSkillIndex(input.skillPacks) : "" },
+      input.forced,
+    ),
     untrustedInputs: "候选人的回答、简历和岗位描述",
     messages: conversation,
     tools: turnTools.tools,
-    stopWhen: isStepCount(MAX_STEPS),
+    stopWhen: isStepCount(input.forced ? MAX_SPEECH_STEPS : MAX_STEPS),
     timeoutMs: TURN_TIMEOUT_MS,
     maxOutputTokens: 1_200,
   });

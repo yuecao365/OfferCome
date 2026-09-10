@@ -257,9 +257,7 @@ model InterviewThread {
   entryQuestion String
   status        String               @default("active")
   depth         Int                  @default(0)
-  rescues       Int                  @default(0)
-  clarifies     Int                  @default(0)
-  interrupts    Int                  @default(0)
+  hinted        Boolean              @default(false)
   openedAtTurn  Int
   closedAtTurn  Int?
   note          String?

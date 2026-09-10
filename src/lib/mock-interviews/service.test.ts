@@ -342,7 +342,7 @@ test("closing a thread writes the compat question with the area rubric and sched
   stubs.decisions = [
     { speech: "你好。", action: { name: "ask_intro", input: {} }, memoryPatch: null },
     { speech: "好的。", action: { name: "open_thread", input: { areaId: "area-1", question: "缓存和数据库双写时你怎么保证一致性？" } }, memoryPatch: null },
-    { speech: "明白。", action: { name: "probe", input: { anchor: "延迟双删", question: "先删缓存还是先写库？" } }, anchorHit: true, memoryPatch: { established: ["知道延迟双删"], doubtful: [], failed: [], hypotheses: [] } },
+    { speech: "明白。先删缓存还是先写库？", action: { name: "probe", input: { anchor: "延迟双删", question: "先删缓存还是先写库？" } }, anchorHit: true, memoryPatch: { established: ["知道延迟双删"], doubtful: [], failed: [], hypotheses: [] } },
     { speech: "这一块够了。", action: { name: "close_thread", input: { note: "机制清楚，取舍偏弱" } }, memoryPatch: null },
   ];
   await runTurn(sessionId, null);

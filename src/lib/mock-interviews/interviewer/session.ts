@@ -62,9 +62,7 @@ function toThreadState(row: LoadedSession["session"]["threads"][number]): Thread
     entryQuestion: row.entryQuestion,
     status: row.status as ThreadStatus,
     depth: row.depth,
-    rescues: row.rescues,
-    clarifies: row.clarifies,
-    interrupts: row.interrupts,
+    hinted: row.hinted,
     openedAtTurn: row.openedAtTurn,
     closedAtTurn: row.closedAtTurn,
     note: row.note,
@@ -162,9 +160,7 @@ export async function persistTurn(
       const counters = {
         status: thread.status,
         depth: thread.depth,
-        rescues: thread.rescues,
-        clarifies: thread.clarifies,
-        interrupts: thread.interrupts,
+        hinted: thread.hinted,
         closedAtTurn: thread.closedAtTurn,
         note: thread.note,
       };

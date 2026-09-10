@@ -40,7 +40,7 @@ export const POST = withTrialAi<Body>(async (body) => {
       depth: body.segment.metadata.depth,
       targetDepth: body.targetDepth,
       probeCount: body.segment.metadata.probeCount,
-      rescues: body.segment.metadata.rescues,
+      hinted: body.segment.metadata.hinted,
       note: body.segment.metadata.note,
     },
     round: body.round,

@@ -1,17 +1,13 @@
 import { createUIMessageStream, createUIMessageStreamResponse } from "ai";
 
-import {
-  CANDIDATE_INTENT_PLACEHOLDERS,
-  detectCandidateIntent,
-  type CandidateIntent,
-} from "@/lib/mock-interviews/interviewer/actions";
+import { CANDIDATE_INTENT_PLACEHOLDERS, detectCandidateIntent, type ButtonIntent } from "@/lib/mock-interviews/interviewer/actions";
 import { startInterviewerTurn } from "@/lib/mock-interviews/interviewer/session";
 import { turnPayload, type TurnData } from "@/lib/mock-interviews/interviewer/turn-payload";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const INTENTS = Object.keys(CANDIDATE_INTENT_PLACEHOLDERS) as NonNullable<CandidateIntent>[];
+const INTENTS = Object.keys(CANDIDATE_INTENT_PLACEHOLDERS) as ButtonIntent[];
 const MAX_CONTENT_LENGTH = 20_000;
 
 type Body = {

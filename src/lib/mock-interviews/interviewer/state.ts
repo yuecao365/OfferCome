@@ -13,11 +13,10 @@ export type ThreadState = {
   areaId: string;
   entryQuestion: string;
   status: ThreadStatus;
-  /** 追问层数（含打断）。 */
+  /** 追问层数。 */
   depth: number;
-  rescues: number;
-  clarifies: number;
-  interrupts: number;
+  /** 这条线程已经给过一次提示（每线程只给一次）。 */
+  hinted: boolean;
   openedAtTurn: number;
   closedAtTurn: number | null;
   note: string | null;
@@ -25,19 +24,11 @@ export type ThreadState = {
 
 export type MessageRole = "interviewer" | "candidate";
 /**
- * 候选人侧：answer 是实质回答（含线程外的自我介绍），question 是对题目的提问或求提示，
- * aside 是由代码处理的插话（跳过 / 再说一遍 / 结束）。面试官侧的 aside 是没有推进动作的一句话。
+ * 面试官侧：intro_request 开场、question 切入问题、probe 追问、hint 提示、closing 收尾，
+ * aside 只在"再说一遍"时复述上一问。候选人侧：answer 是实质回答（含线程外的自我介绍），
+ * aside 是由代码处理的插话（跳过 / 再说一遍 / 结束 / 卡住 / 否定简历）。
  */
-export type MessageKind =
-  | "intro_request"
-  | "question"
-  | "probe"
-  | "rescue"
-  | "clarify"
-  | "interrupt"
-  | "closing"
-  | "answer"
-  | "aside";
+export type MessageKind = "intro_request" | "question" | "probe" | "hint" | "closing" | "answer" | "aside";
 
 /** 候选人这条消息的作答元数据：从面试官上一句落库到候选人发送的时间与字数。 */
 export type MessageMetrics = { composeMs: number | null; chars: number };
@@ -63,8 +54,6 @@ export type InterviewerState = {
   /** 下一回合的序号；一回合 = 一条候选人消息 + 面试官的回应。 */
   turnIndex: number;
   phase: InterviewPhase;
-  /** 连续没有推进动作的回合数。 */
-  idleTurns: number;
 };
 
 export function activeThread(state: InterviewerState): ThreadState | null {
@@ -75,8 +64,8 @@ export function areaById(state: InterviewerState, areaId: string) {
   return state.brief.areas.find((area) => area.id === areaId) ?? null;
 }
 
-export function threadsOfArea(state: InterviewerState, areaId: string): ThreadState[] {
-  return state.threads.filter((thread) => thread.areaId === areaId);
+export function threadOfArea(state: InterviewerState, areaId: string): ThreadState | null {
+  return state.threads.find((thread) => thread.areaId === areaId) ?? null;
 }
 
 /** 已结束的线程，按关闭顺序。 */
@@ -91,7 +80,7 @@ export function lastInterviewerQuestion(state: InterviewerState): MessageState |
     const message = state.messages[index];
     if (
       message.role === "interviewer" &&
-      (message.kind === "question" || message.kind === "probe" || message.kind === "interrupt" || message.kind === "intro_request")
+      (message.kind === "question" || message.kind === "probe" || message.kind === "intro_request")
     ) {
       return message;
     }
@@ -99,31 +88,13 @@ export function lastInterviewerQuestion(state: InterviewerState): MessageState |
   return null;
 }
 
-/** 候选人最近一条实质回答（不含澄清提问与插话）。 */
+/** 候选人最近一条实质回答（不含插话）。 */
 export function lastCandidateAnswer(state: InterviewerState): MessageState | null {
   for (let index = state.messages.length - 1; index >= 0; index -= 1) {
     const message = state.messages[index];
     if (message.role === "candidate" && message.kind === "answer") return message;
   }
   return null;
-}
-
-/**
- * 连续没有推进动作的回合数：从最后一回合往前数，面试官只"说话"（aside）的回合。
- * 每回合从数据库重建状态，所以必须从消息推导，否则"连续空转强制推进"永远不会触发。
- */
-export function deriveIdleTurns(messages: MessageState[]): number {
-  const turns = new Map<number, MessageState[]>();
-  for (const message of messages) {
-    if (message.role !== "interviewer") continue;
-    turns.set(message.turnIndex, [...(turns.get(message.turnIndex) ?? []), message]);
-  }
-  let idle = 0;
-  for (const turnIndex of [...turns.keys()].sort((a, b) => b - a)) {
-    if (turns.get(turnIndex)!.every((message) => message.kind === "aside")) idle += 1;
-    else break;
-  }
-  return idle;
 }
 
 export function derivePhase(messages: MessageState[], ended: boolean): InterviewPhase {
@@ -146,6 +117,5 @@ export function createInterviewerState(input: {
     messages: input.messages,
     turnIndex,
     phase: derivePhase(input.messages, input.ended),
-    idleTurns: deriveIdleTurns(input.messages),
   };
 }

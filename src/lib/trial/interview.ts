@@ -9,14 +9,14 @@ import type { MockInterviewReport } from "@/lib/mock-interviews/report";
 import type { MockInterviewJobBlueprint } from "@/lib/mock-interviews/types";
 
 /**
- * 体验版模拟面试的会话文档（v3）：与本地版 MockInterviewSession + 线程 + 消息 + 兼容题目
+ * 体验版模拟面试的会话文档（v4）：与本地版 MockInterviewSession + 线程 + 消息 + 兼容题目
  * 同形，只是整份放在访客浏览器里，服务端无状态计算。
  *
  * 这个模块只放**纯函数**：文档的创建与状态迁移。模型调用在 API 路由、存储在浏览器，
  * 三者互不知道对方的实现。`version` 不匹配的旧文档一律丢弃重来（体验数据一次性）。
  */
 
-export const TRIAL_INTERVIEW_VERSION = 3;
+export const TRIAL_INTERVIEW_VERSION = 4;
 
 export type TrialResumeInput = {
   /** 简历全文，备课的主要素材。 */

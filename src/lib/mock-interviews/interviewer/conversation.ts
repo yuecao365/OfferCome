@@ -7,17 +7,14 @@ import { activeThread, closedThreads, type InterviewerState, type MessageState, 
  * - 进行中的线程整段保留，切入问答永远在；
  * - 上一条已结束的线程只留最后一问一答与收尾，作为过渡语境；
  * - 不属于线程的话（开场、自我介绍、线程之间的过渡）跟着上一条线程的边界走；
- * - 候选人的插话（跳过 / 再说一遍 / 结束）由代码处理，不进对话；
- * - 澄清与提示往来只留最近一对，它们不产生信息量，不值得占上下文；
+ * - 候选人的插话（跳过 / 再说一遍 / 结束 / 卡住）由代码处理，不进对话；
  * - 总量超过字符上限时从最旧的开始丢，切入问答与最后两条不丢。
  * 更早的内容靠工作记忆与"已结束线程摘要"。
  */
 
 export const CONVERSATION_MAX_CHARS = 6_000;
 
-const HELP_REPLY_KINDS = new Set<MessageState["kind"]>(["clarify", "rescue", "aside"]);
-
-const ASKING_KINDS = new Set<MessageState["kind"]>(["question", "probe", "interrupt"]);
+const ASKING_KINDS = new Set<MessageState["kind"]>(["question", "probe"]);
 
 /** 上一条线程从它最后一个提问起保留；线程外的话从它结束那一回合起保留。 */
 function windowStart(messages: MessageState[], previous: ThreadState | null): number {
@@ -41,21 +38,6 @@ function selectWindow(state: InterviewerState, active: ThreadState | null, previ
   });
 }
 
-/** 进行中线程里的澄清 / 提示往来只留最近一对。 */
-function pruneHelpExchanges(messages: MessageState[], active: ThreadState | null): MessageState[] {
-  if (!active) return messages;
-  const helpTurns = messages
-    .filter((message) => message.threadId === active.id && message.role === "candidate" && message.kind === "question")
-    .map((message) => message.turnIndex);
-  const latest = Math.max(-1, ...helpTurns);
-  const stale = new Set(helpTurns.filter((turn) => turn !== latest));
-  return messages.filter((message) => {
-    if (!stale.has(message.turnIndex)) return true;
-    if (message.role === "candidate") return message.kind !== "question";
-    return !HELP_REPLY_KINDS.has(message.kind);
-  });
-}
-
 /** 超出字符上限时从最旧的开始丢，保住切入问答与最后两条。 */
 function fitChars(messages: MessageState[], active: ThreadState | null, maxChars: number): MessageState[] {
   const entryIndex = active ? messages.findIndex((m) => m.threadId === active.id && m.kind === "question") : -1;
@@ -75,7 +57,7 @@ function fitChars(messages: MessageState[], active: ThreadState | null, maxChars
 export function selectConversation(state: InterviewerState, maxChars = CONVERSATION_MAX_CHARS): MessageState[] {
   const active = activeThread(state);
   const previous = closedThreads(state).at(-1) ?? null;
-  return fitChars(pruneHelpExchanges(selectWindow(state, active, previous), active), active, maxChars);
+  return fitChars(selectWindow(state, active, previous), active, maxChars);
 }
 
 /** 裁剪后相邻的同角色消息合并成一条，保持 user / assistant 交替。 */

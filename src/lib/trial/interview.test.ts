@@ -91,7 +91,7 @@ test("备课两步各自落文档，失败后重试只重跑失败的那一步",
 
 test("回合结果应用到文档：消息、线程、记忆、切段与决策记录，与本地版落库同语义", () => {
   const interview = seeded();
-  const thread = { id: "t1", areaId: "a1", entryQuestion: brief.areas[0].entryQuestion, status: "closed" as const, depth: 1, rescues: 0, clarifies: 0, interrupts: 0, openedAtTurn: 1, closedAtTurn: 3, note: "机制清楚" };
+  const thread = { id: "t1", areaId: "a1", entryQuestion: brief.areas[0].entryQuestion, status: "closed" as const, depth: 1, hinted: false, openedAtTurn: 1, closedAtTurn: 3, note: "机制清楚" };
   const payload: TurnPayload = {
     newMessages: [
       { id: "m1", turnIndex: 3, role: "candidate", kind: "answer", content: "先写库再删缓存。", threadId: "t1", toolName: null },

@@ -41,7 +41,7 @@ export type EvaluationThreadContext = {
   depth: number;
   targetDepth: number;
   probeCount: number;
-  rescues: number;
+  hinted: boolean;
   note: string | null;
 };
 

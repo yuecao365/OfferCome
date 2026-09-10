@@ -20,7 +20,7 @@ function threadContext(metadata: Record<string, unknown>, targetDepth: number | 
     depth: metadata.depth,
     targetDepth: targetDepth ?? metadata.depth,
     probeCount: typeof metadata.probeCount === "number" ? metadata.probeCount : metadata.depth,
-    rescues: typeof metadata.rescues === "number" ? metadata.rescues : 0,
+    hinted: metadata.hinted === true,
     note: typeof metadata.note === "string" ? metadata.note : null,
   };
 }

@@ -34,7 +34,7 @@
     "depth": 4,
     "targetDepth": 4,
     "probeCount": 4,
-    "rescues": 0,
+    "hinted": false,
     "note": null
   },
   "answers": {

@@ -57,9 +57,7 @@ function thread(id: string, areaId: string, overrides: Partial<SnapshotThread> =
     entryQuestion: "q",
     status: "closed",
     depth: 1,
-    rescues: 0,
-    clarifies: 0,
-    interrupts: 0,
+    hinted: false,
     openedAtTurn: 1,
     closedAtTurn: 3,
     note: "答到第一层",
@@ -97,8 +95,8 @@ function snapshot(overrides: Partial<SessionSnapshot> = {}): SessionSnapshot {
       msg(3, "interviewer", "question", "消息队列怎么保证可靠", "t2"),
       msg(4, "candidate", "answer", `我理解${CLAIM}。`, "t2"),
       msg(4, "interviewer", "probe", "这个说法不对，ack 只保证不丢；重复消费怎么处理？", "t2"),
-      msg(5, "candidate", "question", "能给点提示吗", "t2"),
-      msg(5, "interviewer", "rescue", "想想消费者崩溃后 broker 会做什么", "t2"),
+      msg(5, "candidate", "aside", "能给点提示吗", "t2"),
+      msg(5, "interviewer", "hint", "想想消费者崩溃后 broker 会做什么", "t2"),
       msg(6, "candidate", "answer", "不知道", "t2"),
       msg(6, "interviewer", "closing", "今天到这里", null),
     ],
@@ -106,7 +104,7 @@ function snapshot(overrides: Partial<SessionSnapshot> = {}): SessionSnapshot {
       thread("t1", "A1", { depth: 1, score: 80 }),
       thread("t2", "A2", {
         depth: 1,
-        rescues: 1,
+        hinted: true,
         score: 40,
         note: "ack 语义答错，失守",
         evaluation: { dimensions: [], strengths: [], weaknesses: [{ point: "ack 语义错误", quote: CLAIM, kind: "error" }], advice: [], feedback: "" },
@@ -118,7 +116,7 @@ function snapshot(overrides: Partial<SessionSnapshot> = {}): SessionSnapshot {
       decision(2, { evidenceBefore: 0, evidenceAfter: 0.2 }),
       decision(3, { proposedAction: "close_thread", appliedAction: "close_thread", anchorHit: null, evidenceBefore: 0.2, evidenceAfter: 0.4, skillsLoaded: 1 }),
       decision(4, { anchorHit: false, evidenceBefore: 0.4, evidenceAfter: 0.5, memoryPatch: { established: [], doubtful: [], failed: ["ack 语义"], hypotheses: [] } }),
-      decision(5, { proposedAction: "rescue", appliedAction: "rescue", anchorHit: null, evidenceBefore: 0.5, evidenceAfter: 0.5 }),
+      decision(5, { proposedAction: "hint", appliedAction: "hint", anchorHit: null, evidenceBefore: 0.5, evidenceAfter: 0.5 }),
       decision(6, { proposedAction: "close_interview", appliedAction: "close_interview", anchorHit: null, evidenceBefore: 0.5, evidenceAfter: 0.62 }),
     ],
     report: { version: 2, totalScore: 64, summary: "…", strengths: [{ point: "状态机清楚", areaName: "状态机" }], weaknesses: [], advice: [], hypotheses: [{ text: "验证复现率", status: "refuted", verdict: "没有讲清楚度量方法" }] },
@@ -134,12 +132,12 @@ function snapshot(overrides: Partial<SessionSnapshot> = {}): SessionSnapshot {
   };
 }
 
-test("sessionTrace derives anchor, replacement, clarify, aside, forced and evidence numbers from the trace", () => {
+test("sessionTrace derives anchor, replacement, forced, stuck-switch and evidence numbers from the trace", () => {
   const trace = sessionTrace(snapshot());
   assert.deepEqual(trace.anchorHitRate, { value: 0.5, numerator: 1, denominator: 2 });
   assert.deepEqual(trace.relatedRate, { value: 1, numerator: 2, denominator: 2 });
   assert.equal(trace.replacementRate.value, 0);
-  assert.equal(trace.clarifyShare.value, 0);
+  assert.deepEqual(trace.stuckSwitchTurns, []);
   assert.equal(trace.questionTurns, 5);
   assert.equal(trace.forcedCount, 0);
   assert.equal(trace.finalEvidence, 0.62);

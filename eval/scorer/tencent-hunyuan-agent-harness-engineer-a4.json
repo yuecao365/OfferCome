@@ -33,7 +33,7 @@
     "depth": 2,
     "targetDepth": 2,
     "probeCount": 2,
-    "rescues": 0,
+    "hinted": false,
     "note": null
   },
   "answers": {

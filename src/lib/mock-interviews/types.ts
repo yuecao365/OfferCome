@@ -128,7 +128,7 @@ export type MockInterviewConversation = {
     areaId: string;
     status: "active" | "closed" | "skipped";
     depth: number;
-    rescues: number;
+    hinted: boolean;
     /** 面试官关掉这段时的判断；切段后对应的兼容题目。 */
     note: string | null;
     questionId: string | null;

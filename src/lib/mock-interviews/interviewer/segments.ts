@@ -3,8 +3,7 @@ import type { MessageState, ThreadState } from "./state";
 
 /**
  * 线程 → 对话段。关闭线程时由代码确定性地切出：
- * 题目 = 切入问题 + 追问（含打断），回答 = 候选人在该线程内的全部实质回答
- * （对题目的提问与澄清不算）。这一段写成 InterviewQuestion，评分、复盘、画像照旧。
+ * 题目 = 切入问题 + 追问，回答 = 候选人在该线程内的全部实质回答（插话不算）。这一段写成 InterviewQuestion，评分、复盘、画像照旧。
  */
 
 export type ThreadSegment = {
@@ -18,9 +17,7 @@ export type ThreadSegment = {
 
 export function threadSegment(thread: ThreadState, messages: MessageState[]): ThreadSegment {
   const own = messages.filter((message) => message.threadId === thread.id);
-  const probes = own.filter(
-    (message) => message.role === "interviewer" && (message.kind === "probe" || message.kind === "interrupt"),
-  );
+  const probes = own.filter((message) => message.role === "interviewer" && message.kind === "probe");
   const answers = own.filter((message) => message.role === "candidate" && message.kind === "answer");
   const answerText = answers.map((message) => message.content.trim()).filter(Boolean);
   const question = [
@@ -50,7 +47,7 @@ export type SegmentMetadata = {
   note: string | null;
   depth: number;
   probeCount: number;
-  rescues: number;
+  hinted: boolean;
   answerSeconds: number | null;
 };
 
@@ -91,7 +88,7 @@ export function segmentRecord(area: InterviewArea | null, thread: ThreadState, s
       note: thread.note,
       depth: thread.depth,
       probeCount: segment.probeCount,
-      rescues: thread.rescues,
+      hinted: thread.hinted,
       answerSeconds: segment.answerSeconds,
     },
   };
@@ -99,6 +96,6 @@ export function segmentRecord(area: InterviewArea | null, thread: ThreadState, s
 
 /** 给提示词看的已结束线程摘要：不带原文，只带判断。 */
 export function closedThreadSummary(thread: ThreadState, areaName: string): string {
-  const verdict = thread.status === "skipped" ? "候选人跳过" : thread.note ?? "已结束";
+  const verdict = thread.status === "skipped" ? thread.note ?? "候选人跳过" : thread.note ?? "已结束";
   return `- ${areaName}（${thread.depth} 层追问）：${verdict}`;
 }
