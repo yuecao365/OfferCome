@@ -8,7 +8,7 @@
       ]
     },
     "frontend": {
-      "resume": "synthetic-frontend",
+      "resume": "synthetic-backend",
       "jds": [
         "tencent-valorant-frontend-ai",
         "tencent-miniprogram-frontend"

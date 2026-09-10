@@ -47,6 +47,8 @@ import {
 } from "../src/lib/evals/generate";
 import {
   findClaimTurn,
+  claimNeedle,
+  controlErrorWeaknesses,
   flattenInterviewerMetrics,
   interviewerMetricRows,
   personaAssertions,
@@ -729,13 +731,13 @@ async function driveSession(base: string, item: EvalCase, sessionId: string, mod
       body = { clientId: `eval-${turn}`, content: next.content ?? "", intent: next.intent };
     } else {
       const claim = item.persona!.weak?.wrongClaim ?? null;
-      const saidClaim = claim ? transcript.some((line) => line.role === "candidate" && line.content.includes(claim.replace(/[。！？]$/, ""))) : true;
+      const saidClaim = claim ? transcript.some((line) => line.role === "candidate" && line.content.includes(claimNeedle(claim))) : true;
       const forceWrongClaim = Boolean(claim) && !saidClaim && turn >= FORCE_CLAIM_AFTER_TURN;
       const simulate = () =>
         simulateCandidateReply(models.aux, { persona: item.persona!, resumeText, jobTitle, transcript, forceWrongClaim, runId: `eval-sim:${sessionId}:${turn}` });
       // 兼容通道的模型偶尔返回坏 JSON，抢救不了就再要一次；再失败才算这场失败。
       const reply = await simulate().catch(() => simulate());
-      const stillMissing = claim && !saidClaim && !reply.reply.includes(claim.replace(/[。！？]$/, ""));
+      const stillMissing = claim && !saidClaim && !reply.reply.includes(claimNeedle(claim));
       const content = stillMissing && turn >= APPEND_CLAIM_AFTER_TURN ? `${reply.reply.trim()}\n\n另外我想补充一点：${claim}` : reply.reply;
       body = { clientId: `eval-${turn}`, content };
     }
@@ -845,7 +847,7 @@ async function loadSnapshot(sessionId: string, item: EvalCase, rep: number, driv
     runs: runs.map((run) => ({ turnIndex: Number(run.runId.split(":").pop()), durationMs: run.durationMs, totalTokens: run.totalTokens })),
     endedBy: drive.endedBy,
     error: drive.error,
-    judged: { related: {}, pushback: null },
+    judged: { related: {}, pushback: null, wrongQuotes: {} },
     turnLatencyMs: drive.latency,
   };
 }
@@ -873,6 +875,29 @@ function pushbackItem(snapshot: SessionSnapshot, persona: Persona): JudgeItem | 
     .map((message) => message.content)
     .join("\n");
   return reply ? { a: persona.weak.wrongClaim, b: reply } : null;
+}
+
+/**
+ * wrong 裁判的校准集：正样本 = 评分器用例与人设里的已知错句（配它的题目），负样本 = 同一题目配 whyWrong（说对的那句）。
+ * 第一次构造后冻结到 eval/judges/wrong.json。
+ */
+async function calibrateWrongJudge(models: EvalModels): Promise<JudgeCalibration> {
+  let set = loadCalibrationSet("wrong");
+  if (!set) {
+    const sources = [
+      ...loadScorerCases().map((item) => ({ question: item.question, wrongClaim: item.truth.wrongClaim, whyWrong: item.truth.whyWrong })),
+      ...loadPersonas().flatMap((persona) => (persona.weak ? [{ question: persona.weak.topic, wrongClaim: persona.weak.wrongClaim, whyWrong: persona.weak.whyWrong }] : [])),
+    ];
+    set = {
+      kind: "wrong",
+      positives: sources.map((item) => ({ a: item.question, b: item.wrongClaim })),
+      negatives: sources.map((item) => ({ a: item.question, b: item.whyWrong })),
+    };
+    saveCalibrationSet(set);
+    console.log(`[eval] 冻结 wrong 裁判校准集：正 ${set.positives.length}，负 ${set.negatives.length}`);
+  }
+  const [positive, negative] = await Promise.all([judgeMany(models.aux, "wrong", set.positives), judgeMany(models.aux, "wrong", set.negatives)]);
+  return calibrationFromVerdicts("wrong", positive, negative);
 }
 
 async function judgeSnapshots(models: EvalModels, cases: Map<string, EvalCase>, snapshots: SessionSnapshot[]) {
@@ -904,6 +929,19 @@ async function judgeSnapshots(models: EvalModels, cases: Map<string, EvalCase>, 
   pushback.forEach((entry, index) => {
     entry.snapshot.judged.pushback = pushbackVerdicts[index];
   });
+  // 对照人设被报的 error：引用原话交给 wrong 裁判，真说错的不算评分器误报。
+  const controlErrors = snapshots
+    .filter((snapshot) => cases.get(snapshot.caseId)?.persona?.control)
+    .flatMap((snapshot) => controlErrorWeaknesses(snapshot).filter((item) => item.quote).map((item) => ({ snapshot, quote: item.quote!, item: { a: item.question, b: item.quote! } })));
+  if (controlErrors.length) {
+    const wrongCalibration = await calibrateWrongJudge(models);
+    calibrations.push(wrongCalibration);
+    const wrongVerdicts = await judgeMany(models.aux, "wrong", controlErrors.map((entry) => entry.item));
+    controlErrors.forEach((entry, index) => {
+      entry.snapshot.judged.wrongQuotes[entry.quote] = wrongCalibration.trusted ? wrongVerdicts[index] : null;
+    });
+    console.log(`对照人设 error 引用 ${controlErrors.length} 条，wrong 裁判判真错 ${wrongVerdicts.filter((verdict) => verdict === true).length} 条${wrongCalibration.trusted ? "" : "（裁判不可信，全部按误报计）"}`);
+  }
   return { calibrations, trusted };
 }
 
@@ -1038,7 +1076,7 @@ function emptySnapshot(sessionId: string, item: EvalCase, rep: number, error: st
     runs: [],
     endedBy: "error",
     error,
-    judged: { related: {}, pushback: null },
+    judged: { related: {}, pushback: null, wrongQuotes: {} },
     turnLatencyMs: [],
   };
 }

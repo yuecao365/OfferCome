@@ -1,0 +1,1585 @@
+{
+  "label": "fix-1",
+  "kind": "interviewer",
+  "createdAt": "2026-09-10T05:35:32.800Z",
+  "git": {
+    "commit": "4ba116f",
+    "dirty": true
+  },
+  "models": {
+    "main": "openai/gpt-5.4-mini",
+    "aux": "deepseek/deepseek-chat",
+    "auxSameFamily": false
+  },
+  "promptVersions": {
+    "interviewer": "interviewer-v4",
+    "brief": "brief-v6",
+    "evaluation": "evaluation-v3"
+  },
+  "k": 1,
+  "tag": "eval-interviewer:fix-1",
+  "judges": [
+    {
+      "kind": "related",
+      "accuracy": {
+        "value": 0.8666666666666667,
+        "numerator": 52,
+        "denominator": 60
+      },
+      "positives": {
+        "value": 1,
+        "numerator": 30,
+        "denominator": 30
+      },
+      "negatives": {
+        "value": 0.7333333333333333,
+        "numerator": 22,
+        "denominator": 30
+      },
+      "trusted": false
+    },
+    {
+      "kind": "pushback",
+      "accuracy": {
+        "value": 1,
+        "numerator": 14,
+        "denominator": 14
+      },
+      "positives": {
+        "value": 1,
+        "numerator": 7,
+        "denominator": 7
+      },
+      "negatives": {
+        "value": 1,
+        "numerator": 7,
+        "denominator": 7
+      },
+      "trusted": true
+    },
+    {
+      "kind": "wrong",
+      "accuracy": {
+        "value": 0.96875,
+        "numerator": 62,
+        "denominator": 64
+      },
+      "positives": {
+        "value": 0.9375,
+        "numerator": 30,
+        "denominator": 32
+      },
+      "negatives": {
+        "value": 1,
+        "numerator": 32,
+        "denominator": 32
+      },
+      "trusted": true
+    }
+  ],
+  "metrics": {
+    "anchorHitRate": {
+      "value": 1,
+      "numerator": 17,
+      "denominator": 17
+    },
+    "relatedRate": {
+      "value": 1,
+      "numerator": 21,
+      "denominator": 21
+    },
+    "pushbackRate": {
+      "value": 0.3333333333333333,
+      "numerator": 2,
+      "denominator": 6
+    },
+    "failureRecognizedRate": {
+      "value": 0.8333333333333334,
+      "numerator": 5,
+      "denominator": 6
+    },
+    "failureReportedRate": {
+      "value": 1,
+      "numerator": 6,
+      "denominator": 6
+    },
+    "strongWeakSeparatedRate": {
+      "value": 0.5,
+      "numerator": 3,
+      "denominator": 6
+    },
+    "noFalseErrorRate": {
+      "value": 0.3333333333333333,
+      "numerator": 2,
+      "denominator": 6
+    },
+    "hypothesisCoverageRate": {
+      "value": 0.6666666666666666,
+      "numerator": 4,
+      "denominator": 6
+    },
+    "hypothesisPursuedRate": {
+      "value": 0,
+      "numerator": 0,
+      "denominator": 4
+    },
+    "controlFalseAlarmRate": {
+      "value": 1,
+      "numerator": 2,
+      "denominator": 2
+    },
+    "replacementRate": {
+      "mean": 0.09598214285714285,
+      "min": 0,
+      "max": 0.25,
+      "n": 8
+    },
+    "clarifyShare": {
+      "mean": 0,
+      "min": 0,
+      "max": 0,
+      "n": 8
+    },
+    "asideRate": {
+      "mean": 0.11160714285714285,
+      "min": 0,
+      "max": 0.375,
+      "n": 8
+    },
+    "forcedPerSession": {
+      "mean": 0.5,
+      "min": 0,
+      "max": 2,
+      "n": 8
+    },
+    "finalEvidence": {
+      "mean": 0.5708333333333333,
+      "min": 0.43333333333333335,
+      "max": 0.6933333333333334,
+      "n": 8
+    },
+    "skillsLoadedRate": {
+      "value": 0.75,
+      "numerator": 6,
+      "denominator": 8
+    },
+    "adversarialPassAtK": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0
+    },
+    "invalidRate": {
+      "value": 0,
+      "numerator": 0,
+      "denominator": 8
+    },
+    "tokensPerTurn": 14450.75892857143,
+    "turnMsP50": 4539,
+    "turnMsP95": 8763,
+    "errorRate": {
+      "value": 0,
+      "numerator": 0,
+      "denominator": 8
+    }
+  },
+  "sessions": [
+    {
+      "sessionId": "cmtuoud5f01i944tasm3y5a60",
+      "caseId": "control-1",
+      "rep": 1,
+      "status": "completed",
+      "endedBy": null,
+      "error": null,
+      "valid": true,
+      "trace": {
+        "anchorHitRate": {
+          "value": 1,
+          "numerator": 2,
+          "denominator": 2
+        },
+        "relatedRate": {
+          "value": 1,
+          "numerator": 2,
+          "denominator": 2
+        },
+        "replacementRate": {
+          "value": 0.25,
+          "numerator": 2,
+          "denominator": 8
+        },
+        "clarifyShare": {
+          "value": 0,
+          "numerator": 0,
+          "denominator": 5
+        },
+        "asideRate": {
+          "value": 0.25,
+          "numerator": 2,
+          "denominator": 8
+        },
+        "forcedCount": 2,
+        "finalEvidence": 0.45333333333333337,
+        "skillsLoaded": 4,
+        "questionTurns": 5,
+        "turns": 8,
+        "tokensPerTurn": 12394.375,
+        "msPerTurn": 3648.625
+      },
+      "assertions": [
+        {
+          "name": "对照：无失守记录",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "对照：无 error 类短板",
+          "pass": false,
+          "detail": "容器内存排查里对工具选择不够精准，free -m 不是容器内存定位的核心手段。；容器内存排查里对工具选择不够精准，free -m 不是容器内存定位的核心手段。"
+        },
+        {
+          "name": "对照：假设不被否定",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "深度不越界",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "提示 / 澄清 / 打断次数不越界",
+          "pass": true,
+          "detail": ""
+        }
+      ],
+      "turns": [
+        {
+          "turnIndex": 0,
+          "proposed": "ask_intro",
+          "applied": "ask_intro",
+          "replaced": null,
+          "anchorHit": null,
+          "related": null,
+          "evidence": [
+            0,
+            0
+          ]
+        },
+        {
+          "turnIndex": 1,
+          "proposed": "open_thread",
+          "applied": "open_thread",
+          "replaced": null,
+          "anchorHit": null,
+          "related": null,
+          "evidence": [
+            0,
+            0
+          ]
+        },
+        {
+          "turnIndex": 2,
+          "proposed": "probe",
+          "applied": "probe",
+          "replaced": null,
+          "anchorHit": true,
+          "related": true,
+          "evidence": [
+            0,
+            0.12
+          ]
+        },
+        {
+          "turnIndex": 3,
+          "proposed": null,
+          "applied": null,
+          "replaced": null,
+          "anchorHit": null,
+          "related": null,
+          "evidence": [
+            0.12,
+            0.24
+          ]
+        },
+        {
+          "turnIndex": 4,
+          "proposed": null,
+          "applied": "close_thread",
+          "replaced": "连续无推进动作",
+          "anchorHit": null,
+          "related": null,
+          "evidence": [
+            0.24,
+            0.24
+          ]
+        },
+        {
+          "turnIndex": 5,
+          "proposed": "probe",
+          "applied": "probe",
+          "replaced": null,
+          "anchorHit": true,
+          "related": true,
+          "evidence": [
+            0.24,
+            0.3466666666666667
+          ]
+        },
+        {
+          "turnIndex": 6,
+          "proposed": null,
+          "applied": null,
+          "replaced": null,
+          "anchorHit": null,
+          "related": null,
+          "evidence": [
+            0.3466666666666667,
+            0.45333333333333337
+          ]
+        },
+        {
+          "turnIndex": 7,
+          "proposed": null,
+          "applied": "close_thread",
+          "replaced": "连续无推进动作",
+          "anchorHit": null,
+          "related": null,
+          "evidence": [
+            0.45333333333333337,
+            0.45333333333333337
+          ]
+        }
+      ]
+    },
+    {
+      "sessionId": "cmtuowj6501j844taiiu6zjw5",
+      "caseId": "control-1",
+      "rep": 2,
+      "status": "completed",
+      "endedBy": null,
+      "error": null,
+      "valid": true,
+      "trace": {
+        "anchorHitRate": {
+          "value": 1,
+          "numerator": 3,
+          "denominator": 3
+        },
+        "relatedRate": {
+          "value": 1,
+          "numerator": 3,
+          "denominator": 3
+        },
+        "replacementRate": {
+          "value": 0.125,
+          "numerator": 1,
+          "denominator": 8
+        },
+        "clarifyShare": {
+          "value": 0,
+          "numerator": 0,
+          "denominator": 6
+        },
+        "asideRate": {
+          "value": 0.125,
+          "numerator": 1,
+          "denominator": 8
+        },
+        "forcedCount": 1,
+        "finalEvidence": 0.6399999999999999,
+        "skillsLoaded": 7,
+        "questionTurns": 6,
+        "turns": 8,
+        "tokensPerTurn": 17708.5,
+        "msPerTurn": 4458.625
+      },
+      "assertions": [
+        {
+          "name": "对照：无失守记录",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "对照：无 error 类短板",
+          "pass": false,
+          "detail": "把线程池 keepAlive 和最大线程数说成能避免线程泄漏，这个方向不对；把线程池 keepAlive 和最大线程数说成能避免线程泄漏，这个方向不对"
+        },
+        {
+          "name": "对照：假设不被否定",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "深度不越界",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "提示 / 澄清 / 打断次数不越界",
+          "pass": true,
+          "detail": ""
+        }
+      ],
+      "turns": [
+        {
+          "turnIndex": 0,
+          "proposed": "ask_intro",
+          "applied": "ask_intro",
+          "replaced": null,
+          "anchorHit": null,
+          "related": null,
+          "evidence": [
+            0,
+            0
+          ]
+        },
+        {
+          "turnIndex": 1,
+          "proposed": "open_thread",
+          "applied": "open_thread",
+          "replaced": null,
+          "anchorHit": null,
+          "related": null,
+          "evidence": [
+            0,
+            0
+          ]
+        },
+        {
+          "turnIndex": 2,
+          "proposed": "probe",
+          "applied": "probe",
+          "replaced": null,
+          "anchorHit": true,
+          "related": true,
+          "evidence": [
+            0,
+            0.12
+          ]
+        },
+        {
+          "turnIndex": 3,
+          "proposed": "probe",
+          "applied": "probe",
+          "replaced": null,
+          "anchorHit": true,
+          "related": true,
+          "evidence": [
+            0.12,
+            0.24
+          ]
+        },
+        {
+          "turnIndex": 4,
+          "proposed": "close_thread",
+          "applied": "close_thread",
+          "replaced": null,
+          "anchorHit": null,
+          "related": null,
+          "evidence": [
+            0.24,
+            0.36000000000000004
+          ]
+        },
+        {
+          "turnIndex": 5,
+          "proposed": "probe",
+          "applied": "probe",
+          "replaced": null,
+          "anchorHit": true,
+          "related": true,
+          "evidence": [
+            0.36000000000000004,
+            0.5333333333333332
+          ]
+        },
+        {
+          "turnIndex": 6,
+          "proposed": null,
+          "applied": null,
+          "replaced": null,
+          "anchorHit": null,
+          "related": null,
+          "evidence": [
+            0.5333333333333332,
+            0.6399999999999999
+          ]
+        },
+        {
+          "turnIndex": 7,
+          "proposed": null,
+          "applied": "close_thread",
+          "replaced": "连续无推进动作",
+          "anchorHit": null,
+          "related": null,
+          "evidence": [
+            0.6399999999999999,
+            0.6399999999999999
+          ]
+        }
+      ]
+    },
+    {
+      "sessionId": "cmtuoywzp01k744tag4gwrsaa",
+      "caseId": "persona-1",
+      "rep": 1,
+      "status": "completed",
+      "endedBy": null,
+      "error": null,
+      "valid": true,
+      "trace": {
+        "anchorHitRate": {
+          "value": 1,
+          "numerator": 2,
+          "denominator": 2
+        },
+        "relatedRate": {
+          "value": 1,
+          "numerator": 2,
+          "denominator": 2
+        },
+        "replacementRate": {
+          "value": 0.14285714285714285,
+          "numerator": 1,
+          "denominator": 7
+        },
+        "clarifyShare": {
+          "value": 0,
+          "numerator": 0,
+          "denominator": 5
+        },
+        "asideRate": {
+          "value": 0.14285714285714285,
+          "numerator": 1,
+          "denominator": 7
+        },
+        "forcedCount": 1,
+        "finalEvidence": 0.5866666666666666,
+        "skillsLoaded": 4,
+        "questionTurns": 5,
+        "turns": 7,
+        "tokensPerTurn": 16049.857142857143,
+        "msPerTurn": 5249.428571428572
+      },
+      "assertions": [
+        {
+          "name": "失守被识别",
+          "pass": true,
+          "detail": "答到第2层，能区分事务失效和连接池拖慢两条线；‘运行时异常回滚、受检异常默认不回滚’答对了；对连接池耗尽时的等待连接、活跃连接数、线程堆积也说到了。失守点是把事务和异步线程回滚混在一起，这一层已经纠正。"
+        },
+        {
+          "name": "失守被纠偏",
+          "pass": false,
+          "detail": ""
+        },
+        {
+          "name": "失守进报告",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "强弱分得开",
+          "pass": true,
+          "detail": "弱项 65 vs 其他 80"
+        },
+        {
+          "name": "强项不被误纠偏",
+          "pass": false,
+          "detail": "A4"
+        },
+        {
+          "name": "简历假设被追",
+          "pass": false,
+          "detail": "status=confirmed"
+        },
+        {
+          "name": "深度不越界",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "提示 / 澄清 / 打断次数不越界",
+          "pass": true,
+          "detail": ""
+        }
+      ],
+      "turns": [
+        {
+          "turnIndex": 0,
+          "proposed": "ask_intro",
+          "applied": "ask_intro",
+          "replaced": null,
+          "anchorHit": null,
+          "related": null,
+          "evidence": [
+            0,
+            0
+          ]
+        },
+        {
+          "turnIndex": 1,
+          "proposed": "open_thread",
+          "applied": "open_thread",
+          "replaced": null,
+          "anchorHit": null,
+          "related": null,
+          "evidence": [
+            0,
+            0
+          ]
+        },
+        {
+          "turnIndex": 2,
+          "proposed": "probe",
+          "applied": "probe",
+          "replaced": null,
+          "anchorHit": true,
+          "related": true,
+          "evidence": [
+            0,
+            0.19999999999999998
+          ]
+        },
+        {
+          "turnIndex": 3,
+          "proposed": "probe",
+          "applied": "probe",
+          "replaced": null,
+          "anchorHit": true,
+          "related": true,
+          "evidence": [
+            0.19999999999999998,
+            0.31999999999999995
+          ]
+        },
+        {
+          "turnIndex": 4,
+          "proposed": "close_thread",
+          "applied": "close_thread",
+          "replaced": null,
+          "anchorHit": null,
+          "related": null,
+          "evidence": [
+            0.31999999999999995,
+            0.44000000000000006
+          ]
+        },
+        {
+          "turnIndex": 5,
+          "proposed": null,
+          "applied": null,
+          "replaced": null,
+          "anchorHit": null,
+          "related": null,
+          "evidence": [
+            0.44000000000000006,
+            0.5866666666666666
+          ]
+        },
+        {
+          "turnIndex": 6,
+          "proposed": null,
+          "applied": "close_thread",
+          "replaced": "连续无推进动作",
+          "anchorHit": null,
+          "related": null,
+          "evidence": [
+            0.5866666666666666,
+            0.5866666666666666
+          ]
+        }
+      ]
+    },
+    {
+      "sessionId": "cmtup183901l444tan23ckyr4",
+      "caseId": "persona-1",
+      "rep": 2,
+      "status": "completed",
+      "endedBy": null,
+      "error": null,
+      "valid": true,
+      "trace": {
+        "anchorHitRate": {
+          "value": 1,
+          "numerator": 2,
+          "denominator": 2
+        },
+        "relatedRate": {
+          "value": 1,
+          "numerator": 4,
+          "denominator": 4
+        },
+        "replacementRate": {
+          "value": 0,
+          "numerator": 0,
+          "denominator": 8
+        },
+        "clarifyShare": {
+          "value": 0,
+          "numerator": 0,
+          "denominator": 7
+        },
+        "asideRate": {
+          "value": 0,
+          "numerator": 0,
+          "denominator": 8
+        },
+        "forcedCount": 0,
+        "finalEvidence": 0.6933333333333334,
+        "skillsLoaded": 6,
+        "questionTurns": 7,
+        "turns": 8,
+        "tokensPerTurn": 19140.125,
+        "msPerTurn": 4928.25
+      },
+      "assertions": [
+        {
+          "name": "失守被识别",
+          "pass": true,
+          "detail": "该段已追到第3层：能说清@Transactional依赖代理、同类自调用失效，以及通过拆 Service/代理调用来保证生效；对“内部自调用、异步线程与事务上下文”也指出了风险。失守点在于最初把异步线程与事务回滚关系说反，后续已纠正。"
+        },
+        {
+          "name": "失守被纠偏",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "失守进报告",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "强弱分得开",
+          "pass": false,
+          "detail": "弱项 80 vs 其他 77"
+        },
+        {
+          "name": "强项不被误纠偏",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "简历假设被追",
+          "pass": false,
+          "detail": "status=open"
+        },
+        {
+          "name": "深度不越界",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "提示 / 澄清 / 打断次数不越界",
+          "pass": true,
+          "detail": ""
+        }
+      ],
+      "turns": [
+        {
+          "turnIndex": 0,
+          "proposed": "ask_intro",
+          "applied": "ask_intro",
+          "replaced": null,
+          "anchorHit": null,
+          "related": null,
+          "evidence": [
+            0,
+            0
+          ]
+        },
+        {
+          "turnIndex": 1,
+          "proposed": "open_thread",
+          "applied": "open_thread",
+          "replaced": null,
+          "anchorHit": null,
+          "related": null,
+          "evidence": [
+            0,
+            0
+          ]
+        },
+        {
+          "turnIndex": 2,
+          "proposed": "probe",
+          "applied": "probe",
+          "replaced": null,
+          "anchorHit": true,
+          "related": true,
+          "evidence": [
+            0,
+            0.12
+          ]
+        },
+        {
+          "turnIndex": 3,
+          "proposed": "probe",
+          "applied": "probe",
+          "replaced": null,
+          "anchorHit": null,
+          "related": true,
+          "evidence": [
+            0.12,
+            0.24
+          ]
+        },
+        {
+          "turnIndex": 4,
+          "proposed": "probe",
+          "applied": "probe",
+          "replaced": null,
+          "anchorHit": null,
+          "related": true,
+          "evidence": [
+            0.24,
+            0.36000000000000004
+          ]
+        },
+        {
+          "turnIndex": 5,
+          "proposed": "close_thread",
+          "applied": "close_thread",
+          "replaced": null,
+          "anchorHit": null,
+          "related": null,
+          "evidence": [
+            0.36000000000000004,
+            0.48
+          ]
+        },
+        {
+          "turnIndex": 6,
+          "proposed": "probe",
+          "applied": "probe",
+          "replaced": null,
+          "anchorHit": true,
+          "related": true,
+          "evidence": [
+            0.48,
+            0.5866666666666667
+          ]
+        },
+        {
+          "turnIndex": 7,
+          "proposed": "close_thread",
+          "applied": "close_thread",
+          "replaced": null,
+          "anchorHit": null,
+          "related": null,
+          "evidence": [
+            0.5866666666666667,
+            0.6933333333333334
+          ]
+        }
+      ]
+    },
+    {
+      "sessionId": "cmtup3kkx01m344taei1kkbgq",
+      "caseId": "persona-2",
+      "rep": 1,
+      "status": "completed",
+      "endedBy": null,
+      "error": null,
+      "valid": true,
+      "trace": {
+        "anchorHitRate": {
+          "value": 1,
+          "numerator": 3,
+          "denominator": 3
+        },
+        "relatedRate": {
+          "value": 1,
+          "numerator": 3,
+          "denominator": 3
+        },
+        "replacementRate": {
+          "value": 0.25,
+          "numerator": 2,
+          "denominator": 8
+        },
+        "clarifyShare": {
+          "value": 0,
+          "numerator": 0,
+          "denominator": 7
+        },
+        "asideRate": {
+          "value": 0,
+          "numerator": 0,
+          "denominator": 8
+        },
+        "forcedCount": 0,
+        "finalEvidence": 0.6133333333333333,
+        "skillsLoaded": 3,
+        "questionTurns": 7,
+        "turns": 8,
+        "tokensPerTurn": 12753.125,
+        "msPerTurn": 3883.375
+      },
+      "assertions": [
+        {
+          "name": "失守被识别",
+          "pass": false,
+          "detail": "（由系统推进）"
+        },
+        {
+          "name": "失守被纠偏",
+          "pass": false,
+          "detail": ""
+        },
+        {
+          "name": "失守进报告",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "强弱分得开",
+          "pass": false,
+          "detail": "弱项 75 vs 其他 65/81"
+        },
+        {
+          "name": "强项不被误纠偏",
+          "pass": false,
+          "detail": "a3"
+        },
+        {
+          "name": "简历假设被追",
+          "pass": false,
+          "detail": "status=open"
+        },
+        {
+          "name": "深度不越界",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "提示 / 澄清 / 打断次数不越界",
+          "pass": true,
+          "detail": ""
+        }
+      ],
+      "turns": [
+        {
+          "turnIndex": 0,
+          "proposed": "ask_intro",
+          "applied": "ask_intro",
+          "replaced": null,
+          "anchorHit": null,
+          "related": null,
+          "evidence": [
+            0,
+            0
+          ]
+        },
+        {
+          "turnIndex": 1,
+          "proposed": "open_thread",
+          "applied": "open_thread",
+          "replaced": null,
+          "anchorHit": null,
+          "related": null,
+          "evidence": [
+            0,
+            0
+          ]
+        },
+        {
+          "turnIndex": 2,
+          "proposed": "probe",
+          "applied": "probe",
+          "replaced": null,
+          "anchorHit": true,
+          "related": true,
+          "evidence": [
+            0,
+            0.12
+          ]
+        },
+        {
+          "turnIndex": 3,
+          "proposed": "probe",
+          "applied": "probe",
+          "replaced": null,
+          "anchorHit": true,
+          "related": true,
+          "evidence": [
+            0.12,
+            0.24
+          ]
+        },
+        {
+          "turnIndex": 4,
+          "proposed": "open_thread",
+          "applied": "close_thread",
+          "replaced": "当前线程尚未结束，先 close_thread",
+          "anchorHit": null,
+          "related": null,
+          "evidence": [
+            0.24,
+            0.36000000000000004
+          ]
+        },
+        {
+          "turnIndex": 5,
+          "proposed": "probe",
+          "applied": "probe",
+          "replaced": null,
+          "anchorHit": true,
+          "related": true,
+          "evidence": [
+            0.36000000000000004,
+            0.5066666666666666
+          ]
+        },
+        {
+          "turnIndex": 6,
+          "proposed": "close_thread",
+          "applied": "close_thread",
+          "replaced": null,
+          "anchorHit": null,
+          "related": null,
+          "evidence": [
+            0.5066666666666666,
+            0.6133333333333333
+          ]
+        },
+        {
+          "turnIndex": 7,
+          "proposed": "open_thread",
+          "applied": "close_thread",
+          "replaced": "当前线程尚未结束，先 close_thread",
+          "anchorHit": null,
+          "related": null,
+          "evidence": [
+            0.6133333333333333,
+            0.6133333333333333
+          ]
+        }
+      ]
+    },
+    {
+      "sessionId": "cmtup5h0x01n844tajfizd9xg",
+      "caseId": "persona-2",
+      "rep": 2,
+      "status": "completed",
+      "endedBy": null,
+      "error": null,
+      "valid": true,
+      "trace": {
+        "anchorHitRate": {
+          "value": 1,
+          "numerator": 1,
+          "denominator": 1
+        },
+        "relatedRate": {
+          "value": 1,
+          "numerator": 1,
+          "denominator": 1
+        },
+        "replacementRate": {
+          "value": 0,
+          "numerator": 0,
+          "denominator": 8
+        },
+        "clarifyShare": {
+          "value": 0,
+          "numerator": 0,
+          "denominator": 4
+        },
+        "asideRate": {
+          "value": 0.375,
+          "numerator": 3,
+          "denominator": 8
+        },
+        "forcedCount": 0,
+        "finalEvidence": 0.43333333333333335,
+        "skillsLoaded": 3,
+        "questionTurns": 4,
+        "turns": 8,
+        "tokensPerTurn": 14655.375,
+        "msPerTurn": 4639
+      },
+      "assertions": [
+        {
+          "name": "失守被识别",
+          "pass": true,
+          "detail": "这一段追到第3层：已确认候选人能说清状态机表的基本字段、Aviator 选型、Context 侵入性、失败后的重试/扫单思路；但对动作执行后的事务边界、幂等key、补偿一致性仍偏泛。对“手动ack绝对不会重复投递”这句已明显失守，说明对消息可靠性理解有偏差。"
+        },
+        {
+          "name": "失守被纠偏",
+          "pass": false,
+          "detail": ""
+        },
+        {
+          "name": "失守进报告",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "强弱分得开",
+          "pass": true,
+          "detail": "弱项 75 vs 其他 81"
+        },
+        {
+          "name": "强项不被误纠偏",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "简历假设被追",
+          "pass": null,
+          "detail": "简报没有为这条成果生成假设"
+        },
+        {
+          "name": "深度不越界",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "提示 / 澄清 / 打断次数不越界",
+          "pass": true,
+          "detail": ""
+        }
+      ],
+      "turns": [
+        {
+          "turnIndex": 0,
+          "proposed": "ask_intro",
+          "applied": "ask_intro",
+          "replaced": null,
+          "anchorHit": null,
+          "related": null,
+          "evidence": [
+            0,
+            0
+          ]
+        },
+        {
+          "turnIndex": 1,
+          "proposed": null,
+          "applied": null,
+          "replaced": null,
+          "anchorHit": null,
+          "related": null,
+          "evidence": [
+            0,
+            0
+          ]
+        },
+        {
+          "turnIndex": 2,
+          "proposed": "open_thread",
+          "applied": "open_thread",
+          "replaced": null,
+          "anchorHit": null,
+          "related": null,
+          "evidence": [
+            0,
+            0
+          ]
+        },
+        {
+          "turnIndex": 3,
+          "proposed": "probe",
+          "applied": "probe",
+          "replaced": null,
+          "anchorHit": true,
+          "related": true,
+          "evidence": [
+            0,
+            0.15
+          ]
+        },
+        {
+          "turnIndex": 4,
+          "proposed": null,
+          "applied": null,
+          "replaced": null,
+          "anchorHit": null,
+          "related": null,
+          "evidence": [
+            0.15,
+            0.3
+          ]
+        },
+        {
+          "turnIndex": 5,
+          "proposed": "close_thread",
+          "applied": "close_thread",
+          "replaced": null,
+          "anchorHit": null,
+          "related": null,
+          "evidence": [
+            0.3,
+            0.3
+          ]
+        },
+        {
+          "turnIndex": 6,
+          "proposed": null,
+          "applied": null,
+          "replaced": null,
+          "anchorHit": null,
+          "related": null,
+          "evidence": [
+            0.3,
+            0.43333333333333335
+          ]
+        },
+        {
+          "turnIndex": 7,
+          "proposed": "close_thread",
+          "applied": "close_thread",
+          "replaced": null,
+          "anchorHit": null,
+          "related": null,
+          "evidence": [
+            0.43333333333333335,
+            0.43333333333333335
+          ]
+        }
+      ]
+    },
+    {
+      "sessionId": "cmtup7or201o744takmjtylhl",
+      "caseId": "persona-3",
+      "rep": 1,
+      "status": "completed",
+      "endedBy": null,
+      "error": null,
+      "valid": true,
+      "trace": {
+        "anchorHitRate": {
+          "value": 1,
+          "numerator": 2,
+          "denominator": 2
+        },
+        "relatedRate": {
+          "value": 1,
+          "numerator": 3,
+          "denominator": 3
+        },
+        "replacementRate": {
+          "value": 0,
+          "numerator": 0,
+          "denominator": 7
+        },
+        "clarifyShare": {
+          "value": 0,
+          "numerator": 0,
+          "denominator": 6
+        },
+        "asideRate": {
+          "value": 0,
+          "numerator": 0,
+          "denominator": 7
+        },
+        "forcedCount": 0,
+        "finalEvidence": 0.5733333333333333,
+        "skillsLoaded": 0,
+        "questionTurns": 6,
+        "turns": 7,
+        "tokensPerTurn": 10610.142857142857,
+        "msPerTurn": 4522.285714285715
+      },
+      "assertions": [
+        {
+          "name": "失守被识别",
+          "pass": true,
+          "detail": "退款状态机重构已问到第3层：候选人能说明配置化状态表的动机、状态表按‘当前状态+触发事件’匹配的基本设计、服务端保留金额/外部状态校验，以及状态更新与通知的事务边界原则。优势是能抓住强一致与异步解耦；不足是本地消息表/事务消息的具体实现与重复发送治理未展开。"
+        },
+        {
+          "name": "失守被纠偏",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "失守进报告",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "强弱分得开",
+          "pass": false,
+          "detail": "弱项 80 vs 其他 75"
+        },
+        {
+          "name": "强项不被误纠偏",
+          "pass": false,
+          "detail": "a3"
+        },
+        {
+          "name": "简历假设被追",
+          "pass": null,
+          "detail": "简报没有为这条成果生成假设"
+        },
+        {
+          "name": "深度不越界",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "提示 / 澄清 / 打断次数不越界",
+          "pass": true,
+          "detail": ""
+        }
+      ],
+      "turns": [
+        {
+          "turnIndex": 0,
+          "proposed": "ask_intro",
+          "applied": "ask_intro",
+          "replaced": null,
+          "anchorHit": null,
+          "related": null,
+          "evidence": [
+            0,
+            0
+          ]
+        },
+        {
+          "turnIndex": 1,
+          "proposed": "open_thread",
+          "applied": "open_thread",
+          "replaced": null,
+          "anchorHit": null,
+          "related": null,
+          "evidence": [
+            0,
+            0
+          ]
+        },
+        {
+          "turnIndex": 2,
+          "proposed": "probe",
+          "applied": "probe",
+          "replaced": null,
+          "anchorHit": true,
+          "related": true,
+          "evidence": [
+            0,
+            0.12
+          ]
+        },
+        {
+          "turnIndex": 3,
+          "proposed": "interrupt",
+          "applied": "interrupt",
+          "replaced": null,
+          "anchorHit": null,
+          "related": true,
+          "evidence": [
+            0.12,
+            0.24
+          ]
+        },
+        {
+          "turnIndex": 4,
+          "proposed": "close_thread",
+          "applied": "close_thread",
+          "replaced": null,
+          "anchorHit": null,
+          "related": null,
+          "evidence": [
+            0.24,
+            0.36000000000000004
+          ]
+        },
+        {
+          "turnIndex": 5,
+          "proposed": "probe",
+          "applied": "probe",
+          "replaced": null,
+          "anchorHit": true,
+          "related": true,
+          "evidence": [
+            0.36000000000000004,
+            0.4666666666666666
+          ]
+        },
+        {
+          "turnIndex": 6,
+          "proposed": "close_thread",
+          "applied": "close_thread",
+          "replaced": null,
+          "anchorHit": null,
+          "related": null,
+          "evidence": [
+            0.4666666666666666,
+            0.5733333333333333
+          ]
+        }
+      ]
+    },
+    {
+      "sessionId": "cmtv2wo7g0001n8ta6udf57ku",
+      "caseId": "persona-3",
+      "rep": 1,
+      "status": "completed",
+      "endedBy": null,
+      "error": null,
+      "valid": true,
+      "trace": {
+        "anchorHitRate": {
+          "value": 1,
+          "numerator": 2,
+          "denominator": 2
+        },
+        "relatedRate": {
+          "value": 1,
+          "numerator": 3,
+          "denominator": 3
+        },
+        "replacementRate": {
+          "value": 0,
+          "numerator": 0,
+          "denominator": 7
+        },
+        "clarifyShare": {
+          "value": 0,
+          "numerator": 0,
+          "denominator": 6
+        },
+        "asideRate": {
+          "value": 0,
+          "numerator": 0,
+          "denominator": 7
+        },
+        "forcedCount": 0,
+        "finalEvidence": 0.5733333333333333,
+        "skillsLoaded": 0,
+        "questionTurns": 6,
+        "turns": 7,
+        "tokensPerTurn": 12294.57142857143,
+        "msPerTurn": 7047.285714285715
+      },
+      "assertions": [
+        {
+          "name": "失守被识别",
+          "pass": true,
+          "detail": "事务线程答到第2层：能准确说明自调用绕过代理、代理对象/目标对象区别，也能列出 private、受检异常、被 catch、传播行为、非 Spring 管理对象等常见失效场景；但线上排查仍偏概念化，缺少具体验证步骤。另暴露出 Kafka 顺序性基础认知错误，需后续单独核验。"
+        },
+        {
+          "name": "失守被纠偏",
+          "pass": false,
+          "detail": ""
+        },
+        {
+          "name": "失守进报告",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "强弱分得开",
+          "pass": true,
+          "detail": "弱项 72 vs 其他 85"
+        },
+        {
+          "name": "强项不被误纠偏",
+          "pass": false,
+          "detail": "a3"
+        },
+        {
+          "name": "简历假设被追",
+          "pass": false,
+          "detail": "status=open"
+        },
+        {
+          "name": "深度不越界",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "提示 / 澄清 / 打断次数不越界",
+          "pass": true,
+          "detail": ""
+        }
+      ],
+      "turns": [
+        {
+          "turnIndex": 0,
+          "proposed": "ask_intro",
+          "applied": "ask_intro",
+          "replaced": null,
+          "anchorHit": null,
+          "related": null,
+          "evidence": [
+            0,
+            0
+          ]
+        },
+        {
+          "turnIndex": 1,
+          "proposed": "open_thread",
+          "applied": "open_thread",
+          "replaced": null,
+          "anchorHit": null,
+          "related": null,
+          "evidence": [
+            0,
+            0
+          ]
+        },
+        {
+          "turnIndex": 2,
+          "proposed": "probe",
+          "applied": "probe",
+          "replaced": null,
+          "anchorHit": true,
+          "related": true,
+          "evidence": [
+            0,
+            0.12
+          ]
+        },
+        {
+          "turnIndex": 3,
+          "proposed": "probe",
+          "applied": "probe",
+          "replaced": null,
+          "anchorHit": null,
+          "related": true,
+          "evidence": [
+            0.12,
+            0.24
+          ]
+        },
+        {
+          "turnIndex": 4,
+          "proposed": "close_thread",
+          "applied": "close_thread",
+          "replaced": null,
+          "anchorHit": null,
+          "related": null,
+          "evidence": [
+            0.24,
+            0.36000000000000004
+          ]
+        },
+        {
+          "turnIndex": 5,
+          "proposed": "probe",
+          "applied": "probe",
+          "replaced": null,
+          "anchorHit": true,
+          "related": true,
+          "evidence": [
+            0.36000000000000004,
+            0.4666666666666666
+          ]
+        },
+        {
+          "turnIndex": 6,
+          "proposed": "close_thread",
+          "applied": "close_thread",
+          "replaced": null,
+          "anchorHit": null,
+          "related": null,
+          "evidence": [
+            0.4666666666666666,
+            0.5733333333333333
+          ]
+        }
+      ]
+    }
+  ]
+}

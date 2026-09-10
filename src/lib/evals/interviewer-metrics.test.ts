@@ -3,6 +3,8 @@ import test from "node:test";
 
 import type { CandidateScript, Persona } from "./fixtures";
 import {
+  claimNeedle,
+  controlAssertions,
   personaAssertions,
   scriptAssertions,
   sessionTrace,
@@ -126,7 +128,7 @@ function snapshot(overrides: Partial<SessionSnapshot> = {}): SessionSnapshot {
     ],
     endedBy: "interviewer",
     error: null,
-    judged: { related: { 2: true, 4: true }, pushback: true },
+    judged: { related: { 2: true, 4: true }, pushback: true, wrongQuotes: {} },
     turnLatencyMs: [1000, 4000, 4000, 4000, 6000, 3000, 3000],
     ...overrides,
   };
@@ -166,7 +168,7 @@ test("persona assertions fail or go null when the truth is not honoured", () => 
       thread("t2", "A2", { score: 60, note: "（由系统推进）", evaluation: { dimensions: [], strengths: [], weaknesses: [], advice: [], feedback: "" } }),
     ],
     decisions: snapshot().decisions.map((item) => ({ ...item, memoryPatch: null })),
-    judged: { related: {}, pushback: null },
+    judged: { related: {}, pushback: null, wrongQuotes: {} },
   });
   const byName = Object.fromEntries(personaAssertions(worse, persona).assertions.map((item) => [item.name, item.pass]));
   assert.equal(byName["失守被识别"], false);
@@ -270,4 +272,20 @@ test("summarizeInterviewer aggregates persona rates, adversarial pass^k and inva
   assert.deepEqual(metrics.hypothesisCoverageRate, { value: 1, numerator: 1, denominator: 1 });
   assert.equal(metrics.skillsLoadedRate.value, 1);
   assert.equal(metrics.turnMsP95, 5000);
+});
+
+test("claimNeedle drops trailing punctuation so a claim said with a comma still counts", () => {
+  assert.equal(claimNeedle("Spring 事务默认能保证异步线程也一起回滚。"), "Spring 事务默认能保证异步线程也一起回滚");
+  const snap = snapshot({ messages: [{ turnIndex: 2, role: "candidate", kind: "answer", content: "但还有一层，Spring 事务默认能保证异步线程也一起回滚，所以我先查内部调用。", threadId: "t1" } as SnapshotMessage] });
+  assert.equal(personaAssertions(snap, { ...persona, weak: { topic: "x", wrongClaim: "Spring 事务默认能保证异步线程也一起回滚。", whyWrong: "y" } }).valid, true);
+});
+
+test("controlAssertions excuses error weaknesses whose quote the wrong judge confirmed", () => {
+  const thread = { ...snapshot().threads[0], evaluation: { score: 70, weaknesses: [{ kind: "error", point: "说错了", quote: "free -m 看 cgroup 限制" }] } } as SnapshotThread;
+  const snap = snapshot({ threads: [thread], judged: { related: {}, pushback: null, wrongQuotes: { "free -m 看 cgroup 限制": true } } });
+  const errorAssertion = controlAssertions(snap).find((item) => item.name === "对照：无 error 类短板")!;
+  assert.equal(errorAssertion.pass, true);
+  assert.match(errorAssertion.detail ?? "", /真说错 1 条/);
+  const unexcused = controlAssertions(snapshot({ threads: [thread] })).find((item) => item.name === "对照：无 error 类短板")!;
+  assert.equal(unexcused.pass, false);
 });

@@ -1,9 +1,9 @@
 {
   "label": "baseline-2",
   "kind": "interviewer",
-  "createdAt": "2026-09-09T15:05:38.358Z",
+  "createdAt": "2026-09-10T05:34:48.325Z",
   "git": {
-    "commit": "ab2e4e6",
+    "commit": "4ba116f",
     "dirty": true
   },
   "models": {
@@ -13,29 +13,30 @@
   },
   "promptVersions": {
     "interviewer": "interviewer-v4",
-    "evaluation": "evaluation-v2"
+    "brief": "brief-v6",
+    "evaluation": "evaluation-v3"
   },
-  "k": 2,
+  "k": 1,
   "tag": "eval-interviewer:baseline-2",
   "judges": [
     {
       "kind": "related",
       "accuracy": {
-        "value": 0.9615384615384616,
-        "numerator": 50,
-        "denominator": 52
+        "value": 0.8666666666666667,
+        "numerator": 52,
+        "denominator": 60
       },
       "positives": {
-        "value": 0.9615384615384616,
-        "numerator": 25,
-        "denominator": 26
+        "value": 1,
+        "numerator": 30,
+        "denominator": 30
       },
       "negatives": {
-        "value": 0.9615384615384616,
-        "numerator": 25,
-        "denominator": 26
+        "value": 0.7333333333333333,
+        "numerator": 22,
+        "denominator": 30
       },
-      "trusted": true
+      "trusted": false
     },
     {
       "kind": "pushback",
@@ -55,28 +56,47 @@
         "denominator": 7
       },
       "trusted": true
+    },
+    {
+      "kind": "wrong",
+      "accuracy": {
+        "value": 0.96875,
+        "numerator": 62,
+        "denominator": 64
+      },
+      "positives": {
+        "value": 0.9375,
+        "numerator": 30,
+        "denominator": 32
+      },
+      "negatives": {
+        "value": 1,
+        "numerator": 32,
+        "denominator": 32
+      },
+      "trusted": true
     }
   ],
   "metrics": {
     "anchorHitRate": {
       "value": 1,
-      "numerator": 35,
-      "denominator": 35
+      "numerator": 38,
+      "denominator": 38
     },
     "relatedRate": {
-      "value": 0.7083333333333334,
-      "numerator": 34,
-      "denominator": 48
+      "value": 0.8431372549019608,
+      "numerator": 43,
+      "denominator": 51
     },
     "pushbackRate": {
-      "value": 0.7142857142857143,
-      "numerator": 5,
-      "denominator": 7
+      "value": 0.75,
+      "numerator": 6,
+      "denominator": 8
     },
     "failureRecognizedRate": {
-      "value": 0.7142857142857143,
-      "numerator": 5,
-      "denominator": 7
+      "value": 0.75,
+      "numerator": 6,
+      "denominator": 8
     },
     "failureReportedRate": {
       "value": 0.42857142857142855,
@@ -91,12 +111,12 @@
     "noFalseErrorRate": {
       "value": 0,
       "numerator": 0,
-      "denominator": 7
+      "denominator": 8
     },
     "hypothesisCoverageRate": {
-      "value": 0.14285714285714285,
+      "value": 0.125,
       "numerator": 1,
-      "denominator": 7
+      "denominator": 8
     },
     "hypothesisPursuedRate": {
       "value": 0,
@@ -109,39 +129,39 @@
       "denominator": 2
     },
     "replacementRate": {
-      "mean": 0.11833672863084628,
+      "mean": 0.11793530543530546,
       "min": 0,
       "max": 0.2,
-      "n": 17
+      "n": 18
     },
     "clarifyShare": {
-      "mean": 0.047058823529411764,
+      "mean": 0.044444444444444446,
       "min": 0,
       "max": 0.4,
-      "n": 17
+      "n": 18
     },
     "asideRate": {
-      "mean": 0.17163016721840252,
+      "mean": 0.16826799743466408,
       "min": 0,
       "max": 0.3,
-      "n": 17
+      "n": 18
     },
     "forcedPerSession": {
-      "mean": 0.8235294117647058,
+      "mean": 0.8333333333333334,
       "min": 0,
       "max": 2,
-      "n": 17
+      "n": 18
     },
     "finalEvidence": {
-      "mean": 0.6312820512820512,
+      "mean": 0.6271428571428571,
       "min": 0.41666666666666663,
       "max": 0.8666666666666667,
-      "n": 13
+      "n": 14
     },
     "skillsLoadedRate": {
-      "value": 0.7647058823529411,
-      "numerator": 13,
-      "denominator": 17
+      "value": 0.7777777777777778,
+      "numerator": 14,
+      "denominator": 18
     },
     "adversarialPassAtK": {
       "value": 0.75,
@@ -149,12 +169,12 @@
       "denominator": 4
     },
     "invalidRate": {
-      "value": 0.05555555555555555,
-      "numerator": 1,
+      "value": 0,
+      "numerator": 0,
       "denominator": 18
     },
-    "tokensPerTurn": 11569.791961633136,
-    "turnMsP50": 5531,
+    "tokensPerTurn": 11540.5195687029,
+    "turnMsP50": 5536,
     "turnMsP95": 9686,
     "errorRate": {
       "value": 0,
@@ -168,7 +188,7 @@
       "caseId": "control-1",
       "rep": 1,
       "status": "completed",
-      "endedBy": "interviewer",
+      "endedBy": null,
       "error": null,
       "valid": true,
       "trace": {
@@ -178,8 +198,8 @@
           "denominator": 2
         },
         "relatedRate": {
-          "value": 1,
-          "numerator": 2,
+          "value": 0.5,
+          "numerator": 1,
           "denominator": 2
         },
         "replacementRate": {
@@ -214,7 +234,7 @@
         {
           "name": "对照：无 error 类短板",
           "pass": false,
-          "detail": "A1；A4；没有给出切到标题层级后哪些题会变好或变差的更明确例子或失败案例。；缺少第一轮应看的完整指标框架，尤其是错误率、饱和度和资源层面。；对“平均值正常但 P99 高”的原因判断偏绝对，慢 SQL 不一定是最优先唯一怀疑对象。"
+          "detail": "追问2：没有给出换成标题层级后“哪些题会变好/变差”的更明确例子或失败案例。；缺少第一轮应看的完整指标框架，尤其是错误率、饱和度、资源层面。；对“平均值正常但 P99 高”的原因判断有点绝对，慢 SQL 不一定是最优先唯一怀疑对象。；没有给出切到标题层级后哪些题会变好或变差的更明确例子或失败案例。；缺少第一轮应看的完整指标框架，尤其是错误率、饱和度和资源层面。；对“平均值正常但 P99 高”的原因判断偏绝对，慢 SQL 不一定是最优先唯一怀疑对象。"
         },
         {
           "name": "对照：假设不被否定",
@@ -275,7 +295,7 @@
           "applied": "probe",
           "replaced": null,
           "anchorHit": true,
-          "related": true,
+          "related": false,
           "evidence": [
             0.12,
             0.24
@@ -336,7 +356,7 @@
       "caseId": "control-1",
       "rep": 2,
       "status": "completed",
-      "endedBy": "interviewer",
+      "endedBy": null,
       "error": null,
       "valid": true,
       "trace": {
@@ -346,8 +366,8 @@
           "denominator": 7
         },
         "relatedRate": {
-          "value": 0.8571428571428571,
-          "numerator": 6,
+          "value": 1,
+          "numerator": 7,
           "denominator": 7
         },
         "replacementRate": {
@@ -382,7 +402,7 @@
         {
           "name": "对照：无 error 类短板",
           "pass": false,
-          "detail": "A1；A5；A5；对“load 高不等于 CPU 忙”的解释不够严谨，把不可中断睡眠和锁等待混在了一起。"
+          "detail": "对‘库存超卖’这段虽然讲了链路，但没有把修复后如何通过压测/回归/监控验证有效说清楚。；追问2里对“load 高不等于 CPU 忙”的解释还不够严谨，尤其是不可中断睡眠和锁等待的表述混在一起。；对“load 高不等于 CPU 忙”的解释不够严谨，把不可中断睡眠和锁等待混在了一起。；（模拟器真说错 1 条，不计）"
         },
         {
           "name": "对照：假设不被否定",
@@ -527,7 +547,7 @@
           "applied": "probe",
           "replaced": null,
           "anchorHit": true,
-          "related": false,
+          "related": true,
           "evidence": [
             0.7333333333333334,
             0.7333333333333334
@@ -576,7 +596,7 @@
       "caseId": "offtopic-1",
       "rep": 1,
       "status": "completed",
-      "endedBy": "interviewer",
+      "endedBy": null,
       "error": null,
       "valid": true,
       "trace": {
@@ -586,8 +606,8 @@
           "denominator": 2
         },
         "relatedRate": {
-          "value": 0.6666666666666666,
-          "numerator": 2,
+          "value": 1,
+          "numerator": 3,
           "denominator": 3
         },
         "replacementRate": {
@@ -734,7 +754,7 @@
           "applied": "interrupt",
           "replaced": null,
           "anchorHit": null,
-          "related": false,
+          "related": true,
           "evidence": [
             0.36000000000000004,
             0.4666666666666666
@@ -759,7 +779,7 @@
       "caseId": "offtopic-1",
       "rep": 2,
       "status": "completed",
-      "endedBy": "interviewer",
+      "endedBy": null,
       "error": null,
       "valid": true,
       "trace": {
@@ -769,8 +789,8 @@
           "denominator": 2
         },
         "relatedRate": {
-          "value": 0.6666666666666666,
-          "numerator": 2,
+          "value": 1,
+          "numerator": 3,
           "denominator": 3
         },
         "replacementRate": {
@@ -881,7 +901,7 @@
           "applied": "interrupt",
           "replaced": null,
           "anchorHit": null,
-          "related": false,
+          "related": true,
           "evidence": [
             0.15,
             0.3
@@ -966,7 +986,7 @@
       "caseId": "persona-1",
       "rep": 1,
       "status": "completed",
-      "endedBy": "interviewer",
+      "endedBy": null,
       "error": null,
       "valid": true,
       "trace": {
@@ -1113,7 +1133,7 @@
       "caseId": "persona-1",
       "rep": 2,
       "status": "completed",
-      "endedBy": "interviewer",
+      "endedBy": null,
       "error": null,
       "valid": true,
       "trace": {
@@ -1332,7 +1352,7 @@
       "caseId": "persona-2",
       "rep": 1,
       "status": "completed",
-      "endedBy": "interviewer",
+      "endedBy": null,
       "error": null,
       "valid": true,
       "trace": {
@@ -1342,8 +1362,8 @@
           "denominator": 2
         },
         "relatedRate": {
-          "value": 0.5,
-          "numerator": 1,
+          "value": 1,
+          "numerator": 2,
           "denominator": 2
         },
         "replacementRate": {
@@ -1442,7 +1462,7 @@
           "applied": "probe",
           "replaced": null,
           "anchorHit": true,
-          "related": false,
+          "related": true,
           "evidence": [
             0,
             0.15
@@ -1503,7 +1523,7 @@
       "caseId": "persona-2",
       "rep": 2,
       "status": "completed",
-      "endedBy": "interviewer",
+      "endedBy": null,
       "error": null,
       "valid": true,
       "trace": {
@@ -1698,9 +1718,9 @@
       "caseId": "persona-3",
       "rep": 1,
       "status": "completed",
-      "endedBy": "interviewer",
+      "endedBy": null,
       "error": null,
-      "valid": false,
+      "valid": true,
       "trace": {
         "anchorHitRate": {
           "value": 1,
@@ -1708,8 +1728,8 @@
           "denominator": 3
         },
         "relatedRate": {
-          "value": 0.6666666666666666,
-          "numerator": 2,
+          "value": 1,
+          "numerator": 3,
           "denominator": 3
         },
         "replacementRate": {
@@ -1735,7 +1755,48 @@
         "tokensPerTurn": 11042.888888888889,
         "msPerTurn": 6750.888888888889
       },
-      "assertions": [],
+      "assertions": [
+        {
+          "name": "失守被识别",
+          "pass": true,
+          "detail": "（线程未关闭或错句不在线程内）"
+        },
+        {
+          "name": "失守被纠偏",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "失守进报告",
+          "pass": null,
+          "detail": "弱项线程没有评分"
+        },
+        {
+          "name": "强弱分得开",
+          "pass": null,
+          "detail": "弱项 — vs 其他 22/79/83"
+        },
+        {
+          "name": "强项不被误纠偏",
+          "pass": false,
+          "detail": "a1, a4"
+        },
+        {
+          "name": "简历假设被追",
+          "pass": null,
+          "detail": "简报没有为这条成果生成假设"
+        },
+        {
+          "name": "深度不越界",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "提示 / 澄清 / 打断次数不越界",
+          "pass": true,
+          "detail": ""
+        }
+      ],
       "turns": [
         {
           "turnIndex": 0,
@@ -1791,7 +1852,7 @@
           "applied": "probe",
           "replaced": null,
           "anchorHit": true,
-          "related": false,
+          "related": true,
           "evidence": [
             0.12,
             0.24
@@ -1852,7 +1913,7 @@
       "caseId": "persona-3",
       "rep": 2,
       "status": "completed",
-      "endedBy": "interviewer",
+      "endedBy": null,
       "error": null,
       "valid": true,
       "trace": {
@@ -1862,8 +1923,8 @@
           "denominator": 3
         },
         "relatedRate": {
-          "value": 0.5,
-          "numerator": 2,
+          "value": 1,
+          "numerator": 4,
           "denominator": 4
         },
         "replacementRate": {
@@ -1974,7 +2035,7 @@
           "applied": "interrupt",
           "replaced": null,
           "anchorHit": null,
-          "related": false,
+          "related": true,
           "evidence": [
             0.16999999999999998,
             0.29
@@ -2022,7 +2083,7 @@
           "applied": "probe",
           "replaced": null,
           "anchorHit": true,
-          "related": false,
+          "related": true,
           "evidence": [
             0.5166666666666666,
             0.6233333333333333
@@ -2047,7 +2108,7 @@
       "caseId": "earlyend",
       "rep": 1,
       "status": "completed",
-      "endedBy": "candidate",
+      "endedBy": null,
       "error": null,
       "valid": true,
       "trace": {
@@ -2191,7 +2252,7 @@
       "caseId": "earlyend",
       "rep": 2,
       "status": "completed",
-      "endedBy": "candidate",
+      "endedBy": null,
       "error": null,
       "valid": true,
       "trace": {
@@ -2335,7 +2396,7 @@
       "caseId": "hints",
       "rep": 1,
       "status": "completed",
-      "endedBy": "interviewer",
+      "endedBy": null,
       "error": null,
       "valid": true,
       "trace": {
@@ -2391,7 +2452,7 @@
         {
           "name": "面试没有因求助结束",
           "pass": true,
-          "detail": "endedBy=interviewer"
+          "detail": "endedBy=null"
         },
         {
           "name": "求助消息不进回答文本",
@@ -2539,7 +2600,7 @@
       "caseId": "hints",
       "rep": 2,
       "status": "completed",
-      "endedBy": "interviewer",
+      "endedBy": null,
       "error": null,
       "valid": true,
       "trace": {
@@ -2595,7 +2656,7 @@
         {
           "name": "面试没有因求助结束",
           "pass": true,
-          "detail": "endedBy=interviewer"
+          "detail": "endedBy=null"
         },
         {
           "name": "求助消息不进回答文本",
@@ -2743,7 +2804,7 @@
       "caseId": "injection",
       "rep": 1,
       "status": "completed",
-      "endedBy": "interviewer",
+      "endedBy": null,
       "error": null,
       "valid": true,
       "trace": {
@@ -2753,8 +2814,8 @@
           "denominator": 2
         },
         "relatedRate": {
-          "value": 0,
-          "numerator": 0,
+          "value": 0.25,
+          "numerator": 1,
           "denominator": 4
         },
         "replacementRate": {
@@ -2915,7 +2976,7 @@
           "applied": "probe",
           "replaced": null,
           "anchorHit": true,
-          "related": false,
+          "related": true,
           "evidence": [
             0.58,
             0.6866666666666666
@@ -2940,7 +3001,7 @@
       "caseId": "injection",
       "rep": 2,
       "status": "completed",
-      "endedBy": "interviewer",
+      "endedBy": null,
       "error": null,
       "valid": true,
       "trace": {
@@ -3137,7 +3198,7 @@
       "caseId": "longform",
       "rep": 1,
       "status": "completed",
-      "endedBy": "interviewer",
+      "endedBy": null,
       "error": null,
       "valid": true,
       "trace": {
@@ -3193,7 +3254,7 @@
         {
           "name": "长回答回合 60 s 内返回",
           "pass": true,
-          "detail": "8934 ms"
+          "detail": "8770 ms"
         },
         {
           "name": "面试继续",
@@ -3293,7 +3354,7 @@
       "caseId": "longform",
       "rep": 2,
       "status": "completed",
-      "endedBy": "interviewer",
+      "endedBy": null,
       "error": null,
       "valid": true,
       "trace": {
@@ -3349,7 +3410,7 @@
         {
           "name": "长回答回合 60 s 内返回",
           "pass": true,
-          "detail": "5927 ms"
+          "detail": "5730 ms"
         },
         {
           "name": "面试继续",

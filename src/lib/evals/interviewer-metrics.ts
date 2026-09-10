@@ -65,8 +65,11 @@ export type SessionSnapshot = {
   runs: { turnIndex: number; durationMs: number; totalTokens: number | null }[];
   endedBy: EndedBy;
   error: string | null;
-  /** 运行器算好的裁判结果：按回合号的追问贴合；错句出现后下一回合是否纠偏。 */
-  judged: { related: Record<number, boolean | null>; pushback: boolean | null };
+  /**
+   * 运行器算好的裁判结果：按回合号的追问贴合；错句出现后下一回合是否纠偏；
+   * 对照人设被报 error 的引用原话是否真的说错（true = 模拟器自己说错，不算评分器误报）。
+   */
+  judged: { related: Record<number, boolean | null>; pushback: boolean | null; wrongQuotes: Record<string, boolean | null> };
   /** 每回合的耗时（HTTP 往返，含模型），运行器记录。 */
   turnLatencyMs: number[];
 };
@@ -137,19 +140,42 @@ function perThreadCaps(snapshot: SessionSnapshot): Assertion {
 }
 
 /** 错句 Z 出现在哪条候选人消息；没出现则用例无效。 */
-export function findClaimTurn(snapshot: SessionSnapshot, claim: string): SnapshotMessage | null {
-  return snapshot.messages.find((message) => message.role === "candidate" && contains(message.content, claim)) ?? null;
+/** 核对错句时去掉句末标点：模拟器把"。"说成"，"接着往下讲，仍然是原句。运行器与指标用同一个口径。 */
+export function claimNeedle(claim: string): string {
+  return claim.trim().replace(/[。！？，,.!?;；\s]+$/u, "");
 }
 
-/** 对照人设：没有失守点，系统不该记失守、不该报 error 类短板、不该否定简历假设。 */
+export function findClaimTurn(snapshot: SessionSnapshot, claim: string): SnapshotMessage | null {
+  const needle = claimNeedle(claim);
+  return snapshot.messages.find((message) => message.role === "candidate" && contains(message.content, needle)) ?? null;
+}
+
+/** 对照人设报告与线程评分里的 error 类短板，带所在题目（给 wrong 裁判用）。 */
+export function controlErrorWeaknesses(snapshot: SessionSnapshot): { question: string; point: string; quote: string | null }[] {
+  const fromThreads = snapshot.threads.flatMap((thread) =>
+    (thread.evaluation?.weaknesses ?? []).filter((item) => item.kind === "error").map((item) => ({ question: thread.entryQuestion, point: item.point, quote: item.quote })),
+  );
+  const fromReport = (snapshot.report?.weaknesses ?? []).filter((item) => item.kind === "error").map((item) => ({ question: "综合报告", point: item.point, quote: item.quote }));
+  return [...fromThreads, ...fromReport];
+}
+
+/**
+ * 对照人设：没有失守点，系统不该记失守、不该报 error 类短板、不该否定简历假设。
+ * 模拟器偶尔自己说错：引用原话被 wrong 裁判判定确实错的 error 不算误报。
+ */
 export function controlAssertions(snapshot: SessionSnapshot): Assertion[] {
   const failedNotes = snapshot.decisions.filter((decision) => decision.memoryPatch?.failed.length).map((decision) => decision.memoryPatch!.failed.join(" / "));
-  const errorThreads = snapshot.threads.filter((thread) => thread.evaluation?.weaknesses.some((item) => item.kind === "error"));
-  const reportErrors = snapshot.report?.weaknesses.filter((item) => item.kind === "error") ?? [];
+  const errors = controlErrorWeaknesses(snapshot);
+  const genuine = errors.filter((item) => item.quote && snapshot.judged.wrongQuotes[item.quote] === true);
+  const falseAlarms = errors.filter((item) => !genuine.includes(item));
   const refuted = snapshot.memory.hypotheses.filter((item) => item.status === "refuted");
   return [
     { name: "对照：无失守记录", pass: snapshot.memory.failed.length === 0 && failedNotes.length === 0, detail: failedNotes.join("；") },
-    { name: "对照：无 error 类短板", pass: errorThreads.length === 0 && reportErrors.length === 0, detail: [...errorThreads.map((thread) => thread.areaId), ...reportErrors.map((item) => item.point)].join("；") },
+    {
+      name: "对照：无 error 类短板",
+      pass: falseAlarms.length === 0,
+      detail: [...falseAlarms.map((item) => item.point), ...(genuine.length ? [`（模拟器真说错 ${genuine.length} 条，不计）`] : [])].join("；"),
+    },
     { name: "对照：假设不被否定", pass: refuted.length === 0, detail: refuted.map((item) => item.id).join(", ") },
     threadDepthWithinLimit(snapshot),
     perThreadCaps(snapshot),

@@ -15,14 +15,17 @@ import { ratio, type Ratio } from "./report";
  * 窄问题裁判：只答是非题，且每次运行先在脚本构造的正负样本上自证。
  *   related  追问 Q 是否顺着回答 A 往下问
  *   pushback 面试官这句话是否反驳了断言 Z
- *   topic    简报领域 / 阶梯是否属于话题 T
+ *   topic    简报领域 / 阶梯是否覆盖话题 T
+ *   wrong    候选人的一句断言在技术事实上是否错误（对照人设被报 error 时，分清评分器误报与模拟器真说错）
  * 校准准确率低于 TRUST_THRESHOLD 的裁判当次不可信，相关指标不进结论。
  */
 
 export const JUDGE_PROMPT_VERSION = "judge-v1";
 export const TRUST_THRESHOLD = 0.9;
 
-export type JudgeKind = "related" | "pushback" | "topic" | "claim";
+export type JudgeKind = "related" | "pushback" | "topic" | "claim" | "wrong";
+/** 能由 aux 合成正样本的裁判；topic 与 wrong 的校准集另有来源。 */
+export type SynthJudgeKind = Exclude<JudgeKind, "topic" | "wrong">;
 
 export type JudgeItem = { a: string; b: string };
 
@@ -40,6 +43,11 @@ const QUESTIONS: Record<JudgeKind, { system: string; fields: [string, string] }>
   claim: {
     system:
       "你是评测裁判。给你一道面试题（question，含追问）和候选人回答里的一句断言（claim）。只判断一件事：这句断言说的是不是题目正在问的那个机制、组件或做法（回答这道题时说出它是自然的）。说的是题目没问到的别的组件或话题，判 false。不判断断言本身对错。",
+    fields: ["question", "claim"],
+  },
+  wrong: {
+    system:
+      "你是评测裁判。给你一道面试题（question）和候选人回答里的一句断言（claim）。只判断一件事：这句断言在技术事实上是否错误（与该技术公认的机制、默认行为或语义不符）。只是表述笼统、不够严谨、过于绝对、少说了条件，但没有事实错误的，判 false。",
     fields: ["question", "claim"],
   },
   topic: {
@@ -131,7 +139,7 @@ export function shuffledPairs(items: JudgeItem[]): JudgeItem[] {
 const syntheticSchema = z.object({ text: z.string().min(1).max(400) });
 
 /** 构造正样本：related 给回答写一条顺着它的追问；pushback 给断言写一句反驳。 */
-export async function synthesizePositive(aux: AiTaskConfig, kind: Exclude<JudgeKind, "topic">, source: string): Promise<string | null> {
+export async function synthesizePositive(aux: AiTaskConfig, kind: SynthJudgeKind, source: string): Promise<string | null> {
   const system =
     kind === "related"
       ? "给你候选人的一条面试回答。写一条面试官会接着问的追问：必须针对这条回答里提到的某个具体做法、细节或数字往下追，一句话，不超过 80 字。"
@@ -186,7 +194,7 @@ export function saveCalibrationSet(set: CalibrationSet, dir = JUDGE_SETS_DIR): v
  */
 export async function buildCalibrationSet(
   aux: AiTaskConfig,
-  kind: Exclude<JudgeKind, "topic">,
+  kind: SynthJudgeKind,
   sources: string[],
   neutralReplies: string[] = [],
 ): Promise<CalibrationSet> {
@@ -205,7 +213,7 @@ export async function buildCalibrationSet(
 /** 有冻结的校准集就用它，没有就构造并冻结；然后跑裁判算准确率。 */
 export async function calibrateJudge(
   aux: AiTaskConfig,
-  kind: Exclude<JudgeKind, "topic">,
+  kind: SynthJudgeKind,
   sources: string[],
   neutralReplies: string[] = [],
 ): Promise<JudgeCalibration> {

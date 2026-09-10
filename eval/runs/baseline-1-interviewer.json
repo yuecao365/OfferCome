@@ -1,9 +1,9 @@
 {
   "label": "baseline-1",
   "kind": "interviewer",
-  "createdAt": "2026-09-09T14:28:19.997Z",
+  "createdAt": "2026-09-10T05:33:44.822Z",
   "git": {
-    "commit": "49c0fbe",
+    "commit": "4ba116f",
     "dirty": true
   },
   "models": {
@@ -13,7 +13,8 @@
   },
   "promptVersions": {
     "interviewer": "interviewer-v4",
-    "evaluation": "evaluation-v2"
+    "brief": "brief-v6",
+    "evaluation": "evaluation-v3"
   },
   "k": 1,
   "tag": "eval-interviewer:baseline-1",
@@ -21,32 +22,32 @@
     {
       "kind": "related",
       "accuracy": {
-        "value": 0.8793103448275862,
-        "numerator": 51,
-        "denominator": 58
+        "value": 0.8833333333333333,
+        "numerator": 53,
+        "denominator": 60
       },
       "positives": {
-        "value": 0.9655172413793104,
-        "numerator": 28,
-        "denominator": 29
+        "value": 1,
+        "numerator": 30,
+        "denominator": 30
       },
       "negatives": {
-        "value": 0.7931034482758621,
+        "value": 0.7666666666666667,
         "numerator": 23,
-        "denominator": 29
+        "denominator": 30
       },
       "trusted": false
     },
     {
       "kind": "pushback",
       "accuracy": {
-        "value": 1,
-        "numerator": 14,
+        "value": 0.9285714285714286,
+        "numerator": 13,
         "denominator": 14
       },
       "positives": {
-        "value": 1,
-        "numerator": 7,
+        "value": 0.8571428571428571,
+        "numerator": 6,
         "denominator": 7
       },
       "negatives": {
@@ -55,28 +56,47 @@
         "denominator": 7
       },
       "trusted": true
+    },
+    {
+      "kind": "wrong",
+      "accuracy": {
+        "value": 0.921875,
+        "numerator": 59,
+        "denominator": 64
+      },
+      "positives": {
+        "value": 0.84375,
+        "numerator": 27,
+        "denominator": 32
+      },
+      "negatives": {
+        "value": 1,
+        "numerator": 32,
+        "denominator": 32
+      },
+      "trusted": true
     }
   ],
   "metrics": {
     "anchorHitRate": {
-      "value": 0.975,
-      "numerator": 39,
-      "denominator": 40
+      "value": 0.9761904761904762,
+      "numerator": 41,
+      "denominator": 42
     },
     "relatedRate": {
-      "value": 0.7916666666666666,
-      "numerator": 38,
-      "denominator": 48
+      "value": 0.88,
+      "numerator": 44,
+      "denominator": 50
     },
     "pushbackRate": {
-      "value": 0.7142857142857143,
-      "numerator": 5,
-      "denominator": 7
+      "value": 0.75,
+      "numerator": 6,
+      "denominator": 8
     },
     "failureRecognizedRate": {
-      "value": 0.8571428571428571,
+      "value": 0.75,
       "numerator": 6,
-      "denominator": 7
+      "denominator": 8
     },
     "failureReportedRate": {
       "value": 0.42857142857142855,
@@ -91,17 +111,17 @@
     "noFalseErrorRate": {
       "value": 0,
       "numerator": 0,
-      "denominator": 7
+      "denominator": 8
     },
     "hypothesisCoverageRate": {
-      "value": 0.2857142857142857,
-      "numerator": 2,
-      "denominator": 7
+      "value": 0.375,
+      "numerator": 3,
+      "denominator": 8
     },
     "hypothesisPursuedRate": {
       "value": 0,
       "numerator": 0,
-      "denominator": 2
+      "denominator": 3
     },
     "controlFalseAlarmRate": {
       "value": 1,
@@ -109,39 +129,39 @@
       "denominator": 2
     },
     "replacementRate": {
-      "mean": 0.11629530600118837,
+      "mean": 0.11909371492704827,
       "min": 0,
       "max": 0.25,
-      "n": 17
+      "n": 18
     },
     "clarifyShare": {
-      "mean": 0.029411764705882353,
+      "mean": 0.027777777777777776,
       "min": 0,
       "max": 0.3333333333333333,
-      "n": 17
+      "n": 18
     },
     "asideRate": {
-      "mean": 0.14724768695356932,
+      "mean": 0.13906725990059324,
       "min": 0,
       "max": 0.3,
-      "n": 17
+      "n": 18
     },
     "forcedPerSession": {
-      "mean": 0.7647058823529411,
+      "mean": 0.7222222222222222,
       "min": 0,
       "max": 2,
-      "n": 17
+      "n": 18
     },
     "finalEvidence": {
-      "mean": 0.6112307692307692,
+      "mean": 0.6009047619047619,
       "min": 0.38666666666666666,
       "max": 0.88,
-      "n": 13
+      "n": 14
     },
     "skillsLoadedRate": {
-      "value": 0.8235294117647058,
+      "value": 0.7777777777777778,
       "numerator": 14,
-      "denominator": 17
+      "denominator": 18
     },
     "adversarialPassAtK": {
       "value": 0.75,
@@ -149,12 +169,12 @@
       "denominator": 4
     },
     "invalidRate": {
-      "value": 0.05555555555555555,
-      "numerator": 1,
+      "value": 0,
+      "numerator": 0,
       "denominator": 18
     },
-    "tokensPerTurn": 12433.276998981411,
-    "turnMsP50": 5417,
+    "tokensPerTurn": 12240.937536075038,
+    "turnMsP50": 5296,
     "turnMsP95": 11065,
     "errorRate": {
       "value": 0,
@@ -214,7 +234,7 @@
         {
           "name": "对照：无 error 类短板",
           "pass": false,
-          "detail": "a1；a3；对“可能还要改订单表的状态”的边界略模糊，哪些必须同事务、哪些必须异步还可以更清楚。；失败线程返回结果的精确定义还可以更严谨。"
+          "detail": "追问 1：失败线程返回结果的精确定义还可以更严谨。；对“可能还要改订单表的状态”的边界略模糊，哪些必须同事务、哪些必须异步还可以更清楚。；失败线程返回结果的精确定义还可以更严谨。；（模拟器真说错 1 条，不计）"
         },
         {
           "name": "对照：假设不被否定",
@@ -394,7 +414,7 @@
         {
           "name": "对照：无 error 类短板",
           "pass": false,
-          "detail": "a1；a4；追问到“商家审核通过时”的重试场景时，边界表述有点混，容易把通知回调重试和状态推进混在一起。"
+          "detail": "追问2里“商家审核通过时”的重试场景表述有点混，边界不够干净；对“为什么不是先看 CPU”的解释还不够强调边界：CPU低时先查阻塞/等待源，而不是继续沿着计算瓶颈排。；追问到“商家审核通过时”的重试场景时，边界表述有点混，容易把通知回调重试和状态推进混在一起。"
         },
         {
           "name": "对照：假设不被否定",
@@ -1075,8 +1095,8 @@
           "denominator": 4
         },
         "relatedRate": {
-          "value": 0.6,
-          "numerator": 3,
+          "value": 0.8,
+          "numerator": 4,
           "denominator": 5
         },
         "replacementRate": {
@@ -1187,7 +1207,7 @@
           "applied": "probe",
           "replaced": null,
           "anchorHit": true,
-          "related": false,
+          "related": true,
           "evidence": [
             0.09600000000000003,
             0.23200000000000004
@@ -1270,8 +1290,8 @@
           "denominator": 3
         },
         "relatedRate": {
-          "value": 0.6666666666666666,
-          "numerator": 2,
+          "value": 1,
+          "numerator": 3,
           "denominator": 3
         },
         "replacementRate": {
@@ -1394,7 +1414,7 @@
           "applied": "probe",
           "replaced": null,
           "anchorHit": true,
-          "related": false,
+          "related": true,
           "evidence": [
             0.12,
             0.24
@@ -1469,7 +1489,7 @@
       "status": "completed",
       "endedBy": null,
       "error": null,
-      "valid": false,
+      "valid": true,
       "trace": {
         "anchorHitRate": {
           "value": 1,
@@ -1504,7 +1524,48 @@
         "tokensPerTurn": 8971.166666666666,
         "msPerTurn": 4858
       },
-      "assertions": [],
+      "assertions": [
+        {
+          "name": "失守被识别",
+          "pass": false,
+          "detail": "（线程未关闭或错句不在线程内）"
+        },
+        {
+          "name": "失守被纠偏",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "失守进报告",
+          "pass": null,
+          "detail": "弱项线程没有评分"
+        },
+        {
+          "name": "强弱分得开",
+          "pass": null,
+          "detail": "弱项 — vs 其他 74/75"
+        },
+        {
+          "name": "强项不被误纠偏",
+          "pass": false,
+          "detail": "A1, A3"
+        },
+        {
+          "name": "简历假设被追",
+          "pass": false,
+          "detail": "status=open"
+        },
+        {
+          "name": "深度不越界",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "提示 / 澄清 / 打断次数不越界",
+          "pass": true,
+          "detail": ""
+        }
+      ],
       "turns": [
         {
           "turnIndex": 0,
@@ -1778,8 +1839,8 @@
           "denominator": 4
         },
         "relatedRate": {
-          "value": 0.75,
-          "numerator": 3,
+          "value": 1,
+          "numerator": 4,
           "denominator": 4
         },
         "replacementRate": {
@@ -1902,7 +1963,7 @@
           "applied": "probe",
           "replaced": null,
           "anchorHit": true,
-          "related": false,
+          "related": true,
           "evidence": [
             0.27999999999999997,
             0.4
@@ -2830,8 +2891,8 @@
           "denominator": 1
         },
         "relatedRate": {
-          "value": 0,
-          "numerator": 0,
+          "value": 0.5,
+          "numerator": 1,
           "denominator": 2
         },
         "replacementRate": {
@@ -2920,7 +2981,7 @@
           "applied": "probe",
           "replaced": null,
           "anchorHit": true,
-          "related": false,
+          "related": true,
           "evidence": [
             0,
             0.12
