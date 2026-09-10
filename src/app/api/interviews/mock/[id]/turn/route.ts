@@ -76,6 +76,7 @@ export async function POST(
       }
       writer.merge(started.stream.toUIMessageStream());
       const result = await started.finalize();
+      // 落库的消息交给前端替换流中的临时内容；体验版的同名接口在这里返回完整回合结果。
       writer.write({
         type: "data-turn",
         data: {

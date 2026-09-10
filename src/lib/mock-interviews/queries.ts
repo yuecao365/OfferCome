@@ -5,8 +5,8 @@ import { REAL_USAGE_INTERVIEW_WHERE } from "@/lib/interviews/types";
 import { parseJsonArray, parseJsonObject, parseJsonValue } from "@/lib/json";
 
 import { evidenceTargetForPace, parseStoredBrief } from "./interviewer/brief";
-import { parseStoredMemory } from "./interviewer/memory";
-import { interviewerNote } from "./interviewer/reducer";
+import { parseStoredMemory, type MemoryPatch } from "./interviewer/memory";
+import type { MessageKind, MessageRole, ThreadStatus } from "./interviewer/state";
 import {
   parseStoredEvaluationList,
   type AnswerExemplar,
@@ -17,11 +17,11 @@ import { parseStoredReport } from "./report";
 import { buildQuestionTeaching } from "./teaching";
 import {
   isMockInterviewMode,
-  type MockInterviewConversation,
   type MockInterviewTrace,
   type MockInterviewView,
   type MockInterviewGenerationErrorContext,
 } from "./types";
+import { conversationView, traceTurns, type TraceRun } from "./views";
 
 function parseArray<T>(value: string | null): T[] {
   return parseJsonArray(value) as T[];
@@ -67,53 +67,18 @@ function loadSessionForView(id: string) {
   });
 }
 
-/** 对话式会话的视图；旧的分步会话没有简报，返回 null，房间按只读回放处理。 */
-function buildConversation(session: SessionWithConversation): MockInterviewConversation | null {
+/** 对话式会话的视图；没有简报（备课未完成）时为 null。 */
+function buildConversation(session: SessionWithConversation) {
   const brief = parseStoredBrief(session.briefJson);
   if (!brief) return null;
-  const ended = session.status !== "in_progress";
-  return {
-    phase: ended ? "ended" : session.messages.length === 0 ? "opening" : "running",
-    pace: brief.pace,
-    plannedTurns: brief.plannedTurns,
+  return conversationView({
+    brief,
+    status: session.status,
     startedAt: session.startedAt?.toISOString() ?? null,
-    areas: brief.areas.map((area) => {
-      const threads = session.threads.filter((thread) => thread.areaId === area.id);
-      return {
-        id: area.id,
-        name: area.name,
-        kind: area.kind,
-        weight: area.weight,
-        depth: area.depth,
-        depthReached: Math.max(0, ...threads.map((thread) => thread.depth)),
-        status: threads.some((thread) => thread.status === "active")
-          ? "active"
-          : threads.length > 0
-            ? "covered"
-            : "pending",
-      };
-    }),
-    threads: session.threads.map((thread) => ({
-      id: thread.id,
-      areaId: thread.areaId,
-      status: thread.status as MockInterviewConversation["threads"][number]["status"],
-      depth: thread.depth,
-      rescues: thread.rescues,
-      note: interviewerNote(thread.note),
-      questionId: thread.questionId,
-    })),
-    messages: session.messages.map((message) => ({
-      id: message.id,
-      turnIndex: message.turnIndex,
-      role: message.role as "interviewer" | "candidate",
-      kind: message.kind,
-      content: message.content,
-      threadId: message.threadId,
-    })),
-    // 工作记忆面试中不给候选人看，报告页展示"面试官当时的判断"。
-    memory: session.status === "completed" ? parseStoredMemory(session.memoryJson, brief) : null,
-    hypotheses: session.status === "completed" ? brief.hypotheses : [],
-  };
+    threads: session.threads.map((thread) => ({ ...thread, status: thread.status as ThreadStatus })),
+    messages: session.messages.map((message) => ({ ...message, role: message.role as MessageRole, kind: message.kind as MessageKind })),
+    memory: parseStoredMemory(session.memoryJson, brief),
+  });
 }
 
 export async function getMockInterviewView(id: string): Promise<MockInterviewView | null> {
@@ -207,9 +172,7 @@ export async function getMockInterviewTrace(id: string): Promise<MockInterviewTr
     where: { runId: { startsWith: `turn:${id}:` }, event: "model_call" },
     select: { runId: true, status: true, durationMs: true, totalTokens: true, errorKind: true },
   });
-  const runByTurn = new Map(runs.map((run) => [Number(run.runId.split(":").pop()), run]));
-  const decisionByTurn = new Map(session.decisions.map((decision) => [decision.turnIndex, decision]));
-  const turnIndexes = [...new Set(session.messages.map((message) => message.turnIndex))].sort((a, b) => a - b);
+  const runByTurn = new Map<number, TraceRun>(runs.map((run) => [Number(run.runId.split(":").pop()), run]));
 
   return {
     id: session.id,
@@ -219,41 +182,29 @@ export async function getMockInterviewTrace(id: string): Promise<MockInterviewTr
     pace: brief.pace,
     evidenceTarget: evidenceTargetForPace(brief.pace),
     areas: brief.areas.map((area) => ({ id: area.id, name: area.name, kind: area.kind, depth: area.depth })),
-    turns: turnIndexes.map((turnIndex) => {
-      const own = session.messages.filter((message) => message.turnIndex === turnIndex);
-      const candidate = own.find((message) => message.role === "candidate");
-      const decision = decisionByTurn.get(turnIndex);
-      const run = runByTurn.get(turnIndex);
-      let composeMs: number | null = null;
-      try {
-        composeMs = candidate?.metricsJson ? ((JSON.parse(candidate.metricsJson) as { composeMs?: number }).composeMs ?? null) : null;
-      } catch {
-        composeMs = null;
-      }
-      return {
-        turnIndex,
-        candidate: candidate ? { kind: candidate.kind, content: candidate.content, composeMs } : null,
-        interviewer: own
-          .filter((message) => message.role === "interviewer")
-          .map((message) => ({ kind: message.kind, content: message.content, toolName: message.toolName })),
-        decision: decision
-          ? {
-              proposedAction: decision.proposedAction,
-              appliedAction: decision.appliedAction,
-              followUp: decision.followUp,
-              replacedReason: decision.replacedReason,
-              anchorHit: decision.anchorHit,
-              memoryPatch: decision.memoryPatchJson ? parseJsonValue(decision.memoryPatchJson) : null,
-              evidenceBefore: decision.evidenceBefore,
-              evidenceAfter: decision.evidenceAfter,
-              skillsLoaded: decision.skillsLoaded,
-              effects: (parseJsonValue(decision.effectsJson) as string[] | null) ?? [],
-            }
-          : null,
-        run: run
-          ? { status: run.status, durationMs: run.durationMs, totalTokens: run.totalTokens, errorKind: run.errorKind }
-          : null,
-      };
+    turns: traceTurns({
+      messages: session.messages.map((message) => ({
+        turnIndex: message.turnIndex,
+        role: message.role as MessageRole,
+        kind: message.kind as MessageKind,
+        content: message.content,
+        toolName: message.toolName,
+        composeMs: (parseJsonObject(message.metricsJson ?? "{}").composeMs as number | undefined) ?? null,
+      })),
+      decisions: session.decisions.map((decision) => ({
+        turnIndex: decision.turnIndex,
+        proposedAction: decision.proposedAction,
+        appliedAction: decision.appliedAction,
+        followUp: decision.followUp,
+        replacedReason: decision.replacedReason,
+        anchorHit: decision.anchorHit,
+        memoryPatch: (parseJsonValue(decision.memoryPatchJson) as MemoryPatch | null) ?? null,
+        evidenceBefore: decision.evidenceBefore,
+        evidenceAfter: decision.evidenceAfter,
+        skillsLoaded: decision.skillsLoaded,
+        effects: (parseJsonValue(decision.effectsJson) as string[] | null) ?? [],
+      })),
+      runs: runByTurn,
     }),
   };
 }

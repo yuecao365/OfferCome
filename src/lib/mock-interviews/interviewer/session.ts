@@ -7,10 +7,10 @@ import { claimSession } from "../session-state";
 import { loadSkillPacks } from "../skills/loader";
 import { packsForInterview } from "../skills/selector";
 import type { CandidateIntent } from "./actions";
-import { parseStoredBrief, type InterviewArea, type InterviewBrief } from "./brief";
-import { evidenceSummary } from "./evidence";
-import { parseStoredMemory, type MemoryPatch } from "./memory";
-import { applyTurn, type CandidateInput, type TurnResult } from "./reducer";
+import { parseStoredBrief, type InterviewBrief } from "./brief";
+import { parseStoredMemory } from "./memory";
+import type { TurnResult } from "./reducer";
+import { segmentRecord } from "./segments";
 import {
   createInterviewerState,
   type InterviewerState,
@@ -21,12 +21,12 @@ import {
   type ThreadState,
   type ThreadStatus,
 } from "./state";
-import { streamInterviewerTurn } from "./turn-agent";
+import { runInterviewerTurn, type TurnDecisionRow } from "./turn";
 
 /**
- * 面试官回合的本地版编排：从数据库装配状态 → 跑回合 → 应用 reducer → 一个事务落库。
+ * 面试官回合的本地版存取：从数据库装配状态 → 跑纯核心（turn.ts）→ 一个事务落库。
  * 线程关闭时写一条 InterviewQuestion 作为兼容层，逐题评分、复盘、画像照旧；
- * 每回合另写一条决策记录（提案、裁决、信息量变化），trace 页面与评测读它。
+ * 每回合另写一条决策记录，trace 页面与评测读它。
  */
 
 export type CandidateMessageInput = {
@@ -121,12 +121,6 @@ export async function loadInterviewerSession(sessionId: string): Promise<LoadedS
   };
 }
 
-function categoryForArea(area: InterviewArea | null): string {
-  if (area?.kind === "project") return "resume_project";
-  if (area?.kind === "behavioral") return "general";
-  return "technical";
-}
-
 /** 候选人这条消息的作答元数据：从面试官上一句落库到现在的时间、字数、语音指标。 */
 function candidateMetrics(loaded: LoadedSession, candidate: CandidateMessageInput): MessageMetrics & { voice?: unknown } {
   const lastInterviewer = [...loaded.session.messages].reverse().find((message) => message.role === "interviewer");
@@ -142,19 +136,13 @@ function candidateMetrics(loaded: LoadedSession, candidate: CandidateMessageInpu
   return { composeMs, chars: candidate.content.length, ...(voice !== undefined ? { voice } : {}) };
 }
 
-export type TurnTrace = {
-  runId: string;
-  skillsLoaded: number;
-  memoryPatch: MemoryPatch | null;
-};
-
 /** 把一个回合的结果原子写库；线程关闭时同时写兼容层的题目与评分记录，并落一条决策记录。 */
 export async function persistTurn(
   loaded: LoadedSession,
   before: InterviewerState,
   result: TurnResult,
   candidate: CandidateMessageInput | null,
-  trace: TurnTrace,
+  decision: TurnDecisionRow,
 ): Promise<void> {
   const sessionId = loaded.session.id;
   const areas = new Map(loaded.brief.areas.map((area) => [area.id, area]));
@@ -215,35 +203,22 @@ export async function persistTurn(
 
     const closedCount = result.state.threads.filter((thread) => thread.status !== "active").length;
     for (const effect of closedEffects) {
-      const area = areas.get(effect.thread.areaId) ?? null;
+      const record = segmentRecord(areas.get(effect.thread.areaId) ?? null, effect.thread, effect.segment);
       const sortOrder = result.state.threads.findIndex((thread) => thread.id === effect.thread.id);
       const question = await tx.interviewQuestion.create({
         data: {
           interviewId: loaded.session.interviewId,
-          question: effect.segment.question,
-          answer: effect.segment.skipped ? null : effect.segment.answer,
-          skippedAt: effect.segment.skipped ? new Date() : null,
-          category: categoryForArea(area),
+          question: record.question,
+          answer: record.answer,
+          skippedAt: record.skipped ? new Date() : null,
+          category: record.category,
           sortOrder: sortOrder < 0 ? closedCount : sortOrder,
           evaluation: {
             create: {
-              sourceKind: area?.kind ?? "technical",
-              rubricJson: JSON.stringify(area?.rubric ?? []),
-              expectedSignalsJson: JSON.stringify(area?.expectedSignals ?? []),
-              generationMetadataJson: JSON.stringify({
-                areaId: effect.thread.areaId,
-                areaName: area?.name ?? null,
-                areaKind: area?.kind ?? null,
-                areaStyle: area?.style ?? null,
-                // 溯源：这段考的是 JD 明确要求的，还是技能包补的岗位常见要求。
-                competencyOrigin: !area ? null : area.competencyIds.length > 0 ? "jd" : area.baseline ? "baseline" : null,
-                skillPack: area?.baseline?.skill ?? null,
-                note: effect.thread.note,
-                depth: effect.thread.depth,
-                probeCount: effect.segment.probeCount,
-                rescues: effect.thread.rescues,
-                answerSeconds: effect.segment.answerSeconds,
-              }),
+              sourceKind: record.sourceKind,
+              rubricJson: JSON.stringify(record.rubric),
+              expectedSignalsJson: JSON.stringify(record.expectedSignals),
+              generationMetadataJson: JSON.stringify(record.metadata),
             },
           },
         },
@@ -253,24 +228,24 @@ export async function persistTurn(
         where: { id: effect.thread.id },
         data: { questionId: question.id },
       });
-      if (!effect.segment.skipped) evaluationIds.push(question.id);
+      if (!record.skipped) evaluationIds.push(question.id);
     }
 
     await tx.interviewTurnDecision.create({
       data: {
         sessionId,
-        turnIndex: before.turnIndex,
-        runId: trace.runId,
-        proposedAction: result.decision.proposed,
-        appliedAction: result.decision.applied,
-        followUp: result.decision.followUp,
-        replacedReason: result.decision.replacedReason,
-        anchorHit: result.decision.anchorHit,
-        memoryPatchJson: trace.memoryPatch ? JSON.stringify(trace.memoryPatch) : null,
-        evidenceBefore: evidenceSummary(before).total,
-        evidenceAfter: evidenceSummary(result.state).total,
-        skillsLoaded: trace.skillsLoaded,
-        effectsJson: JSON.stringify(result.effects.map((effect) => effect.type)),
+        turnIndex: decision.turnIndex,
+        runId: decision.runId,
+        proposedAction: decision.proposedAction,
+        appliedAction: decision.appliedAction,
+        followUp: decision.followUp,
+        replacedReason: decision.replacedReason,
+        anchorHit: decision.anchorHit,
+        memoryPatchJson: decision.memoryPatch ? JSON.stringify(decision.memoryPatch) : null,
+        evidenceBefore: decision.evidenceBefore,
+        evidenceAfter: decision.evidenceAfter,
+        skillsLoaded: decision.skillsLoaded,
+        effectsJson: JSON.stringify(decision.effects),
       },
     });
 
@@ -300,8 +275,8 @@ export async function persistTurn(
 export type TurnReplay = { replay: true; messages: MessageState[] };
 export type TurnStart = {
   replay: false;
-  stream: Awaited<ReturnType<typeof streamInterviewerTurn>>["stream"];
-  /** 流结束后调用：应用 reducer 并落库，返回本回合新增的消息。 */
+  stream: Awaited<ReturnType<typeof runInterviewerTurn>>["stream"];
+  /** 流结束后调用：应用 reducer 并落库，返回本回合的结果。 */
   finalize: () => Promise<TurnResult>;
 };
 
@@ -334,30 +309,22 @@ export async function startInterviewerTurn(input: {
     return { replay: true, messages: loaded.state.messages.filter((m) => m.turnIndex === 0 && m.role === "interviewer") };
   }
 
-  const candidateInput: CandidateInput | null = input.candidate
-    ? {
-        id: crypto.randomUUID(),
-        content: input.candidate.content,
-        intent: input.candidate.intent,
-        metrics: candidateMetrics(loaded, input.candidate),
-      }
-    : null;
-  const runId = `turn:${input.sessionId}:${loaded.state.turnIndex}`;
-  const { stream, settled } = await streamInterviewerTurn({
-    runId,
+  const run = await runInterviewerTurn({
+    runId: `turn:${input.sessionId}:${loaded.state.turnIndex}`,
     state: loaded.state,
-    candidate: input.candidate ? { content: input.candidate.content, intent: input.candidate.intent } : null,
+    candidate: input.candidate
+      ? { content: input.candidate.content, intent: input.candidate.intent, metrics: candidateMetrics(loaded, input.candidate) }
+      : null,
     context: loaded.context,
     skillPacks: packsForInterview(loaded.brief.skillPacks, await loadSkillPacks()),
   });
 
   return {
     replay: false,
-    stream,
+    stream: run.stream,
     finalize: async () => {
-      const { decision, skillsLoaded } = await settled;
-      const result = applyTurn(loaded.state, candidateInput, decision);
-      await persistTurn(loaded, loaded.state, result, input.candidate, { runId, skillsLoaded, memoryPatch: decision.memoryPatch });
+      const { result, decision } = await run.finalize();
+      await persistTurn(loaded, loaded.state, result, input.candidate, decision);
       return result;
     },
   };

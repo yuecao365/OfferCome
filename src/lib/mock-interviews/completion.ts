@@ -4,29 +4,20 @@ import { enqueueCandidateProfileRefresh } from "@/lib/candidate-profile/backgrou
 import { prisma } from "@/lib/db";
 import { parseJsonArray } from "@/lib/json";
 
-import { parseStoredBrief, type InterviewBrief } from "./interviewer/brief";
+import { parseStoredBrief } from "./interviewer/brief";
 import { parseStoredMemory } from "./interviewer/memory";
-import { interviewerNote } from "./interviewer/reducer";
+import { ALL_SKIPPED_SUMMARY, areaOutcomes, buildReport, summaryInput } from "./outcome";
 import {
   evaluatePersistedMockInterviewQuestion,
   waitForRunningQuestionEvaluations,
 } from "./question-evaluation-service";
 import type { EvaluationWeakness } from "./question-evaluation";
-import {
-  parseStoredReport,
-  REPORT_VERSION,
-  type MockInterviewReport,
-} from "./report";
-import { computeInterviewTotalScore } from "./scoring";
+import { parseStoredReport, type MockInterviewReport } from "./report";
 import { claimSession } from "./session-state";
-import {
-  summarizeMockInterview,
-  type SummaryInput,
-  type SummaryOutput,
-} from "./summary-agent";
+import { summarizeMockInterview } from "./summary-agent";
 
 /**
- * 交卷：等逐题评分收齐 → 按领域权重算总分 → 汇总 agent 读面试全貌 → 落报告。
+ * 交卷的本地版存取：等逐题评分收齐 → 拼全貌（outcome.ts）→ 汇总 agent → 落报告。
  * 面试结束后由后台自动触发；失败时会话退回 ready_to_evaluate，房间给重试入口。
  */
 
@@ -91,78 +82,6 @@ async function collectEvaluations(answered: QuestionRow[]): Promise<void> {
   if (incomplete) throw new Error("仍有题目正在评分，请稍后再次生成报告。");
 }
 
-type AreaOutcome = { summary: SummaryInput["areas"][number]; scores: number[] };
-
-/** 每个问到过的领域：几条线程的深度、判断、分数与短板；跳过的线程记 0 分。 */
-function areaOutcomes(
-  brief: InterviewBrief,
-  session: CompletableSession,
-): AreaOutcome[] {
-  const questionById = new Map(
-    session.interview.questions.map((question) => [question.id, question]),
-  );
-  return brief.areas.flatMap((area) => {
-    const threads = session.threads.filter(
-      (thread) => thread.areaId === area.id && thread.status !== "active",
-    );
-    if (threads.length === 0) return [];
-    const questions = threads.map((thread) =>
-      thread.questionId ? (questionById.get(thread.questionId) ?? null) : null,
-    );
-    const scores = questions.map(
-      (question) => question?.evaluation?.score ?? 0,
-    );
-    const answered = questions.filter(
-      (question) => question && !question.skippedAt,
-    );
-    const best = questions.reduce<QuestionRow | null>(
-      (top, question) =>
-        question &&
-        (question.evaluation?.score ?? 0) >= (top?.evaluation?.score ?? -1)
-          ? question
-          : top,
-      null,
-    );
-    return [
-      {
-        scores,
-        summary: {
-          name: area.name,
-          kind: area.kind,
-          style: area.style,
-          weight: area.weight,
-          depthReached: Math.max(0, ...threads.map((thread) => thread.depth)),
-          targetDepth: area.depth,
-          threadNote: interviewerNote(threads.at(-1)?.note ?? null),
-          skipped: answered.length === 0,
-          score: answered.length > 0 ? Math.max(...scores) : null,
-          weaknesses: parseJsonArray(
-            best?.evaluation?.weaknessesJson,
-          ) as EvaluationWeakness[],
-        },
-      },
-    ];
-  });
-}
-
-const ALL_SKIPPED: SummaryOutput = {
-  summary: "本场所有题目均已跳过，暂时没有可评分的回答。",
-  strengths: [],
-  weaknesses: [],
-  advice: ["重新发起一场模拟面试，并尝试完整回答至少一道题。"],
-  hypotheses: [],
-};
-
-function buildReport(areas: AreaOutcome[], summary: SummaryOutput): MockInterviewReport {
-  return {
-    version: REPORT_VERSION,
-    totalScore: computeInterviewTotalScore(
-      areas.map((area) => ({ weight: area.summary.weight, scores: area.scores })),
-    ),
-    ...summary,
-  };
-}
-
 export async function completeMockInterview(
   sessionId: string,
 ): Promise<MockInterviewReport> {
@@ -176,7 +95,7 @@ export async function completeMockInterview(
   if (existing.status !== "ready_to_evaluate")
     throw new Error("面试还没有结束。");
   const brief = parseStoredBrief(existing.briefJson);
-  if (!brief) throw new Error("这场面试来自旧流程，无法生成报告。");
+  if (!brief) throw new Error("这场面试还没有准备好，无法生成报告。");
 
   const claimed = await claimSession(prisma, {
     where: { id: sessionId, status: "ready_to_evaluate" },
@@ -202,32 +121,31 @@ export async function completeMockInterview(
     await collectEvaluations(answered);
     // 评分结果刚落库，重新读一次再拼全貌。
     const session = (await loadSession(sessionId))!;
-    const areas = areaOutcomes(brief, session);
-    const memory = parseStoredMemory(session.memoryJson, brief);
+    const areas = areaOutcomes(
+      brief,
+      session.threads,
+      session.interview.questions.map((question) => ({
+        id: question.id,
+        skipped: Boolean(question.skippedAt),
+        evaluation: question.evaluation
+          ? {
+              score: question.evaluation.score,
+              weaknesses: parseJsonArray(question.evaluation.weaknessesJson) as EvaluationWeakness[],
+            }
+          : null,
+      })),
+    );
     const summary =
       answered.length > 0
-        ? await summarizeMockInterview({
-            jobTitle: session.interview.jobTitle,
-            round: brief.round,
-            pace: brief.pace,
-            areas: areas.map((area) => area.summary),
-            memory: {
-              established: memory.established,
-              doubtful: memory.doubtful,
-              failed: memory.failed,
-            },
-            hypotheses: brief.hypotheses.map((hypothesis) => {
-              const state = memory.hypotheses.find(
-                (item) => item.id === hypothesis.id,
-              );
-              return {
-                text: hypothesis.text,
-                status: state?.status ?? "open",
-                note: state?.note ?? null,
-              };
+        ? await summarizeMockInterview(
+            summaryInput({
+              jobTitle: session.interview.jobTitle,
+              brief,
+              areas,
+              memory: parseStoredMemory(session.memoryJson, brief),
             }),
-          })
-        : ALL_SKIPPED;
+          )
+        : ALL_SKIPPED_SUMMARY;
     const report = buildReport(areas, summary);
     const completedAt = new Date();
 

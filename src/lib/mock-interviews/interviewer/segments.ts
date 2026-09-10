@@ -1,3 +1,4 @@
+import type { AreaKind, InterviewArea, RubricItem } from "./brief";
 import type { MessageState, ThreadState } from "./state";
 
 /**
@@ -34,6 +35,65 @@ export function threadSegment(thread: ThreadState, messages: MessageState[]): Th
     skipped: thread.status === "skipped" || answer.length === 0,
     probeCount: probes.length,
     answerSeconds: timed.length > 0 ? Math.round(timed.reduce((sum, value) => sum + value, 0) / 1000) : null,
+  };
+}
+
+/** 切段写成兼容题目时的过程信号，评分与报告页读它（本地版存 generationMetadataJson）。 */
+export type SegmentMetadata = {
+  areaId: string;
+  areaName: string | null;
+  areaKind: AreaKind | null;
+  areaStyle: string | null;
+  /** 溯源：这段考的是 JD 明确要求的，还是技能包补的岗位常见要求。 */
+  competencyOrigin: "jd" | "baseline" | null;
+  skillPack: string | null;
+  note: string | null;
+  depth: number;
+  probeCount: number;
+  rescues: number;
+  answerSeconds: number | null;
+};
+
+/** 一条线程压成的"题 + 答"：本地版写 InterviewQuestion + Evaluation，体验版存进会话文档。 */
+export type SegmentRecord = {
+  question: string;
+  answer: string | null;
+  skipped: boolean;
+  category: string;
+  sourceKind: AreaKind;
+  rubric: RubricItem[];
+  expectedSignals: string[];
+  metadata: SegmentMetadata;
+};
+
+export function categoryForArea(area: Pick<InterviewArea, "kind"> | null): string {
+  if (area?.kind === "project") return "resume_project";
+  if (area?.kind === "behavioral") return "general";
+  return "technical";
+}
+
+export function segmentRecord(area: InterviewArea | null, thread: ThreadState, segment: ThreadSegment): SegmentRecord {
+  return {
+    question: segment.question,
+    answer: segment.skipped ? null : segment.answer,
+    skipped: segment.skipped,
+    category: categoryForArea(area),
+    sourceKind: area?.kind ?? "technical",
+    rubric: area?.rubric ?? [],
+    expectedSignals: area?.expectedSignals ?? [],
+    metadata: {
+      areaId: thread.areaId,
+      areaName: area?.name ?? null,
+      areaKind: area?.kind ?? null,
+      areaStyle: area?.style ?? null,
+      competencyOrigin: !area ? null : area.competencyIds.length > 0 ? "jd" : area.baseline ? "baseline" : null,
+      skillPack: area?.baseline?.skill ?? null,
+      note: thread.note,
+      depth: thread.depth,
+      probeCount: segment.probeCount,
+      rescues: thread.rescues,
+      answerSeconds: segment.answerSeconds,
+    },
   };
 }
 
