@@ -34,9 +34,12 @@ export function isInterviewPace(value: string): value is InterviewPace {
   return (INTERVIEW_PACES as readonly string[]).includes(value);
 }
 
-/** 节奏 → 规划规模：预计回合（一个回合 = 面试官问一次）、每领域深度上限、领域数下限。 */
+/**
+ * 节奏 → 规划规模：预计回合（一个回合 = 面试官问一次）、每领域深度上限、领域数下限。
+ * 快速节奏留 13 回合是为了让 4 个领域各追 2 层都装得下：只有 1 层时弱项暴露不出来，评分分不开。
+ */
 export const PACE_PLAN: Record<InterviewPace, { turns: number; maxDepth: number; minAreas: number }> = {
-  quick: { turns: 10, maxDepth: 2, minAreas: 3 },
+  quick: { turns: 13, maxDepth: 2, minAreas: 3 },
   standard: { turns: 20, maxDepth: 3, minAreas: 4 },
   deep: { turns: 32, maxDepth: 3, minAreas: 5 },
 };

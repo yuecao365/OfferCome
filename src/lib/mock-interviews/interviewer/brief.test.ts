@@ -104,11 +104,17 @@ test("JD 来源的领域必须带逐字的 jdEvidence，否则视为无来源；
 test("装箱先把深度压到节奏上限，再削最深的领域，都只剩一层才按权重丢", () => {
   const many = Array.from({ length: 6 }, (_, index) => area({ id: `a${index}`, name: `领域${index}`, depth: 4, weight: index === 5 ? 1 : 2 }));
   const quick = planAreas(many, "quick", true);
-  // 快速节奏 10 回合：6 个领域各 1 层要 13 回合，装不下就丢权重最低的，直到装下。
+  // 快速节奏 13 回合：6 个领域先压到 2 层（19 回合）再压到 1 层（13 回合）刚好装下，不丢领域。
   assert.ok(plannedTurns(quick.areas, true) <= PACE_PLAN.quick.turns);
-  assert.ok(quick.areas.every((item) => item.depth <= PACE_PLAN.quick.maxDepth));
-  assert.equal(quick.dropped[0], "领域5");
-  assert.ok(quick.areas.length >= PACE_PLAN.quick.minAreas);
+  assert.ok(quick.areas.every((item) => item.depth === 1));
+  assert.equal(quick.dropped.length, 0);
+  // 4 个领域各 2 层原样装下：快速节奏的预算就是为这个留的。
+  const four = planAreas(many.slice(0, 4).map((item) => ({ ...item, depth: 2 })), "quick", true);
+  assert.ok(four.areas.every((item) => item.depth === 2));
+  assert.equal(four.dropped.length, 0);
+  // 7 个领域超过上限，第 7 个先被丢；剩下的再压深度。
+  const seven = planAreas([...many, area({ id: "a6", name: "领域6", depth: 1, weight: 1 })], "quick", true);
+  assert.deepEqual(seven.dropped, ["领域6"]);
 
   const standard = planAreas(many, "standard", true);
   assert.equal(standard.dropped.length, 0);
