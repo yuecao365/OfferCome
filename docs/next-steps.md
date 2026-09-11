@@ -10,7 +10,7 @@
 - 版本号：备课简报 v5、备课提示词 brief-v8、面试官提示词 interviewer-v5、评分 evaluation-v3、汇总 summary-v2、示范 exemplar-v1、报告 reportJson v2、画像 ability-assessment-v5。
 - 体验版（网页版，`src/lib/trial/`、`src/app/api/trial/`）与本地版共用同一套对话式面试核心（阶段 2 完成），会话文档 v4；差别只剩评测工具与 Boss 同步。
 - 面试流程简化（[interview-simplify-plan.md](interview-simplify-plan.md)，2026-09-10 至 09-11）已完成并推送：备课广度优先、动作集缩到五个、候选人插话归代码、一回合两步、资料抽屉。
-- 下一步：[interview-tuning-plan.md](interview-tuning-plan.md)（面试质量微调：最少追一层、简历假设进线程、技能包切片、内容补缺），待放行。
+- 下一步：[interview-tuning-plan.md](interview-tuning-plan.md)（面试质量微调，按像不像真实面试排序：最少追一层、简历假设进线程、说话收短；技能包切片与内容补缺以后再说），待放行。
 - 推送前问用户。
 - 用户的 `.local/` 上传目录曾丢失，默认简历以 txt 恢复，原 PDF 需用户重传。
 
