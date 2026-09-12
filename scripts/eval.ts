@@ -745,7 +745,7 @@ async function driveSession(base: string, item: EvalCase, sessionId: string, mod
       const saidClaim = claim ? transcript.some((line) => line.role === "candidate" && line.content.includes(claimNeedle(claim))) : true;
       const forceWrongClaim = Boolean(claim) && !saidClaim && turn >= FORCE_CLAIM_AFTER_TURN;
       const simulate = () =>
-        simulateCandidateReply(models.aux, { persona: item.persona!, resumeText, jobTitle, transcript, forceWrongClaim, runId: `eval-sim:${sessionId}:${turn}` });
+        simulateCandidateReply(models.aux, { persona: item.persona!, resumeText, jobTitle, transcript, forceWrongClaim, saidClaim: Boolean(claim) && saidClaim, runId: `eval-sim:${sessionId}:${turn}` });
       // 兼容通道的模型偶尔返回坏 JSON，抢救不了就再要一次；再失败才算这场失败。
       const reply = await simulate().catch(() => simulate());
       const stillMissing = claim && !saidClaim && !reply.reply.includes(claimNeedle(claim));

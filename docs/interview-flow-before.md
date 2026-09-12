@@ -37,7 +37,7 @@ flowchart TD
 | seedQuestionId | 可选，从复盘页或画像页"针对练习"进来时带上；真实面试与模拟面试的题都可以 |
 | applicationId | 可选，关联投递记录，并把 JD 回填到还没有描述的投递上 |
 
-创建时写入 `Interview`（kind=mock）和 `MockInterviewSession`：`jdTextSnapshot`、`resumeTextSnapshot`（原文快照，之后不再读源文件）、`contextSnapshotJson`（上下文 id 清单与生成参数，备课阶段补入蓝图）、`pace`、`promptVersion`（interviewer-v5）、`status=generating`。接口返回 `{ id, href }`，备课由 `after()` 调度的后台任务执行，页面轮询 `GET /api/interviews/mock/[id]/status`。
+创建时写入 `Interview`（kind=mock）和 `MockInterviewSession`：`jdTextSnapshot`、`resumeTextSnapshot`（原文快照，之后不再读源文件）、`contextSnapshotJson`（上下文 id 清单与生成参数，备课阶段补入蓝图）、`pace`、`promptVersion`（interviewer-v6）、`status=generating`。接口返回 `{ id, href }`，备课由 `after()` 调度的后台任务执行，页面轮询 `GET /api/interviews/mock/[id]/status`。
 
 ## 2. 装配上下文（`context.ts`）
 
@@ -142,7 +142,9 @@ hypotheses[0..6]: { id, text≤300, evidence≤300（简历原文逐字）, area
 > 2. 每个领域一道切入问题：scenario 与 project 领域必须从具体场景切入，能让"背过但不懂"的人答错；fundamentals 领域可以直接问原理，但要带具体的边界条件；禁止"谈谈你对 X 的理解"。
 > 3. 每个领域的深度阶梯（与 depth 同长）：每级一句"接下来往下追什么"，并标出这一级的风格——fact、principle、scenario、tradeoff。项目领域也可以在中间层插入 principle 或 scenario，把基础题和场景题融进项目追问里。
 > 4. 期望信号：好回答会出现的要点，用于面试后评价，不会给候选人看。
-> 5. 简历假设（最多 6 条）：每条 evidence 必须逐字复制简历原文片段，不得改写；没有依据的假设不要写。
+> 5. 简历假设（最多 6 条）：每个 project 领域至少一条，areaId 指向它；text 写成"面试里问什么才能验证"。每条 evidence 必须逐字复制简历原文片段，不得改写；没有依据的假设不要写。
+>
+> （brief-v9。代码兜底：project 领域没有假设时，从简历里取提到该项目、带数字或成果词的一句逐字作 evidence 补一条 `H-<areaId>`，`fallbackHypothesis`；找不到就不补。）
 >
 > 候选人最近几场失守的考点在 recentWeaknesses 里（说错了 / 没答上 / 要求重练，来自上几场的逐段评分）：与本岗位相关的，安排一个领域或阶梯中的一级重新验证，并在该领域的 description 里以"复测：<失守的点>"注明；与本岗位无关的忽略。
 >

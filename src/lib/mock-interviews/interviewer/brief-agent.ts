@@ -23,7 +23,7 @@ import {
 } from "./brief";
 const BRIEF_TIMEOUT_MS = 90_000;
 /** 备课提示词版本，独立于面试官提示词；变更备课规则时升级。 */
-export const BRIEF_PROMPT_VERSION = "brief-v8";
+export const BRIEF_PROMPT_VERSION = "brief-v9";
 /** 最多加载几个技能包再产出简报：每次 load_skill 一步，最后一步出结构化结果。 */
 const BRIEF_MAX_STEPS = 5;
 
@@ -126,7 +126,7 @@ ${renderSkillIndex(index)}
 2. 每个领域一道切入问题：scenario 与 project 领域必须从具体场景切入，能让"背过但不懂"的人答错；fundamentals 领域可以直接问原理，但要带具体的边界条件；禁止"谈谈你对 X 的理解"这类空洞问法。
 3. 每个领域的深度阶梯（与 depth 同长）：每级一句"接下来往下追什么"，并标出这一级的风格——fact（事实与做法）、principle（原理）、scenario（场景排查）、tradeoff（权衡取舍）。项目领域也可以在中间层插入 principle 或 scenario，把基础题和场景题融进项目追问里。
 4. 期望信号：好回答会出现的要点，用于面试后评价，不会给候选人看。
-5. 简历假设（最多 6 条）：要在面试里验证的具体点——写了数字的成果、只写框架名的经历、时间线的空洞。每条 evidence 必须逐字复制简历原文片段，不得改写；没有依据的假设不要写。
+5. 简历假设（最多 6 条）：要在面试里验证的具体点——写了数字的成果、只写框架名的经历、时间线的空洞。每个 project 领域至少一条，areaId 指向它；text 写成"面试里问什么才能验证"（例如"简历称响应时间下降 40%：问基线怎么量、样本多大"）。每条 evidence 必须逐字复制简历原文片段，不得改写；没有依据的假设不要写。
 
 ${retestRule}提示词版本：${BRIEF_PROMPT_VERSION}`,
       payload: {

@@ -7,7 +7,7 @@
 - 产品：OfferCome，本地优先的求职工作台，核心是 AI 模拟面试。技术栈 Next.js 16（App Router）+ Prisma 7 / SQLite + Vercel AI SDK v7。`AGENTS.md` 的可维护性规则必须遵守。
 - 面试流程现状见四份流程文档：[总览](interview-flow-overview.md) · [面试前](interview-flow-before.md) · [面试中](interview-flow-during.md) · [面试后](interview-flow-after.md)；评测现状见 [eval.md](eval.md)。它们是"现状描述"，改完代码要原地更新。
 - 已完成的计划（都标了执行状态）：[面试前](interview-before-plan.md)（第 5 步"简报结构指标"已并入评测）、[面试中](interview-during-plan.md)、[面试后](interview-after-plan.md)。
-- 版本号：备课简报 v5、备课提示词 brief-v8、面试官提示词 interviewer-v5、评分 evaluation-v3、汇总 summary-v2、示范 exemplar-v1、报告 reportJson v2、画像 ability-assessment-v5。
+- 版本号：备课简报 v5、备课提示词 brief-v9、面试官提示词 interviewer-v6、评分 evaluation-v3、汇总 summary-v2、示范 exemplar-v1、报告 reportJson v2、画像 ability-assessment-v5。
 - 体验版（网页版，`src/lib/trial/`、`src/app/api/trial/`）与本地版共用同一套对话式面试核心（阶段 2 完成），会话文档 v4；差别只剩评测工具与 Boss 同步。
 - 面试流程简化（[interview-simplify-plan.md](interview-simplify-plan.md)，2026-09-10 至 09-11）已完成并推送：备课广度优先、动作集缩到五个、候选人插话归代码、一回合两步、资料抽屉。
 - 下一步：[interview-tuning-plan.md](interview-tuning-plan.md)（面试质量微调，按像不像真实面试排序：最少追一层、简历假设进线程、说话收短；技能包切片与内容补缺以后再说），待放行。

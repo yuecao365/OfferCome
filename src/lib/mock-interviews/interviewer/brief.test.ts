@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { MockInterviewJobBlueprint } from "../types";
-import { buildBriefFromOutput, PACE_PLAN, planAreas, plannedTurns, type BriefOutput } from "./brief";
+import { buildBriefFromOutput, fallbackHypothesis, PACE_PLAN, planAreas, plannedTurns, type BriefOutput } from "./brief";
 
 /**
  * 备课的代码把关（v5，广度优先）：项目去重、技术领域不挂项目、JD 证据逐字、装箱先压深度再丢领域。
@@ -43,12 +43,14 @@ function area(overrides: Partial<BriefOutput["areas"][number]> & { id: string; n
   };
 }
 
-function build(areas: BriefOutput["areas"], pace: "quick" | "standard" | "deep" = "standard") {
+const resumeText = "项目经历\nStudy Assistant ——基于 LLM Agent 的本地化个人助手 2026年4月–现在\n从零构建本地化个人助手，Agent Harness 主循环、分层记忆与工具协议，平均 prompt 长度降低约 50%。\n校园二手平台 2025年9月–2026年1月\n退款状态机重构，重复判断代码减少约四成；库存超卖排查。";
+
+function build(areas: BriefOutput["areas"], pace: "quick" | "standard" | "deep" = "standard", hypotheses: BriefOutput["hypotheses"] = []) {
   return buildBriefFromOutput({
-    output: { areas, hypotheses: [] },
+    output: { areas, hypotheses },
     blueprint,
     jobDescription,
-    resumeText: "简历",
+    resumeText,
     projects,
     loadedSkills: ["backend"],
     pace,
@@ -84,6 +86,22 @@ test("点名了简历项目的技术领域并入该项目：没有项目领域�
   );
   assert.deepEqual(brief.areas[0].rubric.map((item) => item.name), ["事实与细节", "岗位关联", "复盘与表达"]);
   assert.deepEqual(brief.droppedAreas, ["记忆分层"]);
+});
+
+test("project 领域没有假设时从简历里兜底一条：带数字或成果词的那句逐字作 evidence", () => {
+  const brief = build([
+    area({ id: "a1", name: "项目深挖", kind: "project", style: null, projectId: "p1" }),
+    area({ id: "a2", name: "二手平台", kind: "project", style: null, projectId: "p2" }),
+    area({ id: "a3", name: "API 设计", competencyIds: ["api"], jdEvidence: "参与 API 设计与自动化测试" }),
+  ], "standard", [{ id: "H1", text: "验证 50% 怎么量的", evidence: "平均 prompt 长度降低约 50%", areaId: null }]);
+  // H1 模型没挂领域：证据句提到 Study Assistant 的项目描述，挂到 a1；a2 没有假设，代码从简历里取带成果词的那句，标题行（带日期）不取。
+  assert.deepEqual(brief.hypotheses.map((item) => [item.id, item.areaId]), [["H1", "a1"], ["H-a2", "a2"]]);
+  const fallback = brief.hypotheses[1];
+  assert.equal(fallback.evidence, "退款状态机重构，重复判断代码减少约四成");
+  assert.ok(resumeText.includes(fallback.evidence));
+  assert.equal(fallbackHypothesis("简历里没提这个项目", { id: "x", name: "x" }, { name: "不存在的项目" }), null);
+  // 只有标题行时不补。
+  assert.equal(fallbackHypothesis("Study Assistant 2026年4月–现在", { id: "a1", name: "x" }, projects[0]), null);
 });
 
 test("JD 来源的领域必须带逐字的 jdEvidence，否则视为无来源；基线必须是加载过的包", () => {

@@ -64,6 +64,12 @@ export function areaById(state: InterviewerState, areaId: string) {
   return state.brief.areas.find((area) => area.id === areaId) ?? null;
 }
 
+/** 挂在这个领域上、还没验证的简历假设。 */
+export function openHypotheses(state: InterviewerState, areaId: string) {
+  const status = new Map(state.memory.hypotheses.map((item) => [item.id, item.status]));
+  return state.brief.hypotheses.filter((item) => item.areaId === areaId && (status.get(item.id) ?? "open") === "open");
+}
+
 export function threadOfArea(state: InterviewerState, areaId: string): ThreadState | null {
   return state.threads.find((thread) => thread.areaId === areaId) ?? null;
 }

@@ -79,6 +79,7 @@ export const LADDER_STYLES = ["fact", "principle", "scenario", "tradeoff"] as co
 export type LadderStyle = (typeof LADDER_STYLES)[number];
 
 export const MAX_AREA_DEPTH = 4;
+export const MAX_HYPOTHESES = 6;
 export const MAX_AREAS = 6;
 /** 一个领域的预计回合：切入问题 + 追问；提示不占回合。 */
 export function areaTurnCost(depth: number): number {
@@ -191,7 +192,7 @@ export const briefOutputSchema = z.object({
         areaId: z.string().min(1).max(40).nullable(),
       }),
     )
-    .max(6),
+    .max(MAX_HYPOTHESES),
 });
 export type BriefOutput = z.infer<typeof briefOutputSchema>;
 
@@ -228,6 +229,55 @@ export function plannedTurns(areas: { depth: number }[], askIntro: boolean): num
 function isEvidence(haystack: string, excerpt: string): boolean {
   const needle = normalizedText(excerpt);
   return needle.length >= 4 && haystack.includes(needle);
+}
+
+/** 可量化的成果：带单位的数字，或成果动词。日期里的数字不算。 */
+const METRIC_PATTERN = /\d+(\.\d+)?\s*(%|％|倍|x|ms|毫秒|秒|万|亿|条|次|天|qps|tps|k\b)/i;
+const OUTCOME_PATTERN = /提升|降低|下降|减少|优化|增长|提高|达到|支撑|覆盖|从零|独立|主导|压缩|缩短|节省/;
+const DATE_PATTERN = /\d{4}\s*年|\d{4}[.\-/]\d{1,2}|至今|现在$/;
+const MAX_EVIDENCE_CHARS = 120;
+
+/**
+ * 简历里属于这个项目的段落：从项目名出现处到下一个项目名出现处；找不到项目名时退回
+ * "提到项目描述里 4 字片段的句子"。
+ */
+function projectSentences(resumeText: string, project: { name: string; description?: string }, others: { name: string }[] = []): string[] {
+  const start = resumeText.indexOf(project.name);
+  let section = resumeText;
+  if (start >= 0) {
+    const ends = others
+      .filter((other) => other.name !== project.name)
+      .map((other) => resumeText.indexOf(other.name, start + project.name.length))
+      .filter((index) => index > start);
+    section = resumeText.slice(start, ends.length > 0 ? Math.min(...ends) : undefined);
+  }
+  const fingerprints = projectFingerprints(project);
+  return section
+    .split(/[\n。；;！!？?]/)
+    .map((item) => item.trim())
+    .filter((item) => item.length >= 6)
+    .filter((sentence) => start >= 0 || fingerprints.some((gram) => normalizedText(sentence).includes(normalizedText(gram))));
+}
+
+/**
+ * project 领域没有假设时的兜底：在简历里这个项目的段落中找带可量化成果或成果动词的一句，
+ * 逐字作为 evidence，让每个项目线程都有东西可对质。只有标题行（带日期）或什么都找不到时不补。
+ */
+export function fallbackHypothesis(
+  resumeText: string,
+  area: { id: string; name: string },
+  project: { name: string; description?: string },
+  others: { name: string }[] = [],
+): InterviewHypothesis | null {
+  const claims = projectSentences(resumeText, project, others).filter((sentence) => !DATE_PATTERN.test(sentence));
+  const evidence = (claims.find((sentence) => METRIC_PATTERN.test(sentence)) ?? claims.find((sentence) => OUTCOME_PATTERN.test(sentence)))?.slice(0, MAX_EVIDENCE_CHARS);
+  if (!evidence) return null;
+  return {
+    id: `H-${area.id}`,
+    text: `简历写「${evidence}」：问是怎么做的、怎么量的、基线是什么、哪部分是本人做的`,
+    evidence,
+    areaId: area.id,
+  };
 }
 
 type PlannableArea = { name: string; weight: number; depth: number };
@@ -301,7 +351,7 @@ function anchoredProject<T extends { id: string; name: string; description?: str
  * - 每个简历项目最多一个 project 领域（projectId 去重，挂在不存在的项目上视为无项目）；
  * - technical 领域不挂在项目上：切入问题点名了简历项目、或用第二人称引出项目描述里的具体内容，就并入该项目的领域（没有时转成 project 领域），否则丢弃；
  * - JD 来源的领域必须带逐字的 jdEvidence，否则视为无来源；基线来源必须是本次加载过的技能包；
- * - 假设的简历证据必须逐字出现在简历里；
+ * - 假设的简历证据必须逐字出现在简历里；project 领域没有假设时代码从简历里兜底一条；
  * - 最后按节奏装箱，丢掉的领域名记进 droppedAreas。
  */
 export function buildBriefFromOutput(input: {
@@ -362,9 +412,28 @@ export function buildBriefFromOutput(input: {
   const planned = planAreas(candidates, input.pace, input.askIntro);
   const areas = planned.areas;
   const areaIds = new Set(areas.map((area) => area.id));
+  // 模型没挂领域的假设：证据句落在简历里哪个项目的段落（最近一个在它前面出现的项目名），就挂到那个项目的领域上，面试中开线程时才带得上。
+  const projectAreas = areas.filter((area) => area.kind === "project" && area.projectId);
+  const attach = (item: InterviewHypothesis): string | null => {
+    if (item.areaId && areaIds.has(item.areaId)) return item.areaId;
+    const at = resume.indexOf(normalizedText(item.evidence));
+    let owner: { id: string; start: number } | null = null;
+    for (const area of projectAreas) {
+      const name = normalizedText(projectsById.get(area.projectId!)?.name ?? "");
+      const start = name.length >= 2 ? resume.lastIndexOf(name, at) : -1;
+      if (start >= 0 && start < at && (!owner || start > owner.start)) owner = { id: area.id, start };
+    }
+    return owner?.id ?? null;
+  };
   const hypotheses = input.output.hypotheses
     .filter((item) => isEvidence(resume, item.evidence))
-    .map((item) => ({ ...item, areaId: item.areaId && areaIds.has(item.areaId) ? item.areaId : null }));
+    .map((item) => ({ ...item, areaId: attach(item) }));
+  for (const area of areas) {
+    if (area.kind !== "project" || !area.projectId || hypotheses.some((item) => item.areaId === area.id)) continue;
+    const project = projectsById.get(area.projectId);
+    const fallback = project ? fallbackHypothesis(input.resumeText, area, project, input.projects) : null;
+    if (fallback && hypotheses.length < MAX_HYPOTHESES) hypotheses.push(fallback);
+  }
 
   return {
     version: BRIEF_VERSION,

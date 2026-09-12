@@ -138,6 +138,8 @@ test("sessionTrace derives anchor, replacement, forced, stuck-switch and evidenc
   assert.deepEqual(trace.relatedRate, { value: 1, numerator: 2, denominator: 2 });
   assert.equal(trace.replacementRate.value, 0);
   assert.deepEqual(trace.stuckSwitchTurns, []);
+  assert.deepEqual(trace.shallowThreads, { value: 0, numerator: 0, denominator: 2 });
+  assert.equal(trace.interviewerChars.length, 5);
   assert.equal(trace.questionTurns, 5);
   assert.equal(trace.forcedCount, 0);
   assert.equal(trace.finalEvidence, 0.62);

@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { detectCandidateIntent } from "./actions";
 import { areaTurnCost, fallbackBrief, padAreas, plannedTurns, plannedTurnsForPace, type InterviewBrief } from "./brief";
-import { canAct, canClose, coverageComplete, probeLimit, safetyCap } from "./budget";
+import { canAct, canClose, coverageComplete, probeBeforeClose, probeLimit, safetyCap } from "./budget";
 import { evidenceSummary, questionTurnsUsed } from "./evidence";
 import { applyMemoryPatch, emptyMemory } from "./memory";
 import { applyTurn, FALLBACK_SPEECH, fallbackAction, HINT_MAX_CHARS, planTurn, ruleTurn, THREAD_NOTES, type TurnDecision } from "./reducer";
@@ -275,6 +275,32 @@ test("close_interview is refused until the evidence target is met; the candidate
   assert.equal(closedEarly.decision.applied, "close_thread");
   const ended = applyTurn(closedEarly.state, { id: "e1", content: "结束吧", intent: "end" }, say("好", null));
   assert.equal(ended.state.phase, "ended");
+});
+
+test("最少追一层：没追到目标深度且还能追问时关线程要先被拒；追到目标深度后不拒", () => {
+  let state = opened();
+  const target = state.brief.areas.find((area) => area.id === "area-project")!.depth;
+  assert.ok(target >= 1);
+  assert.match(probeBeforeClose(state) ?? "", /先顺着候选人的回答再追一层/);
+  for (let index = 0; index < target; index += 1) {
+    state = applyTurn(state, { id: `a${index}`, content: "回答", intent: null }, probe("回答", `追问 ${index}`)).state;
+  }
+  assert.equal(probeBeforeClose(state), null, "追到目标深度后不拒");
+  // 领域上还有没验证的简历假设：追到目标深度也先拒一次；关掉时 note 后面记"没验证到"。
+  const withHypothesis: InterviewerState = {
+    ...state,
+    brief: { ...state.brief, hypotheses: [{ id: "H1", text: "问基线", evidence: "响应时间下降 40%", areaId: "area-project" }] },
+    memory: { ...state.memory, hypotheses: [{ id: "H1", status: "open", note: null }] },
+  };
+  assert.match(probeBeforeClose(withHypothesis) ?? "", /简历假设 H1 还没验证/);
+  const closedWithOpen = applyTurn(withHypothesis, { id: "c0", content: "回答", intent: null }, say("", { name: "close_thread", input: { note: "答到位" } }));
+  const effect = closedWithOpen.effects.find((e) => e.type === "thread_closed");
+  assert.equal(effect?.type === "thread_closed" && effect.thread.note, "答到位（没验证到 H1）");
+  const verified: InterviewerState = { ...withHypothesis, memory: { ...withHypothesis.memory, hypotheses: [{ id: "H1", status: "confirmed", note: null }] } };
+  assert.equal(probeBeforeClose(verified), null);
+  // 没有进行中的线程时不拒（卡住换题、跳过都由代码定分支，不经过决定这一步）。
+  const closed = applyTurn(state, { id: "c", content: "回答", intent: null }, say("", { name: "close_thread", input: { note: "ok" } })).state;
+  assert.equal(probeBeforeClose({ ...closed, threads: closed.threads.map((t) => ({ ...t, status: "closed" as const })) }), null);
 });
 
 test("memory patches accumulate per area and only touch known hypotheses", () => {

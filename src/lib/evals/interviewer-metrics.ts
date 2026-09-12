@@ -94,6 +94,10 @@ export type SessionTrace = {
   forcedCount: number;
   /** 卡住后换题的回合数：从第一次提示到线程以"候选人卡住"关闭，含两端；每条卡住的线程一个数。 */
   stuckSwitchTurns: number[];
+  /** 一层都没追就关掉的线程 / 有回答的已关线程。 */
+  shallowThreads: Ratio;
+  /** 面试官每条消息的字数（开场与收尾除外）。 */
+  interviewerChars: number[];
   finalEvidence: number | null;
   skillsLoaded: number;
   questionTurns: number;
@@ -114,7 +118,10 @@ export function sessionTrace(snapshot: SessionSnapshot): SessionTrace {
       const hint = interviewer.find((message) => message.kind === "hint" && message.threadId === thread.id);
       return hint ? thread.closedAtTurn! - hint.turnIndex + 1 : 1;
     });
+  const answered = snapshot.threads.filter((thread) => thread.status === "closed" && thread.answer !== null);
   return {
+    shallowThreads: ratio(answered.filter((thread) => thread.depth === 0).length, answered.length),
+    interviewerChars: interviewer.filter((message) => message.kind === "question" || message.kind === "probe" || message.kind === "hint").map((message) => message.content.length),
     anchorHitRate: ratioOf(decisions.map((decision) => decision.anchorHit)),
     relatedRate: ratioOf(Object.values(snapshot.judged.related)),
     replacementRate: ratio(replaceable.filter((decision) => decision.replacedReason !== null).length, replaceable.length),
@@ -313,6 +320,8 @@ export type InterviewerMetrics = {
   replacementRate: Spread;
   forcedPerSession: Spread;
   stuckSwitchTurns: Spread;
+  shallowThreadRate: Ratio;
+  interviewerCharsP50: number | null;
   finalEvidence: Spread;
   skillsLoadedRate: Ratio;
   adversarialPassAtK: Ratio;
@@ -360,6 +369,8 @@ export function summarizeInterviewer(outcomes: SessionOutcome[]): InterviewerMet
     replacementRate: spread(traces.map((trace) => trace.replacementRate.value)),
     forcedPerSession: spread(traces.map((trace) => trace.forcedCount)),
     stuckSwitchTurns: spread(traces.flatMap((trace) => trace.stuckSwitchTurns)),
+    shallowThreadRate: ratio(sum("numerator", (trace) => trace.shallowThreads), sum("denominator", (trace) => trace.shallowThreads)),
+    interviewerCharsP50: percentile(traces.flatMap((trace) => trace.interviewerChars), 50),
     finalEvidence: spread(evidenceSessions.map((outcome) => outcome.trace.finalEvidence)),
     skillsLoadedRate: ratioOf(traces.map((trace) => trace.skillsLoaded >= 1)),
     adversarialPassAtK: passAtK([...byCase.values()]),
@@ -388,6 +399,8 @@ export function interviewerMetricRows(metrics: InterviewerMetrics, judgesTrusted
     { name: "动作替换率", value: metrics.replacementRate, expect: "记基线，升高即警报", note: "模型动作不可用、代码兜底" },
     { name: "每场强制推进次数", value: metrics.forcedPerSession, expect: "记基线", note: "模型没给可用动作" },
     { name: "卡住后换题回合数", value: metrics.stuckSwitchTurns, expect: "≤ 2", note: "一次提示 + 换题" },
+    { name: "一层没追的线程占比", value: metrics.shallowThreadRate, expect: "≤ 0.2", note: "有回答就关、没追问" },
+    { name: "面试官每条消息字数 p50", value: metrics.interviewerCharsP50, expect: "记基线", note: "切入 / 追问 / 提示" },
     { name: "收尾信息量", value: metrics.finalEvidence, expect: "quick ≥ 0.55" },
     { name: "技能包加载率", value: metrics.skillsLoadedRate, expect: "≥ 0.9" },
     { name: "对抗组 pass^k", value: metrics.adversarialPassAtK, expect: "1.0" },

@@ -20,6 +20,9 @@ const KIND_LABELS: Record<string, string> = {
   answer: "回答",
 };
 
+/** 面试官一条话超过这个字数在 trace 页标出来：说话收短靠提示词，代码不截断。 */
+const LONG_MESSAGE_CHARS = 150;
+
 function percent(value: number): string {
   return `${Math.round(value * 100)}%`;
 }
@@ -97,7 +100,10 @@ export function MockInterviewTraceView({ trace }: { trace: MockInterviewTrace })
             ) : null}
             {turn.interviewer.map((message, index) => (
               <div className="rounded-control border border-border bg-surface px-3 py-2 text-sm leading-6" key={index}>
-                <span className="mr-2 text-xs text-muted-foreground">面试官 · {KIND_LABELS[message.kind] ?? message.kind}</span>
+                <span className="mr-2 text-xs text-muted-foreground">
+                  面试官 · {KIND_LABELS[message.kind] ?? message.kind}
+                  {message.content.length > LONG_MESSAGE_CHARS ? ` · 较长 ${message.content.length} 字` : ""}
+                </span>
                 <span className="whitespace-pre-wrap">{message.content}</span>
               </div>
             ))}

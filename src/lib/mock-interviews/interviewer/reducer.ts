@@ -8,6 +8,7 @@ import {
   activeThread,
   areaById,
   lastInterviewerQuestion,
+  openHypotheses,
   threadOfArea,
   type InterviewerState,
   type MessageKind,
@@ -394,7 +395,10 @@ export function applyTurn(
       }
       case "close_thread": {
         const active = activeThread(state)!;
-        const closed = closeThread(state, active, { note: action.input.note, skipped: intent === "skip" }, newMessages);
+        // 面试官自己关的线程里还有没验证的假设：记在 note 后面，状态留给汇总判。
+        const unverified = ruling.plan.kind === "model" ? openHypotheses(state, active.areaId).map((item) => item.id) : [];
+        const note = unverified.length > 0 ? `${action.input.note}（没验证到 ${unverified.join("、")}）` : action.input.note;
+        const closed = closeThread(state, active, { note, skipped: intent === "skip" }, newMessages);
         state = closed.state;
         effects.push(closed.effect);
         if (intent === "hint") {

@@ -33,13 +33,17 @@ export function rescueReply(rawText: string | undefined): { reply: string } | nu
   return text && !text.startsWith("{") ? { reply: text.slice(0, 1_500) } : null;
 }
 
-function personaPrompt(persona: Persona, forceWrongClaim = false): string {
+function personaPrompt(persona: Persona, options: { forceWrongClaim: boolean; saidClaim: boolean }): string {
+  const { forceWrongClaim, saidClaim } = options;
   const force =
     forceWrongClaim && persona.weak
       ? `【本回合硬性要求】你到现在还没有机会谈到「${persona.weak.topic}」。这一回合的回答必须包含下面这句话，一字不改、不加引号，可以先正面回答问题再用"另外我想补充一点"之类的话引出它：${persona.weak.wrongClaim}\n\n`
       : "";
+  // 错句只说一次：说过之后不再复述原句，否则它会落进好几条线程，弱项线程就分不出来了。
   const weakLine = persona.weak
-    ? `- 你不太懂但自以为懂的：${persona.weak.topic}。自我介绍时要提一句你在这方面"也做过一些"，给面试官往这里问的机会。只要面试官的问题沾到这个话题（哪怕只是相关的系统、组件或场景），你必须把下面这句话一字不改地放进回答里，并且当作自己的真实看法说出来：「${persona.weak.wrongClaim}」。之后如果面试官追问或质疑，你可以犹豫、试图解释，但不要主动承认它是错的，除非面试官给出了明确的反驳理由。\n`
+    ? saidClaim
+      ? `- 你不太懂但自以为懂的：${persona.weak.topic}。你已经说过「${persona.weak.wrongClaim}」这句，不要再复述它，也不要主动回到这个话题；面试官追问或质疑时可以犹豫、试图解释，但不要主动承认它是错的，除非面试官给出了明确的反驳理由。\n`
+      : `- 你不太懂但自以为懂的：${persona.weak.topic}。自我介绍时要提一句你在这方面"也做过一些"，给面试官往这里问的机会。只要面试官的问题沾到这个话题（哪怕只是相关的系统、组件或场景），你必须把下面这句话一字不改地放进回答里，并且当作自己的真实看法说出来：「${persona.weak.wrongClaim}」。之后如果面试官追问或质疑，你可以犹豫、试图解释，但不要主动承认它是错的，除非面试官给出了明确的反驳理由。\n`
     : "";
   const unsupportableLine = persona.unsupportable
     ? `- 简历里这条成果你说不出细节：「${persona.unsupportable}」。被问到它的做法、度量方式或数字来源时，你只能给含糊、绕开或"记不清了"的回答，不要编造具体过程。\n`
@@ -67,13 +71,15 @@ export async function simulateCandidateReply(
     transcript: TranscriptLine[];
     /** 面试已过了几回合还没机会说出错句：这一回合必须自己带出来。 */
     forceWrongClaim?: boolean;
+    /** 错句已经说过：不再复述。 */
+    saidClaim?: boolean;
     runId?: string;
   },
 ): Promise<{ reply: string }> {
   const output = await runAux(aux, {
     agent: "eval_candidate_simulator",
     promptVersion: SIMULATOR_PROMPT_VERSION,
-    system: personaPrompt(input.persona, input.forceWrongClaim),
+    system: personaPrompt(input.persona, { forceWrongClaim: input.forceWrongClaim ?? false, saidClaim: input.saidClaim ?? false }),
     untrustedInputs: "简历、岗位名与对话记录",
     payload: {
       jobTitle: input.jobTitle,

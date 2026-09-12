@@ -9,7 +9,7 @@ import { normalizedText } from "@/lib/text/similarity";
 import { createSkillTools, renderSkillIndex } from "../skills/tools";
 import type { SkillPack } from "../skills/types";
 import { ACTION_DESCRIPTIONS, actionSchemas, isModelAction, MODEL_ACTIONS, type InterviewerAction } from "./actions";
-import { canAct } from "./budget";
+import { canAct, probeBeforeClose } from "./budget";
 import { buildConversation } from "./conversation";
 import { memoryPatchSchema } from "./memory";
 import { buildDecidePrompt, buildSpeakPrompt, INTERVIEWER_PROMPT_VERSION } from "./prompt";
@@ -40,6 +40,7 @@ type DecideTools = {
  * 真正的状态变更由 reducer 在流结束后统一应用（保证原子，也保证不越权）。
  *
  * 追问的锚点在这里校验：必须是候选人这条回答里的原话，让追问贴着回答走。
+ * 关线程的"最少追一层"也在这里拒一次（budget.probeBeforeClose）。
  */
 function buildDecideTools(initial: InterviewerState, candidateContent: string | null, packs: SkillPack[]): DecideTools {
   const tools: ToolSet = {};
@@ -51,6 +52,7 @@ function buildDecideTools(initial: InterviewerState, candidateContent: string | 
   let anchorHit: boolean | null = null;
   let accepted: InterviewerAction["name"] | null = null;
   let closedThenDecided = false;
+  let closeRefused = false;
 
   for (const name of MODEL_ACTIONS) {
     tools[name] = tool({
@@ -60,6 +62,14 @@ function buildDecideTools(initial: InterviewerState, candidateContent: string | 
         const fields = (input ?? {}) as { areaId?: unknown; anchor?: unknown };
         const check = canAct(state, name, { areaId: typeof fields.areaId === "string" ? fields.areaId : undefined });
         if (!check.ok) return { accepted: false, reason: check.reason };
+        if (name === "close_thread" && !closeRefused && candidateContent !== null) {
+          // 最少追一层：候选人刚有实质回答、线程还没追到目标深度，第一次关线程被拒，让模型改成追问。
+          const reason = probeBeforeClose(state);
+          if (reason) {
+            closeRefused = true;
+            return { accepted: false, reason };
+          }
+        }
         if (name === "probe") {
           const anchor = normalizedText(typeof fields.anchor === "string" ? fields.anchor : "");
           const hit = anchor.length > 0 && answer.includes(anchor);
@@ -203,7 +213,8 @@ export async function speakTurn(input: TurnAgentInput & { ruling: TurnRuling }) 
     tools: {},
     toolChoice: "none",
     timeoutMs: TURN_TIMEOUT_MS,
-    maxOutputTokens: 600,
+    // 不截断：字数靠提示词收短，预算只防跑飞。
+    maxOutputTokens: 1_200,
   });
   const settled = outcome.then((result) => ({ speech: result.text.trim(), failed: result.error !== null && result.text.trim().length === 0 }));
   return { stream, settled };

@@ -1,7 +1,7 @@
 import type { ActionName } from "./actions";
 import { MAX_AREA_DEPTH } from "./brief";
 import { evidenceSummary, questionTurnsUsed, threadAnswered } from "./evidence";
-import { activeThread, areaById, closedThreads, threadOfArea, type InterviewerState } from "./state";
+import { activeThread, areaById, closedThreads, openHypotheses, threadOfArea, type InterviewerState } from "./state";
 
 /**
  * 预算与不变量：模型不可越过的边界，全部由代码持有。
@@ -62,6 +62,22 @@ export function canClose(state: InterviewerState): boolean {
   if (evidence.total >= evidence.target) return true;
   if (coverageComplete(state) || recentThreadsFailed(state) || atSafetyCap(state)) return true;
   return !activeThread(state) && areasOpenable(state).length === 0;
+}
+
+/**
+ * 关线程前的硬门（工具层拒一次、第二次放行，给"候选人确实答不上"留出口）：
+ * 线程还没追到目标深度，或挂在这个领域上的简历假设还没验证，且还能追问时，返回拒绝理由；不该拒时为 null。
+ */
+export function probeBeforeClose(state: InterviewerState): string | null {
+  const active = activeThread(state);
+  if (!active || !canAct(state, "probe").ok) return null;
+  const target = areaById(state, active.areaId)?.depth ?? 1;
+  const reasons: string[] = [];
+  if (active.depth < target) reasons.push(`这段只追问了 ${active.depth} 层（目标 ${target} 层）`);
+  const open = openHypotheses(state, active.areaId);
+  if (open.length > 0) reasons.push(`简历假设 ${open.map((item) => item.id).join("、")} 还没验证`);
+  if (reasons.length === 0) return null;
+  return `${reasons.join("，")}：先顺着候选人的回答再追一层；确实答不上来再 close_thread`;
 }
 
 export function canAct(
