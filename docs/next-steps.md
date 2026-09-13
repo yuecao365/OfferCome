@@ -80,3 +80,4 @@
 - 真机验证用 `http://localhost:3000`（不能用 127.0.0.1）；改 Prisma schema 后 `npx prisma db push` + `npx prisma generate`，再重启 dev 预览并清 `.next`。
 - 子 agent 禁用 WebFetch；长脚本用 Write 写到 scratchpad 再执行。
 - 流程文档改完代码原地更新。
+- 评测回归不每次小改动都跑（成本）：日常靠单测 + 真机一场；完整回归只在计划收口、推送前跑一次；中途要看数字先问，用缩小版 `--k 1 --cases persona-1,hints`。
