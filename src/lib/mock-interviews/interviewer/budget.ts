@@ -1,15 +1,19 @@
 import type { ActionName } from "./actions";
-import { AREA_KIND_LABELS, PHASE_ORDER, plannedTurns, PROBE_LIMIT, type AreaKind, type InterviewArea } from "./brief";
-import { activeThread, areaById, QUESTION_KINDS, threadKind, threadOfArea, type InterviewerState } from "./state";
+import { AREA_KIND_LABELS, PHASE_ORDER, plannedTurns, probeLimitFor, type AreaKind, type InterviewArea } from "./brief";
+import { activeThread, areaById, closedThreads, QUESTION_KINDS, threadKind, threadOfArea, type InterviewerState } from "./state";
 
 /**
  * 阶段、预算与不变量：模型不可越过的边界，全部由代码持有。
  *
  * 面试按阶段走（项目 → 基础 → 场景），预算按阶段给提问回合数，累计计算：一个阶段提前结束，
  * 剩下的回合自动顺延给下一阶段；一个阶段到时，进行中的线程不能再追、只能关掉进下一阶段。
- * 深度不预设：每种线程只有一个上限（项目 3、基础 1、场景 3），追不追由回答决定（见 reducer）。
- * 面试在各阶段都走完（预算用尽或没题可开）时结束，另有一个远高于正常值的安全上限防止跑飞。
+ * 深度不预设：每种线程只有一个上限（项目按角度 2–3、基础 1、场景 3），追不追由回答决定（见 reducer）。
+ * 阶段还有一个"候选人状态"的出口：基础题连续答不上够多，这个阶段就结束，不把题池问完。
+ * 面试在各阶段都走完（预算用尽、没题可开或放弃）时结束，另有一个远高于正常值的安全上限防止跑飞。
  */
+
+/** 基础题连续这么多道没答上（卡住 / 跳过 / 一句没答上）就不再问基础题，直接进场景题。 */
+export const QUICK_GIVE_UP_STREAK = 5;
 
 export type ActionCheck = { ok: true } | { ok: false; reason: string };
 
@@ -48,15 +52,31 @@ export function areasOpenable(state: InterviewerState, kind: AreaKind): Intervie
   return state.brief.areas.filter((area) => area.kind === kind && !threadOfArea(state, area.id));
 }
 
+/** 这个阶段最近连续几道没答上：候选人卡住、跳过或面试官判 failed 的线程，从最后一条往前数。 */
+export function failureStreak(state: InterviewerState, kind: AreaKind): number {
+  let streak = 0;
+  for (const thread of closedThreads(state).reverse()) {
+    if (threadKind(state, thread) !== kind) continue;
+    if (thread.status !== "skipped" && thread.verdict !== "failed") break;
+    streak += 1;
+  }
+  return streak;
+}
+
+/** 基础阶段放弃了：连续答不上够多，剩下的题不问了。 */
+export function quickGivenUp(state: InterviewerState): boolean {
+  return failureStreak(state, "quick") >= QUICK_GIVE_UP_STREAK;
+}
+
 /**
- * 现在处于哪个阶段：有进行中的线程就是它所属的阶段；否则按顺序找第一个"预算没到、还有题可开"的阶段；
+ * 现在处于哪个阶段：有进行中的线程就是它所属的阶段；否则按顺序找第一个"预算没到、还有题可开、没放弃"的阶段；
  * 都没有就是该收尾了（null）。
  */
 export function currentPhase(state: InterviewerState): AreaKind | null {
   const active = activeThread(state);
   if (active) return threadKind(state, active);
   const used = questionTurnsUsed(state);
-  return PHASE_ORDER.find((kind) => used < phaseEnd(state, kind) && areasOpenable(state, kind).length > 0) ?? null;
+  return PHASE_ORDER.find((kind) => used < phaseEnd(state, kind) && areasOpenable(state, kind).length > 0 && !(kind === "quick" && quickGivenUp(state))) ?? null;
 }
 
 export function nextAreaToOpen(state: InterviewerState): InterviewArea | null {
@@ -94,8 +114,9 @@ export function canAct(state: InterviewerState, action: ActionName, args: { area
       if (!active) return { ok: false, reason: "没有进行中的线程，先 open_thread" };
       if (capped) return { ok: false, reason: "提问次数已到安全上限，请 close_thread" };
       const kind = threadKind(state, active);
-      if (active.depth >= PROBE_LIMIT[kind]) {
-        return { ok: false, reason: kind === "quick" ? "基础题只追一层，请 close_thread 换下一题" : "这道题已追到上限，请 close_thread" };
+      const area = areaById(state, active.areaId);
+      if (active.depth >= (area ? probeLimitFor(area) : 1)) {
+        return { ok: false, reason: kind === "quick" ? "基础题只追一层，请 close_thread 换下一题" : kind === "project" ? "这个角度已追到上限，请 close_thread 换下一个角度" : "这道题已追到上限，请 close_thread" };
       }
       if (questionTurnsUsed(state) >= phaseEnd(state, kind)) {
         return { ok: false, reason: `${AREA_KIND_LABELS[kind]}阶段的时间到了，请 close_thread 进入下一阶段` };

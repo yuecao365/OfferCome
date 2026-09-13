@@ -1,11 +1,12 @@
+import type { TopicPack, TopicPackRole } from "./selector";
 import type { SkillPack } from "./types";
 
 /**
  * 技能包里的主题：备课的基础快问题池从这里抽。
  *
- * 抽样在代码里而不是交给模型选：模型对同样的 JD + 简历每次都挑与简历最像的那两个主题，
- * 于是技术题撞项目、每场撞上一场。代码按岗位加权、对简历已展示的和最近问过的降权、带随机，
- * 模型只负责把抽中的主题写成一道具体的题。
+ * 抽样在代码里而不是交给模型选：模型对同样的 JD + 简历每次都挑同样的主题，每场撞上一场。
+ * 代码按包的角色分名额（岗位领域包占大头，语言栈与计算机基础各点缀几道）、按 JD 与简历加权、
+ * 对最近问过的降权、带随机；模型只负责把抽中的主题写成一道具体的题。
  */
 
 export type SkillTopic = {
@@ -18,6 +19,8 @@ export type SkillTopic = {
   signals: string;
   /** 标了"（可选）"的主题：只在别的主题不够时补。 */
   optional: boolean;
+  /** 候选人简历碰过这个主题：备课把题写成"从他项目里用到的 X 出发"。抽样时标上。 */
+  fromResume: boolean;
 };
 
 const TOPICS_HEADING = "## 主题";
@@ -36,7 +39,7 @@ export function parseSkillTopics(pack: SkillPack): SkillTopic[] {
     const heading = line.match(/^### (.+)$/);
     if (heading) {
       const title = heading[1].trim();
-      current = { skill: pack.name, name: title.replace(OPTIONAL_MARK, "").trim(), optional: OPTIONAL_MARK.test(title), ladder: "", example: "", redFlags: "", signals: "" };
+      current = { skill: pack.name, name: title.replace(OPTIONAL_MARK, "").trim(), optional: OPTIONAL_MARK.test(title), fromResume: false, ladder: "", example: "", redFlags: "", signals: "" };
       topics.push(current);
       continue;
     }
@@ -71,26 +74,27 @@ export type TopicContext = {
   resumeText: string;
   /** 最近几场同岗位问过的主题名：降权，不硬排除（题池小的时候还得靠它们）。 */
   recent: string[];
-  /** 岗位对应的领域包：它的主题加分，栈包的主题只作补充。 */
-  primarySkill?: string;
 };
 
 const RECENT_PENALTY = 0.15;
 const OPTIONAL_PENALTY = 0.5;
-const PRIMARY_BONUS = 1;
 const MIN_WEIGHT = 0.2;
 
+/** 简历里提到过这个主题：候选人项目碰过的东西，基础题从它的项目出发问原理。 */
+export function topicFromResume(topic: Pick<SkillTopic, "name">, resumeText: string): boolean {
+  return hitRatio(resumeText.toLowerCase(), fragments(topic.name)) > 0;
+}
+
 /**
- * 主题权重：岗位领域包与岗位名、JD 提到的加分；简历已经展示、而 JD 没提的减分（项目阶段会考到它，
- * 基础题考简历没露的；JD 点名要的不减）；最近问过的和可选主题降权。
+ * 主题权重：岗位名与 JD 提到的加分，简历碰过的也加分（真实面试的基础题多从候选人项目里长出来）；
+ * 最近问过的和可选主题降权。包与包之间不比权重——名额按角色分（sampleTopicPool）。
  */
 export function topicWeight(topic: SkillTopic, context: TopicContext): number {
   const parts = fragments(topic.name);
   const jd = hitRatio(context.jobDescription.toLowerCase(), parts);
   const title = hitRatio(context.jobTitle.toLowerCase(), parts);
   const resume = hitRatio(context.resumeText.toLowerCase(), parts);
-  const primary = topic.skill === context.primarySkill ? PRIMARY_BONUS : 0;
-  let weight = Math.max(MIN_WEIGHT, 0.5 + primary + 2 * jd + title - 0.5 * resume * (1 - jd));
+  let weight = Math.max(MIN_WEIGHT, 0.5 + 2 * jd + title + 0.5 * resume);
   if (topic.optional) weight *= OPTIONAL_PENALTY;
   if (context.recent.some((name) => name === topic.name)) weight *= RECENT_PENALTY;
   return weight;
@@ -108,6 +112,24 @@ export function sampleTopics(topics: SkillTopic[], count: number, context: Topic
     .sort((left, right) => right.key - left.key)
     .slice(0, count)
     .map((item) => item.topic);
+}
+
+/** 语言栈与计算机基础各占题池的这个比例（至少 1 道），其余全给岗位领域包。 */
+const SIDE_ROLE_SHARE = 1 / 6;
+const SIDE_ROLES: TopicPackRole[] = ["stack", "basics"];
+
+/**
+ * 按角色分名额抽题池：领域包占大头，栈包与基础包各 1/6（有就抽，没有名额顺延给领域包）。
+ * 抽到的主题标上是否在简历里出现过，备课据此把题写成"从他项目出发"。
+ */
+export function sampleTopicPool(packs: TopicPack[], size: number, context: TopicContext, random: () => number = Math.random): SkillTopic[] {
+  const byRole = (role: TopicPackRole) => packs.filter((item) => item.role === role).flatMap((item) => parseSkillTopics(item.pack));
+  const side = SIDE_ROLES.flatMap((role) => {
+    const topics = byRole(role);
+    return topics.length > 0 ? sampleTopics(topics, Math.max(1, Math.round(size * SIDE_ROLE_SHARE)), context, random) : [];
+  });
+  const domain = sampleTopics(byRole("domain"), Math.max(0, size - side.length), context, random);
+  return [...domain, ...side].map((topic) => ({ ...topic, fromResume: topicFromResume(topic, context.resumeText) }));
 }
 
 /** 包正文里某个二级标题下的整段（不含标题），没有时为空串；备课提示词里引岗位职责与出题原则。 */

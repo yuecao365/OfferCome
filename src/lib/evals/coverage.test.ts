@@ -28,6 +28,7 @@ function brief(areas: Partial<InterviewArea>[]): InterviewBrief {
       kind: "quick",
       name: `领域${index + 1}`,
       projectId: null,
+      angle: null,
       competencyIds: [],
       jdEvidence: null,
       topic: null,

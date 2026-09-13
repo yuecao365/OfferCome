@@ -3,15 +3,16 @@ import type { SkillPack } from "./types";
 /**
  * 技能包的选择。
  *
- * 关键词打分：岗位名最高，JD 次之，简历最低——面试考的是这个岗位，简历只决定栈包与项目；
+ * 关键词打分：岗位名最高，JD 次之，简历最低——面试考的是这个岗位，简历只决定语言栈与项目；
  * 简历权重高时，后端简历投前端 / 测开 / 运维岗会把后端与 AI 包顶到前面，备课就跟着简历跑偏。
+ * 题池的领域包只看岗位名与 JD；语言栈包在 JD 没点名时才看简历。
  */
 
 const TITLE_WEIGHT = 3;
 const JD_WEIGHT = 2;
 const RESUME_WEIGHT = 1;
-const MAX_STACK_PACKS = 1;
 const FALLBACK_DOMAIN = "cs-fundamentals";
+const BASICS_PACK = "cs-fundamentals";
 const HR_PACK = "behavioral";
 
 export type SkillSelectionInput = {
@@ -20,19 +21,13 @@ export type SkillSelectionInput = {
   resumeText: string;
 };
 
+function hits(pack: SkillPack, text: string): number {
+  const haystack = text.toLowerCase();
+  return pack.keywords.filter((keyword) => keyword.trim().length > 0 && haystack.includes(keyword.toLowerCase())).length;
+}
+
 function keywordScore(pack: SkillPack, input: SkillSelectionInput): number {
-  const resume = input.resumeText.toLowerCase();
-  const title = input.jobTitle.toLowerCase();
-  const jd = input.jobDescription.toLowerCase();
-  let score = 0;
-  for (const keyword of pack.keywords) {
-    const needle = keyword.toLowerCase();
-    if (!needle) continue;
-    if (resume.includes(needle)) score += RESUME_WEIGHT;
-    if (title.includes(needle)) score += TITLE_WEIGHT;
-    if (jd.includes(needle)) score += JD_WEIGHT;
-  }
-  return score;
+  return hits(pack, input.resumeText) * RESUME_WEIGHT + hits(pack, input.jobTitle) * TITLE_WEIGHT + hits(pack, input.jobDescription) * JD_WEIGHT;
 }
 
 /**
@@ -58,22 +53,48 @@ export function rankSkillPacks(input: SkillSelectionInput, packs: SkillPack[]): 
   return ordered;
 }
 
+/** 题池里一个包扮演的角色：岗位领域、候选人的语言栈、计算机基础；抽样按角色分配名额（topics.ts）。 */
+export type TopicPackRole = "domain" | "stack" | "basics";
+export type TopicPack = { pack: SkillPack; role: TopicPackRole };
+
 /**
- * 备课的题池从哪些包抽主题：排第一的是岗位对应的领域包（得分最高的 domain 包；全无命中时 cs-fundamentals），
- * 之后至多一个命中的栈包（连同它的父级领域包）作补充。HR 面只抽行为包。
- * 抽样时领域包的主题加分（topics.ts），栈包的主题不会淹没岗位本身的考点。
+ * 岗位要哪门语言栈：岗位名或 JD 明确点到一门（只命中一个栈包）就是它；JD 罗列几门"至少一门"或不提时，
+ * 用简历里最突出的那门——真实面试里语言基础题跟着候选人自己的语言走（Java 简历问 HashMap，Python 简历问 GIL）。
  */
-export function packsForTopics(input: SkillSelectionInput, packs: SkillPack[], round: string | null): SkillPack[] {
+function stackPackFor(input: SkillSelectionInput, packs: SkillPack[]): SkillPack | null {
+  const stacks = packs.filter((pack) => pack.layer === "stack");
+  const required = stacks.filter((pack) => hits(pack, `${input.jobTitle}
+${input.jobDescription}`) > 0);
+  if (required.length === 1) return required[0];
+  const fromResume = stacks
+    .map((pack) => ({ pack, score: hits(pack, input.resumeText) }))
+    .filter((item) => item.score > 0)
+    .sort((left, right) => right.score - left.score);
+  return fromResume[0]?.pack ?? null;
+}
+
+/**
+ * 备课的题池从哪些包抽主题：岗位对应的领域包（岗位名 + JD 得分最高的 domain 包；全无命中时 cs-fundamentals）、
+ * 一个语言栈包（见 stackPackFor）、计算机基础包各一个角色，名额在 topics.ts 里按角色分配，
+ * 栈包与基础包只是点缀，不会淹没岗位本身的考点。HR 面只抽行为包。
+ */
+export function packsForTopics(input: SkillSelectionInput, packs: SkillPack[], round: string | null): TopicPack[] {
   const byName = new Map(packs.map((pack) => [pack.name, pack]));
-  if (round === "hr_interview") return byName.has(HR_PACK) ? [byName.get(HR_PACK)!] : [];
-  const hits = rankSkillPacks(input, packs).filter((pack) => pack.layer !== "base" && keywordScore(pack, input) > 0);
-  const primary = hits.find((pack) => pack.layer === "domain") ?? byName.get(FALLBACK_DOMAIN) ?? null;
-  const picked: SkillPack[] = primary ? [primary] : [];
-  for (const stack of hits.filter((pack) => pack.layer === "stack").slice(0, MAX_STACK_PACKS)) {
-    const parent = stack.parent ? byName.get(stack.parent) : null;
-    if (parent && !picked.includes(parent)) picked.push(parent);
-    picked.push(stack);
-  }
+  if (round === "hr_interview") return byName.has(HR_PACK) ? [{ pack: byName.get(HR_PACK)!, role: "domain" }] : [];
+  const domain =
+    packs
+      .filter((pack) => pack.layer === "domain")
+      .map((pack) => ({ pack, score: hits(pack, input.jobTitle) * TITLE_WEIGHT + hits(pack, input.jobDescription) * JD_WEIGHT }))
+      .filter((item) => item.score > 0)
+      .sort((left, right) => right.score - left.score)[0]?.pack ??
+    byName.get(FALLBACK_DOMAIN) ??
+    null;
+  if (!domain) return [];
+  const picked: TopicPack[] = [{ pack: domain, role: "domain" }];
+  const stack = stackPackFor(input, packs);
+  if (stack) picked.push({ pack: stack, role: "stack" });
+  const basics = byName.get(BASICS_PACK);
+  if (basics && basics !== domain) picked.push({ pack: basics, role: "basics" });
   return picked;
 }
 

@@ -123,11 +123,12 @@ export function speechForNextQuestion(speech: string, prefix: string, question: 
 /**
  * 开题时模型给的 question 必须是那道题（areaId）的问题（可以改写）：模型偶尔把 areaId 和别的题的问题配错，
  * 一道题就会被问两遍、另一道题被顶掉。对不上就用简报里那道题的原句。
+ * 项目角度不查：那里的问题本来就该按候选人前面说的内容（他提到的模块、他的说法）改写。
  */
 export function questionForArea(state: InterviewerState, input: { areaId: string; question: string }): string {
-  const entry = areaById(state, input.areaId)?.entryQuestion;
-  if (!entry || coverage(input.question, entry) >= NEXT_QUESTION_COVERAGE_MIN) return input.question;
-  return entry;
+  const area = areaById(state, input.areaId);
+  if (!area || area.kind === "project" || coverage(input.question, area.entryQuestion) >= NEXT_QUESTION_COVERAGE_MIN) return input.question;
+  return area.entryQuestion;
 }
 
 /** 线程 note 里只有面试官自己写的才算判断。 */
@@ -254,7 +255,8 @@ function denyResume(state: InterviewerState, thread: ThreadState): InterviewerSt
       ...state.memory,
       failed: [...state.memory.failed, { areaId: thread.areaId, text: `${areaName}：${THREAD_NOTES.denied}`, turn: state.turnIndex }],
       hypotheses: state.memory.hypotheses.map((item) => {
-        const linked = state.brief.hypotheses.find((hypothesis) => hypothesis.id === item.id)?.areaId === thread.areaId;
+        const projectId = state.brief.hypotheses.find((hypothesis) => hypothesis.id === item.id)?.projectId;
+        const linked = projectId !== undefined && projectId !== null && projectId === areaById(state, thread.areaId)?.projectId;
         return linked && item.status === "open" ? { ...item, status: "refuted" as const, note: THREAD_NOTES.denied } : item;
       }),
     },
@@ -284,11 +286,13 @@ function deniedSiblings(state: InterviewerState, areaId: string): ThreadState[] 
 }
 
 /**
- * 关掉当前线程之后的状态（只算线程，不落消息）：接续动作的预算检查按它来算。
+ * 关掉当前线程之后的状态（只算线程，不落消息）：接续动作的预算检查按它来算，
+ * 所以 verdict 与跳过状态要和真正关线程时一致（基础题的连败就靠它们数）。
  * 否定简历时同项目的其余领域也已标记跳过，接续不会再开到它们。
  */
-function afterClose(state: InterviewerState, thread: ThreadState, intent: CandidateIntent): InterviewerState {
-  const closed = updateThread(state, { ...thread, status: "closed", closedAtTurn: state.turnIndex });
+function afterClose(state: InterviewerState, thread: ThreadState, intent: CandidateIntent, verdict: ThreadVerdict | null): InterviewerState {
+  const skipped = intent === "skip";
+  const closed = updateThread(state, { ...thread, status: skipped ? "skipped" : "closed", verdict: skipped ? null : verdict, closedAtTurn: state.turnIndex });
   return intent === "deny" ? { ...closed, threads: [...closed.threads, ...deniedSiblings(closed, thread.areaId)] } : closed;
 }
 
@@ -331,7 +335,7 @@ export function ruleTurn(state: InterviewerState, candidate: CandidateInput | nu
   if (action?.name === "close_thread") {
     // 关掉一段之后紧接着开下一段或收尾，候选人不用面对一句"到这里"却没有下文。
     // 模型自己紧接着做的下一步优先；没有或不被允许时由代码决定。
-    const closed = afterClose(state, activeThread(state)!, candidate?.intent ?? null);
+    const closed = afterClose(state, activeThread(state)!, candidate?.intent ?? null, action.input.verdict);
     const wanted = plan.kind === "model" ? decision.followUp ?? null : null;
     next = wanted && canDo(closed, wanted).ok ? wanted : fallbackAction(closed);
     if (wanted && next !== wanted) replaced.push({ requested: wanted.name, applied: next.name, reason: "接续动作不被允许" });

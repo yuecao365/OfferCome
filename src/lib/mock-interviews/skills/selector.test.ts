@@ -38,24 +38,29 @@ test("the job decides the domain: a backend resume applying to a frontend job st
   assert.equal(names[baseCount], "frontend", "岗位对应的领域包排在最前");
 });
 
-test("topic packs: the job's domain pack comes first, one resume stack follows with its parent, HR rounds only use behavioral", async () => {
+test("topic packs by role: the job's domain pack, the resume's stack when the JD lists several languages, cs-fundamentals as basics; HR rounds only use behavioral", async () => {
   const packs = await loadSkillPacks();
-  assert.deepEqual(packsForTopics(javaBackend, packs, "first_interview").map((pack) => pack.name), ["backend", "backend-java"]);
-  // Agent 岗 + Python 简历：领域包是 ai-llm，栈包只补一个，父级 backend 跟着进来但排在后面。
-  const agent = packsForTopics(
-    { jobTitle: "Agent开发工程师 - 豆包", jobDescription: "负责 Agent 技术研发，Memory 机制、RAG、工具调用；熟练掌握 Python/Java/Go 至少一门语言。", resumeText: "Python 写的 Agent Harness，FastAPI 服务。" },
-    packs,
-    "first_interview",
-  ).map((pack) => pack.name);
-  assert.equal(agent[0], "ai-llm");
-  assert.equal(agent.filter((name) => packs.find((pack) => pack.name === name)?.layer === "stack").length, 1);
-  assert.deepEqual(packsForTopics(javaBackend, packs, "hr_interview").map((pack) => pack.name), ["behavioral"]);
+  const roles = (input: Parameters<typeof packsForTopics>[0], round: string | null = "first_interview") =>
+    packsForTopics(input, packs, round).map((item) => [item.role, item.pack.name]);
+  // Java 简历投没点名语言的后端岗：栈包跟简历走。
+  assert.deepEqual(roles(javaBackend), [["domain", "backend"], ["stack", "backend-java"], ["basics", "cs-fundamentals"]]);
+  // Agent 岗 + JD 罗列 Python/Java/Go + Python 简历：领域包 ai-llm，栈包按简历取 Python，不再把 backend 父包拉进来。
+  const agent = roles({
+    jobTitle: "Agent开发工程师 - 豆包",
+    jobDescription: "负责 Agent 技术研发，Memory 机制、RAG、工具调用；熟练掌握 Python/Java/Go 至少一门语言。",
+    resumeText: "Python 写的 Agent Harness，FastAPI 服务。",
+  });
+  assert.deepEqual(agent, [["domain", "ai-llm"], ["stack", "backend-python"], ["basics", "cs-fundamentals"]]);
+  // JD 明确点名一门语言：不看简历。
+  const named = roles({ jobTitle: "Go 后端开发", jobDescription: "熟悉 goroutine 与 channel。", resumeText: "熟悉 Java、Spring Boot。" });
+  assert.deepEqual(named[1], ["stack", "backend-go"]);
+  assert.deepEqual(roles(javaBackend, "hr_interview"), [["domain", "behavioral"]]);
 });
 
-test("topic packs fall back to cs-fundamentals when nothing matches", async () => {
+test("topic packs fall back to cs-fundamentals as the domain when nothing matches, without a duplicate basics pack", async () => {
   const packs = await loadSkillPacks();
-  const names = packsForTopics({ jobTitle: "xyzzy", jobDescription: "无", resumeText: "无" }, packs, null).map((pack) => pack.name);
-  assert.deepEqual(names, ["cs-fundamentals"]);
+  const picked = packsForTopics({ jobTitle: "xyzzy", jobDescription: "无", resumeText: "无" }, packs, null);
+  assert.deepEqual(picked.map((item) => [item.role, item.pack.name]), [["domain", "cs-fundamentals"]]);
 });
 
 test("packs for the interview follow the brief order and bring in parents", async () => {

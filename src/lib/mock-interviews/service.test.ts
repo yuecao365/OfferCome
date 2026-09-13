@@ -50,7 +50,7 @@ function defaultBlueprint() {
 }
 
 function briefStub(): InterviewBrief {
-  return testBrief({ hypotheses: [{ id: "h1", text: "验证压测经历", evidence: "压测", areaId: "p1" }] });
+  return testBrief({ hypotheses: [{ id: "h1", text: "验证压测经历", evidence: "压测", projectId: "proj-1" }] });
 }
 
 mock.module("server-only", { namedExports: {} });

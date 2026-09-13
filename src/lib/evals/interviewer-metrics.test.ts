@@ -84,7 +84,7 @@ function snapshot(overrides: Partial<SessionSnapshot> = {}): SessionSnapshot {
       { id: "A1", name: "状态机", kind: "project" },
       { id: "A2", name: "消息队列", kind: "scenario" },
     ],
-    hypotheses: [{ id: "H1", text: "验证复现率", evidence: "复现率从每万单 3 次降为 0", areaId: "A1" }],
+    hypotheses: [{ id: "H1", text: "验证复现率", evidence: "复现率从每万单 3 次降为 0", projectId: "proj-1" }],
     memory: { established: [], doubtful: [], failed: [], hypotheses: [{ id: "H1", status: "refuted", note: null }] },
     messages: [
       msg(0, "interviewer", "intro_request", "请自我介绍", null),

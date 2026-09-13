@@ -16,7 +16,7 @@ import type { MockInterviewJobBlueprint } from "@/lib/mock-interviews/types";
  * 三者互不知道对方的实现。`version` 不匹配的旧文档一律丢弃重来（体验数据一次性）。
  */
 
-export const TRIAL_INTERVIEW_VERSION = 5;
+export const TRIAL_INTERVIEW_VERSION = 6;
 
 export type TrialResumeInput = {
   /** 简历全文，备课的主要素材。 */

@@ -4,8 +4,8 @@ import test from "node:test";
 import { testBrief } from "@/lib/test-support/interview-brief";
 
 import { detectCandidateIntent } from "./actions";
-import { PROBE_LIMIT } from "./brief";
-import { canAct, canClose, currentPhase, phaseEnd, questionTurnsUsed, safetyCap } from "./budget";
+import { PROBE_LIMIT, probeLimitFor } from "./brief";
+import { canAct, canClose, currentPhase, failureStreak, phaseEnd, QUICK_GIVE_UP_STREAK, questionTurnsUsed, safetyCap } from "./budget";
 import { applyMemoryPatch, emptyMemory } from "./memory";
 import { applyTurn, FALLBACK_SPEECH, fallbackAction, HINT_MAX_CHARS, planTurn, ruleTurn, speechForNextQuestion, THREAD_NOTES, type TurnDecision } from "./reducer";
 import { threadSegment } from "./segments";
@@ -58,12 +58,14 @@ test("阶段顺序：自我介绍后是项目阶段，只能开项目题；项�
   assert.equal(moved.decision.followUp, "open_thread");
 });
 
-test("项目题最多追 3 层：越界的追问换成关线程开下一题；模型的话必须落到下一题上", () => {
+test("项目题按角度追：模块深挖最多 3 层，越界的追问换成关线程开下一题；模型的话必须落到下一题上", () => {
   let state = opened();
-  for (let index = 0; index < PROBE_LIMIT.project; index += 1) {
+  const limit = probeLimitFor(state.brief.areas[0]);
+  assert.equal(limit, 3);
+  for (let index = 0; index < limit; index += 1) {
     state = applyTurn(state, answer(), probe("记忆系统", `再往下一层 ${index}？`)).state;
   }
-  assert.equal(activeThread(state)?.depth, PROBE_LIMIT.project);
+  assert.equal(activeThread(state)?.depth, limit);
   assert.equal(canAct(state, "probe").ok, false);
   const proposal = probe("补充", "第四层？");
   const ruling = ruleTurn(state, answer("还有一点补充。"), proposal);
@@ -96,8 +98,8 @@ test("基础题一题一问：最多追一层，第二次追问换成关线程�
 test("阶段预算是累计的：基础阶段的时间到了，追问被拒、只能开场景题；提前结束的阶段把回合顺延给下一阶段", () => {
   let state = opened();
   state = applyTurn(state, answer(), close()).state; // q1 active，项目阶段只用了 1 回合
-  // 项目预算 8 只用了 1，基础阶段的截止仍是累计值：1 + 8 + 7 = 16。
-  assert.equal(phaseEnd(state, "quick"), 16);
+  // 项目预算 10 只用了 1，基础阶段的截止仍是累计值：1 + 10 + 6 = 17。
+  assert.equal(phaseEnd(state, "quick"), 17);
   let guard = 0;
   while (questionTurnsUsed(state) < phaseEnd(state, "quick") && guard < 30) {
     guard += 1;
@@ -195,7 +197,7 @@ test("否定简历：只在项目题上算否认，记失守、否定该题的�
   const sibling = { ...state.brief.areas[0], id: "p2", name: "同项目另一面" };
   state = {
     ...state,
-    brief: { ...state.brief, areas: [state.brief.areas[0], sibling, ...state.brief.areas.slice(1)], hypotheses: [{ id: "H1", text: "验证提速", evidence: "响应时间下降 40%", areaId: "p1" }] },
+    brief: { ...state.brief, areas: [state.brief.areas[0], sibling, ...state.brief.areas.slice(1)], hypotheses: [{ id: "H1", text: "验证提速", evidence: "响应时间下降 40%", projectId: "proj-1" }] },
     memory: { ...state.memory, hypotheses: [{ id: "H1", status: "open", note: null }] },
   };
   const intent = detectCandidateIntent("这个其实是瞎写的，没做过");
@@ -243,7 +245,7 @@ test("面试官自己关的项目题里还有没验证的假设：note 后面记
   const state = opened();
   const withHypothesis: InterviewerState = {
     ...state,
-    brief: { ...state.brief, hypotheses: [{ id: "H1", text: "问基线", evidence: "响应时间下降 40%", areaId: "p1" }] },
+    brief: { ...state.brief, hypotheses: [{ id: "H1", text: "问基线", evidence: "响应时间下降 40%", projectId: "proj-1" }] },
     memory: { ...state.memory, hypotheses: [{ id: "H1", status: "open", note: null }] },
   };
   const closed = applyTurn(withHypothesis, answer(), close("answered", "答到位"));
@@ -280,6 +282,35 @@ test("开题的问题必须是那道题的问题：模型把 areaId 和别的题
   assert.ok(result.newMessages.at(-1)!.content.endsWith(active.entryQuestion));
 });
 
+test("基础题连续答不上够多就不再问基础题：卡住 / 跳过 / failed 都算连败，答上一题清零；到阈值直接进场景题", () => {
+  const pool = ["缓存一致性", "MySQL 索引", "消息队列可靠投递", "HTTP 缓存", "TCP 握手", "索引下推"].map((name, index) => ({ ...testBrief().areas[1], id: `q${index + 1}`, name, entryQuestion: `${name}？` }));
+  const brief = testBrief({ areas: [testBrief().areas[0], ...pool, testBrief().areas.at(-1)!] });
+  let state = applyTurn(fresh(brief), null, say("")).state;
+  state = applyTurn(state, answer("自我介绍"), say("", { name: "open_thread", input: { areaId: "p1", question: P1_QUESTION } })).state;
+  state = applyTurn(state, answer(), close()).state; // q1 进行中
+  state = applyTurn(state, { id: "s1", content: "不会", intent: "hint" }, say("")).state; // q1 卡住 → q2
+  state = applyTurn(state, { id: "s2", content: "跳过", intent: "skip" }, say("")).state; // q2 跳过 → q3
+  state = applyTurn(state, answer("不知道"), close("failed")).state; // q3 failed → q4
+  assert.equal(failureStreak(state, "quick"), 3);
+  const recovered = applyTurn(state, answer("先看缓存命中率。"), close("answered")).state; // q4 答上 → 清零
+  assert.equal(failureStreak(recovered, "quick"), 0);
+  state = applyTurn(state, answer("不知道"), close("failed")).state; // q4 → q5
+  assert.equal(currentPhase(state), "quick", "还差一题才到阈值");
+  state = applyTurn(state, { id: "s5", content: "不会", intent: "hint" }, say("")).state; // q5 → 连败 5
+  assert.equal(failureStreak(state, "quick"), QUICK_GIVE_UP_STREAK);
+  assert.equal(currentPhase(state), "scenario", "基础阶段放弃，直接进场景题");
+  assert.equal(activeThread(state)?.areaId, "s1");
+  assert.equal(canAct(state, "open_thread", { areaId: "q6" }).ok, false);
+});
+
+test("项目角度的问题不按简报原句校验：模型按候选人说过的模块改写也照用；基础题仍要落在那道题上", () => {
+  let state = applyTurn(fresh(), null, say("")).state;
+  const rewritten = "你刚说主循环里最麻烦的是工具回填，那这一段具体怎么做的？";
+  state = applyTurn(state, answer("自我介绍"), say(rewritten, { name: "open_thread", input: { areaId: "p1", question: rewritten } })).state;
+  assert.equal(activeThread(state)?.entryQuestion, rewritten);
+  assert.equal(state.messages.at(-1)?.content, rewritten);
+});
+
 test("memory patches accumulate per area and only touch known hypotheses", () => {
   const brief = testBrief();
   const memory = applyMemoryPatch(emptyMemory(brief), { established: ["会用 Redis 做缓存"], doubtful: [], failed: [], hypotheses: [{ id: "ghost", status: "confirmed", note: null }] }, { turn: 3, areaId: "q1" });
@@ -289,7 +320,7 @@ test("memory patches accumulate per area and only touch known hypotheses", () =>
 
 test("the safety cap only counts question turns and forces a close when reached", () => {
   const state = opened();
-  assert.equal(safetyCap(state), Math.round((1 + 8 + 7 + 3) * 1.5) + 4);
+  assert.equal(safetyCap(state), Math.round((1 + 10 + 6 + 3) * 1.5) + 4);
   const capped: InterviewerState = {
     ...state,
     messages: [

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { compoundQuestionReason, parseThreadVerdict } from "./actions";
+import { compoundQuestionReason, detectCandidateIntent, parseThreadVerdict } from "./actions";
 
 test("一次只问一个问题：两个以上问号或“分别”并列子问题算复合问题", () => {
   assert.equal(compoundQuestionReason("你们的工具是怎么注册的？"), null);
@@ -16,4 +16,8 @@ test("verdict 只认三个枚举值", () => {
   assert.equal(parseThreadVerdict("thin"), "thin");
   assert.equal(parseThreadVerdict("great"), null);
   assert.equal(parseThreadVerdict(null), null);
+});
+
+test("想结束的说法都算结束：别问了 / 不想答了 / 算了吧", () => {
+  for (const text of ["别问了", "不想答了", "算了吧", "我们结束吧"]) assert.equal(detectCandidateIntent(text), "end", text);
 });

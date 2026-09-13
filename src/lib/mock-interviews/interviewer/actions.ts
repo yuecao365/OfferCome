@@ -77,11 +77,11 @@ export type InterviewerAction = {
 
 export const ACTION_DESCRIPTIONS: Record<ModelActionName | "note", string> = {
   open_thread:
-    `开一道新题：areaId 是当前阶段可开的那些（项目切入点 / 题池里的基础题 / 场景题），question 是你要问的话（可以改写措辞，不改问的内容）。一次只能有一个进行中的线程，若当前线程还没结束，先 close_thread。question ${SINGLE_QUESTION_RULE}`,
+    `开一道新题：areaId 是当前阶段可开的那些（项目的一个角度 / 题池里的基础题 / 场景题），question 是你要问的话。项目角度的问题可以按候选人前面说过的内容改写（他提到的模块、他自己的说法）；基础题与场景题可以改措辞，不改问的内容。一次只能有一个进行中的线程，若当前线程还没结束，先 close_thread。question ${SINGLE_QUESTION_RULE}`,
   probe:
     `顺着候选人刚才的回答往下追问，仍在当前这道题里。anchor 填候选人上一条回答里的原话片段（追问要从它出发），question 是追问本身，${SINGLE_QUESTION_RULE}lastAnswer 写你对上一条回答的判断：substantive 有实质内容，thin 只有关键词或空话（只追一次，让他展开）。不要复述评分标准或期望信号。`,
   close_thread:
-    "这道题到此为止（答得充分、或已失守、或阶段时间到了）：note 写你对这段的判断——答到哪一层、哪句答得好、哪里失守；verdict 必须写候选人答得怎么样（answered 有实质回答 / thin 只有关键词或空话 / failed 一句没答上）。之后的回合里这段只剩这句 note，对话原文不再保留。同一回合紧接着 open_thread 或 close_interview。",
+    "这道题（项目的这个角度 / 基础题 / 场景题）到此为止（答得充分、或已失守、或阶段时间到了）：note 写你对这段的判断——答到哪一层、哪句答得好、哪里失守；verdict 必须写候选人答得怎么样（answered 有实质回答 / thin 只有关键词或空话 / failed 一句没答上）。之后的回合里这段只剩这句 note，对话原文不再保留。同一回合紧接着 open_thread 或 close_interview。",
   close_interview: "各阶段都走完、或候选人明显无法继续时收尾。",
   note: "更新你的工作记忆：本回合新确认的、存疑的、失守的要点，以及简历假设的验证状态。可与一个推进动作同时使用。",
 };
@@ -114,7 +114,7 @@ export const CANDIDATE_INTENT_PLACEHOLDERS: Record<ButtonIntent, string> = {
 };
 
 const INTENT_PATTERNS: Array<[NonNullable<CandidateIntent>, RegExp]> = [
-  ["end", /(结束|到此为止|不想继续|先到这|今天就到这|end the interview)/i],
+  ["end", /(结束|到此为止|不想继续|先到这|今天就到这|别问了|不想答|不想回答|不面了|算了吧|end the interview)/i],
   ["deny", /(瞎写|乱写|没做过|没有做过|不是我做的|不是我写的|没参与|是编的|写错了|简历.*不(对|准确|属实))/],
   ["skip", /(跳过|下一题|换一题|换个问题|pass|skip)/i],
   ["repeat", /(再说一遍|重复一下|没听清|没看清|repeat)/i],

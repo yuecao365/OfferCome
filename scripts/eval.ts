@@ -845,7 +845,7 @@ async function loadSnapshot(sessionId: string, item: EvalCase, rep: number, driv
     rep,
     status: session.status,
     pace: brief.pace,
-    areas: brief.areas.map((area) => ({ id: area.id, name: area.name, kind: area.kind })),
+    areas: brief.areas.map((area) => ({ id: area.id, name: area.name, kind: area.kind, angle: area.angle })),
     hypotheses: brief.hypotheses,
     memory: parseStoredMemory(session.memoryJson, brief),
     messages: session.messages.map((message) => ({

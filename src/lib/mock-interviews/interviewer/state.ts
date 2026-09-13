@@ -77,10 +77,12 @@ export function threadKind(state: InterviewerState, thread: ThreadState): AreaKi
   return areaById(state, thread.areaId)?.kind ?? "quick";
 }
 
-/** 挂在这个领域上、还没验证的简历假设。 */
+/** 这道题所属项目上还没验证的简历假设（项目的任何角度里都能验）；不是项目题时为空。 */
 export function openHypotheses(state: InterviewerState, areaId: string) {
+  const projectId = areaById(state, areaId)?.projectId;
+  if (!projectId) return [];
   const status = new Map(state.memory.hypotheses.map((item) => [item.id, item.status]));
-  return state.brief.hypotheses.filter((item) => item.areaId === areaId && (status.get(item.id) ?? "open") === "open");
+  return state.brief.hypotheses.filter((item) => item.projectId === projectId && (status.get(item.id) ?? "open") === "open");
 }
 
 export function threadOfArea(state: InterviewerState, areaId: string): ThreadState | null {

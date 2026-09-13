@@ -1,8 +1,8 @@
-# 面试中：一个回合是怎么跑完的（v8，按阶段组织）
+# 面试中：一个回合是怎么跑完的（v9，按阶段与角度组织）
 
 > 上一篇：[面试开始前](interview-flow-before.md) · 下一篇：[面试后](interview-flow-after.md)
 > 代码：`src/app/api/interviews/mock/[id]/turn/route.ts`（接口）→ `interviewer/session.ts`（装配与落库）→ `turn.ts`（回合核心：定分支 → 决定 → 裁决 → 说话 → reducer）→ `turn-agent.ts`（两次模型调用）→ `prompt.ts`（提示词）→ `reducer.ts`（分支与裁决）→ `budget.ts`（阶段与预算）→ `progress.ts`（阶段进度）→ `memory.ts` / `segments.ts` / `state.ts`。前端 `components/interviews/mock-interview-chat.tsx`；决策记录页 `interviews/mock/[id]/trace`。
-> 为什么改成按阶段组织：[interview-phases-plan.md](interview-phases-plan.md) §0。
+> 为什么改成按阶段组织：[interview-phases-plan.md](interview-phases-plan.md) §0；为什么项目按角度、题池按配额、基础题连败退出：[interview-realism-plan.md](interview-realism-plan.md) §2–3。
 
 ## 0. 总览
 
@@ -69,15 +69,17 @@ phase      opening | running | ended
 
 ### 1.2 阶段与预算（`budget.ts`）
 
-| 阶段（kind） | 方法 | 追问上限 `PROBE_LIMIT` | 提示 | 总分权重 `KIND_WEIGHT` |
+| 阶段（kind） | 方法 | 追问上限 | 提示 | 总分权重 `KIND_WEIGHT` |
 |---|---|---|---|---|
-| project 项目深挖 | 顺着候选人的话追：做了什么、你做的哪部分、为什么这么选、怎么量、出过什么问题；验证简历假设；可以换切入点 | 3 | 1 次 | 3 |
-| quick 基础快问 | 从题池取题，一题一问；答得实质可追一层；关键词或答不上直接下一题 | 1 | 无 | 1 |
+| project 项目深挖 | 一个项目按角度走弧线（overview 背景与架构 → module 模块深挖 → hardest 最难的问题 → outcome 效果与预期 → redo 取舍与重做；主项目五段、第二项目两段）。每个角度一条线程：顺着候选人的话追、验证简历假设（挂在项目上，任何角度都能验）；答薄两次或答不上就关这个角度开下一个——广度靠换角度 | 按角度 `probeLimitFor`：module 3，其余 2 | 每角度 1 次 | 3 |
+| quick 基础快问 | 从题池取题，一题一问；答得实质可追一层；关键词或答不上直接下一题；连续答不上就换方向（提示词），连续 `QUICK_GIVE_UP_STREAK`=5 道就结束这个阶段（代码） | 1 | 无 | 1 |
 | scenario 场景题 | 一道来自 JD 的开放题，引导式追问（guides 是引导阶梯） | 3 | 1 次 | 2 |
 
-预算按阶段给**提问回合数**（`brief.plan`，节奏决定：quick 5/4/2，standard 8/7/3，deep 13/10/7），**累计计算**：`phaseEnd(kind)` = 开场 1 + 到该阶段为止的预算之和。一个阶段提前结束（候选人跳过、题问完），剩下的回合自动顺延给下一阶段；一个阶段到时（已提问次数 ≥ phaseEnd），进行中的线程不能再追、只能关掉进下一阶段。
+预算按阶段给**提问回合数**（`brief.plan`，节奏决定：quick 6/4/2，standard 10/6/3，deep 15/9/7），**累计计算**：`phaseEnd(kind)` = 开场 1 + 到该阶段为止的预算之和。一个阶段提前结束（候选人跳过、题问完、基础题放弃），剩下的回合自动顺延给下一阶段；一个阶段到时（已提问次数 ≥ phaseEnd），进行中的线程不能再追、只能关掉进下一阶段。
 
-`currentPhase`：有进行中的线程就是它的阶段；否则按顺序找第一个"已提问次数 < phaseEnd 且还有题没开"的阶段；都没有就该收尾（null）。题池比基础阶段的预算大一倍，永远不会没题。
+`currentPhase`：有进行中的线程就是它的阶段；否则按顺序找第一个"已提问次数 < phaseEnd、还有题没开、且没放弃"的阶段；都没有就该收尾（null）。题池比基础阶段的预算大一倍，永远不会没题。
+
+**候选人状态的出口**（`failureStreak` / `quickGivenUp`）：基础阶段从最后一条线程往前数连续的"卡住 / 跳过 / 面试官判 failed"，答上一题清零；到 5 就不再开基础题，直接进场景题。场景题也失败（提示过再卡住）就收尾。真实面试官三四道连续答不上会换方向或收短，不会把题池问完。
 
 深度由回答决定：模型在 probe 里自报对上一条回答的判断（`lastAnswer`：substantive / thin），代码据此守门（§4.2）；线程里连续的 thin 记在 `thinStreak`。
 
@@ -86,7 +88,8 @@ phase      opening | running | ended
 | 常量 | 值 | 作用 |
 |---|---|---|
 | safetyCap | round(预计回合 × 1.5) + 4 | 提问回合的安全上限，到了只能收尾；预计回合 = 开场 + 各阶段预算 |
-| PROBE_LIMIT | project 3 / quick 1 / scenario 3 | 每种线程的追问层数上限 |
+| probeLimitFor | 项目角度 2（module 3）/ quick 1 / scenario 3 | 每条线程的追问层数上限 |
+| QUICK_GIVE_UP_STREAK | 5 | 基础题连续这么多道没答上就结束基础阶段 |
 | 每线程提示 | 1 次（`hinted`），基础题 0 次 | 项目 / 场景题第二次卡住直接换题（verdict=failed）；基础题第一次卡住就换题 |
 | 每道题线程 | 1 条 | 问过的题不再开 |
 
@@ -96,12 +99,12 @@ phase      opening | running | ended
 |---|---|
 | ask_intro | 不在开场；简报 askIntro=false |
 | open_thread | 有 active 线程；到安全上限；areaId 不在简报；这道题已问过；各阶段已走完；这道题不属于当前阶段（"现在是 X 阶段，只能开这个阶段的题"） |
-| probe | 无 active；到安全上限；depth ≥ 该阶段的上限；当前阶段的时间到了（已提问 ≥ phaseEnd） |
+| probe | 无 active；到安全上限；depth ≥ 这道题的上限；当前阶段的时间到了（已提问 ≥ phaseEnd） |
 | hint | 无 active；基础题；本线程已给过提示 |
 | close_thread | 无 active |
-| close_interview | 各阶段没走完（还有进行中的线程，或还有阶段"预算没到且有题可开"），且未到安全上限 |
+| close_interview | 各阶段没走完（还有进行中的线程，或还有阶段"预算没到、有题可开、没放弃"），且未到安全上限 |
 
-候选人主动结束无视以上条件。
+候选人主动结束（"结束 / 别问了 / 不想答了 / 算了吧"等短句，`detectCandidateIntent`）无视以上条件。
 
 ### 1.4 工作记忆（`memory.ts`）
 
@@ -129,7 +132,7 @@ phase      opening | running | ended
 | 再说一遍 | fixed | 无 | "我再说一遍：" + 上一问 |
 | 结束 | fixed | close_interview（无视阶段） | 固定告别语 |
 | 卡住，项目 / 场景题，本线程没提示过 | forced | hint | 模型写提示：只给方向或缩小范围，≤ 80 字，超长截断 |
-| 卡住，已提示过；或基础题上卡住 | forced | close_thread（note"候选人卡住"，verdict=failed，记忆记失守）→ 开下一题 / 收尾 | 模型写：一句放下这题，然后问下一题 / 告别；模型失败时才用"没关系，这题我们先放一放。" + 简报原句 |
+| 卡住，已提示过；或基础题上卡住 | forced | close_thread（note"候选人卡住"，verdict=failed，记忆记失守）→ 开下一题 / 收尾 | 模型写：一句放下这题，然后问下一题 / 告别（没有下一题时不说"换一道"）；模型失败时才用"没关系，这题我们先放一放。" + 简报原句 |
 | 否定简历（只在项目题上成立；基础题 / 场景题上说"没做过"按卡住处理） | forced | close_thread（note"候选人否认简历所写内容"，verdict=failed）；记忆记失守、否定挂在该题上的假设、同项目其余切入点各写一条 skipped 线程 → 开下一题 / 收尾 | 模型写对质：逐字引用简历那句并用「」括起，同一段话带出下一题 |
 | 其余 | model | 模型决定 | 模型为裁决后的动作说话 |
 

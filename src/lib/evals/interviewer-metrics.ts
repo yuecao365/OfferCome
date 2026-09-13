@@ -1,4 +1,4 @@
-import { PROBE_LIMIT, type AreaKind, type InterviewHypothesis, type InterviewPace } from "@/lib/mock-interviews/interviewer/brief";
+import { probeLimitFor, type AreaKind, type InterviewHypothesis, type InterviewPace, type ProjectAngle } from "@/lib/mock-interviews/interviewer/brief";
 import type { InterviewMemory, MemoryPatch } from "@/lib/mock-interviews/interviewer/memory";
 import { THREAD_NOTES } from "@/lib/mock-interviews/interviewer/reducer";
 import { QUESTION_KINDS, type MessageKind, type ThreadState } from "@/lib/mock-interviews/interviewer/state";
@@ -53,7 +53,7 @@ export type SessionSnapshot = {
   rep: number;
   status: string;
   pace: InterviewPace;
-  areas: { id: string; name: string; kind: AreaKind }[];
+  areas: { id: string; name: string; kind: AreaKind; angle?: ProjectAngle | null }[];
   hypotheses: InterviewHypothesis[];
   memory: InterviewMemory;
   messages: SnapshotMessage[];
@@ -133,7 +133,7 @@ export type Assertion = { name: string; pass: boolean | null; detail: string };
 function threadDepthWithinLimit(snapshot: SessionSnapshot): Assertion {
   const over = snapshot.threads.filter((thread) => {
     const area = snapshot.areas.find((item) => item.id === thread.areaId);
-    return area ? thread.depth > PROBE_LIMIT[area.kind] : false;
+    return area ? thread.depth > probeLimitFor({ kind: area.kind, angle: area.angle ?? null }) : false;
   });
   return { name: "深度不越界", pass: over.length === 0, detail: over.map((thread) => `${thread.areaId}: ${thread.depth}`).join(", ") };
 }

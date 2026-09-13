@@ -74,8 +74,9 @@ function buildDecideTools(initial: InterviewerState, candidateContent: string | 
         }
         if (name === "probe" && fields.lastAnswer === "thin") {
           const active = activeThread(state)!;
-          if (threadKind(state, active) === "quick") return { accepted: false, reason: "基础题不追关键词回答：close_thread（verdict=thin）换下一题" };
-          if (active.thinStreak >= 1) return { accepted: false, reason: "关键词回答已经追过一次，还是关键词就 close_thread（verdict=thin）换题" };
+          const kind = threadKind(state, active);
+          if (kind === "quick") return { accepted: false, reason: "基础题不追关键词回答：close_thread（verdict=thin）换下一题" };
+          if (active.thinStreak >= 1) return { accepted: false, reason: kind === "project" ? "关键词回答已经追过一次，还是关键词就 close_thread（verdict=thin）换下一个角度" : "关键词回答已经追过一次，还是关键词就 close_thread（verdict=thin）换题" };
         }
         if (name === "probe") {
           const anchor = normalizedText(typeof fields.anchor === "string" ? fields.anchor : "");
