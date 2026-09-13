@@ -6,7 +6,7 @@ import { areaTurnCost, fallbackBrief, padAreas, plannedTurns, plannedTurnsForPac
 import { canAct, canClose, coverageComplete, probeBeforeClose, probeLimit, safetyCap } from "./budget";
 import { evidenceSummary, questionTurnsUsed } from "./evidence";
 import { applyMemoryPatch, emptyMemory } from "./memory";
-import { applyTurn, FALLBACK_SPEECH, fallbackAction, HINT_MAX_CHARS, planTurn, ruleTurn, THREAD_NOTES, type TurnDecision } from "./reducer";
+import { applyTurn, FALLBACK_SPEECH, fallbackAction, HINT_MAX_CHARS, planTurn, ruleTurn, speechForNextQuestion, THREAD_NOTES, type TurnDecision } from "./reducer";
 import { threadSegment } from "./segments";
 import { activeThread, createInterviewerState, type InterviewerState } from "./state";
 
@@ -113,15 +113,17 @@ test("open_thread then probe climbs the ladder; probing past the cap closes the 
   const next = activeThread(over.state);
   assert.ok(next && next.areaId !== "area-project");
   assert.equal(over.newMessages.at(-1)?.content, `${FALLBACK_SPEECH.transition}\n\n${next.entryQuestion}`);
-  const spoken = applyTurn(state, { id: "a9", content: "还有一点补充。", intent: null }, { ...proposal, speech: "这块到这里。接下来聊聊工具调用：你们的工具是怎么注册的？" });
-  assert.equal(spoken.newMessages.at(-1)?.content, "这块到这里。接下来聊聊工具调用：你们的工具是怎么注册的？");
+  // 模型的话可以改写切入问题，但必须落在它上面（speechForNextQuestion）。
+  const rewritten = `这块到这里。${next.entryQuestion.replace("请结合你的经历谈谈", "接下来聊聊")}`;
+  const spoken = applyTurn(state, { id: "a9", content: "还有一点补充。", intent: null }, { ...proposal, speech: rewritten });
+  assert.equal(spoken.newMessages.at(-1)?.content, rewritten);
 });
 
 test("closing a thread yields a segment with entry question, probes and concatenated answers", () => {
   let state = applyTurn(fresh(), null, say("")).state;
   state = applyTurn(state, { id: "m1", content: "自我介绍", intent: null }, say("切入问题？", { name: "open_thread", input: { areaId: "area-1", question: "切入问题？" } })).state;
   state = applyTurn(state, { id: "m2", content: "第一段回答", intent: null }, probe("第一段", "追问一")).state;
-  const closed = applyTurn(state, { id: "m3", content: "第二段回答", intent: null }, say("", { name: "close_thread", input: { note: "机制清楚，取舍偏弱" } }));
+  const closed = applyTurn(state, { id: "m3", content: "第二段回答", intent: null }, say("", { name: "close_thread", input: { note: "机制清楚，取舍偏弱", verdict: "answered" } }));
   const effect = closed.effects.find((e) => e.type === "thread_closed");
   assert.ok(effect && effect.type === "thread_closed");
   assert.equal(effect.segment.question, "切入问题？\n追问 1：追问一");
@@ -133,15 +135,15 @@ test("closing a thread yields a segment with entry question, probes and concaten
 test("每个领域只考察一次：开过的领域不能再开，领域用尽后兜底收尾", () => {
   let state = opened();
   assert.equal(canAct(state, "open_thread", { areaId: "area-1" }).ok, false, "有线程进行中时不能开");
-  state = applyTurn(state, { id: "c1", content: "回答", intent: null }, say("", { name: "close_thread", input: { note: "ok" } })).state;
+  state = applyTurn(state, { id: "c1", content: "回答", intent: null }, say("", { name: "close_thread", input: { note: "ok", verdict: "answered" } })).state;
   assert.equal(canAct(state, "open_thread", { areaId: "area-project" }).ok, false);
   assert.equal(canAct(state, "open_thread", { areaId: "area-project" }).ok, false);
   // 每回合关线程，代码替它开下一个没考察过的领域，领域用尽后收尾；模型没说话时最后一条是固定告别语。
-  let result = applyTurn(state, { id: "c2", content: "回答", intent: null }, say("", { name: "close_thread", input: { note: "ok" } }));
+  let result = applyTurn(state, { id: "c2", content: "回答", intent: null }, say("", { name: "close_thread", input: { note: "ok", verdict: "answered" } }));
   let guard = 0;
   while (result.state.phase !== "ended" && guard < 12) {
     guard += 1;
-    result = applyTurn(result.state, { id: `c${guard + 2}`, content: "回答", intent: null }, say("", { name: "close_thread", input: { note: "ok" } }));
+    result = applyTurn(result.state, { id: `c${guard + 2}`, content: "回答", intent: null }, say("", { name: "close_thread", input: { note: "ok", verdict: "answered" } }));
   }
   assert.equal(result.state.phase, "ended");
   assert.equal(result.newMessages.at(-1)?.content, FALLBACK_SPEECH.closeInterview);
@@ -184,7 +186,7 @@ test("结束：无视信息量直接收尾，进行中的线程切段；结束�
   assert.equal(after.newMessages.length, 0);
 });
 
-test("卡住：第一次由模型给提示（只给方向、超长截断），第二次关线程记失守并换题", () => {
+test("卡住：第一次由模型给提示（只给方向、超长截断），第二次关线程记失守、由模型说换题的话", () => {
   const state = opened();
   assert.deepEqual(planTurn(state, "hint"), { kind: "forced", action: { name: "hint", input: {} }, task: "hint" });
   const hinted = applyTurn(state, { id: "h1", content: "不太懂", intent: detectCandidateIntent("不太懂") }, say("想想超时的情况。"));
@@ -198,15 +200,23 @@ test("卡住：第一次由模型给提示（只给方向、超长截断），�
   const tooLong = applyTurn(state, { id: "h0", content: "提示", intent: "hint" }, say("字".repeat(HINT_MAX_CHARS * 3)));
   assert.ok(tooLong.newMessages.at(-1)!.content.length <= HINT_MAX_CHARS * 2 + 2);
 
-  assert.deepEqual(planTurn(hinted.state, "hint"), { kind: "fixed", action: { name: "close_thread", input: { note: THREAD_NOTES.stuck } } });
-  const moved = applyTurn(hinted.state, { id: "h2", content: "再提示一下", intent: "hint" }, say("不该出现"));
+  assert.deepEqual(planTurn(hinted.state, "hint"), {
+    kind: "forced",
+    action: { name: "close_thread", input: { note: THREAD_NOTES.stuck, verdict: "failed" } },
+    task: "stuck",
+  });
+  const nextArea = hinted.state.brief.areas.find((area) => area.id !== "area-project")!;
+  const transition = `这题先放一放。${nextArea.entryQuestion.replace("请结合你的经历谈谈", "换个方向，聊聊")}`;
+  const moved = applyTurn(hinted.state, { id: "h2", content: "再提示一下", intent: "hint" }, say(transition));
   const closed = moved.effects.find((e) => e.type === "thread_closed");
-  assert.ok(closed && closed.type === "thread_closed" && closed.thread.note === THREAD_NOTES.stuck);
+  assert.ok(closed && closed.type === "thread_closed" && closed.thread.note === THREAD_NOTES.stuck && closed.thread.verdict === "failed");
   assert.ok(moved.state.memory.failed.some((entry) => entry.text.includes(THREAD_NOTES.stuck)));
   const next = activeThread(moved.state);
   assert.ok(next && next.areaId !== "area-project");
-  assert.equal(moved.newMessages.at(-1)?.content, `${FALLBACK_SPEECH.stuck}\n\n${next.entryQuestion}`);
-  assert.ok(!moved.newMessages.some((m) => m.content.includes("不该出现")));
+  // 换题的话由模型说；模型没说话时才用固定措辞 + 简报切入问题。
+  assert.equal(moved.newMessages.at(-1)?.content, transition);
+  const silent = applyTurn(hinted.state, { id: "h2", content: "再提示一下", intent: "hint" }, say(""));
+  assert.equal(silent.newMessages.at(-1)?.content, `${FALLBACK_SPEECH.stuck}\n\n${next.entryQuestion}`);
   // 从提示到换题正好两回合。
   assert.equal(closed.thread.closedAtTurn! - hinted.newMessages.at(-1)!.turnIndex + 1, 2);
 });
@@ -231,7 +241,8 @@ test("否定简历：记失守、否定该领域的假设、同项目其余领�
   // 场景题上说"没做过"不是否认简历，按卡住处理。
   const scenario = { ...state, threads: state.threads.map((thread) => ({ ...thread, areaId: "area-1" })) };
   assert.deepEqual(planTurn(scenario, "deny"), planTurn(scenario, "hint"));
-  const confronted = applyTurn(state, { id: "d1", content: "这个其实是瞎写的，没做过", intent }, say("简历上写着「响应时间下降 40%」，但你说没做过。我们换个方向：你们的工具是怎么注册的？"));
+  const nextEntry = state.brief.areas.find((area) => area.id !== areaId && area.id !== "area-sibling")!.entryQuestion;
+  const confronted = applyTurn(state, { id: "d1", content: "这个其实是瞎写的，没做过", intent }, say(`简历上写着「响应时间下降 40%」，但你说没做过。我们换个方向：${nextEntry}`));
   assert.equal(confronted.newMessages[0].kind, "aside");
   const closed = confronted.effects.filter((e) => e.type === "thread_closed");
   assert.equal(closed.length, 2, "本线程关闭 + 同项目领域标记跳过");
@@ -293,13 +304,13 @@ test("最少追一层：没追到目标深度且还能追问时关线程要先�
     memory: { ...state.memory, hypotheses: [{ id: "H1", status: "open", note: null }] },
   };
   assert.match(probeBeforeClose(withHypothesis) ?? "", /简历假设 H1 还没验证/);
-  const closedWithOpen = applyTurn(withHypothesis, { id: "c0", content: "回答", intent: null }, say("", { name: "close_thread", input: { note: "答到位" } }));
+  const closedWithOpen = applyTurn(withHypothesis, { id: "c0", content: "回答", intent: null }, say("", { name: "close_thread", input: { note: "答到位", verdict: "answered" } }));
   const effect = closedWithOpen.effects.find((e) => e.type === "thread_closed");
   assert.equal(effect?.type === "thread_closed" && effect.thread.note, "答到位（没验证到 H1）");
   const verified: InterviewerState = { ...withHypothesis, memory: { ...withHypothesis.memory, hypotheses: [{ id: "H1", status: "confirmed", note: null }] } };
   assert.equal(probeBeforeClose(verified), null);
   // 没有进行中的线程时不拒（卡住换题、跳过都由代码定分支，不经过决定这一步）。
-  const closed = applyTurn(state, { id: "c", content: "回答", intent: null }, say("", { name: "close_thread", input: { note: "ok" } })).state;
+  const closed = applyTurn(state, { id: "c", content: "回答", intent: null }, say("", { name: "close_thread", input: { note: "ok", verdict: "answered" } })).state;
   assert.equal(probeBeforeClose({ ...closed, threads: closed.threads.map((t) => ({ ...t, status: "closed" as const })) }), null);
 });
 
@@ -316,7 +327,7 @@ test("memory patches accumulate per area and only touch known hypotheses", () =>
 
 test("segment of a thread without answers is skipped", () => {
   const segment = threadSegment(
-    { id: "t", areaId: "a", entryQuestion: "Q", status: "closed", depth: 0, hinted: false, openedAtTurn: 1, closedAtTurn: 2, note: null },
+    { id: "t", areaId: "a", entryQuestion: "Q", status: "closed", depth: 0, hinted: false, verdict: null, openedAtTurn: 1, closedAtTurn: 2, note: null },
     [],
   );
   assert.equal(segment.skipped, true);
@@ -330,7 +341,7 @@ test("close_thread followed by the model's own open_thread opens that area with 
     { id: "m2", content: "我负责后端。", intent: null },
     {
       speech,
-      action: { name: "close_thread", input: { note: "职责清楚" } },
+      action: { name: "close_thread", input: { note: "职责清楚", verdict: "answered" } },
       followUp: { name: "open_thread", input: { areaId: "area-1", question: "你们的工具是怎么注册的？" } },
       memoryPatch: null,
     },
@@ -396,7 +407,22 @@ test("adversarial candidate messages cannot move budgets, end the interview or l
   s = applyTurn(s, { id: "h1", content: "提示", intent: "hint" }, say("提示一")).state;
   const again = applyTurn(s, { id: "h2", content: "提示", intent: "hint" }, say("提示二"));
   assert.ok(again.effects.some((e) => e.type === "thread_closed"));
-  assert.ok(!again.newMessages.some((m) => m.content.includes("提示二")));
+  assert.ok(!again.newMessages.some((m) => m.kind === "hint"));
+});
+
+test("面试官的 verdict 决定领域得分：thin 减半、failed 记 0、跳过与系统推进不带 verdict", () => {
+  let state = opened();
+  state = applyTurn(state, { id: "a1", content: "我负责后端接口。", intent: null }, probe("后端接口", "接口怎么设计的？")).state;
+  const close = (verdict: "answered" | "thin" | "failed") =>
+    applyTurn(state, { id: "a2", content: "任务完成", intent: null }, say("", { name: "close_thread", input: { note: "只给了关键词", verdict } })).state;
+  const score = (s: InterviewerState) => evidenceSummary(s).areas.find((area) => area.id === "area-project")!.score;
+  assert.ok(score(close("answered")) > 0);
+  assert.equal(score(close("thin")), score(close("answered")) / 2);
+  assert.equal(score(close("failed")), 0);
+  const thread = (s: InterviewerState) => s.threads.find((t) => t.areaId === "area-project")!;
+  assert.equal(thread(close("thin")).verdict, "thin");
+  assert.equal(thread(applyTurn(state, { id: "k", content: "跳过", intent: "skip" }, say("")).state).verdict, null);
+  assert.equal(thread(applyTurn(state, { id: "f", content: "回答", intent: null }, { speech: "", action: null, memoryPatch: null, failed: true }).state).verdict, null);
 });
 
 test("the decision record captures proposal, ruling and anchor hit", () => {
@@ -420,4 +446,22 @@ test("a brief with too few areas is padded from the fallback up to the pace mini
   assert.ok(fixed.plannedTurns <= plannedTurnsForPace("quick"));
   assert.equal(fixed.plannedTurns, plannedTurns(fixed.areas, true));
   assert.equal(padAreas(fallback, fallback), fallback);
+});
+
+test("换题的话必须落到下一领域的切入问题上：改写可以，换个问法继续问上一题就换成固定过渡 + 简报原句", () => {
+  const state = opened();
+  const next = state.brief.areas.find((area) => area.id !== "area-project")!;
+  const rewritten = `好，项目这块先到这里。${next.entryQuestion.replace("请结合你的经历谈谈", "接下来聊聊")}`;
+  assert.equal(speechForNextQuestion(rewritten, FALLBACK_SPEECH.stuck, next.entryQuestion).replaced, false);
+  const bleed = "那换个场景，用户要你把下周三上午和张三约 30 分钟并加到日历里，你会先让模型补齐哪几个字段？";
+  assert.deepEqual(speechForNextQuestion(bleed, FALLBACK_SPEECH.stuck, next.entryQuestion), {
+    content: `${FALLBACK_SPEECH.stuck}\n\n${next.entryQuestion}`,
+    replaced: true,
+  });
+  assert.equal(speechForNextQuestion("", FALLBACK_SPEECH.transition, next.entryQuestion).replaced, false, "模型没说话不算替换");
+  // 走完整回合：卡住第二次、模型还在问上一题 → 消息用简报原句，副作用记 speech_replaced。
+  const hinted = applyTurn(state, { id: "h1", content: "不太懂", intent: "hint" }, say("想想超时。")).state;
+  const moved = applyTurn(hinted, { id: "h2", content: "不知道", intent: "hint" }, say(bleed));
+  assert.ok(moved.effects.some((e) => e.type === "speech_replaced"));
+  assert.equal(moved.newMessages.at(-1)?.content, `${FALLBACK_SPEECH.stuck}\n\n${activeThread(moved.state)!.entryQuestion}`);
 });

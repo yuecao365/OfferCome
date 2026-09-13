@@ -1,4 +1,4 @@
-# 面试中：一个回合是怎么跑完的（v6）
+# 面试中：一个回合是怎么跑完的（v7）
 
 > 上一篇：[面试开始前](interview-flow-before.md) · 下一篇：[面试后](interview-flow-after.md)
 > 代码：`src/app/api/interviews/mock/[id]/turn/route.ts`（接口）→ `interviewer/session.ts`（装配与落库）→ `turn.ts`（回合核心：定分支 → 决定 → 裁决 → 说话 → reducer）→ `turn-agent.ts`（两次模型调用）→ `prompt.ts`（提示词）→ `reducer.ts`（分支与裁决）→ `budget.ts`（不变量）→ `evidence.ts`（信息量）→ `memory.ts` / `segments.ts` / `state.ts`。前端 `components/interviews/mock-interview-chat.tsx`；决策记录页 `interviews/mock/[id]/trace`。
@@ -21,7 +21,7 @@ sequenceDiagram
   S-->>R: 已有相同 clientId → 回放，不调模型
   S->>T: runInterviewerTurn(state, 候选人的话, 技能包)
   T->>D: planTurn：这回合谁做主
-  alt 代码定动作与话（跳过 / 再说一遍 / 结束 / 卡住第二次）
+  alt 代码定动作与话（跳过 / 再说一遍 / 结束）
     T-->>U: 固定措辞直接流回
   else 代码定动作、模型只写话（开场 / 一次提示 / 对质简历）或模型自己决定
     T->>M: decideTurn（只用工具，文本丢弃；代码定动作的回合跳过这步）
@@ -45,7 +45,8 @@ sequenceDiagram
 brief      冻结的简报（见上一篇；plannedTurns 是备课的预计回合，只用于安全上限）
 memory     工作记忆 { established[], doubtful[], failed[], hypotheses[{id,status,note}] }
 threads[]  { id, areaId, entryQuestion, status: active|closed|skipped,
-             depth（追问层数）, hinted（已给过一次提示）, openedAtTurn, closedAtTurn, note }
+             depth（追问层数）, hinted（已给过一次提示）, verdict（关线程时面试官对这段的判断：answered / thin / failed；跳过、系统推进关掉的为 null）,
+             openedAtTurn, closedAtTurn, note }
 messages[] { id, turnIndex, role, kind, content, threadId, toolName, metrics{composeMs, chars}? }
 turnIndex  下一回合序号 = 已有消息里最大 turnIndex + 1
 phase      opening | running | ended
@@ -67,13 +68,14 @@ phase      opening | running | ended
 ### 1.2 信息量（`evidence.ts`）
 
 ```
-领域得分 q_a = (1 + 已回答的追问层数) / (1 + 目标深度)，上限 1；跳过或一句没答记 0
+领域得分 q_a = (1 + 已回答的追问层数) / (1 + 目标深度)，上限 1；跳过或一句没答记 0；
+              关线程时面试官判定 failed 记 0、thin 减半（verdict，面试官的判断优先于按消息数数）
 领域覆盖 E   = Σ w_a · q_a / Σ w_a                （w 为备课权重）
 假设进度 H   = 已确认或已否定的假设 / 假设总数    （没有假设时 H = E）
 信息量   I   = 0.8 · E + 0.2 · H
 ```
 
-"已回答的追问层数"只数追问（probe）之后候选人给出的 kind=answer 的消息；提示与插话都不算。节奏 → 目标：quick 0.6、standard 0.75、deep 0.9。
+"已回答的追问层数"只数追问（probe）之后候选人给出的 kind=answer 的消息；提示与插话都不算。"任务完成""LLM as judge"这种关键词回答按消息数也算答了，所以 v7 起关线程的 verdict 参与计算：面试官说只有关键词就减半、没答上就记 0。节奏 → 目标：quick 0.6、standard 0.75、deep 0.9。
 
 ### 1.3 不变量（`budget.ts`，代码持有，模型改不了）
 
@@ -82,7 +84,7 @@ phase      opening | running | ended
 | 信息量目标 | 按节奏 | 达标即允许收尾 |
 | safetyCap | round(plannedTurns × 1.5) + 4 | 提问回合（开场 / 切入 / 追问）的安全上限，到了只能收尾 |
 | probeLimit(area) | min(4, depth + 1) | 线程内追问层数上限 = 目标深度 + 1 层余量 |
-| 每线程提示 | 1 次（`hinted`） | 第二次卡住直接换题 |
+| 每线程提示 | 1 次（`hinted`） | 第二次卡住直接换题（verdict=failed） |
 | 每领域线程 | 1 条 | 考察过的领域不再开 |
 
 `canAct` 的拒绝条件：
@@ -124,11 +126,11 @@ phase      opening | running | ended
 | 再说一遍 | fixed | 无 | "我再说一遍：" + 上一问 |
 | 结束 | fixed | close_interview（无视信息量） | 固定告别语 |
 | 卡住，本线程没提示过 | forced | hint | 模型写提示：只给方向或缩小范围，≤ 80 字，超长截断 |
-| 卡住，已提示过 | fixed | close_thread（note"候选人卡住"，记忆记失守）→ 开下一领域 / 收尾 | "没关系，这题我们先放一放。" + 简报切入问题 |
+| 卡住，已提示过 | forced | close_thread（note"候选人卡住"，verdict=failed，记忆记失守）→ 开下一领域 / 收尾 | 模型写：一句放下这题，然后问下一领域的切入问题 / 告别；模型失败时才用"没关系，这题我们先放一放。" + 简报切入问题 |
 | 否定简历（只在考简历项目时成立；场景题上说"没做过"按卡住处理） | forced | close_thread（note"候选人否认简历所写内容"）；记忆记失守、否定挂在该领域上的假设、同项目其余领域各写一条 skipped 线程 → 开下一领域 / 收尾 | 模型写对质：逐字引用简历那句并用「」括起，同一段话带出下一领域的切入问题 |
 | 其余 | model | 模型决定 | 模型为裁决后的动作说话 |
 
-fixed 分支不调模型，固定措辞直接流回；forced 分支跳过"决定"只做"说话"。
+fixed 分支不调模型，固定措辞直接流回；forced 分支跳过"决定"只做"说话"。v7 起固定措辞只剩候选人明确要求的操作（跳过、再说一遍、结束）与模型失败时的兜底；卡住换题和面试官自己的收尾都由模型说。
 
 ## 4. 两步模型回合（`turn-agent.ts` + `prompt.ts`）
 
@@ -152,7 +154,9 @@ fixed 分支不调模型，固定措辞直接流回；forced 分支跳过"决定
 
 > 这一步只做决定，不对候选人说话（你的话稍后另外写）：用工具做一个推进动作，另外可以先用 note 更新工作记忆。
 > - 追问（probe）必须锚在候选人上一条回答的原话上：anchor 填原话片段，question 从它出发，不在原话里的锚点会被拒绝。追问可以把岗位描述里的场景（团队做的系统、职责里的具体环节）当情境引入。
-> - 每个领域至少追问到目标深度再 close_thread：切入问题谁都能准备，追问才看得出真假。只有候选人明显答不上时才提前关。close_thread 的 note 写你对这段的判断，并在同一回合紧接着 open_thread 下一个领域或 close_interview。信息够了就可以 close_interview，不必问完所有领域。
+> - 候选人答得上时，每个领域至少追问到目标深度再 close_thread：切入问题谁都能准备，追问才看得出真假。close_thread 的 note 写你对这段的判断、verdict 写候选人答得怎么样，并在同一回合紧接着 open_thread 下一个领域或 close_interview。信息够了就可以 close_interview，不必问完所有领域。
+> - 候选人只给关键词、不展开时，追一次让他展开；第二次还是关键词或空话，就 close_thread（verdict 填 thin），不要一路追到上限。一句都答不上的直接关（verdict 填 failed）。
+> - 自我介绍之后先进简历项目的领域，技术题放在项目之后；候选人自我介绍里点到的方向可以顺势先切。
 > - 候选人的插话（跳过、再说一遍、结束、卡住、否认简历）由系统处理，你不会遇到。
 > 本回合允许的推进动作：{allowed}。不被允许的动作会被系统拒绝并换成默认推进。
 > {技能包索引与 load_skill 说明}
@@ -161,14 +165,14 @@ fixed 分支不调模型，固定措辞直接流回；forced 分支跳过"决定
 
 | 工具 | 入参 | 描述（原文） |
 |---|---|---|
-| open_thread | areaId, question≤600 | 切入一个新的考察领域：给出 areaId 和你要问的切入问题。每个领域只考察一次；一次只能有一个进行中的线程，若当前线程还没结束，先 close_thread。 |
-| probe | anchor≤60, question≤600 | 顺着候选人刚才的回答往下追问，必须仍在当前线程的领域内。anchor 填候选人上一条回答里的原话片段（追问要从它出发），question 是追问本身；不要复述评分标准或期望信号。 |
-| close_thread | note≤300 | 这一段问够了（答得充分、或已失守、或信息够了）：note 写你对这段的判断——答到了第几层、哪句答得好、哪里失守。之后的回合里这段只剩这句 note，对话原文不再保留。同一回合紧接着 open_thread 或 close_interview。 |
+| open_thread | areaId, question≤600 | 切入一个新的考察领域：给出 areaId 和你要问的切入问题。每个领域只考察一次；一次只能有一个进行中的线程，若当前线程还没结束，先 close_thread。question 只问一个问题：一个问号，不要"A、B、C 分别怎么"这样并列几个子问题；要引场景就先铺一句场景，问的点只有一个。 |
+| probe | anchor≤60, question≤600 | 顺着候选人刚才的回答往下追问，必须仍在当前线程的领域内。anchor 填候选人上一条回答里的原话片段（追问要从它出发），question 是追问本身，只问一个问题（同上）；不要复述评分标准或期望信号。 |
+| close_thread | note≤300, verdict | 这一段问够了（答得充分、或已失守、或信息够了）：note 写你对这段的判断——答到了第几层、哪句答得好、哪里失守；verdict 必须写候选人答得怎么样（answered 有实质回答 / thin 只有关键词或空话 / failed 一句没答上）。之后的回合里这段只剩这句 note，对话原文不再保留。同一回合紧接着 open_thread 或 close_interview。 |
 | close_interview | reason≤200 | 信息够了、所有领域都考察过、或候选人明显无法继续时收尾。 |
 | note | 记忆增量 | 更新你的工作记忆。可与一个推进动作同时使用。 |
 | load_skill | name | 加载一个技能包全文（与备课共用同一工具） |
 
-ask_intro 与 hint 不是模型工具，由代码触发。工具的 `execute` **不改状态**，只回答预算允不允许。**锚点硬门**：probe 的 anchor 归一化后必须是候选人这条回答的子串，不是就拒绝并让模型重来，最多两次；再不过就照常应用并在决策记录里记 anchorHit=false。**关线程前的硬门**（`budget.probeBeforeClose`）：候选人刚有实质回答、还能追问，且线程还没追到目标深度或挂在该领域上的简历假设还没验证时，本回合第一次 close_thread 被拒（"先顺着候选人的回答再追一层；确实答不上来再关"），第二次放行。面试官自己关掉仍有 open 假设的线程时，note 后面追加"（没验证到 H1）"，状态留给汇总判。接受 close_thread 后，本回合后续检查按"当前线程已关闭"的状态算。
+ask_intro 与 hint 不是模型工具，由代码触发。工具的 `execute` **不改状态**，只回答预算允不允许。**锚点硬门**：probe 的 anchor 归一化后必须是候选人这条回答的子串，不是就拒绝并让模型重来，最多两次；再不过就照常应用并在决策记录里记 anchorHit=false。**一次只问一个问题的软门**（`actions.compoundQuestionReason`）：probe / open_thread 的 question 里有两个以上问号、或用"分别"并列子问题，本回合第一次被拒（"一次只问一个问题：把最想问的那个留下"），第二次照常接受，不截断。**关线程前的硬门**（`budget.probeBeforeClose`）：候选人刚有实质回答（verdict=answered）、还能追问，且线程还没追到目标深度或挂在该领域上的简历假设还没验证时，本回合第一次 close_thread 被拒（"先顺着候选人的回答再追一层；确实答不上来再关"），第二次放行；面试官判定 thin / failed 时不拒。面试官自己关掉仍有 open 假设的线程时，note 后面追加"（没验证到 H1）"，状态留给汇总判。接受 close_thread 后，本回合后续检查按"当前线程已关闭"的状态算。
 
 最多 4 步（查技能包 ≤2 次 + note + 推进动作，被拒后可换一次），有一个被接受的推进动作就停（close_thread 之后还等它的接续）；超时 45 s，输出 ≤800 token；文本丢弃。`decisionFromOutcome`：动作取第一个被接受的推进动作，close_thread 之后紧接的 open_thread / close_interview 作为 followUp；note 取最后一次；anchorHit 由工具校验回填；全被拒绝时交最后一个给裁决兜底。
 
@@ -182,9 +186,10 @@ ask_intro 与 hint 不是模型工具，由代码触发。工具的 `execute` **
 
 系统提示词 = 共用背景 + "本回合已定：{动作描述}"：
 
-- 模型自己的动作：切入领域「X」，切入问题：「Q」/ 追问，从候选人说的「anchor」出发：「Q」/ 结束当前这段（你的判断：note），然后过渡到下一领域并问出切入问题「Q」/ 收尾。被换掉时先写"你原本提的 X 不被允许（原因），系统换成了下面的动作"。
-- 开场：只说开场白，不问别的。提示：只说提示本身，给方向或缩小范围，不给答案、不举完整例子、不超过 80 字、不另起新问题。对质：指出简历里写的与现在说的不一致，逐字引用简历那句并用「」括起，语气平和，一句话点明，然后带出下一题。
-- 说话规则（v6 收短）：默认直接问——最多一句话承接候选人刚才说的（也可以没有），然后把问题问出来；只有候选人说错 / 跑题（先一两句指出来再问）或与简历、前面的话矛盾（对质，逐字引用简历那句并用「」括起）才展开；答到关键处可以用半句点一下，不必每回合，不展开夸。像当面说话那样短：能一句话问清楚就一句话，不复述回答，不总结，不铺垫。问句可以改写措辞，不改问的内容，一次只问一个问题。不用"好的""明白"开头，不报分数、不透露评分标准与期望信号，不提"系统 / 动作 / 领域"，不用列表。
+- 模型自己的动作：切入领域「X」，切入问题：「Q」/ 追问，从候选人说的「anchor」出发：「Q」/ 结束当前这段（你的判断：note）/ 收尾。被换掉时先写"你原本提的 X 不被允许（原因），系统换成了下面的动作"。
+- 关线程的回合（v7）：上一段已经结束，不要再就它提任何问题、不要点评它；一句过渡（也可以没有），然后把下一领域的切入问题问出来（可改写措辞，不改内容），说出来的话里只能有这一个问题；或一句话收尾。这条替代了下面"说话规则"里的承接一句——之前模型会把"承接"写成对上一题的再追问，把新领域的切入问题吞掉。代码另有一道守门（`reducer.speechForNextQuestion`）：换题的话与下一领域切入问题的 3 元字符组覆盖率不到 0.3，就视为模型还在问上一题，改用固定过渡 + 简报原句，副作用记 `speech_replaced`（trace 页可见）。
+- 开场：只说开场白，不问别的。提示：只说提示本身，给方向或缩小范围，不给答案、不举完整例子、不超过 80 字、不另起新问题。卡住换题（v7）：一句话放下这题（不点评、不给答案），然后同上问下一领域的切入问题 / 收尾。对质：指出简历里写的与现在说的不一致，逐字引用简历那句并用「」括起，语气平和，一句话点明，然后带出下一题。
+- 说话规则（v6 收短，只用于切入与追问）：默认直接问——最多一句话承接候选人刚才说的（也可以没有），然后把问题问出来；只有候选人说错 / 跑题（先一两句指出来再问）或与简历、前面的话矛盾（对质，逐字引用简历那句并用「」括起）才展开；答到关键处可以用半句点一下，不必每回合，不展开夸。像当面说话那样短：能一句话问清楚就一句话，不复述回答，不总结，不铺垫。问句可以改写措辞，不改问的内容，一次只问一个问题。不用"好的""明白"开头，不报分数、不透露评分标准与期望信号，不提"系统 / 动作 / 领域"，不用列表。
 
 不给工具，输出预算 1200 token（只防跑飞，字数靠提示词收短，代码不截断；trace 页把超过 150 字的话标出来）。模型的话整段作为这回合的面试官消息；没有话（模型失败）时才用固定措辞（开场白、"好，这一块我们先到这里。" + 切入问题、告别语）。
 
@@ -198,7 +203,7 @@ ask_intro 与 hint 不是模型工具，由代码触发。工具的 `execute` **
 >   来自 JD：「{jdEvidence，有时}」 / 切入问题：… / 参考阶梯：1.…（fact） → 2.…（principle） → …
 > 当前线程：领域 [A1] …，切入问题「…」，已追问 d 层（目标 D，最多 L）{，已给过提示}。参考阶梯的下一级：…
 > {这段要验证的简历假设：[H1] 简历写「evidence」——text；… 验证到了就在 note 里把它标成 confirmed / refuted。（挂在当前领域上、仍 open 的假设，有时）}
-> 已结束的线程 / 工作记忆 / 岗位描述（≤4000 字）/ 候选人简历（≤6000 字）/ 提示词版本 interviewer-v6
+> 已结束的线程（每条带层数与 verdict 标签）/ 工作记忆 / 岗位描述（≤4000 字）/ 候选人简历（≤6000 字）/ 提示词版本 interviewer-v7
 
 评分表与期望信号不进回合提示词，面试官不知道标准答案；它能查的是技能包。两次模型调用共用一个 runId（`turn:<session>:<turnIndex>`），trace 页与评测按回合合并耗时与 token。
 
@@ -215,18 +220,18 @@ ask_intro 与 hint 不是模型工具，由代码触发。工具的 `execute` **
    | open_thread | 新线程 + question |
    | probe | depth+1 + 一条 probe |
    | hint | hinted=true + 一条 hint（超过 160 字截断） |
-   | close_thread | 关线程并切段（跳过 → skipped；卡住 / 否定简历 → 记忆记失守，否定简历另否定假设、同项目领域标记跳过）；然后**立刻**按接续开下一段 / 收尾 |
+   | close_thread | 关线程并切段，记 verdict（跳过 → skipped、无 verdict；卡住 / 否定简历 → verdict=failed、记忆记失守，否定简历另否定假设、同项目领域标记跳过）；然后**立刻**按接续开下一段 / 收尾 |
    | close_interview | 关掉 active 线程并切段 + closing；phase→ended |
    | （再说一遍） | 一条 aside 复述上一问 |
 
-一个动作一条消息：模型的话整段用，没有才按固定措辞组合。每回合产出一条**决策记录**：`{ proposed, applied, followUp, replacedReason, anchorHit }`。
+一个动作一条消息：模型的话整段用，没有才按固定措辞组合；关线程换题时模型的话必须落到下一领域的切入问题上（§4.4 的守门），否则同样按固定措辞组合。每回合产出一条**决策记录**：`{ proposed, applied, followUp, replacedReason, anchorHit }`。
 
 ## 6. 落库（`session.persistTurn`，一个事务）
 
 1. 并发保护：同一 turnIndex 已有消息则整个事务失败
-2. 线程新增 / 更新（status、depth、hinted、closedAtTurn、note）
+2. 线程新增 / 更新（status、depth、hinted、verdict、closedAtTurn、note）
 3. 消息写入（候选人消息带 clientId 与 metricsJson）
-4. 每条本回合关闭的线程 → 兼容 `InterviewQuestion` + `Evaluation(pending)`，metadata 含 areaStyle、competencyOrigin、skillPack、depth、probeCount、hinted、answerSeconds
+4. 每条本回合关闭的线程 → 兼容 `InterviewQuestion` + `Evaluation(pending)`，metadata 含 areaStyle、competencyOrigin、skillPack、depth、probeCount、hinted、verdict、answerSeconds
 5. **`InterviewTurnDecision`**：turnIndex、runId、proposedAction、appliedAction、followUp、replacedReason、anchorHit、memoryPatchJson、evidenceBefore / evidenceAfter、skillsLoaded、effectsJson
 6. 会话：memoryJson、questionCount、startedAt；面试结束 → `status=ready_to_evaluate`
 

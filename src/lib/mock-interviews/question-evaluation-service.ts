@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { parseJsonObject, parseJsonValue } from "@/lib/json";
 
 import { generateAnswerExemplar } from "./answer-exemplar-agent";
+import { parseThreadVerdict } from "./interviewer/actions";
 import { parseStoredBrief } from "./interviewer/brief";
 import { evaluateMockInterviewQuestion } from "./question-evaluation-agent";
 import type { EvaluationThreadContext, EvaluationWeakness } from "./question-evaluation";
@@ -21,6 +22,7 @@ function threadContext(metadata: Record<string, unknown>, targetDepth: number | 
     targetDepth: targetDepth ?? metadata.depth,
     probeCount: typeof metadata.probeCount === "number" ? metadata.probeCount : metadata.depth,
     hinted: metadata.hinted === true,
+    verdict: parseThreadVerdict(metadata.verdict),
     note: typeof metadata.note === "string" ? metadata.note : null,
   };
 }

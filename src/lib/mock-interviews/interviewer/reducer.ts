@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 
-import type { CandidateIntent, InterviewerAction } from "./actions";
+import { coverage } from "@/lib/text/similarity";
+
+import type { CandidateIntent, InterviewerAction, ThreadVerdict } from "./actions";
 import { atSafetyCap, canAct, nextAreaToOpen } from "./budget";
 import { applyMemoryPatch, type MemoryPatch } from "./memory";
 import { threadSegment, type ThreadSegment } from "./segments";
@@ -41,7 +43,9 @@ export type TurnDecision = {
 export type TurnEffect =
   | { type: "thread_closed"; thread: ThreadState; segment: ThreadSegment }
   | { type: "interview_ended" }
-  | { type: "action_replaced"; requested: string | null; applied: string; reason: string };
+  | { type: "action_replaced"; requested: string | null; applied: string; reason: string }
+  /** 模型换题的话没落到下一领域的切入问题上，换成固定过渡 + 简报原句。 */
+  | { type: "speech_replaced"; reason: string };
 
 /** 每回合一条：模型提了什么、代码用了什么、为什么换。trace 页面与评测都读它。 */
 export type TurnDecisionRecord = {
@@ -66,21 +70,21 @@ export type CandidateInput = {
   metrics?: MessageMetrics | null;
 };
 
-/** 代码定动作、模型只写话时的任务：开场白、一次提示、对质简历。 */
-export type SpeechTask = "intro" | "hint" | "confront";
+/** 代码定动作、模型只写话时的任务：开场白、一次提示、卡住换题、对质简历。 */
+export type SpeechTask = "intro" | "hint" | "stuck" | "confront";
 
 /**
  * 这一回合谁做主：
  * - model：模型自己提动作并说话（正常回合）；
  * - forced：代码定动作，模型只把话说出来；
- * - fixed：代码定动作与话，不调模型（跳过 / 再说一遍 / 结束 / 卡住第二次）。
+ * - fixed：代码定动作与话，不调模型（跳过 / 再说一遍 / 结束）。
  */
 export type TurnPlan =
   | { kind: "model" }
   | { kind: "forced"; action: InterviewerAction; task: SpeechTask }
   | { kind: "fixed"; action: InterviewerAction | null };
 
-/** 面试官在没有模型话语时的固定措辞。 */
+/** 面试官在没有模型话语时的固定措辞：跳过 / 再说一遍 / 结束由代码说；其余只在模型失败时用。 */
 export const FALLBACK_SPEECH = {
   askIntro: "你好，我们开始吧。请先用一两分钟做个自我介绍，重点讲讲和这个岗位相关的经历。",
   transition: "好，这一块我们先到这里。",
@@ -103,6 +107,17 @@ export const THREAD_NOTES = {
 /** 提示只给方向；模型超出这个长度时截断兜底。 */
 export const HINT_MAX_CHARS = 80;
 const HINT_HARD_LIMIT = HINT_MAX_CHARS * 2;
+/** 换题的话至少要覆盖切入问题这么多（3 元字符组），否则视为模型还在问上一题。 */
+export const NEXT_QUESTION_COVERAGE_MIN = 0.3;
+
+/**
+ * 关线程换题时模型的话必须落到下一领域的切入问题上（可以改写，不能是上一题换个问法）：
+ * 覆盖不到就用固定过渡 + 简报原句。模型没说话不算替换。
+ */
+export function speechForNextQuestion(speech: string, prefix: string, question: string): { content: string; replaced: boolean } {
+  if (speech && coverage(speech, question) >= NEXT_QUESTION_COVERAGE_MIN) return { content: speech, replaced: false };
+  return { content: `${prefix}\n\n${question}`, replaced: speech.length > 0 };
+}
 
 /** 线程 note 里只有面试官自己写的才算判断。 */
 export function interviewerNote(note: string | null): string | null {
@@ -118,7 +133,7 @@ export function fallbackAction(state: InterviewerState): InterviewerAction {
     return { name: "ask_intro", input: {} };
   }
   if (activeThread(state)) {
-    return { name: "close_thread", input: { note: SYSTEM_CLOSE_NOTE } };
+    return { name: "close_thread", input: { note: SYSTEM_CLOSE_NOTE, verdict: null } };
   }
   if (atSafetyCap(state)) {
     return { name: "close_interview", input: { reason: "提问次数已到安全上限" } };
@@ -141,7 +156,7 @@ export function planTurn(state: InterviewerState, intent: CandidateIntent): Turn
   const denying = intent === "deny" && active && areaById(state, active.areaId)?.kind === "project";
   switch (denying ? "deny" : intent === "deny" ? "hint" : intent) {
     case "skip":
-      return { kind: "fixed", action: active ? { name: "close_thread", input: { note: THREAD_NOTES.skipped } } : fallbackAction(state) };
+      return { kind: "fixed", action: active ? { name: "close_thread", input: { note: THREAD_NOTES.skipped, verdict: null } } : fallbackAction(state) };
     case "repeat":
       return { kind: "fixed", action: null };
     case "end":
@@ -149,11 +164,11 @@ export function planTurn(state: InterviewerState, intent: CandidateIntent): Turn
     case "hint":
       if (!active) return { kind: "model" };
       return active.hinted
-        ? { kind: "fixed", action: { name: "close_thread", input: { note: THREAD_NOTES.stuck } } }
+        ? { kind: "forced", action: { name: "close_thread", input: { note: THREAD_NOTES.stuck, verdict: "failed" } }, task: "stuck" }
         : { kind: "forced", action: { name: "hint", input: {} }, task: "hint" };
     case "deny":
       if (!active) return { kind: "model" };
-      return { kind: "forced", action: { name: "close_thread", input: { note: THREAD_NOTES.denied } }, task: "confront" };
+      return { kind: "forced", action: { name: "close_thread", input: { note: THREAD_NOTES.denied, verdict: "failed" } }, task: "confront" };
     default:
       return { kind: "model" };
   }
@@ -186,6 +201,7 @@ function newThread(state: InterviewerState, areaId: string, entryQuestion: strin
     status: "active",
     depth: 0,
     hinted: false,
+    verdict: null,
     openedAtTurn: turn,
     closedAtTurn: null,
     note: null,
@@ -196,12 +212,18 @@ function updateThread(state: InterviewerState, thread: ThreadState): Interviewer
   return { ...state, threads: state.threads.map((item) => (item.id === thread.id ? thread : item)) };
 }
 
-function closeThread(state: InterviewerState, thread: ThreadState, input: { note: string | null; skipped: boolean }, messages: MessageState[]) {
+function closeThread(
+  state: InterviewerState,
+  thread: ThreadState,
+  input: { note: string | null; verdict: ThreadVerdict | null; skipped: boolean },
+  messages: MessageState[],
+) {
   const closed: ThreadState = {
     ...thread,
     status: input.skipped ? "skipped" : "closed",
     closedAtTurn: state.turnIndex,
     note: input.note ?? thread.note,
+    verdict: input.skipped ? null : input.verdict,
   };
   const segment = threadSegment(closed, [...state.messages, ...messages]);
   const finalThread = segment.skipped ? { ...closed, status: "skipped" as const } : closed;
@@ -398,7 +420,7 @@ export function applyTurn(
         // 面试官自己关的线程里还有没验证的假设：记在 note 后面，状态留给汇总判。
         const unverified = ruling.plan.kind === "model" ? openHypotheses(state, active.areaId).map((item) => item.id) : [];
         const note = unverified.length > 0 ? `${action.input.note}（没验证到 ${unverified.join("、")}）` : action.input.note;
-        const closed = closeThread(state, active, { note, skipped: intent === "skip" }, newMessages);
+        const closed = closeThread(state, active, { note, verdict: action.input.verdict, skipped: intent === "skip" }, newMessages);
         state = closed.state;
         effects.push(closed.effect);
         if (intent === "hint") {
@@ -414,14 +436,19 @@ export function applyTurn(
         }
         const prefix = intent === "skip" ? FALLBACK_SPEECH.skipped : intent === "hint" ? FALLBACK_SPEECH.stuck : FALLBACK_SPEECH.transition;
         const next = ruling.next!;
-        if (next.name === "open_thread") openThread(next.input, speech || `${prefix}\n\n${next.input.question}`);
-        else endInterview(speech || FALLBACK_SPEECH.closeInterview);
+        if (next.name === "open_thread") {
+          const said = speechForNextQuestion(speech, prefix, next.input.question);
+          if (said.replaced) effects.push({ type: "speech_replaced", reason: "换题的话没落到下一领域的切入问题上" });
+          openThread(next.input, said.content);
+        } else {
+          endInterview(speech || FALLBACK_SPEECH.closeInterview);
+        }
         break;
       }
       case "close_interview": {
         const active = activeThread(state);
         if (active) {
-          const closed = closeThread(state, active, { note: null, skipped: intent === "skip" }, newMessages);
+          const closed = closeThread(state, active, { note: null, verdict: null, skipped: intent === "skip" }, newMessages);
           state = closed.state;
           effects.push(closed.effect);
         }

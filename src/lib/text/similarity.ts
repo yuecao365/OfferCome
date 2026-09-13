@@ -15,6 +15,18 @@ export function characterNgrams(value: string): Set<string> {
   return result;
 }
 
+/** text 覆盖了 target 多少：target 的 3 元字符组里有多大比例出现在 text 里（0–1）。 */
+export function coverage(text: string, target: string): number {
+  const targetNgrams = characterNgrams(target);
+  if (targetNgrams.size === 0) return 0;
+  const textNgrams = characterNgrams(text);
+  let hit = 0;
+  for (const token of targetNgrams) {
+    if (textNgrams.has(token)) hit += 1;
+  }
+  return hit / targetNgrams.size;
+}
+
 export function questionSimilarity(left: string, right: string): number {
   const leftNgrams = characterNgrams(left);
   const rightNgrams = characterNgrams(right);

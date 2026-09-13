@@ -2,6 +2,8 @@ import { z } from "zod";
 
 import { normalizedText } from "@/lib/text/similarity";
 
+import type { ThreadVerdict } from "./interviewer/actions";
+
 /**
  * 逐题评分的纯逻辑：输入解析、输出校验、引用硬门。
  * 评分 v2：优点与短板都要落到候选人的原话上，练什么单独列；模型看得到线程深度与面试官的现场判断。
@@ -42,6 +44,8 @@ export type EvaluationThreadContext = {
   targetDepth: number;
   probeCount: number;
   hinted: boolean;
+  /** 面试官关线程时对这段的判断；跳过或系统推进关掉的为 null。 */
+  verdict: ThreadVerdict | null;
   note: string | null;
 };
 

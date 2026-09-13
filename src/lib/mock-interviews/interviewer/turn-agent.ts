@@ -8,7 +8,7 @@ import { normalizedText } from "@/lib/text/similarity";
 
 import { createSkillTools, renderSkillIndex } from "../skills/tools";
 import type { SkillPack } from "../skills/types";
-import { ACTION_DESCRIPTIONS, actionSchemas, isModelAction, MODEL_ACTIONS, type InterviewerAction } from "./actions";
+import { ACTION_DESCRIPTIONS, actionSchemas, compoundQuestionReason, isModelAction, MODEL_ACTIONS, type InterviewerAction } from "./actions";
 import { canAct, probeBeforeClose } from "./budget";
 import { buildConversation } from "./conversation";
 import { memoryPatchSchema } from "./memory";
@@ -26,6 +26,8 @@ const TURN_TIMEOUT_MS = 45_000;
 const MAX_DECIDE_STEPS = 4;
 /** 追问锚点最多被拒这么多次；再不过就照常应用并记为 anchor_missing。 */
 const ANCHOR_RETRIES = 2;
+/** 复合问题（一次问好几个）拒这么多次；再来就照常应用，不截断。 */
+const COMPOUND_QUESTION_RETRIES = 1;
 
 type DecideTools = {
   tools: ToolSet;
@@ -40,7 +42,8 @@ type DecideTools = {
  * 真正的状态变更由 reducer 在流结束后统一应用（保证原子，也保证不越权）。
  *
  * 追问的锚点在这里校验：必须是候选人这条回答里的原话，让追问贴着回答走。
- * 关线程的"最少追一层"也在这里拒一次（budget.probeBeforeClose）。
+ * 一次只问一个问题也在这里拒一次（actions.compoundQuestionReason）。
+ * 关线程的"最少追一层"也在这里拒一次（budget.probeBeforeClose），面试官判定候选人只给了关键词或没答上时不拒。
  */
 function buildDecideTools(initial: InterviewerState, candidateContent: string | null, packs: SkillPack[]): DecideTools {
   const tools: ToolSet = {};
@@ -50,6 +53,7 @@ function buildDecideTools(initial: InterviewerState, candidateContent: string | 
   const answer = normalizedText(candidateContent ?? "");
   let anchorMisses = 0;
   let anchorHit: boolean | null = null;
+  let compoundMisses = 0;
   let accepted: InterviewerAction["name"] | null = null;
   let closedThenDecided = false;
   let closeRefused = false;
@@ -59,14 +63,21 @@ function buildDecideTools(initial: InterviewerState, candidateContent: string | 
       description: ACTION_DESCRIPTIONS[name],
       inputSchema: actionSchemas[name],
       execute: async (input: unknown) => {
-        const fields = (input ?? {}) as { areaId?: unknown; anchor?: unknown };
+        const fields = (input ?? {}) as { areaId?: unknown; anchor?: unknown; question?: unknown; verdict?: unknown };
         const check = canAct(state, name, { areaId: typeof fields.areaId === "string" ? fields.areaId : undefined });
         if (!check.ok) return { accepted: false, reason: check.reason };
-        if (name === "close_thread" && !closeRefused && candidateContent !== null) {
+        if (name === "close_thread" && !closeRefused && candidateContent !== null && fields.verdict === "answered") {
           // 最少追一层：候选人刚有实质回答、线程还没追到目标深度，第一次关线程被拒，让模型改成追问。
           const reason = probeBeforeClose(state);
           if (reason) {
             closeRefused = true;
+            return { accepted: false, reason };
+          }
+        }
+        if (name === "probe" || name === "open_thread") {
+          const reason = compoundQuestionReason(typeof fields.question === "string" ? fields.question : "");
+          if (reason && compoundMisses < COMPOUND_QUESTION_RETRIES) {
+            compoundMisses += 1;
             return { accepted: false, reason };
           }
         }

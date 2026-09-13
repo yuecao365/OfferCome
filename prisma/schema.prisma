@@ -258,6 +258,8 @@ model InterviewThread {
   status        String               @default("active")
   depth         Int                  @default(0)
   hinted        Boolean              @default(false)
+  /// 面试官关线程时对这段的判断：answered / thin / failed；跳过或系统推进关掉的为 null。
+  verdict       String?
   openedAtTurn  Int
   closedAtTurn  Int?
   note          String?

@@ -16,6 +16,7 @@ import {
   buildBriefFromOutput,
   fallbackBrief,
   MAX_AREAS,
+  maxAreasPerProject,
   PACE_PLAN,
   padAreas,
   type InterviewBrief,
@@ -23,7 +24,7 @@ import {
 } from "./brief";
 const BRIEF_TIMEOUT_MS = 90_000;
 /** 备课提示词版本，独立于面试官提示词；变更备课规则时升级。 */
-export const BRIEF_PROMPT_VERSION = "brief-v9";
+export const BRIEF_PROMPT_VERSION = "brief-v10";
 /** 最多加载几个技能包再产出简报：每次 load_skill 一步，最后一步出结构化结果。 */
 const BRIEF_MAX_STEPS = 5;
 
@@ -58,6 +59,10 @@ export async function generateInterviewBrief(input: {
   const askIntro = true;
   const plan = PACE_PLAN[input.pace];
   const maxTurns = plan.turns;
+  const projectRule =
+    maxAreasPerProject(input.context.projects.length) > 1
+      ? "候选人简历只有一个项目：给它两个领域（kind=project，projectId 相同），从不同模块或不同决策切入，两个领域的 depth 合计占总回合的三到四成，围绕职责、决策与结果深挖。"
+      : "候选人简历上的每个项目最多一个领域（kind=project，projectId 填 projects 里的 id），围绕它深挖职责、决策与结果。";
   const base = {
     blueprint: input.blueprint,
     pace: input.pace,
@@ -118,7 +123,7 @@ ${renderSkillIndex(index)}
 素材的合成规则：
 - JD 是这个岗位的第一依据。JD 明确要求的方向必须有领域覆盖：这类领域通过 competencyIds 绑定岗位能力蓝图里的能力，并在 jdEvidence 里逐字复制 JD 原文中最能代表这个领域的一句（不得改写，改写的会被丢弃）；切入问题要落到这句话描述的具体场景或系统里，不要泛化成通用八股。
 - JD 没写到、但这个岗位通常会考的方向，从你加载的技能包里补：这类领域 competencyIds 为空、jdEvidence 为 null，改填 baseline（skill 填包名，topic 填包里的主题名）。基线只补空，不替代 JD 明确要求的内容。
-- 候选人简历上的每个项目最多一个领域（kind=project，projectId 填 projects 里的 id），围绕它深挖职责、决策与结果。technical 领域不许挂在项目上：名称和切入问题里不要出现简历项目的名字，也不要以"你在某项目里"开头；技术题给候选人一个与项目无关的具体场景。
+- ${projectRule}项目领域排在 areas 最前面：真实一面自我介绍之后先进项目，技术题放在项目之后。technical 领域不许挂在项目上：名称和切入问题里不要出现简历项目的名字，也不要以"你在某项目里"开头；技术题给候选人一个与项目无关的具体场景。
 - technical 领域必须落到具体考点，不能是"后端基础""系统设计"这类笼统的筐：name 与 description 点名要考的机制（例如"MySQL 索引：B+ 树、回表与最左前缀""Redis 缓存一致性与击穿 / 雪崩"），阶梯每一级也写具体机制而不是"继续深入"。一个 technical 领域只覆盖技能包里的一到两个主题。
 
 备课的产物不是题目清单，而是：

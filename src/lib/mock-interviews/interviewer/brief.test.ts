@@ -139,3 +139,67 @@ test("装箱先把深度压到节奏上限，再削最深的领域，都只剩�
   assert.ok(plannedTurns(standard.areas, true) <= PACE_PLAN.standard.turns);
   assert.ok(standard.areas.every((item) => item.depth <= PACE_PLAN.standard.maxDepth));
 });
+
+test("项目领域排在最前；简历只有一个项目时允许它有两个领域，兜底假设不重复", () => {
+  const one = buildBriefFromOutput({
+    output: {
+      areas: [
+        area({ id: "a1", name: "API 设计", competencyIds: ["api"], jdEvidence: "参与 API 设计与自动化测试" }),
+        area({ id: "a2", name: "Harness 主循环", kind: "project", style: null, projectId: "p1" }),
+        area({ id: "a3", name: "分层记忆", kind: "project", style: null, projectId: "p1" }),
+        area({ id: "a4", name: "第三个", kind: "project", style: null, projectId: "p1" }),
+      ],
+      hypotheses: [],
+    },
+    blueprint,
+    jobDescription,
+    resumeText,
+    projects: projects.slice(0, 1),
+    loadedSkills: ["backend"],
+    pace: "standard",
+    round: null,
+    askIntro: true,
+  });
+  assert.deepEqual(one.areas.map((item) => item.id), ["a2", "a3", "a1"]);
+  assert.deepEqual(one.droppedAreas, ["第三个"]);
+  assert.deepEqual(one.hypotheses.map((item) => item.areaId), ["a2"], "同一项目的两个领域只补一条兜底假设");
+  // 两个项目时仍然每个项目一个领域，项目照样排前。
+  const two = build([
+    area({ id: "t1", name: "API 设计", competencyIds: ["api"], jdEvidence: "参与 API 设计与自动化测试" }),
+    area({ id: "p", name: "项目深挖", kind: "project", style: null, projectId: "p1" }),
+    area({ id: "p-again", name: "项目再挖", kind: "project", style: null, projectId: "p1" }),
+  ]);
+  assert.deepEqual(two.areas.map((item) => item.id), ["p", "t1"]);
+});
+
+test("项目领域排在最前；简历只有一个项目时允许它有两个领域，兜底假设不重复", () => {
+  const one = buildBriefFromOutput({
+    output: {
+      areas: [
+        area({ id: "a1", name: "API 设计", competencyIds: ["api"], jdEvidence: "参与 API 设计与自动化测试" }),
+        area({ id: "a2", name: "Harness 主循环", kind: "project", style: null, projectId: "p1" }),
+        area({ id: "a3", name: "分层记忆", kind: "project", style: null, projectId: "p1" }),
+        area({ id: "a4", name: "第三个", kind: "project", style: null, projectId: "p1" }),
+      ],
+      hypotheses: [],
+    },
+    blueprint,
+    jobDescription,
+    resumeText,
+    projects: projects.slice(0, 1),
+    loadedSkills: ["backend"],
+    pace: "standard",
+    round: null,
+    askIntro: true,
+  });
+  assert.deepEqual(one.areas.map((item) => item.id), ["a2", "a3", "a1"]);
+  assert.deepEqual(one.droppedAreas, ["第三个"]);
+  assert.deepEqual(one.hypotheses.map((item) => item.areaId), ["a2"], "同一项目的两个领域只补一条兜底假设");
+  // 两个项目时仍然每个项目一个领域，项目照样排前。
+  const two = build([
+    area({ id: "t1", name: "API 设计", competencyIds: ["api"], jdEvidence: "参与 API 设计与自动化测试" }),
+    area({ id: "p", name: "项目深挖", kind: "project", style: null, projectId: "p1" }),
+    area({ id: "p-again", name: "项目再挖", kind: "project", style: null, projectId: "p1" }),
+  ]);
+  assert.deepEqual(two.areas.map((item) => item.id), ["p", "t1"]);
+});

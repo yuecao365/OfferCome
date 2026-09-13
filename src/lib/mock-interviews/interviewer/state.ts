@@ -1,3 +1,4 @@
+import type { ThreadVerdict } from "./actions";
 import type { InterviewBrief } from "./brief";
 import type { InterviewMemory } from "./memory";
 
@@ -17,6 +18,8 @@ export type ThreadState = {
   depth: number;
   /** 这条线程已经给过一次提示（每线程只给一次）。 */
   hinted: boolean;
+  /** 关线程时面试官对这段的判断（answered / thin / failed）；进行中、跳过、系统推进关掉的为 null。 */
+  verdict: ThreadVerdict | null;
   openedAtTurn: number;
   closedAtTurn: number | null;
   note: string | null;

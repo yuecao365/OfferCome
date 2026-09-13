@@ -7,7 +7,8 @@ import { threadOfArea, type InterviewerState, type MessageState, type ThreadStat
  * 面试的长短由它决定，不由回合数决定：候选人卡住、面试官给提示，
  * 都不产生信息量，也就不消耗面试。
  *
- *   领域得分 q_a = (1 + 已回答的追问层数) / (1 + 目标深度)，上限 1；跳过或一句都没答记 0
+ *   领域得分 q_a = (1 + 已回答的追问层数) / (1 + 目标深度)，上限 1；跳过或一句都没答记 0；
+ *                 关线程时面试官判定 failed 记 0、thin 减半（面试官的判断优先于按消息数数）
  *   领域覆盖 E   = Σ w_a · q_a / Σ w_a
  *   假设进度 H   = 已确认或已否定的假设 / 假设总数（没有假设时 H = E）
  *   信息量   I   = 0.8 · E + 0.2 · H
@@ -46,8 +47,9 @@ export function areaScore(state: InterviewerState, areaId: string): number {
   const area = state.brief.areas.find((item) => item.id === areaId);
   if (!area) return 0;
   const thread = threadOfArea(state, areaId);
-  if (!thread || !threadAnswered(thread, state.messages)) return 0;
-  return Math.min(1, (1 + answeredDepth(thread, state.messages)) / (1 + area.depth));
+  if (!thread || !threadAnswered(thread, state.messages) || thread.verdict === "failed") return 0;
+  const byDepth = Math.min(1, (1 + answeredDepth(thread, state.messages)) / (1 + area.depth));
+  return thread.verdict === "thin" ? byDepth / 2 : byDepth;
 }
 
 export type EvidenceSummary = {

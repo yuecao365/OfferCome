@@ -1,3 +1,4 @@
+import { THREAD_VERDICT_LABELS, type ThreadVerdict } from "./actions";
 import type { AreaKind, InterviewArea, RubricItem } from "./brief";
 import type { MessageState, ThreadState } from "./state";
 
@@ -48,6 +49,8 @@ export type SegmentMetadata = {
   depth: number;
   probeCount: number;
   hinted: boolean;
+  /** 面试官关线程时对这段的判断；跳过或系统推进关掉的为 null。 */
+  verdict: ThreadVerdict | null;
   answerSeconds: number | null;
 };
 
@@ -89,6 +92,7 @@ export function segmentRecord(area: InterviewArea | null, thread: ThreadState, s
       depth: thread.depth,
       probeCount: segment.probeCount,
       hinted: thread.hinted,
+      verdict: thread.verdict,
       answerSeconds: segment.answerSeconds,
     },
   };
@@ -96,6 +100,7 @@ export function segmentRecord(area: InterviewArea | null, thread: ThreadState, s
 
 /** 给提示词看的已结束线程摘要：不带原文，只带判断。 */
 export function closedThreadSummary(thread: ThreadState, areaName: string): string {
-  const verdict = thread.status === "skipped" ? thread.note ?? "候选人跳过" : thread.note ?? "已结束";
-  return `- ${areaName}（${thread.depth} 层追问）：${verdict}`;
+  const note = thread.status === "skipped" ? thread.note ?? "候选人跳过" : thread.note ?? "已结束";
+  const verdict = thread.verdict ? `，${THREAD_VERDICT_LABELS[thread.verdict]}` : "";
+  return `- ${areaName}（${thread.depth} 层追问${verdict}）：${note}`;
 }

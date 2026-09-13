@@ -71,6 +71,7 @@ import {
 import { compareMetrics, gitState, renderMetricTable, type MetricValue, type RunEnvelope } from "../src/lib/evals/report";
 import { simulateCandidateReply, type TranscriptLine } from "../src/lib/evals/simulator";
 import { parseJsonValue } from "../src/lib/json";
+import { parseThreadVerdict } from "../src/lib/mock-interviews/interviewer/actions";
 import { evidenceTargetForPace, parseStoredBrief, type InterviewBrief } from "../src/lib/mock-interviews/interviewer/brief";
 import { BRIEF_PROMPT_VERSION, generateInterviewBrief } from "../src/lib/mock-interviews/interviewer/brief-agent";
 import { INTERVIEWER_PROMPT_VERSION } from "../src/lib/mock-interviews/interviewer/prompt";
@@ -191,6 +192,7 @@ async function scorerSources(limit: number, existing: Set<string>, evalTag: stri
         targetDepth: area?.depth ?? Number(metadata.depth ?? 1),
         probeCount: Number(metadata.probeCount ?? 0),
         hinted: metadata.hinted === true,
+        verdict: parseThreadVerdict(metadata.verdict),
         note: typeof metadata.note === "string" ? metadata.note : null,
       },
     });
@@ -229,7 +231,7 @@ async function scorerSourcesFromBriefs(existing: Set<string>, limit: number): Pr
           question: [area.entryQuestion.trim(), ...area.ladder.map((rung, index) => `追问 ${index + 1}：${rung.text.trim()}`)].join("\n"),
           rubric: area.rubric,
           expectedSignals: area.expectedSignals,
-          thread: { depth: area.ladder.length, targetDepth: area.depth, probeCount: area.ladder.length, hinted: false, note: null },
+          thread: { depth: area.ladder.length, targetDepth: area.depth, probeCount: area.ladder.length, hinted: false, verdict: null, note: null },
         });
       }
       console.log(`${role} / ${jdId}：${brief.areas.filter((area) => area.kind === "technical").length} 道`);
@@ -827,6 +829,7 @@ async function loadSnapshot(sessionId: string, item: EvalCase, rep: number, driv
       status: thread.status as SnapshotThread["status"],
       depth: thread.depth,
       hinted: thread.hinted,
+      verdict: parseThreadVerdict(thread.verdict),
       openedAtTurn: thread.openedAtTurn,
       closedAtTurn: thread.closedAtTurn,
       note: thread.note,

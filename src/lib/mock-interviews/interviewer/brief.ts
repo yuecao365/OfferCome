@@ -14,7 +14,8 @@ import type { MockInterviewJobBlueprint } from "../types";
  *
  * v5 起备课是**广度优先**：每个领域一次机会（面试中不回访），所以宁可多几个方向、每个浅一点。
  * 领域的来源有两种：JD（绑定蓝图能力，并带 JD 原文逐字片段 jdEvidence）和岗位基线（baseline：
- * 模型从加载的技能包里补的"这个岗位通常会考的方向"）。每个简历项目最多一个领域，技术领域不挂在项目上。
+ * 模型从加载的技能包里补的"这个岗位通常会考的方向"）。每个简历项目最多一个领域（简历只有一个项目时两个，
+ * 从不同模块切入），技术领域不挂在项目上。项目领域排在最前：真实一面自我介绍之后先进项目。
  * 评分表按领域类型与风格由代码给定（开场前冻结，是公平性的锚点），
  * 简历假设逐字引用简历原文（硬门），切入问题与深度阶梯由模型给出。
  */
@@ -81,6 +82,16 @@ export type LadderStyle = (typeof LADDER_STYLES)[number];
 export const MAX_AREA_DEPTH = 4;
 export const MAX_HYPOTHESES = 6;
 export const MAX_AREAS = 6;
+
+/** 每个简历项目最多几个领域：只有一个项目时给两个（不同模块 / 决策），项目才占得到真实一面的三四成。 */
+export function maxAreasPerProject(projectCount: number): number {
+  return projectCount < 2 ? 2 : 1;
+}
+
+/** 项目领域排到最前（相对顺序不变）：自我介绍之后先进项目，代码兜底开领域也按这个顺序。 */
+export function projectsFirst<T extends { kind: AreaKind }>(areas: T[]): T[] {
+  return [...areas.filter((area) => area.kind === "project"), ...areas.filter((area) => area.kind !== "project")];
+}
 /** 一个领域的预计回合：切入问题 + 追问；提示不占回合。 */
 export function areaTurnCost(depth: number): number {
   return depth + 1;
@@ -148,7 +159,7 @@ export const briefOutputSchema = z.object({
         /** 只有 technical 领域有意义；其他类型填 null。 */
         style: z.enum(AREA_STYLES).nullable(),
         description: z.string().min(1).max(300),
-        /** project 领域围绕哪个简历项目（projects[].id）；其他类型填 null。每个项目最多一个领域。 */
+        /** project 领域围绕哪个简历项目（projects[].id）；其他类型填 null。每个项目最多一个领域（简历只有一个项目时两个）。 */
         projectId: z.string().min(1).max(60).nullable(),
         /** 绑定的蓝图能力（JD 来源）；基线领域可以为空。 */
         competencyIds: z.array(z.string().min(1).max(40)).max(6),
@@ -348,8 +359,9 @@ function anchoredProject<T extends { id: string; name: string; description?: str
 
 /**
  * 模型产出 → 冻结的简报。规则全部由代码把关：
- * - 每个简历项目最多一个 project 领域（projectId 去重，挂在不存在的项目上视为无项目）；
- * - technical 领域不挂在项目上：切入问题点名了简历项目、或用第二人称引出项目描述里的具体内容，就并入该项目的领域（没有时转成 project 领域），否则丢弃；
+ * - 每个简历项目最多一个 project 领域，简历只有一个项目时两个（挂在不存在的项目上视为无项目）；
+ * - technical 领域不挂在项目上：切入问题点名了简历项目、或用第二人称引出项目描述里的具体内容，就并入该项目的领域（还有名额时转成 project 领域），否则丢弃；
+ * - 项目领域排到最前；
  * - JD 来源的领域必须带逐字的 jdEvidence，否则视为无来源；基线来源必须是本次加载过的技能包；
  * - 假设的简历证据必须逐字出现在简历里；project 领域没有假设时代码从简历里兜底一条；
  * - 最后按节奏装箱，丢掉的领域名记进 droppedAreas。
@@ -370,7 +382,8 @@ export function buildBriefFromOutput(input: {
   const resume = normalizedText(input.resumeText);
   const projectsById = new Map(input.projects.map((project) => [project.id, project]));
   const seenAreaIds = new Set<string>();
-  const usedProjects = new Set<string>();
+  const projectAreaCount = new Map<string, number>();
+  const perProject = maxAreasPerProject(input.projects.length);
   const dropped: string[] = [];
 
   const candidates: InterviewArea[] = [];
@@ -388,11 +401,12 @@ export function buildBriefFromOutput(input: {
       }
     }
     if (kind === "project") {
-      if (!projectId || usedProjects.has(projectId)) {
+      const count = projectId ? projectAreaCount.get(projectId) ?? 0 : perProject;
+      if (!projectId || count >= perProject) {
         dropped.push(raw.name);
         continue;
       }
-      usedProjects.add(projectId);
+      projectAreaCount.set(projectId, count + 1);
     }
     const style = normalizeStyle(kind, raw.style);
     const boundCompetencies = raw.competencyIds.filter((id) => competencyIds.has(id));
@@ -409,7 +423,7 @@ export function buildBriefFromOutput(input: {
     });
   }
 
-  const planned = planAreas(candidates, input.pace, input.askIntro);
+  const planned = planAreas(projectsFirst(candidates), input.pace, input.askIntro);
   const areas = planned.areas;
   const areaIds = new Set(areas.map((area) => area.id));
   // 模型没挂领域的假设：证据句落在简历里哪个项目的段落（最近一个在它前面出现的项目名），就挂到那个项目的领域上，面试中开线程时才带得上。
@@ -432,7 +446,8 @@ export function buildBriefFromOutput(input: {
     if (area.kind !== "project" || !area.projectId || hypotheses.some((item) => item.areaId === area.id)) continue;
     const project = projectsById.get(area.projectId);
     const fallback = project ? fallbackHypothesis(input.resumeText, area, project, input.projects) : null;
-    if (fallback && hypotheses.length < MAX_HYPOTHESES) hypotheses.push(fallback);
+    // 同一项目的第二个领域会找到同一句成果：不重复补。
+    if (fallback && hypotheses.length < MAX_HYPOTHESES && !hypotheses.some((item) => item.evidence === fallback.evidence)) hypotheses.push(fallback);
   }
 
   return {
@@ -463,7 +478,7 @@ export function padAreas(brief: InterviewBrief, fallback: InterviewBrief): Inter
     if (area.projectId) return !usedProjects.has(area.projectId);
     return !area.competencyIds.some((id) => used.has(id));
   });
-  const planned = planAreas([...brief.areas, ...extras.slice(0, minAreas - brief.areas.length)], brief.pace, brief.askIntro);
+  const planned = planAreas(projectsFirst([...brief.areas, ...extras.slice(0, minAreas - brief.areas.length)]), brief.pace, brief.askIntro);
   return {
     ...brief,
     areas: planned.areas,

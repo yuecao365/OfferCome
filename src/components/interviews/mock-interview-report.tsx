@@ -3,6 +3,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { MetaText } from "@/components/ui/data-table";
 import { cn } from "@/lib/cn";
+import { THREAD_VERDICT_LABELS } from "@/lib/mock-interviews/interviewer/actions";
 import { AREA_STYLE_LABELS, type AreaStyle } from "@/lib/mock-interviews/interviewer/brief";
 import type { MockInterviewReport as ReportData } from "@/lib/mock-interviews/report";
 import type { MockInterviewView } from "@/lib/mock-interviews/types";
@@ -65,6 +66,7 @@ function AreaOverview({ session }: { session: MockInterviewView }) {
       {
         area,
         note: threads.at(-1)?.note ?? null,
+        verdict: threads.at(-1)?.verdict ?? null,
         depthReached: Math.max(0, ...threads.map((thread) => thread.depth)),
         score: answered.length > 0 ? Math.max(...answered) : null,
         skipped: threads.every((thread) => thread.status === "skipped"),
@@ -77,7 +79,7 @@ function AreaOverview({ session }: { session: MockInterviewView }) {
       <h3 className="text-sm font-semibold text-foreground">考察领域</h3>
       <p className="mt-1 text-xs text-muted-foreground">总分按领域权重加权；跳过的领域计 0 分，没问到的领域不计。</p>
       <div className="mt-3 grid gap-3">
-        {rows.map(({ area, note, depthReached, score, skipped }) => (
+        {rows.map(({ area, note, verdict, depthReached, score, skipped }) => (
           <div className="grid gap-1 border-t border-border pt-3 first:border-t-0 first:pt-0" key={area.id}>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap items-center gap-2">
@@ -87,6 +89,7 @@ function AreaOverview({ session }: { session: MockInterviewView }) {
                 <MetaText>
                   追到第 {depthReached} 层 / 目标 {area.depth} 层
                 </MetaText>
+                {verdict && verdict !== "answered" ? <Badge tone="warning">{THREAD_VERDICT_LABELS[verdict]}</Badge> : null}
               </div>
               {skipped ? <Badge tone="warning">已跳过</Badge> : score !== null ? <Score value={score} /> : null}
             </div>

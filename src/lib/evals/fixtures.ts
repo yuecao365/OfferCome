@@ -3,6 +3,8 @@ import path from "node:path";
 
 import { z } from "zod";
 
+import { THREAD_VERDICTS } from "@/lib/mock-interviews/interviewer/actions";
+
 /**
  * 评测数据（`eval/`）的 schema 与加载：JD、合成简历、人设、静态脚本、评分器蜕变用例。
  * 人设与评分器用例由 `npm run eval -- fixtures` 生成后冻结进仓库，运行时只读。
@@ -93,6 +95,7 @@ export const scorerCaseSchema = z.object({
     targetDepth: z.number().int().min(0),
     probeCount: z.number().int().min(0),
     hinted: z.boolean(),
+    verdict: z.enum(THREAD_VERDICTS).nullable().default(null),
     note: z.string().nullable(),
   }),
   answers: z.record(z.enum(SCORER_VARIANTS), z.string().min(1)),

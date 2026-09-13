@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { REAL_USAGE_INTERVIEW_WHERE } from "@/lib/interviews/types";
 import { parseJsonArray, parseJsonObject, parseJsonValue } from "@/lib/json";
 
+import { parseThreadVerdict } from "./interviewer/actions";
 import { evidenceTargetForPace, parseStoredBrief } from "./interviewer/brief";
 import { parseStoredMemory, type MemoryPatch } from "./interviewer/memory";
 import type { MessageKind, MessageRole, ThreadStatus } from "./interviewer/state";
@@ -75,7 +76,7 @@ function buildConversation(session: SessionWithConversation) {
     brief,
     status: session.status,
     startedAt: session.startedAt?.toISOString() ?? null,
-    threads: session.threads.map((thread) => ({ ...thread, status: thread.status as ThreadStatus })),
+    threads: session.threads.map((thread) => ({ ...thread, status: thread.status as ThreadStatus, verdict: parseThreadVerdict(thread.verdict) })),
     messages: session.messages.map((message) => ({ ...message, role: message.role as MessageRole, kind: message.kind as MessageKind })),
     memory: parseStoredMemory(session.memoryJson, brief),
   });

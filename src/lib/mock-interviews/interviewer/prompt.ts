@@ -13,7 +13,7 @@ import { activeThread, areaById, openHypotheses, type InterviewerState } from ".
  * 对话原文的裁剪见 conversation.ts。
  */
 
-export const INTERVIEWER_PROMPT_VERSION = "interviewer-v6";
+export const INTERVIEWER_PROMPT_VERSION = "interviewer-v7";
 const MAX_RESUME_CHARS = 6_000;
 const MAX_JD_CHARS = 4_000;
 const MAX_INLINE_CHARS = 120;
@@ -118,7 +118,9 @@ export function buildDecidePrompt(state: InterviewerState, context: PromptContex
 
 这一步只做决定，不对候选人说话（你的话稍后另外写）：用工具做一个推进动作，另外可以先用 note 更新工作记忆。
 - 追问（probe）必须锚在候选人上一条回答的原话上：anchor 填原话片段，question 从它出发，不在原话里的锚点会被拒绝。追问可以把岗位描述里的场景（团队做的系统、职责里的具体环节）当情境引入。
-- 每个领域至少追问到目标深度再 close_thread：切入问题谁都能准备，追问才看得出真假。只有候选人明显答不上时才提前关。close_thread 的 note 写你对这段的判断，并在同一回合紧接着 open_thread 下一个领域或 close_interview。信息够了就可以 close_interview，不必问完所有领域。
+- 候选人答得上时，每个领域至少追问到目标深度再 close_thread：切入问题谁都能准备，追问才看得出真假。close_thread 的 note 写你对这段的判断、verdict 写候选人答得怎么样，并在同一回合紧接着 open_thread 下一个领域或 close_interview。信息够了就可以 close_interview，不必问完所有领域。
+- 候选人只给关键词、不展开时，追一次让他展开；第二次还是关键词或空话，就 close_thread（verdict 填 thin），不要一路追到上限。一句都答不上的直接关（verdict 填 failed）。
+- 自我介绍之后先进简历项目的领域，技术题放在项目之后；候选人自我介绍里点到的方向可以顺势先切。
 - 候选人的插话（跳过、再说一遍、结束、卡住、否认简历）由系统处理，你不会遇到。
 本回合允许的推进动作：${allowedActions(state).join(", ") || "（无）"}。不被允许的动作会被系统拒绝并换成默认推进。
 ${
@@ -154,9 +156,11 @@ export function buildSpeakPrompt(state: InterviewerState, context: PromptContext
   const { head, tail } = background(state, context);
   const task = ruling.plan.kind === "forced" ? ruling.plan.task : null;
   const respond = `默认直接问：最多一句话承接候选人刚才说的（也可以没有），然后把问题问出来。只有两种情况才展开——候选人说错了或跑题了，先一两句指出来（可以直接说"这个说法不对"）再问；回答与简历或前面说过的话矛盾，当面问，逐字引用简历里的那句话并用「」括起。答到关键处可以用半句点一下，不必每回合都点，不展开夸。`;
+  // 关线程的回合：上一段到此为止，话里只能有下一领域的那一个问题（或告别）。
+  const closing = "上一段已经结束：不要再就它提任何问题，也不要点评它。";
   const nextLine = ruling.next
     ? ruling.next.name === "open_thread"
-      ? `然后自然过渡到下一领域，把这个切入问题问出来（可以改写措辞，不改问的内容）：「${ruling.next.input.question}」。`
+      ? `一句过渡（也可以没有），然后把下一领域的切入问题问出来（可以改写措辞，不改问的内容）：「${ruling.next.input.question}」。说出来的话里只能有这一个问题。`
       : "然后一句话收尾：今天的面试到这里，稍后会看到报告。"
     : "";
   let instruction: string;
@@ -164,6 +168,8 @@ export function buildSpeakPrompt(state: InterviewerState, context: PromptContext
     instruction = "本回合已定：请候选人自我介绍。一句问候，然后请候选人用一两分钟介绍与这个岗位相关的经历。不要问别的问题。";
   } else if (task === "hint") {
     instruction = `候选人在这题上卡住了。本回合已定：给一次提示。只说提示本身——给方向或缩小范围，不给答案，不举完整例子，不超过 ${HINT_MAX_CHARS} 字，不要另起新问题。`;
+  } else if (task === "stuck") {
+    instruction = `候选人在这题上卡住了，已经给过一次提示。本回合已定：放下这题，换到下一领域。你的话只有两部分——一句话放下这题（不点评、不给答案、不换个问法再问它），${closing}${nextLine}`;
   } else if (task === "confront") {
     instruction = `候选人否认了简历里的内容。本回合已定：结束这一段。先对质——指出简历里写的与他现在说的不一致，逐字引用简历里相关的那句话并用「」括起，语气平和，一句话点明即可，不追问细节；${nextLine}`;
   } else {
@@ -171,11 +177,11 @@ export function buildSpeakPrompt(state: InterviewerState, context: PromptContext
     const action = ruling.action ? describeAction(state, ruling.action) : "";
     const question =
       ruling.action?.name === "probe" || ruling.action?.name === "open_thread"
-        ? "把上面的问题问出来（可以改写措辞，不改问的内容），一次只问一个问题。"
+        ? `${respond}把上面的问题问出来（可以改写措辞，不改问的内容），一次只问一个问题。`
         : ruling.action?.name === "close_interview"
           ? "然后收尾告别：今天的面试到这里，稍后会看到报告。"
-          : nextLine;
-    instruction = `${replaced}本回合已定：${action}。${respond}${question}`;
+          : `${closing}${nextLine}`;
+    instruction = `${replaced}本回合已定：${action}。${question}`;
   }
   return `${head}
 

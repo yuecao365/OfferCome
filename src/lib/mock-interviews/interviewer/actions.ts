@@ -10,6 +10,22 @@ import { memoryPatchSchema } from "./memory";
 
 export const PROBE_ANCHOR_MAX_CHARS = 60;
 
+/** 关线程时面试官对这段的判断：有实质回答 / 只有关键词或空话 / 一句没答上。 */
+export const THREAD_VERDICTS = ["answered", "thin", "failed"] as const;
+export type ThreadVerdict = (typeof THREAD_VERDICTS)[number];
+export const THREAD_VERDICT_LABELS: Record<ThreadVerdict, string> = {
+  answered: "有实质回答",
+  thin: "只有关键词",
+  failed: "没答上",
+};
+
+/** 库里 / 载荷里的 verdict 字符串 → 枚举；不认识的当没有。 */
+export function parseThreadVerdict(value: unknown): ThreadVerdict | null {
+  return typeof value === "string" && (THREAD_VERDICTS as readonly string[]).includes(value) ? (value as ThreadVerdict) : null;
+}
+
+const SINGLE_QUESTION_RULE = "只问一个问题：一个问号，不要“A、B、C 分别怎么”这样并列几个子问题；要引场景就先铺一句场景，问的点只有一个。";
+
 export const actionSchemas = {
   ask_intro: z.object({}),
   open_thread: z.object({
@@ -25,6 +41,8 @@ export const actionSchemas = {
   close_thread: z.object({
     /** 面试官对这一段的一句判断，进工作记忆与线程备注。 */
     note: z.string().min(1).max(300),
+    /** 这段候选人答得怎么样：answered 有实质回答、thin 只有关键词或空话、failed 一句没答上。信息量按它算；只有代码推进关线程时为 null。 */
+    verdict: z.enum(THREAD_VERDICTS).nullable(),
   }),
   close_interview: z.object({
     reason: z.string().min(1).max(200),
@@ -53,14 +71,28 @@ export type InterviewerAction = {
 
 export const ACTION_DESCRIPTIONS: Record<ModelActionName | "note", string> = {
   open_thread:
-    "切入一个新的考察领域：给出 areaId 和你要问的切入问题。每个领域只考察一次；一次只能有一个进行中的线程，若当前线程还没结束，先 close_thread。",
+    `切入一个新的考察领域：给出 areaId 和你要问的切入问题。每个领域只考察一次；一次只能有一个进行中的线程，若当前线程还没结束，先 close_thread。question ${SINGLE_QUESTION_RULE}`,
   probe:
-    "顺着候选人刚才的回答往下追问，必须仍在当前线程的领域内。anchor 填候选人上一条回答里的原话片段（追问要从它出发），question 是追问本身；不要复述评分标准或期望信号。",
+    `顺着候选人刚才的回答往下追问，必须仍在当前线程的领域内。anchor 填候选人上一条回答里的原话片段（追问要从它出发），question 是追问本身，${SINGLE_QUESTION_RULE}不要复述评分标准或期望信号。`,
   close_thread:
-    "这一段问够了（答得充分、或已失守、或信息够了）：note 写你对这段的判断——答到了第几层、哪句答得好、哪里失守。之后的回合里这段只剩这句 note，对话原文不再保留。同一回合紧接着 open_thread 或 close_interview。",
+    "这一段问够了（答得充分、或已失守、或信息够了）：note 写你对这段的判断——答到了第几层、哪句答得好、哪里失守；verdict 必须写候选人答得怎么样（answered 有实质回答 / thin 只有关键词或空话 / failed 一句没答上）。之后的回合里这段只剩这句 note，对话原文不再保留。同一回合紧接着 open_thread 或 close_interview。",
   close_interview: "信息够了、所有领域都考察过、或候选人明显无法继续时收尾。",
   note: "更新你的工作记忆：本回合新确认的、存疑的、失守的要点，以及简历假设的验证状态。可与一个推进动作同时使用。",
 };
+
+const QUESTION_MARKS = /[？?]/g;
+/** “A、B 分别怎么…”：一句里并列几个子问题的典型写法。 */
+const PARALLEL_SUBQUESTIONS = /分别/;
+
+/**
+ * 一次只问一个问题：question 里有两个以上问号，或用“分别”并列子问题，就是复合问题。
+ * 返回拒绝理由；没问题为 null。工具层拒一次、第二次放行，不截断。
+ */
+export function compoundQuestionReason(question: string): string | null {
+  const marks = question.match(QUESTION_MARKS)?.length ?? 0;
+  if (marks <= 1 && !PARALLEL_SUBQUESTIONS.test(question)) return null;
+  return "一次只问一个问题：把最想问的那个留下，其余的等候选人答完再追";
+}
 
 /**
  * 候选人插话的意图，全部由代码判定并执行：

@@ -41,6 +41,7 @@ function thread(id: string, openedAtTurn: number, closedAtTurn: number | null): 
     status: closedAtTurn === null ? "active" : "closed",
     depth: 2,
     hinted: false,
+    verdict: null,
     openedAtTurn,
     closedAtTurn,
     note: "答到第二层",

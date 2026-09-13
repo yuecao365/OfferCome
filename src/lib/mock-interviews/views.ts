@@ -14,7 +14,7 @@ export function conversationView(input: {
   brief: InterviewBrief;
   status: string;
   startedAt: string | null;
-  threads: (Pick<ThreadState, "id" | "areaId" | "status" | "depth" | "hinted" | "note"> & { questionId: string | null })[];
+  threads: (Pick<ThreadState, "id" | "areaId" | "status" | "depth" | "hinted" | "verdict" | "note"> & { questionId: string | null })[];
   messages: Pick<MessageState, "id" | "turnIndex" | "role" | "kind" | "content" | "threadId">[];
   memory: InterviewMemory;
 }): MockInterviewConversation {
@@ -44,6 +44,7 @@ export function conversationView(input: {
       status: thread.status,
       depth: thread.depth,
       hinted: thread.hinted,
+      verdict: thread.verdict,
       note: interviewerNote(thread.note),
       questionId: thread.questionId,
     })),

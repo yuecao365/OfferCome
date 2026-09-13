@@ -37,7 +37,7 @@ flowchart TD
 | seedQuestionId | 可选，从复盘页或画像页"针对练习"进来时带上；真实面试与模拟面试的题都可以 |
 | applicationId | 可选，关联投递记录，并把 JD 回填到还没有描述的投递上 |
 
-创建时写入 `Interview`（kind=mock）和 `MockInterviewSession`：`jdTextSnapshot`、`resumeTextSnapshot`（原文快照，之后不再读源文件）、`contextSnapshotJson`（上下文 id 清单与生成参数，备课阶段补入蓝图）、`pace`、`promptVersion`（interviewer-v6）、`status=generating`。接口返回 `{ id, href }`，备课由 `after()` 调度的后台任务执行，页面轮询 `GET /api/interviews/mock/[id]/status`。
+创建时写入 `Interview`（kind=mock）和 `MockInterviewSession`：`jdTextSnapshot`、`resumeTextSnapshot`（原文快照，之后不再读源文件）、`contextSnapshotJson`（上下文 id 清单与生成参数，备课阶段补入蓝图）、`pace`、`promptVersion`（interviewer-v7）、`status=generating`。接口返回 `{ id, href }`，备课由 `after()` 调度的后台任务执行，页面轮询 `GET /api/interviews/mock/[id]/status`。
 
 ## 2. 装配上下文（`context.ts`）
 
@@ -110,7 +110,7 @@ areas[1..6]: {
   id, name≤60, kind: technical|project|behavioral,
   style: scenario|fundamentals|null      technical 才填
   description≤300,
-  projectId | null                       project 领域围绕哪个简历项目；每个项目最多一个领域
+  projectId | null                       project 领域围绕哪个简历项目；每个项目最多一个领域（简历只有一个项目时两个）
   competencyIds≤6                        JD 来源：绑定蓝图能力
   jdEvidence≤240 | null                  JD 来源：JD 原文逐字片段（硬门）
   baseline: { skill, topic } | null      基线来源：从哪个技能包的哪个主题补的
@@ -134,7 +134,7 @@ hypotheses[0..6]: { id, text≤300, evidence≤300（简历原文逐字）, area
 > 素材的合成规则：
 > - JD 是这个岗位的第一依据。JD 明确要求的方向必须有领域覆盖：这类领域通过 competencyIds 绑定岗位能力蓝图里的能力，并在 jdEvidence 里逐字复制 JD 原文中最能代表这个领域的一句（不得改写，改写的会被丢弃）；切入问题要落到这句话描述的具体场景或系统里，不要泛化成通用八股。
 > - JD 没写到、但这个岗位通常会考的方向，从你加载的技能包里补：这类领域 competencyIds 为空、jdEvidence 为 null，改填 baseline（skill 填包名，topic 填包里的主题名）。基线只补空，不替代 JD 明确要求的内容。
-> - 候选人简历上的每个项目最多一个领域（kind=project，projectId 填 projects 里的 id），围绕它深挖职责、决策与结果。technical 领域不许挂在项目上：名称和切入问题里不要出现简历项目的名字，也不要以"你在某项目里"开头；技术题给候选人一个与项目无关的具体场景。
+> - {项目规则：简历只有一个项目时"给它两个领域（kind=project，projectId 相同），从不同模块或不同决策切入，两个领域的 depth 合计占总回合的三到四成，围绕职责、决策与结果深挖"；否则"每个项目最多一个领域（kind=project，projectId 填 projects 里的 id），围绕它深挖职责、决策与结果"}项目领域排在 areas 最前面：真实一面自我介绍之后先进项目，技术题放在项目之后。technical 领域不许挂在项目上：名称和切入问题里不要出现简历项目的名字，也不要以"你在某项目里"开头；技术题给候选人一个与项目无关的具体场景。
 > - technical 领域必须落到具体考点，不能是"后端基础""系统设计"这类笼统的筐：name 与 description 点名要考的机制，阶梯每一级也写具体机制而不是"继续深入"。一个 technical 领域只覆盖技能包里的一到两个主题。
 >
 > 备课的产物不是题目清单，而是：
@@ -144,7 +144,7 @@ hypotheses[0..6]: { id, text≤300, evidence≤300（简历原文逐字）, area
 > 4. 期望信号：好回答会出现的要点，用于面试后评价，不会给候选人看。
 > 5. 简历假设（最多 6 条）：每个 project 领域至少一条，areaId 指向它；text 写成"面试里问什么才能验证"。每条 evidence 必须逐字复制简历原文片段，不得改写；没有依据的假设不要写。
 >
-> （brief-v9。代码兜底：project 领域没有假设时，从简历里取提到该项目、带数字或成果词的一句逐字作 evidence 补一条 `H-<areaId>`，`fallbackHypothesis`；找不到就不补。）
+> （brief-v10。代码兜底：project 领域没有假设时，从简历里取提到该项目、带数字或成果词的一句逐字作 evidence 补一条 `H-<areaId>`，`fallbackHypothesis`；找不到就不补。）
 >
 > 候选人最近几场失守的考点在 recentWeaknesses 里（说错了 / 没答上 / 要求重练，来自上几场的逐段评分）：与本岗位相关的，安排一个领域或阶梯中的一级重新验证，并在该领域的 description 里以"复测：<失守的点>"注明；与本岗位无关的忽略。
 >
@@ -153,8 +153,9 @@ hypotheses[0..6]: { id, text≤300, evidence≤300（简历原文逐字）, area
 ### 5.5 代码后处理（`buildBriefFromOutput`）
 
 1. 领域按 id 去重
-2. **每个简历项目最多一个领域**：project 领域按 projectId 去重，挂在不存在的项目上的丢弃
-3. **技术领域不挂项目**：名称或切入问题点名了简历项目名、或用第二人称（"你在 / 你把 / 你实习里…"）引出了项目描述里的具体内容（4 字片段匹配）的 technical 领域并入该项目——该项目还没有领域就转成 project 领域（评分表随之换），已有就丢弃；纯场景题里的"如果你在一个系统里"不算
+2. **每个简历项目最多一个领域，简历只有一个项目时两个**（`maxAreasPerProject`）：超出的 project 领域丢弃，挂在不存在的项目上的丢弃
+3. **技术领域不挂项目**：名称或切入问题点名了简历项目名、或用第二人称（"你在 / 你把 / 你实习里…"）引出了项目描述里的具体内容（4 字片段匹配）的 technical 领域并入该项目——该项目还有名额就转成 project 领域（评分表随之换），没有就丢弃；纯场景题里的"如果你在一个系统里"不算
+3a. **项目领域排到最前**（`projectsFirst`，v7）：装箱和面试中代码兜底开领域都按这个顺序；真实一面自我介绍之后先进项目
 4. **JD 证据硬门**：`jdEvidence` 归一化后必须逐字出现在 JD 里（与蓝图同一个 `isVerbatimEvidence`），否则 competencyIds 清空、视为无来源
 5. `baseline.skill` 必须是本次加载过的包，否则置 null（模型不能凭空声称来源）
 6. style：technical 缺省 scenario，其他类型一律 null；评分表按 kind + style 挂上（5.7）

@@ -6,7 +6,7 @@ import { scheduleMockInterviewCompletion, scheduleMockInterviewQuestionEvaluatio
 import { claimSession } from "../session-state";
 import { loadSkillPacks } from "../skills/loader";
 import { packsForInterview } from "../skills/selector";
-import type { CandidateIntent } from "./actions";
+import { parseThreadVerdict, type CandidateIntent } from "./actions";
 import { parseStoredBrief, type InterviewBrief } from "./brief";
 import { parseStoredMemory } from "./memory";
 import type { TurnResult } from "./reducer";
@@ -63,6 +63,7 @@ function toThreadState(row: LoadedSession["session"]["threads"][number]): Thread
     status: row.status as ThreadStatus,
     depth: row.depth,
     hinted: row.hinted,
+    verdict: parseThreadVerdict(row.verdict),
     openedAtTurn: row.openedAtTurn,
     closedAtTurn: row.closedAtTurn,
     note: row.note,
@@ -161,6 +162,7 @@ export async function persistTurn(
         status: thread.status,
         depth: thread.depth,
         hinted: thread.hinted,
+        verdict: thread.verdict,
         closedAtTurn: thread.closedAtTurn,
         note: thread.note,
       };

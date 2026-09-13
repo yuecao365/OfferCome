@@ -45,7 +45,7 @@ answerSeconds = 候选人各条回答 composeMs 之和（秒），没有记录�
 | Evaluation.sourceKind | 领域 kind |
 | Evaluation.rubricJson | 该领域的评分表（按 kind + style 固定，见面试前一篇） |
 | Evaluation.expectedSignalsJson | 该领域的期望信号 |
-| Evaluation.generationMetadataJson | `{ areaId, areaName, areaKind, areaStyle, competencyOrigin: jd \| baseline, skillPack, note（面试官关线程时的判断）, depth, probeCount, hinted, answerSeconds }` |
+| Evaluation.generationMetadataJson | `{ areaId, areaName, areaKind, areaStyle, competencyOrigin: jd \| baseline, skillPack, note（面试官关线程时的判断）, depth, probeCount, hinted, verdict（answered / thin / failed / null）, answerSeconds }` |
 | Evaluation.evaluationStatus | pending（跳过的段不调度评分） |
 
 代码替模型关线程（模型没给可用动作）时 note 是固定的"（由系统推进）"，报告与汇总都不把它当判断（`interviewerNote`）；候选人跳过 / 卡住 / 否定简历时的 note 也由代码固定（"候选人要求跳过""候选人卡住""候选人否认简历所写内容"）。
@@ -64,7 +64,7 @@ answerSeconds = 候选人各条回答 composeMs 之和（秒），没有记录�
 
 ### 2.2 评分 agent（`question-evaluation-agent.ts`，evaluation-v3）
 
-输入：`{ jobTitle, jobDescription≤12000, question, answer≤20000, rubric, expectedSignals, thread: { depth, targetDepth, probeCount, hinted, note }, round }`。thread 来自 metadata 与简报（targetDepth 是该领域的目标深度）；体验版的旧题库流程传 `thread: null`。
+输入：`{ jobTitle, jobDescription≤12000, question, answer≤20000, rubric, expectedSignals, thread: { depth, targetDepth, probeCount, hinted, verdict, note }, round }`。thread 来自 metadata 与简报（targetDepth 是该领域的目标深度）；体验版的旧题库流程传 `thread: null`。
 
 输出 schema：
 
@@ -174,7 +174,7 @@ advice: 补一版完整的 Agent 主循环设计稿，重点写清上下文构�
 | 表 | 何时写 | 关键字段 |
 |---|---|---|
 | MockInterviewMessage | 每回合 | turnIndex, role, kind, content, threadId, toolName, clientId, metricsJson |
-| InterviewThread | 开 / 关线程 | areaId, entryQuestion, status, depth, hinted, note, questionId |
+| InterviewThread | 开 / 关线程 | areaId, entryQuestion, status, depth, hinted, verdict, note, questionId |
 | InterviewQuestion | 线程关闭 | question, answer, category, skippedAt |
 | InterviewQuestionEvaluation | 线程关闭（pending）→ 后台（completed）→ 示范 | rubricJson, expectedSignalsJson, generationMetadataJson, dimensionsJson, score, strengthsJson, weaknessesJson, adviceJson, exemplarJson, feedback |
 | MockInterviewSession | 每回合 / 交卷 | memoryJson, questionCount, startedAt, status, totalScore, reportJson |

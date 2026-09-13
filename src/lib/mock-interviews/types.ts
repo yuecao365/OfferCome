@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import type { InterviewStatus } from "@/lib/interviews/types";
 
+import type { ThreadVerdict } from "./interviewer/actions";
 import type { InterviewHypothesis, InterviewPace } from "./interviewer/brief";
 import type { InterviewMaterials } from "./materials";
 import type { InterviewMemory } from "./interviewer/memory";
@@ -130,6 +131,8 @@ export type MockInterviewConversation = {
     status: "active" | "closed" | "skipped";
     depth: number;
     hinted: boolean;
+    /** 面试官关线程时对这段的判断（answered / thin / failed）；跳过或系统推进关掉的为 null。 */
+    verdict: ThreadVerdict | null;
     /** 面试官关掉这段时的判断；切段后对应的兼容题目。 */
     note: string | null;
     questionId: string | null;

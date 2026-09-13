@@ -58,6 +58,7 @@ function thread(id: string, areaId: string, overrides: Partial<SnapshotThread> =
     status: "closed",
     depth: 1,
     hinted: false,
+    verdict: null,
     openedAtTurn: 1,
     closedAtTurn: 3,
     note: "答到第一层",
@@ -105,6 +106,7 @@ function snapshot(overrides: Partial<SessionSnapshot> = {}): SessionSnapshot {
       thread("t2", "A2", {
         depth: 1,
         hinted: true,
+        verdict: null,
         score: 40,
         note: "ack 语义答错，失守",
         evaluation: { dimensions: [], strengths: [], weaknesses: [{ point: "ack 语义错误", quote: CLAIM, kind: "error" }], advice: [], feedback: "" },
