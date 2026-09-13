@@ -4,23 +4,22 @@ import type { ProfileDimension } from "@/lib/candidate-profile/types";
 import { isVerbatimEvidence } from "@/lib/text/evidence";
 import { normalizedText } from "@/lib/text/similarity";
 
+import type { SkillTopic } from "../skills/topics";
 import type { MockInterviewJobBlueprint } from "../types";
 
 /**
- * 面试简报（v5）：面试官的"备课"产物，替代预生成的题目清单。
+ * 面试简报（v6）：面试官的"备课"产物，按真实一面的阶段组织。
  *
- * 用户只选节奏（快/中/长）。节奏决定备课的规划规模（预计回合、每领域深度上限、领域数下限）
- * 和面试中的信息量目标（见 evidence.ts）。面试的长短由信息量决定，不由回合数决定。
+ * 一场面试 = 开场 → 项目深挖 → 基础快问 → 场景题 → 收尾。预算按阶段分（回合数），
+ * 不按题目分；阶段内的方法各不相同：项目顺着候选人的话追（最多 3 层），基础题一题一问
+ * （最多追 1 层，答不上就下一题），场景题引导式（最多 3 层）。深度不预设，由回答决定。
  *
- * v5 起备课是**广度优先**：每个领域一次机会（面试中不回访），所以宁可多几个方向、每个浅一点。
- * 领域的来源有两种：JD（绑定蓝图能力，并带 JD 原文逐字片段 jdEvidence）和岗位基线（baseline：
- * 模型从加载的技能包里补的"这个岗位通常会考的方向"）。每个简历项目最多一个领域（简历只有一个项目时两个，
- * 从不同模块切入），技术领域不挂在项目上。项目领域排在最前：真实一面自我介绍之后先进项目。
- * 评分表按领域类型与风格由代码给定（开场前冻结，是公平性的锚点），
- * 简历假设逐字引用简历原文（硬门），切入问题与深度阶梯由模型给出。
+ * 简报里的每个"领域"就是一道题的材料：项目领域带想验证的线索，基础题带一个追问方向，
+ * 场景题带引导阶梯。基础题的主题由代码从技能包抽样（skills/topics.ts），模型只写题。
+ * 评分表按阶段固定，简历假设逐字引用简历原文（硬门）。
  */
 
-export const BRIEF_VERSION = 5;
+export const BRIEF_VERSION = 6;
 
 export const INTERVIEW_PACES = ["quick", "standard", "deep"] as const;
 export type InterviewPace = (typeof INTERVIEW_PACES)[number];
@@ -35,69 +34,58 @@ export function isInterviewPace(value: string): value is InterviewPace {
   return (INTERVIEW_PACES as readonly string[]).includes(value);
 }
 
-/**
- * 节奏 → 规划规模：预计回合（一个回合 = 面试官问一次）、每领域深度上限、领域数下限。
- * 快速节奏留 13 回合是为了让 4 个领域各追 2 层都装得下：只有 1 层时弱项暴露不出来，评分分不开。
- */
-export const PACE_PLAN: Record<InterviewPace, { turns: number; maxDepth: number; minAreas: number }> = {
-  quick: { turns: 13, maxDepth: 2, minAreas: 3 },
-  standard: { turns: 20, maxDepth: 3, minAreas: 4 },
-  deep: { turns: 32, maxDepth: 3, minAreas: 5 },
-};
-
-export function plannedTurnsForPace(pace: InterviewPace): number {
-  return PACE_PLAN[pace].turns;
-}
-
-/**
- * 节奏 → 信息量目标：快速是"最重要的领域摸清楚"，深入是"所有领域到目标深度
- * 且假设基本验证完"。数字是拍的，跑几场再调。
- */
-export function evidenceTargetForPace(pace: InterviewPace): number {
-  switch (pace) {
-    case "quick":
-      return 0.6;
-    case "deep":
-      return 0.9;
-    default:
-      return 0.75;
-  }
-}
-
-export const AREA_KINDS = ["technical", "project", "behavioral"] as const;
+export const AREA_KINDS = ["project", "quick", "scenario"] as const;
 export type AreaKind = (typeof AREA_KINDS)[number];
-
-/** technical 领域的风格：从场景切入，或直接考课纲式的原理与知识点。 */
-export const AREA_STYLES = ["scenario", "fundamentals"] as const;
-export type AreaStyle = (typeof AREA_STYLES)[number];
-export const AREA_STYLE_LABELS: Record<AreaStyle, string> = {
+export const AREA_KIND_LABELS: Record<AreaKind, string> = {
+  project: "项目深挖",
+  quick: "基础快问",
   scenario: "场景题",
-  fundamentals: "基础题",
+};
+/** 阶段顺序：自我介绍之后先进项目，再问基础，最后一道场景题。 */
+export const PHASE_ORDER: readonly AreaKind[] = ["project", "quick", "scenario"];
+
+export function isAreaKind(value: unknown): value is AreaKind {
+  return typeof value === "string" && (AREA_KINDS as readonly string[]).includes(value);
+}
+
+/** 各阶段的提问回合预算；开场自我介绍另占 1 回合。 */
+export type PhaseBudget = Record<AreaKind, number>;
+
+/**
+ * 节奏 → 阶段预算与场景题数。项目占三到四成、基础题占三成多，与公开面经里的一面结构一致。
+ * 预算是软的：一个阶段提前结束，剩余回合顺延给下一阶段。
+ */
+export const PACE_PLAN: Record<InterviewPace, { budget: PhaseBudget; scenarios: number }> = {
+  quick: { budget: { project: 5, quick: 4, scenario: 2 }, scenarios: 1 },
+  standard: { budget: { project: 8, quick: 7, scenario: 3 }, scenarios: 1 },
+  deep: { budget: { project: 13, quick: 10, scenario: 7 }, scenarios: 2 },
 };
 
-/** 阶梯每一级的风格：模型备课时标注，面试中作为追问风格的参考。 */
-export const LADDER_STYLES = ["fact", "principle", "scenario", "tradeoff"] as const;
-export type LadderStyle = (typeof LADDER_STYLES)[number];
+/** 每种线程最多追问几层：基础题一题一问，项目与场景题最多三层。 */
+export const PROBE_LIMIT: Record<AreaKind, number> = { project: 3, quick: 1, scenario: 3 };
+/** 总分按线程所属阶段加权：项目 3、场景 2、基础 1。 */
+export const KIND_WEIGHT: Record<AreaKind, number> = { project: 3, quick: 1, scenario: 2 };
 
-export const MAX_AREA_DEPTH = 4;
+export const MAX_PROJECT_AREAS = 2;
 export const MAX_HYPOTHESES = 6;
-export const MAX_AREAS = 6;
+/** 题池比基础阶段的预算大一倍，永远不会没题；上限防止提示词过长。 */
+const POOL_MIN = 8;
+const POOL_MAX = 16;
+const OPENING_TURNS = 1;
+
+export function poolSizeFor(pace: InterviewPace): number {
+  return Math.min(POOL_MAX, Math.max(POOL_MIN, PACE_PLAN[pace].budget.quick * 2));
+}
+
+/** 整场的预计提问回合：开场 + 各阶段预算；只用于安全上限与进度显示。 */
+export function plannedTurns(brief: Pick<InterviewBrief, "plan" | "askIntro">): number {
+  return (brief.askIntro ? OPENING_TURNS : 0) + PHASE_ORDER.reduce((sum, kind) => sum + brief.plan[kind], 0);
+}
 
 /** 每个简历项目最多几个领域：只有一个项目时给两个（不同模块 / 决策），项目才占得到真实一面的三四成。 */
 export function maxAreasPerProject(projectCount: number): number {
-  return projectCount < 2 ? 2 : 1;
+  return projectCount < 2 ? MAX_PROJECT_AREAS : 1;
 }
-
-/** 项目领域排到最前（相对顺序不变）：自我介绍之后先进项目，代码兜底开领域也按这个顺序。 */
-export function projectsFirst<T extends { kind: AreaKind }>(areas: T[]): T[] {
-  return [...areas.filter((area) => area.kind === "project"), ...areas.filter((area) => area.kind !== "project")];
-}
-/** 一个领域的预计回合：切入问题 + 追问；提示不占回合。 */
-export function areaTurnCost(depth: number): number {
-  return depth + 1;
-}
-/** 开场自我介绍占一个回合。 */
-const OPENING_TURNS = 1;
 
 export type RubricItem = { name: string; description: string; weight: number };
 
@@ -118,8 +106,10 @@ export const PROFILE_DIMENSION_BY_RUBRIC: Record<string, ProfileDimension | null
   岗位关联: null,
 };
 
-/** 领域评分表：按类型与风格固定，同一份 JD 生成同一套，评分只对照它。 */
-export function rubricForArea(kind: AreaKind, style: AreaStyle | null): RubricItem[] {
+export const HR_ROUND = "hr_interview";
+
+/** 领域评分表：按阶段固定；HR 面的基础题与场景题考软素质，用行为评分表。 */
+export function rubricForArea(kind: AreaKind, round: string | null): RubricItem[] {
   if (kind === "project") {
     return [
       { name: "事实与细节", description: "回答包含可核验的个人职责、技术决策和实施细节。", weight: 40 },
@@ -127,71 +117,71 @@ export function rubricForArea(kind: AreaKind, style: AreaStyle | null): RubricIt
       { name: "复盘与表达", description: "结构清晰，并能说明结果、取舍和改进。", weight: 25 },
     ];
   }
-  if (kind === "technical") {
-    if (style === "fundamentals") {
-      return [
-        { name: "准确性", description: "概念、机制与边界条件说得准确，没有似是而非。", weight: 60 },
-        { name: "原理深度", description: "能讲清为什么，而不只是是什么。", weight: 25 },
-        { name: "表达结构", description: "回答层次清楚，结论有依据。", weight: 15 },
-      ];
-    }
+  if (round === HR_ROUND) {
     return [
-      { name: "技术正确性", description: "关键概念、机制和边界条件准确。", weight: 50 },
-      { name: "分析与取舍", description: "能够解释方案选择、限制及替代方案。", weight: 30 },
-      { name: "表达结构", description: "回答层次清楚，结论有依据。", weight: 20 },
+      { name: "证据充分性", description: "使用具体情境、行动和结果支持回答。", weight: 45 },
+      { name: "判断与反思", description: "说明决策依据、协作方式和复盘改进。", weight: 30 },
+      { name: "表达结构", description: "回答重点明确、逻辑连贯。", weight: 25 },
+    ];
+  }
+  if (kind === "quick") {
+    return [
+      { name: "准确性", description: "概念、机制与边界条件说得准确，没有似是而非。", weight: 60 },
+      { name: "原理深度", description: "能讲清为什么，而不只是是什么。", weight: 25 },
+      { name: "表达结构", description: "回答层次清楚，结论有依据。", weight: 15 },
     ];
   }
   return [
-    { name: "证据充分性", description: "使用具体情境、行动和结果支持回答。", weight: 45 },
-    { name: "判断与反思", description: "说明决策依据、协作方式和复盘改进。", weight: 30 },
-    { name: "表达结构", description: "回答重点明确、逻辑连贯。", weight: 25 },
+    { name: "技术正确性", description: "关键概念、机制和边界条件准确。", weight: 50 },
+    { name: "分析与取舍", description: "能够解释方案选择、限制及替代方案。", weight: 30 },
+    { name: "表达结构", description: "回答层次清楚，结论有依据。", weight: 20 },
   ];
 }
 
+const signals = z.array(z.string().min(1).max(200)).min(1).max(5);
+
 /** 发给模型的简报 schema：严格模式，全部字段 required，可空用 nullable。 */
 export const briefOutputSchema = z.object({
-  areas: z
+  projects: z
     .array(
       z.object({
-        id: z.string().min(1).max(40),
+        /** projects[].id；同一个项目最多两个切入点（简历只有一个项目时）。 */
+        projectId: z.string().min(1).max(60),
+        /** 这个切入点叫什么，例如"Study Assistant：Harness 主循环"。 */
         name: z.string().min(1).max(60),
-        kind: z.enum(AREA_KINDS),
-        /** 只有 technical 领域有意义；其他类型填 null。 */
-        style: z.enum(AREA_STYLES).nullable(),
-        description: z.string().min(1).max(300),
-        /** project 领域围绕哪个简历项目（projects[].id）；其他类型填 null。每个项目最多一个领域（简历只有一个项目时两个）。 */
-        projectId: z.string().min(1).max(60).nullable(),
-        /** 绑定的蓝图能力（JD 来源）；基线领域可以为空。 */
-        competencyIds: z.array(z.string().min(1).max(40)).max(6),
-        /** JD 来源的领域从 JD 原文逐字截取的一句：这个领域考的是 JD 里的哪句话。基线领域填 null。 */
-        jdEvidence: z.string().min(1).max(240).nullable(),
-        /** 岗位基线来源：从哪个技能包的哪个主题补的；JD 来源的领域填 null。 */
-        baseline: z
-          .object({
-            skill: z.string().min(1).max(64),
-            topic: z.string().min(1).max(80),
-          })
-          .nullable(),
-        /** 1–3，越大越重要；超预算时先砍权重低的，信息量也按它加权。 */
-        weight: z.number().min(1).max(3),
-        /** 打算追问几层（1–4）；超过节奏上限会被压回。 */
-        depth: z.number().int().min(1).max(MAX_AREA_DEPTH),
         entryQuestion: z.string().min(1).max(500),
-        /** 深度阶梯：每级一句"往下追什么"，并标出这一级的风格。 */
-        ladder: z
-          .array(
-            z.object({
-              text: z.string().min(1).max(200),
-              style: z.enum(LADDER_STYLES),
-            }),
-          )
-          .min(1)
-          .max(MAX_AREA_DEPTH),
-        expectedSignals: z.array(z.string().min(1).max(200)).min(1).max(5),
+        /** 想验证的点：追问时拿着它们顺着候选人的话去验。 */
+        leads: z.array(z.string().min(1).max(200)).min(1).max(4),
+        expectedSignals: signals,
       }),
     )
-    .min(1)
-    .max(MAX_AREAS),
+    .max(MAX_PROJECT_AREAS),
+  quick: z
+    .array(
+      z.object({
+        /** 逐字使用抽样主题名。 */
+        topic: z.string().min(1).max(80),
+        question: z.string().min(1).max(400),
+        /** 答得实质时唯一的一层追问往哪问。 */
+        followUp: z.string().min(1).max(200),
+        expectedSignals: signals,
+      }),
+    )
+    .max(POOL_MAX),
+  scenarios: z
+    .array(
+      z.object({
+        name: z.string().min(1).max(60),
+        competencyIds: z.array(z.string().min(1).max(40)).max(4),
+        /** 从 JD 原文逐字截取的一句：这道场景题落在 JD 的哪句话上；不来自 JD 时为 null。 */
+        jdEvidence: z.string().min(1).max(240).nullable(),
+        question: z.string().min(1).max(600),
+        /** 引导阶梯：候选人卡住或答到一层时，下一步往哪引。 */
+        guides: z.array(z.string().min(1).max(200)).min(1).max(3),
+        expectedSignals: signals,
+      }),
+    )
+    .max(2),
   hypotheses: z
     .array(
       z.object({
@@ -200,42 +190,50 @@ export const briefOutputSchema = z.object({
         text: z.string().min(1).max(300),
         /** 简历原文逐字片段。 */
         evidence: z.string().min(1).max(300),
-        areaId: z.string().min(1).max(40).nullable(),
+        /** 属于哪个简历项目（projects[].id）；对不上时由代码按简历段落归属。 */
+        projectId: z.string().min(1).max(60).nullable(),
       }),
     )
     .max(MAX_HYPOTHESES),
 });
 export type BriefOutput = z.infer<typeof briefOutputSchema>;
 
-export type LadderRung = { text: string; style: LadderStyle | null };
-
-export type InterviewArea = Omit<BriefOutput["areas"][number], "ladder"> & {
-  ladder: LadderRung[];
+/** 一道题的材料：项目切入点、基础题或场景题。 */
+export type InterviewArea = {
+  id: string;
+  kind: AreaKind;
+  name: string;
+  /** project 领域围绕哪个简历项目。 */
+  projectId: string | null;
+  /** 场景题绑定的岗位能力与 JD 原句；基础题与项目题为空。 */
+  competencyIds: string[];
+  jdEvidence: string | null;
+  /** 基础题来自哪个技能包的哪个主题。 */
+  topic: { skill: string; name: string } | null;
+  entryQuestion: string;
+  /** project：想验证的线索；quick：唯一一层追问的方向；scenario：引导阶梯。 */
+  guides: string[];
+  expectedSignals: string[];
   rubric: RubricItem[];
 };
-export type InterviewHypothesis = BriefOutput["hypotheses"][number];
+
+export type InterviewHypothesis = { id: string; text: string; evidence: string; areaId: string | null };
 
 export type InterviewBrief = {
   version: typeof BRIEF_VERSION;
   pace: InterviewPace;
-  /** 备课的预计回合（开场 + 各领域），只用于安全上限，不是面试的边界。 */
-  plannedTurns: number;
+  /** 各阶段的提问回合预算。 */
+  plan: PhaseBudget;
   round: string | null;
   askIntro: boolean;
+  /** 项目切入点在前，然后是题池，最后是场景题。 */
   areas: InterviewArea[];
-  /** 装箱时丢掉的领域名，报告页告诉用户"这场没问到"。 */
-  droppedAreas: string[];
   hypotheses: InterviewHypothesis[];
-  /** 备课时模型实际加载的技能包。 */
+  /** 备课用到的技能包；面试中可查。 */
   skillPacks: string[];
   /** 简报是模型产出还是代码兜底。 */
   source: "model" | "fallback";
 };
-
-/** 整份计划的预计回合：开场 + 各领域。 */
-export function plannedTurns(areas: { depth: number }[], askIntro: boolean): number {
-  return (askIntro ? OPENING_TURNS : 0) + areas.reduce((sum, area) => sum + areaTurnCost(area.depth), 0);
-}
 
 function isEvidence(haystack: string, excerpt: string): boolean {
   const needle = normalizedText(excerpt);
@@ -247,6 +245,16 @@ const METRIC_PATTERN = /\d+(\.\d+)?\s*(%|％|倍|x|ms|毫秒|秒|万|亿|条|次
 const OUTCOME_PATTERN = /提升|降低|下降|减少|优化|增长|提高|达到|支撑|覆盖|从零|独立|主导|压缩|缩短|节省/;
 const DATE_PATTERN = /\d{4}\s*年|\d{4}[.\-/]\d{1,2}|至今|现在$/;
 const MAX_EVIDENCE_CHARS = 120;
+const CJK_RUN = /[\p{Script=Han}]{4,}/gu;
+
+/** 项目名与描述里的 4 字中文片段：找不到项目名时用它们定位简历里属于这个项目的句子。 */
+function projectFingerprints(project: { name: string; description?: string }): string[] {
+  const grams = new Set<string>();
+  for (const run of `${project.name}\n${project.description ?? ""}`.match(CJK_RUN) ?? []) {
+    for (let index = 0; index + 4 <= run.length; index += 1) grams.add(run.slice(index, index + 4));
+  }
+  return [...grams];
+}
 
 /**
  * 简历里属于这个项目的段落：从项目名出现处到下一个项目名出现处；找不到项目名时退回
@@ -276,7 +284,7 @@ function projectSentences(resumeText: string, project: { name: string; descripti
  */
 export function fallbackHypothesis(
   resumeText: string,
-  area: { id: string; name: string },
+  area: { id: string },
   project: { name: string; description?: string },
   others: { name: string }[] = [],
 ): InterviewHypothesis | null {
@@ -291,331 +299,245 @@ export function fallbackHypothesis(
   };
 }
 
-type PlannableArea = { name: string; weight: number; depth: number };
+type Project = { id: string; name: string; description?: string };
 
-/**
- * 广度优先装箱：先把每个领域的深度压到节奏上限；装不下时先削最深的领域（保住领域数），
- * 领域都只剩 1 层还装不下才按权重丢掉权重最低的（同权丢模型排在后面的）。
- * 返回保留的领域（模型顺序）与丢掉的领域名。
- */
-export function planAreas<T extends PlannableArea>(
-  areas: T[],
-  pace: InterviewPace,
-  askIntro: boolean,
-): { areas: T[]; dropped: string[] } {
-  const plan = PACE_PLAN[pace];
-  const kept = areas.slice(0, MAX_AREAS).map((area) => ({ ...area, depth: Math.max(1, Math.min(area.depth, plan.maxDepth)) }));
-  const dropped = areas.slice(MAX_AREAS).map((area) => area.name);
-  const over = () => plannedTurns(kept, askIntro) - plan.turns;
+const PROJECT_LEADS = ["你负责的是哪一部分，边界在哪", "为什么这么设计、还考虑过什么方案", "出过什么问题、怎么定位的", "简历上的数字怎么来的"];
+const PROJECT_SIGNALS = ["个人职责", "技术决策与取舍", "结果与复盘"];
+/** 同一个项目的两个兜底切入点：先问职责与决策，再问事故与复盘。 */
+const PROJECT_ANGLES = [
+  { suffix: "职责与决策", question: (name: string) => `先说说你在「${name}」里具体负责的部分，以及做过的最难的一个决策。` },
+  { suffix: "问题与复盘", question: (name: string) => `「${name}」上线或自测时出过什么问题，你是怎么定位和修的？` },
+];
 
-  while (over() > 0) {
-    const deepest = kept.reduce<T | null>((top, area) => (area.depth > 1 && (!top || area.depth > top.depth) ? area : top), null);
-    if (deepest) {
-      deepest.depth -= 1;
-      continue;
-    }
-    if (kept.length <= 1) break;
-    let lowest = 0;
-    for (let index = 1; index < kept.length; index += 1) {
-      if (kept[index].weight <= kept[lowest].weight) lowest = index;
-    }
-    dropped.push(kept[lowest].name);
-    kept.splice(lowest, 1);
-  }
-  return { areas: kept, dropped };
-}
-
-/** 风格只对 technical 有意义：technical 缺省为 scenario，其他类型一律 null。 */
-function normalizeStyle(kind: AreaKind, style: AreaStyle | null | undefined): AreaStyle | null {
-  if (kind !== "technical") return null;
-  return style ?? "scenario";
-}
-
-const SECOND_PERSON_ANCHOR = /你(在|这个|做的|实习|简历|提到|写到|说到|把|们的|负责|参与|排查|重构)/;
-const CJK_RUN = /[\p{Script=Han}]{4,}/gu;
-
-/** 项目名与描述里的 4 字中文片段：切入问题里出现它们就是在拿简历项目当题。 */
-function projectFingerprints(project: { name: string; description?: string }): string[] {
-  const grams = new Set<string>();
-  for (const run of `${project.name}\n${project.description ?? ""}`.match(CJK_RUN) ?? []) {
-    for (let index = 0; index + 4 <= run.length; index += 1) grams.add(run.slice(index, index + 4));
-  }
-  return [...grams];
+function fallbackProjectArea(project: Project, id: string, round: string | null, angle = 0): InterviewArea {
+  const { suffix, question } = PROJECT_ANGLES[Math.min(angle, PROJECT_ANGLES.length - 1)];
+  return {
+    id,
+    kind: "project",
+    name: angle > 0 ? `${project.name}：${suffix}` : project.name,
+    projectId: project.id,
+    competencyIds: [],
+    jdEvidence: null,
+    topic: null,
+    entryQuestion: question(project.name),
+    guides: PROJECT_LEADS,
+    expectedSignals: PROJECT_SIGNALS,
+    rubric: rubricForArea("project", round),
+  };
 }
 
 /**
- * 技术领域是否挂在简历项目上：直接点名项目，或者用第二人称（"你在 / 你把 / 你实习里…"）
- * 引出并且带着项目描述里的具体内容。纯场景题（"如果你在一个电商系统里…"）不算。
+ * 项目切入点不够时补齐：项目阶段的预算按两个切入点算，模型只给一个就问不满；
+ * 按项目顺序、每个项目最多 maxAreasPerProject 个，用兜底的切入点补到上限。
  */
-function anchoredProject<T extends { id: string; name: string; description?: string }>(text: string, projects: T[]): T | null {
-  const haystack = normalizedText(text);
+function padProjectAreas(areas: InterviewArea[], projects: Project[], round: string | null): InterviewArea[] {
+  const perProject = maxAreasPerProject(projects.length);
+  const padded = [...areas];
   for (const project of projects) {
-    const name = normalizedText(project.name);
-    if (name.length >= 2 && haystack.includes(name)) return project;
+    while (padded.length < MAX_PROJECT_AREAS) {
+      const angle = padded.filter((area) => area.projectId === project.id).length;
+      if (angle >= perProject) break;
+      padded.push(fallbackProjectArea(project, `p${padded.length + 1}`, round, angle));
+    }
   }
-  if (!SECOND_PERSON_ANCHOR.test(text)) return null;
-  return projects.find((project) => projectFingerprints(project).some((gram) => haystack.includes(normalizedText(gram)))) ?? null;
+  return padded;
+}
+
+/** 好题第一句作兜底题目：包里的好题常带两三个问号，基础题只取第一个。 */
+function firstQuestion(example: string): string {
+  const match = example.match(/^[^？?]+[？?]/);
+  return (match ? match[0] : example).trim();
+}
+
+function quickArea(topic: SkillTopic, id: string, round: string | null, written: { question: string; followUp: string; expectedSignals: string[] } | null): InterviewArea {
+  return {
+    id,
+    kind: "quick",
+    name: topic.name,
+    projectId: null,
+    competencyIds: [],
+    jdEvidence: null,
+    topic: { skill: topic.skill, name: topic.name },
+    entryQuestion: written?.question ?? firstQuestion(topic.example),
+    guides: [written?.followUp ?? topic.ladder.split("→")[1]?.trim() ?? "追问它的原理与边界"],
+    expectedSignals: written?.expectedSignals ?? [topic.signals],
+    rubric: rubricForArea("quick", round),
+  };
+}
+
+function fallbackScenarioArea(blueprint: MockInterviewJobBlueprint, id: string, round: string | null): InterviewArea {
+  const competency = blueprint.competencies.find((item) => item.priority === "core") ?? blueprint.competencies[0] ?? null;
+  return {
+    id,
+    kind: "scenario",
+    name: competency ? `场景：${competency.name}` : "场景题",
+    projectId: null,
+    competencyIds: competency ? [competency.id] : [],
+    jdEvidence: competency?.origin === "jd" ? competency.jdEvidence : null,
+    topic: null,
+    entryQuestion: competency
+      ? `如果你加入后第一个任务是${competency.description || competency.name}，先要弄清楚哪几件事，你会怎么排优先级？`
+      : "如果你接手一个刚上线就频繁出问题的系统，你会从哪里开始排查，怎么决定先修什么？",
+    guides: ["追问它为什么先做这件事", "追问如果条件变了（规模、时间、人手）怎么取舍", "追问怎么验证做对了"],
+    expectedSignals: ["有明确的排查或推进顺序", "说得出取舍依据", "有验证方式"],
+    rubric: rubricForArea("scenario", round),
+  };
+}
+
+/** 模型没挂项目的假设：证据句落在简历里哪个项目的段落（最近一个在它前面出现的项目名），就挂到那个项目上。 */
+function attachHypothesis(resume: string, evidence: string, areasByProject: Map<string, string>, projectsById: Map<string, Project>): string | null {
+  const at = resume.indexOf(normalizedText(evidence));
+  let owner: { areaId: string; start: number } | null = null;
+  for (const [projectId, areaId] of areasByProject) {
+    const name = normalizedText(projectsById.get(projectId)?.name ?? "");
+    const start = name.length >= 2 ? resume.lastIndexOf(name, at) : -1;
+    if (start >= 0 && start < at && (!owner || start > owner.start)) owner = { areaId, start };
+  }
+  return owner?.areaId ?? null;
 }
 
 /**
  * 模型产出 → 冻结的简报。规则全部由代码把关：
- * - 每个简历项目最多一个 project 领域，简历只有一个项目时两个（挂在不存在的项目上视为无项目）；
- * - technical 领域不挂在项目上：切入问题点名了简历项目、或用第二人称引出项目描述里的具体内容，就并入该项目的领域（还有名额时转成 project 领域），否则丢弃；
- * - 项目领域排到最前；
- * - JD 来源的领域必须带逐字的 jdEvidence，否则视为无来源；基线来源必须是本次加载过的技能包；
- * - 假设的简历证据必须逐字出现在简历里；project 领域没有假设时代码从简历里兜底一条；
- * - 最后按节奏装箱，丢掉的领域名记进 droppedAreas。
+ * - 项目切入点最多两个，projectId 必须存在，每个项目最多 maxAreasPerProject 个；不够两个时用兜底切入点补齐（项目阶段的预算按两个算）；
+ * - 基础题池 = 抽样的主题，一个主题一道：模型没写的用包里的好题；模型写了不在抽样里的主题丢弃；
+ * - 场景题数按节奏，JD 原句必须逐字，能力 id 必须在蓝图里；不够时代码兜底；
+ * - 假设的简历证据必须逐字出现在简历里；每个项目切入点至少一条，没有就从简历里兜底。
  */
 export function buildBriefFromOutput(input: {
   output: BriefOutput;
   blueprint: MockInterviewJobBlueprint;
   jobDescription: string;
   resumeText: string;
-  projects: { id: string; name: string; description?: string }[];
-  loadedSkills: string[];
+  projects: Project[];
+  topics: SkillTopic[];
+  skillPacks: string[];
   pace: InterviewPace;
   round: string | null;
   askIntro: boolean;
 }): InterviewBrief {
+  const { output, round } = input;
+  const plan = PACE_PLAN[input.pace];
   const competencyIds = new Set(input.blueprint.competencies.map((item) => item.id));
-  const loadedSkills = new Set(input.loadedSkills);
-  const resume = normalizedText(input.resumeText);
   const projectsById = new Map(input.projects.map((project) => [project.id, project]));
-  const seenAreaIds = new Set<string>();
-  const projectAreaCount = new Map<string, number>();
+  const resume = normalizedText(input.resumeText);
   const perProject = maxAreasPerProject(input.projects.length);
-  const dropped: string[] = [];
 
-  const candidates: InterviewArea[] = [];
-  for (const raw of input.output.areas) {
-    if (seenAreaIds.has(raw.id)) continue;
-    seenAreaIds.add(raw.id);
-    let kind: AreaKind = raw.kind;
-    let projectId = raw.projectId && projectsById.has(raw.projectId) ? raw.projectId : null;
-    if (kind !== "project") {
-      const mentioned = anchoredProject(`${raw.name}\n${raw.entryQuestion}`, input.projects);
-      if (mentioned) {
-        // 技术领域点名了简历项目：它其实是项目题，按项目领域处理。
-        kind = "project";
-        projectId = mentioned.id;
-      }
-    }
-    if (kind === "project") {
-      const count = projectId ? projectAreaCount.get(projectId) ?? 0 : perProject;
-      if (!projectId || count >= perProject) {
-        dropped.push(raw.name);
-        continue;
-      }
-      projectAreaCount.set(projectId, count + 1);
-    }
-    const style = normalizeStyle(kind, raw.style);
-    const boundCompetencies = raw.competencyIds.filter((id) => competencyIds.has(id));
-    const jdEvidence = raw.jdEvidence && isVerbatimEvidence(input.jobDescription, raw.jdEvidence) ? raw.jdEvidence : null;
-    candidates.push({
-      ...raw,
-      kind,
-      style,
-      projectId: kind === "project" ? projectId : null,
-      competencyIds: jdEvidence ? boundCompetencies : [],
-      jdEvidence,
-      baseline: raw.baseline && loadedSkills.has(raw.baseline.skill) ? raw.baseline : null,
-      rubric: rubricForArea(kind, style),
+  const projects: InterviewArea[] = [];
+  const perProjectCount = new Map<string, number>();
+  for (const raw of output.projects) {
+    const count = perProjectCount.get(raw.projectId) ?? 0;
+    if (!projectsById.has(raw.projectId) || count >= perProject || projects.length >= MAX_PROJECT_AREAS) continue;
+    perProjectCount.set(raw.projectId, count + 1);
+    projects.push({
+      id: `p${projects.length + 1}`,
+      kind: "project",
+      name: raw.name,
+      projectId: raw.projectId,
+      competencyIds: [],
+      jdEvidence: null,
+      topic: null,
+      entryQuestion: raw.entryQuestion,
+      guides: raw.leads,
+      expectedSignals: raw.expectedSignals,
+      rubric: rubricForArea("project", round),
     });
   }
+  const projectAreas = padProjectAreas(projects, input.projects, round);
 
-  const planned = planAreas(projectsFirst(candidates), input.pace, input.askIntro);
-  const areas = planned.areas;
-  const areaIds = new Set(areas.map((area) => area.id));
-  // 模型没挂领域的假设：证据句落在简历里哪个项目的段落（最近一个在它前面出现的项目名），就挂到那个项目的领域上，面试中开线程时才带得上。
-  const projectAreas = areas.filter((area) => area.kind === "project" && area.projectId);
-  const attach = (item: InterviewHypothesis): string | null => {
-    if (item.areaId && areaIds.has(item.areaId)) return item.areaId;
-    const at = resume.indexOf(normalizedText(item.evidence));
-    let owner: { id: string; start: number } | null = null;
-    for (const area of projectAreas) {
-      const name = normalizedText(projectsById.get(area.projectId!)?.name ?? "");
-      const start = name.length >= 2 ? resume.lastIndexOf(name, at) : -1;
-      if (start >= 0 && start < at && (!owner || start > owner.start)) owner = { id: area.id, start };
-    }
-    return owner?.id ?? null;
-  };
-  const hypotheses = input.output.hypotheses
+  const written = new Map(output.quick.map((item) => [normalizedText(item.topic), item]));
+  const quick = input.topics.map((topic, index) => quickArea(topic, `q${index + 1}`, round, written.get(normalizedText(topic.name)) ?? null));
+
+  const scenarios: InterviewArea[] = output.scenarios.slice(0, plan.scenarios).map((raw, index) => {
+    const jdEvidence = raw.jdEvidence && isVerbatimEvidence(input.jobDescription, raw.jdEvidence) ? raw.jdEvidence : null;
+    return {
+      id: `s${index + 1}`,
+      kind: "scenario",
+      name: raw.name,
+      projectId: null,
+      competencyIds: raw.competencyIds.filter((id) => competencyIds.has(id)),
+      jdEvidence,
+      topic: null,
+      entryQuestion: raw.question,
+      guides: raw.guides,
+      expectedSignals: raw.expectedSignals,
+      rubric: rubricForArea("scenario", round),
+    };
+  });
+  while (scenarios.length < plan.scenarios) scenarios.push(fallbackScenarioArea(input.blueprint, `s${scenarios.length + 1}`, round));
+
+  // 假设挂到项目切入点上（同一项目的两个切入点挂第一个）。
+  const areaByProject = new Map<string, string>();
+  for (const area of projectAreas) if (area.projectId && !areaByProject.has(area.projectId)) areaByProject.set(area.projectId, area.id);
+  const hypotheses: InterviewHypothesis[] = output.hypotheses
     .filter((item) => isEvidence(resume, item.evidence))
-    .map((item) => ({ ...item, areaId: attach(item) }));
-  for (const area of areas) {
-    if (area.kind !== "project" || !area.projectId || hypotheses.some((item) => item.areaId === area.id)) continue;
-    const project = projectsById.get(area.projectId);
-    const fallback = project ? fallbackHypothesis(input.resumeText, area, project, input.projects) : null;
-    // 同一项目的第二个领域会找到同一句成果：不重复补。
+    .map((item) => ({
+      id: item.id,
+      text: item.text,
+      evidence: item.evidence,
+      areaId: (item.projectId && areaByProject.get(item.projectId)) || attachHypothesis(resume, item.evidence, areaByProject, projectsById),
+    }));
+  for (const area of projectAreas) {
+    if (!area.projectId || hypotheses.some((item) => item.areaId === area.id)) continue;
+    const fallback = fallbackHypothesis(input.resumeText, area, projectsById.get(area.projectId)!, input.projects);
     if (fallback && hypotheses.length < MAX_HYPOTHESES && !hypotheses.some((item) => item.evidence === fallback.evidence)) hypotheses.push(fallback);
   }
 
   return {
     version: BRIEF_VERSION,
     pace: input.pace,
-    plannedTurns: plannedTurns(areas, input.askIntro),
-    round: input.round,
+    plan: plan.budget,
+    round,
     askIntro: input.askIntro,
-    areas,
-    droppedAreas: [...dropped, ...planned.dropped],
-    hypotheses,
-    skillPacks: input.loadedSkills,
+    areas: [...projectAreas, ...quick, ...scenarios],
+    hypotheses: hypotheses.slice(0, MAX_HYPOTHESES),
+    skillPacks: input.skillPacks,
     source: "model",
   };
 }
 
 /**
- * 领域数不够节奏的下限时，用兜底简报里的领域补齐（不重复的能力、不重复的项目），再装一次箱。
- * 广度是底线：每个领域一次机会，方向太少一场就问不出东西。
- */
-export function padAreas(brief: InterviewBrief, fallback: InterviewBrief): InterviewBrief {
-  const minAreas = PACE_PLAN[brief.pace].minAreas;
-  if (brief.areas.length >= minAreas) return brief;
-  const used = new Set(brief.areas.flatMap((area) => area.competencyIds));
-  const usedProjects = new Set(brief.areas.flatMap((area) => (area.projectId ? [area.projectId] : [])));
-  const extras = fallback.areas.filter((area) => {
-    if (brief.areas.some((item) => item.id === area.id)) return false;
-    if (area.projectId) return !usedProjects.has(area.projectId);
-    return !area.competencyIds.some((id) => used.has(id));
-  });
-  const planned = planAreas(projectsFirst([...brief.areas, ...extras.slice(0, minAreas - brief.areas.length)]), brief.pace, brief.askIntro);
-  return {
-    ...brief,
-    areas: planned.areas,
-    droppedAreas: [...brief.droppedAreas, ...planned.dropped],
-    plannedTurns: plannedTurns(planned.areas, brief.askIntro),
-  };
-}
-
-const FALLBACK_LADDER: LadderRung[] = [
-  { text: "先说清楚做了什么", style: "fact" },
-  { text: "追问背后的原理和为什么这样选", style: "principle" },
-  { text: "追问一次真实的排查或失败", style: "scenario" },
-  { text: "追问如果条件变了会怎么取舍", style: "tradeoff" },
-];
-
-/**
- * 兜底简报：模型两级都没产出时按蓝图直接搭。不可能失败，
+ * 兜底简报：模型没产出时按蓝图、简历项目与抽样主题直接搭。不可能失败，
  * 与蓝图的兜底同一哲学——降级产出，不把"请重试"丢给用户。
  */
 export function fallbackBrief(input: {
   blueprint: MockInterviewJobBlueprint;
-  projects: { id: string; name: string }[];
+  projects: Project[];
+  topics: SkillTopic[];
+  skillPacks: string[];
   pace: InterviewPace;
   round: string | null;
   askIntro: boolean;
 }): InterviewBrief {
-  const core = input.blueprint.competencies
-    .filter((item) => item.priority === "core")
-    .concat(input.blueprint.competencies.filter((item) => item.priority !== "core"))
-    .slice(0, MAX_AREAS - 1);
-  const technical = core.map((competency, index) => ({
-    id: `area-${index + 1}`,
-    name: competency.name,
-    kind: "technical" as const,
-    style: "scenario" as const,
-    description: competency.description,
-    projectId: null,
-    competencyIds: [competency.id],
-    jdEvidence: competency.origin === "jd" ? competency.jdEvidence : null,
-    baseline: null,
-    weight: 2,
-    depth: 2,
-    entryQuestion: `请结合你的经历谈谈${competency.name}：你在哪个场景里真正用到了它，遇到过什么具体问题？`,
-    ladder: FALLBACK_LADDER,
-    expectedSignals: ["具体场景", "机制与原理", "取舍"],
-  }));
-  const project = input.projects[0];
-  const areasRaw = project
-    ? [
-        {
-          id: "area-project",
-          name: `项目深挖：${project.name}`,
-          kind: "project" as const,
-          style: null,
-          description: "围绕候选人简历上的项目追问职责、决策与结果",
-          projectId: project.id,
-          competencyIds: [] as string[],
-          jdEvidence: null,
-          baseline: null,
-          weight: 3,
-          depth: 3,
-          entryQuestion: `先介绍你在「${project.name}」里具体负责的部分，以及做过的最难的一个决策。`,
-          ladder: [
-            { text: "职责边界", style: "fact" as const },
-            { text: "为什么这样设计、还考虑过什么", style: "principle" as const },
-            { text: "出过什么问题、怎么定位", style: "scenario" as const },
-            { text: "数字怎么来的、如果 X 变了怎么改", style: "tradeoff" as const },
-          ],
-          expectedSignals: ["个人职责", "技术决策", "结果与复盘"],
-        },
-        ...technical,
-      ]
-    : technical;
-  const planned = planAreas(areasRaw, input.pace, input.askIntro);
-  const areas = planned.areas.map((area) => ({ ...area, rubric: rubricForArea(area.kind, area.style) }));
+  const plan = PACE_PLAN[input.pace];
+  const projects = padProjectAreas([], input.projects, input.round);
+  const quick = input.topics.map((topic, index) => quickArea(topic, `q${index + 1}`, input.round, null));
+  const scenarios = Array.from({ length: plan.scenarios }, (_, index) => fallbackScenarioArea(input.blueprint, `s${index + 1}`, input.round));
   return {
     version: BRIEF_VERSION,
     pace: input.pace,
-    plannedTurns: plannedTurns(areas, input.askIntro),
+    plan: plan.budget,
     round: input.round,
     askIntro: input.askIntro,
-    areas,
-    droppedAreas: planned.dropped,
+    areas: [...projects, ...quick, ...scenarios],
     hypotheses: [],
-    skillPacks: [],
+    skillPacks: input.skillPacks,
     source: "fallback",
   };
 }
 
-/**
- * 读库里的简报。v4（无 projectId / jdEvidence / droppedAreas）、v3（turnRange、领域无 weight）与
- * v2（无 version、阶梯是字符串数组）只读兼容，归一化成 v5 的形状；更早的按分钟预算的简报视为没有简报。
- */
+/** 读库里的简报。只认 v6：更早的按领域清单组织的简报视为没有简报（那些会话只剩题目与评分可看）。 */
 export function parseStoredBrief(json: string | null): InterviewBrief | null {
   if (!json) return null;
   try {
-    const value = JSON.parse(json) as Partial<InterviewBrief> & {
-      turnRange?: { min?: unknown; max?: unknown };
-      areas?: Array<Partial<InterviewArea> & { ladder?: unknown }>;
-    };
-    const legacyMax = typeof value.turnRange?.max === "number" ? value.turnRange.max : null;
+    const value = JSON.parse(json) as Partial<InterviewBrief>;
     const usable =
-      Array.isArray(value?.areas) &&
-      value.areas.length > 0 &&
-      value.areas.every((area) => typeof area.depth === "number") &&
-      (typeof value.plannedTurns === "number" || legacyMax !== null);
-    if (!usable) return null;
-    const areas: InterviewArea[] = value.areas!.map((area) => {
-      const kind = area.kind ?? "technical";
-      const style = normalizeStyle(kind, area.style ?? null);
-      const ladder: LadderRung[] = Array.isArray(area.ladder)
-        ? area.ladder.map((rung) =>
-            typeof rung === "string"
-              ? { text: rung, style: null }
-              : { text: String((rung as LadderRung).text ?? ""), style: (rung as LadderRung).style ?? null },
-          )
-        : [];
-      return {
-        ...(area as InterviewArea),
-        kind,
-        style,
-        projectId: area.projectId ?? null,
-        competencyIds: area.competencyIds ?? [],
-        jdEvidence: area.jdEvidence ?? null,
-        weight: typeof area.weight === "number" ? area.weight : 2,
-        baseline: area.baseline ?? null,
-        ladder,
-        rubric: area.rubric ?? rubricForArea(kind, style),
-      };
-    });
-    return {
-      ...(value as InterviewBrief),
-      version: BRIEF_VERSION,
-      plannedTurns: typeof value.plannedTurns === "number" ? value.plannedTurns : legacyMax!,
-      areas,
-      droppedAreas: Array.isArray(value.droppedAreas) ? value.droppedAreas : [],
-    };
+      value.version === BRIEF_VERSION &&
+      isInterviewPace(value.pace ?? "") &&
+      value.plan !== undefined &&
+      PHASE_ORDER.every((kind) => typeof value.plan?.[kind] === "number") &&
+      Array.isArray(value.areas) &&
+      value.areas.every((area) => isAreaKind(area.kind));
+    return usable ? (value as InterviewBrief) : null;
   } catch {
     return null;
   }

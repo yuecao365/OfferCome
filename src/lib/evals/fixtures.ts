@@ -4,6 +4,7 @@ import path from "node:path";
 import { z } from "zod";
 
 import { THREAD_VERDICTS } from "@/lib/mock-interviews/interviewer/actions";
+import { AREA_KINDS } from "@/lib/mock-interviews/interviewer/brief";
 
 /**
  * 评测数据（`eval/`）的 schema 与加载：JD、合成简历、人设、静态脚本、评分器蜕变用例。
@@ -91,8 +92,9 @@ export const scorerCaseSchema = z.object({
   rubric: z.array(z.object({ name: z.string().min(1), description: z.string().optional(), weight: z.number().positive() })).min(1),
   expectedSignals: z.array(z.string()),
   thread: z.object({
+    /** 这段属于哪个阶段；早期用例按领域阶梯生成，按场景题处理。 */
+    kind: z.enum(AREA_KINDS).default("scenario"),
     depth: z.number().int().min(0),
-    targetDepth: z.number().int().min(0),
     probeCount: z.number().int().min(0),
     hinted: z.boolean(),
     verdict: z.enum(THREAD_VERDICTS).nullable().default(null),

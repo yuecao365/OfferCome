@@ -4,14 +4,14 @@ import { Card } from "@/components/ui/card";
 import { MetaText } from "@/components/ui/data-table";
 import { cn } from "@/lib/cn";
 import { THREAD_VERDICT_LABELS } from "@/lib/mock-interviews/interviewer/actions";
-import { AREA_STYLE_LABELS, type AreaStyle } from "@/lib/mock-interviews/interviewer/brief";
+import { AREA_KIND_LABELS, KIND_WEIGHT, PHASE_ORDER, type AreaKind } from "@/lib/mock-interviews/interviewer/brief";
 import type { MockInterviewReport as ReportData } from "@/lib/mock-interviews/report";
 import type { MockInterviewView } from "@/lib/mock-interviews/types";
 
 import { QuestionDimensionScores } from "./mock-interview-report-visuals";
 
 /**
- * 报告页：骨架是面试官的现场判断（领域追到第几层、关线程时的判断、简历假设验证），
+ * 报告页：骨架是面试官的现场判断（按阶段分节：每道题追了几层、关线程时的判断、简历假设验证），
  * 分数与短板由评分 agent 校准；负面反馈都带候选人的原话。
  */
 
@@ -32,7 +32,6 @@ function Score({ value }: { value: number }) {
   );
 }
 
-const AREA_KIND_LABELS: Record<string, string> = { project: "项目", technical: "技术", behavioral: "行为" };
 const WEAKNESS_KIND_LABELS: Record<string, string> = { error: "说错了", missing: "没答上", pattern: "反复出现" };
 const HYPOTHESIS_STATUS: Record<string, { label: string; tone: "success" | "warning" | "neutral" }> = {
   confirmed: { label: "已验证", tone: "success" },
@@ -52,55 +51,54 @@ function Quote({ text }: { text: string | null }) {
   return <span className="ml-1 text-xs text-muted-foreground">「{text}」</span>;
 }
 
-/** 领域概览：每个问到过的领域追到第几层、面试官的判断、得分。 */
-function AreaOverview({ session }: { session: MockInterviewView }) {
+/** 按阶段分节：每道问到过的题追了几层、面试官的判断、得分。 */
+function StageOverview({ session }: { session: MockInterviewView }) {
   const conversation = session.conversation;
   if (!conversation) return null;
   const scoreById = new Map(session.questions.map((question) => [question.id, question.evaluation?.score ?? null]));
   const rows = conversation.areas.flatMap((area) => {
-    const threads = conversation.threads.filter((thread) => thread.areaId === area.id && thread.status !== "active");
-    if (threads.length === 0) return [];
-    const scores = threads.map((thread) => (thread.questionId ? scoreById.get(thread.questionId) ?? null : null));
-    const answered = scores.filter((score): score is number => score !== null);
+    const thread = conversation.threads.find((item) => item.areaId === area.id && item.status !== "active");
+    if (!thread) return [];
     return [
       {
         area,
-        note: threads.at(-1)?.note ?? null,
-        verdict: threads.at(-1)?.verdict ?? null,
-        depthReached: Math.max(0, ...threads.map((thread) => thread.depth)),
-        score: answered.length > 0 ? Math.max(...answered) : null,
-        skipped: threads.every((thread) => thread.status === "skipped"),
+        note: thread.note,
+        verdict: thread.verdict,
+        depth: thread.depth,
+        score: thread.questionId ? (scoreById.get(thread.questionId) ?? null) : null,
+        skipped: thread.status === "skipped",
       },
     ];
   });
   if (rows.length === 0) return null;
+  const sections = PHASE_ORDER.map((kind) => ({ kind, rows: rows.filter((row) => row.area.kind === kind) })).filter((section) => section.rows.length > 0);
   return (
     <Card className="p-4">
-      <h3 className="text-sm font-semibold text-foreground">考察领域</h3>
-      <p className="mt-1 text-xs text-muted-foreground">总分按领域权重加权；跳过的领域计 0 分，没问到的领域不计。</p>
-      <div className="mt-3 grid gap-3">
-        {rows.map(({ area, note, verdict, depthReached, score, skipped }) => (
-          <div className="grid gap-1 border-t border-border pt-3 first:border-t-0 first:pt-0" key={area.id}>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm font-medium text-foreground">{area.name}</span>
-                <Badge>{AREA_KIND_LABELS[area.kind] ?? area.kind}</Badge>
-                <MetaText>权重 {area.weight}</MetaText>
-                <MetaText>
-                  追到第 {depthReached} 层 / 目标 {area.depth} 层
-                </MetaText>
-                {verdict && verdict !== "answered" ? <Badge tone="warning">{THREAD_VERDICT_LABELS[verdict]}</Badge> : null}
+      <h3 className="text-sm font-semibold text-foreground">这场问了什么</h3>
+      <p className="mt-1 text-xs text-muted-foreground">
+        总分按阶段加权（{PHASE_ORDER.map((kind) => `${AREA_KIND_LABELS[kind]} ${KIND_WEIGHT[kind]}`).join(" : ")}）；跳过的题计 0 分，没问到的不计。
+      </p>
+      <div className="mt-3 grid gap-4">
+        {sections.map((section) => (
+          <div className="grid gap-2" key={section.kind}>
+            <p className="text-xs font-medium text-muted-foreground">
+              {AREA_KIND_LABELS[section.kind as AreaKind]} · {section.rows.length} 题
+            </p>
+            {section.rows.map(({ area, note, verdict, depth, score, skipped }) => (
+              <div className="grid gap-1 border-t border-border pt-2" key={area.id}>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-medium text-foreground">{area.name}</span>
+                    {depth > 0 ? <MetaText>追问 {depth} 层</MetaText> : null}
+                    {verdict && verdict !== "answered" ? <Badge tone="warning">{THREAD_VERDICT_LABELS[verdict]}</Badge> : null}
+                  </div>
+                  {skipped ? <Badge tone="warning">已跳过</Badge> : score !== null ? <Score value={score} /> : null}
+                </div>
+                {note ? <p className="text-sm leading-6 text-muted-foreground">面试官：{note}</p> : null}
               </div>
-              {skipped ? <Badge tone="warning">已跳过</Badge> : score !== null ? <Score value={score} /> : null}
-            </div>
-            {note ? <p className="text-sm leading-6 text-muted-foreground">面试官：{note}</p> : null}
+            ))}
           </div>
         ))}
-        {conversation.droppedAreas.length > 0 ? (
-          <p className="border-t border-border pt-3 text-xs text-muted-foreground">
-            备课时为了控制时长没有安排：{conversation.droppedAreas.join("、")}
-          </p>
-        ) : null}
       </div>
     </Card>
   );
@@ -166,16 +164,13 @@ function Teaching({ question }: { question: Question }) {
       <div className="mt-3 grid gap-3 text-sm leading-6 text-muted-foreground">
         <div className="flex flex-wrap gap-2">
           {teaching.areaName ? <Badge>{teaching.areaName}</Badge> : null}
-          <Badge>{AREA_KIND_LABELS[teaching.sourceKind] ?? teaching.sourceKind}</Badge>
-          {teaching.areaStyle ? (
-            <Badge>{AREA_STYLE_LABELS[teaching.areaStyle as AreaStyle] ?? teaching.areaStyle}</Badge>
-          ) : null}
+          <Badge>{AREA_KIND_LABELS[teaching.sourceKind as AreaKind] ?? teaching.sourceKind}</Badge>
         </div>
         {teaching.competencyOrigin === "baseline" ? (
           <div className="rounded-control border border-border bg-surface p-3">
-            <p className="font-medium text-foreground">岗位常见要求</p>
+            <p className="font-medium text-foreground">岗位常见考点</p>
             <p className="mt-1">
-              这道题来自这个岗位通常会考察的方向
+              这道题来自这个岗位通常会考的基础题
               {teaching.skillPack ? "（技能包 " + teaching.skillPack + "）" : ""}，不是你提供的岗位描述里写明的。
             </p>
           </div>
@@ -283,7 +278,7 @@ export function MockInterviewReport({ session }: { session: MockInterviewView })
         </div>
       </section>
 
-      <AreaOverview session={session} />
+      <StageOverview session={session} />
       <Hypotheses items={report.hypotheses} />
 
       <section className="grid gap-4 md:grid-cols-3">

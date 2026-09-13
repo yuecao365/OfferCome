@@ -7,10 +7,10 @@ import { deriveObservationsFromEvaluation, profileLevelForScore } from "./derive
 
 test("every rubric dimension has a profile mapping", () => {
   const names = [
-    ...rubricForArea("technical", "scenario"),
-    ...rubricForArea("technical", "fundamentals"),
+    ...rubricForArea("quick", null),
+    ...rubricForArea("scenario", null),
     ...rubricForArea("project", null),
-    ...rubricForArea("behavioral", null),
+    ...rubricForArea("quick", "hr_interview"),
   ].map((item) => item.name);
   for (const name of names) assert.ok(name in PROFILE_DIMENSION_BY_RUBRIC, `${name} 没有画像归属`);
 });

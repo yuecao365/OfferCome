@@ -1,90 +1,75 @@
 import type { ActionName } from "./actions";
-import { MAX_AREA_DEPTH } from "./brief";
-import { evidenceSummary, questionTurnsUsed, threadAnswered } from "./evidence";
-import { activeThread, areaById, closedThreads, openHypotheses, threadOfArea, type InterviewerState } from "./state";
+import { AREA_KIND_LABELS, PHASE_ORDER, plannedTurns, PROBE_LIMIT, type AreaKind, type InterviewArea } from "./brief";
+import { activeThread, areaById, QUESTION_KINDS, threadKind, threadOfArea, type InterviewerState } from "./state";
 
 /**
- * 预算与不变量：模型不可越过的边界，全部由代码持有。
+ * 阶段、预算与不变量：模型不可越过的边界，全部由代码持有。
  *
- * 面试的长短由信息量决定（evidence.ts）：信息够了就允许收尾；回合数只留一个
- * 远高于正常值的安全上限防止跑飞。每个领域只考察一次（一条线程，不回访），
- * 深度是目标，允许超一层；每条线程只给一次提示。
+ * 面试按阶段走（项目 → 基础 → 场景），预算按阶段给提问回合数，累计计算：一个阶段提前结束，
+ * 剩下的回合自动顺延给下一阶段；一个阶段到时，进行中的线程不能再追、只能关掉进下一阶段。
+ * 深度不预设：每种线程只有一个上限（项目 3、基础 1、场景 3），追不追由回答决定（见 reducer）。
+ * 面试在各阶段都走完（预算用尽或没题可开）时结束，另有一个远高于正常值的安全上限防止跑飞。
  */
-
-/** 追问可以比简报里的目标深度多走一层。 */
-export const DEPTH_SLACK = 1;
-/** 连续这么多条线程候选人一句都答不上，允许提前收尾。 */
-const FAILED_THREADS_BEFORE_CLOSE = 2;
 
 export type ActionCheck = { ok: true } | { ok: false; reason: string };
 
-/** 一个线程允许的最大追问层数。 */
-export function probeLimit(state: InterviewerState, areaId: string): number {
-  const target = areaById(state, areaId)?.depth ?? 1;
-  return Math.min(MAX_AREA_DEPTH, target + DEPTH_SLACK);
+/** 面试官提问的次数：只数开场、切入问题和追问，提示不算。 */
+export function questionTurnsUsed(state: InterviewerState): number {
+  return state.messages.filter((message) => message.role === "interviewer" && QUESTION_KINDS.has(message.kind)).length;
 }
 
-/** 提问回合的安全上限：备课预计回合的 1.5 倍再加 4，只数面试官提问的回合。 */
+/** 这个阶段用掉的提问回合：线程属于这个阶段的切入问题与追问。 */
+export function phaseTurnsUsed(state: InterviewerState, kind: AreaKind): number {
+  const threadIds = new Set(state.threads.filter((thread) => threadKind(state, thread) === kind).map((thread) => thread.id));
+  return state.messages.filter((message) => message.role === "interviewer" && QUESTION_KINDS.has(message.kind) && message.threadId !== null && threadIds.has(message.threadId)).length;
+}
+
+/** 这个阶段的累计截止：开场 + 到它为止各阶段的预算之和。到了就该进下一阶段。 */
+export function phaseEnd(state: InterviewerState, kind: AreaKind): number {
+  let end = state.brief.askIntro ? 1 : 0;
+  for (const phase of PHASE_ORDER) {
+    end += state.brief.plan[phase];
+    if (phase === kind) break;
+  }
+  return end;
+}
+
+/** 提问回合的安全上限：预计回合的 1.5 倍再加 4。 */
 export function safetyCap(state: InterviewerState): number {
-  return Math.round(state.brief.plannedTurns * 1.5) + 4;
+  return Math.round(plannedTurns(state.brief) * 1.5) + 4;
 }
 
 export function atSafetyCap(state: InterviewerState): boolean {
   return questionTurnsUsed(state) >= safetyCap(state);
 }
 
-/** 每个领域都有过线程（含跳过）。 */
-export function coverageComplete(state: InterviewerState): boolean {
-  return state.brief.areas.every((area) => threadOfArea(state, area.id) !== null);
-}
-
-/** 还没考察过的领域，按简报顺序。 */
-export function areasOpenable(state: InterviewerState): string[] {
-  return state.brief.areas.filter((area) => !threadOfArea(state, area.id)).map((area) => area.id);
-}
-
-export function nextAreaToOpen(state: InterviewerState): string | null {
-  return areasOpenable(state)[0] ?? null;
-}
-
-/** 最近关闭的几条线程候选人都一句没答上：继续问也拿不到信息。 */
-function recentThreadsFailed(state: InterviewerState): boolean {
-  const recent = closedThreads(state).slice(-FAILED_THREADS_BEFORE_CLOSE);
-  return recent.length === FAILED_THREADS_BEFORE_CLOSE && recent.every((thread) => !threadAnswered(thread, state.messages));
+/** 这个阶段还没开过的题，按简报顺序。 */
+export function areasOpenable(state: InterviewerState, kind: AreaKind): InterviewArea[] {
+  return state.brief.areas.filter((area) => area.kind === kind && !threadOfArea(state, area.id));
 }
 
 /**
- * 收尾的条件（任一）：信息量达标；所有领域都考察过；连续两条线程失守；
- * 到安全上限；没有线程也没有可开的领域。
+ * 现在处于哪个阶段：有进行中的线程就是它所属的阶段；否则按顺序找第一个"预算没到、还有题可开"的阶段；
+ * 都没有就是该收尾了（null）。
  */
-export function canClose(state: InterviewerState): boolean {
-  const evidence = evidenceSummary(state);
-  if (evidence.total >= evidence.target) return true;
-  if (coverageComplete(state) || recentThreadsFailed(state) || atSafetyCap(state)) return true;
-  return !activeThread(state) && areasOpenable(state).length === 0;
-}
-
-/**
- * 关线程前的硬门（工具层拒一次、第二次放行，给"候选人确实答不上"留出口）：
- * 线程还没追到目标深度，或挂在这个领域上的简历假设还没验证，且还能追问时，返回拒绝理由；不该拒时为 null。
- */
-export function probeBeforeClose(state: InterviewerState): string | null {
+export function currentPhase(state: InterviewerState): AreaKind | null {
   const active = activeThread(state);
-  if (!active || !canAct(state, "probe").ok) return null;
-  const target = areaById(state, active.areaId)?.depth ?? 1;
-  const reasons: string[] = [];
-  if (active.depth < target) reasons.push(`这段只追问了 ${active.depth} 层（目标 ${target} 层）`);
-  const open = openHypotheses(state, active.areaId);
-  if (open.length > 0) reasons.push(`简历假设 ${open.map((item) => item.id).join("、")} 还没验证`);
-  if (reasons.length === 0) return null;
-  return `${reasons.join("，")}：先顺着候选人的回答再追一层；确实答不上来再 close_thread`;
+  if (active) return threadKind(state, active);
+  const used = questionTurnsUsed(state);
+  return PHASE_ORDER.find((kind) => used < phaseEnd(state, kind) && areasOpenable(state, kind).length > 0) ?? null;
 }
 
-export function canAct(
-  state: InterviewerState,
-  action: ActionName,
-  args: { areaId?: string } = {},
-): ActionCheck {
+export function nextAreaToOpen(state: InterviewerState): InterviewArea | null {
+  const phase = currentPhase(state);
+  return phase ? (areasOpenable(state, phase)[0] ?? null) : null;
+}
+
+/** 各阶段都走完，或到了安全上限。 */
+export function canClose(state: InterviewerState): boolean {
+  return atSafetyCap(state) || (!activeThread(state) && currentPhase(state) === null);
+}
+
+export function canAct(state: InterviewerState, action: ActionName, args: { areaId?: string } = {}): ActionCheck {
   if (state.phase === "ended") return { ok: false, reason: "面试已结束" };
   const active = activeThread(state);
   const capped = atSafetyCap(state);
@@ -97,20 +82,29 @@ export function canAct(
     case "open_thread": {
       if (active) return { ok: false, reason: "当前线程尚未结束，先 close_thread" };
       if (capped) return { ok: false, reason: "提问次数已到安全上限，请 close_interview" };
-      const areaId = args.areaId ?? "";
-      if (!areaById(state, areaId)) return { ok: false, reason: "areaId 不在简报里" };
-      if (threadOfArea(state, areaId)) return { ok: false, reason: "该领域已考察过，每个领域只考察一次" };
+      const area = areaById(state, args.areaId ?? "");
+      if (!area) return { ok: false, reason: "areaId 不在简报里" };
+      if (threadOfArea(state, area.id)) return { ok: false, reason: "这道题已经问过，每道题只问一次" };
+      const phase = currentPhase(state);
+      if (!phase) return { ok: false, reason: "各阶段都已走完，请 close_interview" };
+      if (area.kind !== phase) return { ok: false, reason: `现在是${AREA_KIND_LABELS[phase]}阶段，只能开这个阶段的题` };
       return { ok: true };
     }
-    case "probe":
+    case "probe": {
       if (!active) return { ok: false, reason: "没有进行中的线程，先 open_thread" };
       if (capped) return { ok: false, reason: "提问次数已到安全上限，请 close_thread" };
-      if (active.depth >= probeLimit(state, active.areaId)) {
-        return { ok: false, reason: "本线程已到深度上限，请 close_thread" };
+      const kind = threadKind(state, active);
+      if (active.depth >= PROBE_LIMIT[kind]) {
+        return { ok: false, reason: kind === "quick" ? "基础题只追一层，请 close_thread 换下一题" : "这道题已追到上限，请 close_thread" };
+      }
+      if (questionTurnsUsed(state) >= phaseEnd(state, kind)) {
+        return { ok: false, reason: `${AREA_KIND_LABELS[kind]}阶段的时间到了，请 close_thread 进入下一阶段` };
       }
       return { ok: true };
+    }
     case "hint":
       if (!active) return { ok: false, reason: "没有进行中的线程" };
+      if (threadKind(state, active) === "quick") return { ok: false, reason: "基础题不给提示，答不上就下一题" };
       if (active.hinted) return { ok: false, reason: "本线程已给过提示" };
       return { ok: true };
     case "close_thread":
@@ -118,6 +112,6 @@ export function canAct(
       return { ok: true };
     case "close_interview":
       if (canClose(state)) return { ok: true };
-      return { ok: false, reason: "信息量还没达标，继续考察" };
+      return { ok: false, reason: "还有阶段没走完，继续考察" };
   }
 }

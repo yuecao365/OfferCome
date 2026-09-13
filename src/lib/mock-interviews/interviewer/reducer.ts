@@ -11,6 +11,7 @@ import {
   areaById,
   lastInterviewerQuestion,
   openHypotheses,
+  threadKind,
   threadOfArea,
   type InterviewerState,
   type MessageKind,
@@ -111,12 +112,22 @@ const HINT_HARD_LIMIT = HINT_MAX_CHARS * 2;
 export const NEXT_QUESTION_COVERAGE_MIN = 0.3;
 
 /**
- * 关线程换题时模型的话必须落到下一领域的切入问题上（可以改写，不能是上一题换个问法）：
+ * 关线程换题时模型的话必须落到下一题上（可以改写，不能是上一题换个问法）：
  * 覆盖不到就用固定过渡 + 简报原句。模型没说话不算替换。
  */
 export function speechForNextQuestion(speech: string, prefix: string, question: string): { content: string; replaced: boolean } {
   if (speech && coverage(speech, question) >= NEXT_QUESTION_COVERAGE_MIN) return { content: speech, replaced: false };
   return { content: `${prefix}\n\n${question}`, replaced: speech.length > 0 };
+}
+
+/**
+ * 开题时模型给的 question 必须是那道题（areaId）的问题（可以改写）：模型偶尔把 areaId 和别的题的问题配错，
+ * 一道题就会被问两遍、另一道题被顶掉。对不上就用简报里那道题的原句。
+ */
+export function questionForArea(state: InterviewerState, input: { areaId: string; question: string }): string {
+  const entry = areaById(state, input.areaId)?.entryQuestion;
+  if (!entry || coverage(input.question, entry) >= NEXT_QUESTION_COVERAGE_MIN) return input.question;
+  return entry;
 }
 
 /** 线程 note 里只有面试官自己写的才算判断。 */
@@ -125,8 +136,8 @@ export function interviewerNote(note: string | null): string | null {
 }
 
 /**
- * 代码的确定性下一步：开场先请自我介绍；有线程就关掉；没线程就开下一个没考察过的领域；
- * 领域用尽或到安全上限就收尾。
+ * 代码的确定性下一步：开场先请自我介绍；有线程就关掉；没线程就开当前阶段下一道没问过的题；
+ * 各阶段走完或到安全上限就收尾。
  */
 export function fallbackAction(state: InterviewerState): InterviewerAction {
   if (state.phase === "opening" && state.brief.askIntro) {
@@ -140,9 +151,9 @@ export function fallbackAction(state: InterviewerState): InterviewerAction {
   }
   const area = nextAreaToOpen(state);
   if (area) {
-    return { name: "open_thread", input: { areaId: area, question: areaById(state, area)!.entryQuestion } };
+    return { name: "open_thread", input: { areaId: area.id, question: area.entryQuestion } };
   }
-  return { name: "close_interview", input: { reason: "所有领域已考察" } };
+  return { name: "close_interview", input: { reason: "各阶段已走完" } };
 }
 
 /** 这一回合的分支：候选人插话与开场由代码定，其余交给模型。 */
@@ -152,8 +163,9 @@ export function planTurn(state: InterviewerState, intent: CandidateIntent): Turn
     return { kind: "forced", action: { name: "ask_intro", input: {} }, task: "intro" };
   }
   const active = activeThread(state);
+  const kind = active ? threadKind(state, active) : null;
   // "没做过"只在考简历项目时算否认简历；场景题 / 基础题上说没做过就是卡住。
-  const denying = intent === "deny" && active && areaById(state, active.areaId)?.kind === "project";
+  const denying = intent === "deny" && kind === "project";
   switch (denying ? "deny" : intent === "deny" ? "hint" : intent) {
     case "skip":
       return { kind: "fixed", action: active ? { name: "close_thread", input: { note: THREAD_NOTES.skipped, verdict: null } } : fallbackAction(state) };
@@ -163,7 +175,8 @@ export function planTurn(state: InterviewerState, intent: CandidateIntent): Turn
       return { kind: "fixed", action: { name: "close_interview", input: { reason: "候选人要求结束" } } };
     case "hint":
       if (!active) return { kind: "model" };
-      return active.hinted
+      // 基础题不给台阶：答不上就下一题。项目与场景题给一次提示，第二次卡住换题。
+      return active.hinted || kind === "quick"
         ? { kind: "forced", action: { name: "close_thread", input: { note: THREAD_NOTES.stuck, verdict: "failed" } }, task: "stuck" }
         : { kind: "forced", action: { name: "hint", input: {} }, task: "hint" };
     case "deny":
@@ -201,6 +214,7 @@ function newThread(state: InterviewerState, areaId: string, entryQuestion: strin
     status: "active",
     depth: 0,
     hinted: false,
+    thinStreak: 0,
     verdict: null,
     openedAtTurn: turn,
     closedAtTurn: null,
@@ -382,7 +396,7 @@ export function applyTurn(
     effects.push({ type: "interview_ended" });
   };
   const openThread = (input: { areaId: string; question: string }, content: string) => {
-    const thread = newThread(state, input.areaId, input.question);
+    const thread = newThread(state, input.areaId, questionForArea(state, input));
     state = { ...state, threads: [...state.threads, thread], phase: "running" };
     say("question", content || thread.entryQuestion, { threadId: thread.id, toolName: "open_thread" });
   };
@@ -400,12 +414,17 @@ export function applyTurn(
         break;
       }
       case "open_thread": {
-        openThread(action.input, speech);
+        // 模型的话也要落在这道题上：配错题的问题改用简报原句时，话跟着换。
+        const question = questionForArea(state, action.input);
+        const said = question === action.input.question ? { content: speech, replaced: false } : speechForNextQuestion(speech, "", question);
+        if (said.replaced) effects.push({ type: "speech_replaced", reason: "开题的问题与这道题对不上" });
+        openThread(action.input, said.content.trim());
         break;
       }
       case "probe": {
         const active = activeThread(state)!;
-        state = updateThread(state, { ...active, depth: active.depth + 1 });
+        const thinStreak = action.input.lastAnswer === "thin" ? active.thinStreak + 1 : 0;
+        state = updateThread(state, { ...active, depth: active.depth + 1, thinStreak });
         say("probe", speech || action.input.question, { threadId: active.id, toolName: action.name });
         break;
       }
@@ -437,8 +456,8 @@ export function applyTurn(
         const prefix = intent === "skip" ? FALLBACK_SPEECH.skipped : intent === "hint" ? FALLBACK_SPEECH.stuck : FALLBACK_SPEECH.transition;
         const next = ruling.next!;
         if (next.name === "open_thread") {
-          const said = speechForNextQuestion(speech, prefix, next.input.question);
-          if (said.replaced) effects.push({ type: "speech_replaced", reason: "换题的话没落到下一领域的切入问题上" });
+          const said = speechForNextQuestion(speech, prefix, questionForArea(state, next.input));
+          if (said.replaced) effects.push({ type: "speech_replaced", reason: "换题的话没落到下一题上" });
           openThread(next.input, said.content);
         } else {
           endInterview(speech || FALLBACK_SPEECH.closeInterview);

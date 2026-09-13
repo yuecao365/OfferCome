@@ -85,6 +85,7 @@ export function TrialProfilePage() {
                 companyName: interview.companyName,
                 jobTitle: interview.jobTitle,
                 areaName: null,
+                areaKind: null,
                 strengths: question.evaluation.strengths.map((item) => item.point),
                 weaknesses: question.evaluation.weaknesses,
               },

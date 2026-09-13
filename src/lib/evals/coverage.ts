@@ -3,7 +3,7 @@ import path from "node:path";
 
 import { z } from "zod";
 
-import { LADDER_STYLES, type InterviewBrief, type LadderStyle } from "@/lib/mock-interviews/interviewer/brief";
+import type { InterviewBrief } from "@/lib/mock-interviews/interviewer/brief";
 
 import { EVAL_DIR } from "./fixtures";
 import { ratio, type MetricRow, type MetricValue, type Ratio } from "./report";
@@ -52,26 +52,13 @@ export function loadCoverageConfig(file = COVERAGE_CONFIG_FILE): CoverageConfig 
 }
 
 /**
- * 简报里参与覆盖的内容：每个领域的名称、描述、切入问题与阶梯，拼成裁判可读的一段。
- * 项目领域也算：面试官在项目追问里问到 Vue 响应式或缓存一致性，对候选人来说就是考到了这个话题；
- * 只讲职责边界与真实性的项目阶梯不会命中技术话题，不用特意剔除。
+ * 简报里参与覆盖的内容：每道题的名称、问题与追问方向，拼成裁判可读的一段。
+ * 项目题也算：面试官在项目追问里问到 Vue 响应式或缓存一致性，对候选人来说就是考到了这个话题。
  */
 export function briefCoverageText(brief: InterviewBrief): string {
   return brief.areas
-    .map((area) => {
-      const ladder = area.ladder.map((rung, index) => `${index + 1}. ${rung.text}`).join("；");
-      return `【${area.name}】${area.description}。切入问题：${area.entryQuestion}。追问阶梯：${ladder}`;
-    })
+    .map((area) => `【${area.name}】问题：${area.entryQuestion}。追问：${area.guides.map((guide, index) => `${index + 1}. ${guide}`).join("；")}`)
     .join("\n");
-}
-
-const STYLE_ORDER: Record<LadderStyle, number> = Object.fromEntries(LADDER_STYLES.map((style, index) => [style, index])) as Record<LadderStyle, number>;
-
-/** 阶梯是否从事实到原理到场景 / 取舍递进：风格序号单调不减；没标风格的级跳过。 */
-export function ladderProgresses(ladder: { style: LadderStyle | null }[]): boolean | null {
-  const styles = ladder.flatMap((rung) => (rung.style ? [STYLE_ORDER[rung.style]] : []));
-  if (styles.length < 2) return null;
-  return styles.every((value, index) => index === 0 || value >= styles[index - 1]);
 }
 
 export type BriefCoverage = {
@@ -80,8 +67,8 @@ export type BriefCoverage = {
   rep: number;
   /** 每个话题是否被覆盖；裁判失败为 null。 */
   covered: Record<string, boolean | null>;
-  ladderProgressRate: Ratio;
   areaCount: number;
+  /** 题池里来自技能包主题的题数。 */
   baselineAreaCount: number;
   /** 备课加载了哪些技能包；覆盖率低时先看这里。 */
   skillPacks: string[];
@@ -96,17 +83,11 @@ export function coverageRates(topics: Topic[], covered: Record<string, boolean |
   };
 }
 
-export function briefLadderRate(brief: InterviewBrief): Ratio {
-  const verdicts = brief.areas.map((area) => ladderProgresses(area.ladder)).filter((value): value is boolean => value !== null);
-  return ratio(verdicts.filter(Boolean).length, verdicts.length);
-}
-
 export type RoleCoverageMetrics = {
   role: CoverageRole;
   briefs: number;
   weightedCoverage: Ratio;
   plainCoverage: Ratio;
-  ladderProgressRate: Ratio;
   baselineAreaShare: Ratio;
   /** 每个岗位最常被漏掉的话题（按频次）。 */
   missed: { id: string; name: string; count: number; missedIn: number }[];
@@ -128,7 +109,6 @@ export function summarizeRoleCoverage(role: CoverageRole, topics: Topic[], brief
     briefs: briefs.length,
     weightedCoverage: sumRatios(rates.map((rate) => rate.weighted)),
     plainCoverage: sumRatios(rates.map((rate) => rate.plain)),
-    ladderProgressRate: sumRatios(briefs.map((brief) => brief.ladderProgressRate)),
     baselineAreaShare: ratio(briefs.reduce((sum, brief) => sum + brief.baselineAreaCount, 0), briefs.reduce((sum, brief) => sum + brief.areaCount, 0)),
     missed,
   };
@@ -139,8 +119,7 @@ export function coverageMetricRows(roles: RoleCoverageMetrics[], judgeTrusted: b
   return roles.flatMap((item) => [
     { name: `${item.role} 话题覆盖率（加权）`, value: judgeTrusted ? item.weightedCoverage : null, expect: "记基线", note },
     { name: `${item.role} 话题覆盖率`, value: judgeTrusted ? item.plainCoverage : null, expect: "记基线", note: item.missed.slice(0, 3).map((topic) => topic.name).join("、") },
-    { name: `${item.role} 阶梯递进率`, value: item.ladderProgressRate, expect: "记基线", note: "事实 → 原理 → 场景 / 取舍" },
-    { name: `${item.role} 基线领域占比`, value: item.baselineAreaShare, expect: "记基线", note: "技能包补的领域 / 全部领域" },
+    { name: `${item.role} 技能包题占比`, value: item.baselineAreaShare, expect: "记基线", note: "题池里来自技能包主题的题 / 全部题" },
   ]);
 }
 
@@ -149,7 +128,6 @@ export function flattenCoverageMetrics(roles: RoleCoverageMetrics[]): Record<str
     roles.flatMap((item) => [
       [`${item.role}.weightedCoverage`, item.weightedCoverage],
       [`${item.role}.plainCoverage`, item.plainCoverage],
-      [`${item.role}.ladderProgressRate`, item.ladderProgressRate],
       [`${item.role}.baselineAreaShare`, item.baselineAreaShare],
     ]),
   );

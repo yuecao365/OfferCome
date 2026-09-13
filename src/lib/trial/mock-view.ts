@@ -1,4 +1,3 @@
-import { evidenceTargetForPace } from "@/lib/mock-interviews/interviewer/brief";
 import { buildQuestionTeaching } from "@/lib/mock-interviews/teaching";
 import type { MockInterviewTrace, MockInterviewView } from "@/lib/mock-interviews/types";
 import { conversationView, traceTurns } from "@/lib/mock-interviews/views";
@@ -70,8 +69,8 @@ export function trialInterviewToTrace(interview: TrialInterview): MockInterviewT
     jobTitle: interview.job.jobTitle,
     status: interview.status,
     pace: interview.brief.pace,
-    evidenceTarget: evidenceTargetForPace(interview.brief.pace),
-    areas: interview.brief.areas.map((area) => ({ id: area.id, name: area.name, kind: area.kind, depth: area.depth })),
+    plan: interview.brief.plan,
+    areas: interview.brief.areas.map((area) => ({ id: area.id, name: area.name, kind: area.kind })),
     turns: traceTurns({
       messages: interview.messages.map((message) => ({ ...message, composeMs: message.metrics?.composeMs ?? null })),
       decisions: interview.decisions,

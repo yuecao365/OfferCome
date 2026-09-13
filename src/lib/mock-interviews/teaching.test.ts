@@ -8,8 +8,7 @@ test("buildQuestionTeaching reads the segment metadata written at thread close",
     metadata: {
       areaId: "a1",
       areaName: "MySQL 索引",
-      areaKind: "technical",
-      areaStyle: "fundamentals",
+      areaKind: "quick",
       competencyOrigin: "baseline",
       skillPack: "backend",
       note: "机制清楚，取舍偏弱",
@@ -20,23 +19,22 @@ test("buildQuestionTeaching reads the segment metadata written at thread close",
       answerSeconds: 95,
     },
     expectedSignals: ["说明取舍", "给出验证方式"],
-    sourceKind: "technical",
+    sourceKind: "quick",
   });
 
   assert.deepEqual(teaching, {
     areaName: "MySQL 索引",
     competencyOrigin: "baseline",
     skillPack: "backend",
-    areaStyle: "fundamentals",
     answerSeconds: 95,
     expectedSignals: ["说明取舍", "给出验证方式"],
     note: "机制清楚，取舍偏弱",
-    sourceKind: "technical",
+    sourceKind: "quick",
   });
 });
 
 test("buildQuestionTeaching degrades safely when stored data is malformed", () => {
-  const teaching = buildQuestionTeaching({ metadata: "not-json", expectedSignals: {}, sourceKind: "technical" });
+  const teaching = buildQuestionTeaching({ metadata: "not-json", expectedSignals: {}, sourceKind: "quick" });
   assert.equal(teaching.areaName, null);
   assert.deepEqual(teaching.expectedSignals, []);
   assert.equal(teaching.note, null);

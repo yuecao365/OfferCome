@@ -4,19 +4,21 @@ import { prisma } from "@/lib/db";
 import { REAL_USAGE_INTERVIEW_WHERE } from "@/lib/interviews/types";
 import { parseJsonObject, parseJsonValue } from "@/lib/json";
 
+import { isAreaKind, type AreaKind } from "./interviewer/brief";
 import { parseStoredEvaluationList, type EvaluationWeakness } from "./question-evaluation";
 
 /**
  * 最近几场面试的逐题反馈（评分 agent 已产出，零模型调用）。
- * 两个消费方：画像页冷启动的"近期定性反馈"卡，以及下一场备课的"最近失守的考点"。
+ * 两个消费方：画像页冷启动的"近期定性反馈"卡，以及下一场备课的"最近失守的考点""最近问过什么"。
  */
 export type EvaluatedQuestion = {
   questionId: string;
   question: string;
   companyName: string;
   jobTitle: string;
-  /** 这段考的领域名；真实面试的题没有。 */
+  /** 这段考的领域名与阶段；真实面试的题没有。 */
   areaName: string | null;
+  areaKind: AreaKind | null;
   strengths: string[];
   weaknesses: EvaluationWeakness[];
 };
@@ -49,13 +51,14 @@ type QuestionRow = {
 
 function toEvaluatedQuestion(row: QuestionRow): EvaluatedQuestion {
   const evaluation = row.evaluation?.evaluationStatus === "completed" ? row.evaluation : null;
-  const areaName = evaluation ? parseJsonObject(evaluation.generationMetadataJson).areaName : null;
+  const metadata = evaluation ? parseJsonObject(evaluation.generationMetadataJson) : {};
   return {
     questionId: row.id,
     question: row.question,
     companyName: row.interview.companyName,
     jobTitle: row.interview.jobTitle,
-    areaName: typeof areaName === "string" ? areaName : null,
+    areaName: typeof metadata.areaName === "string" ? metadata.areaName : null,
+    areaKind: isAreaKind(metadata.areaKind) ? metadata.areaKind : null,
     strengths: parseStoredEvaluationList<{ point: string }>(parseJsonValue(evaluation?.strengthsJson ?? null), (point) => ({ point })).map((item) => item.point),
     weaknesses: parseStoredEvaluationList<EvaluationWeakness>(parseJsonValue(evaluation?.weaknessesJson ?? null), (point) => ({ point, quote: null, kind: "missing" })),
   };

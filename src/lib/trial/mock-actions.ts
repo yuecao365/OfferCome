@@ -66,20 +66,23 @@ function requireInterview(id: string): TrialInterview {
 const RECENT_WEAKNESS_LIMIT = 6;
 const RECENT_WEAKNESS_INTERVIEWS = 5;
 
+const RECENT_QUESTION_LIMIT = 12;
+
 /**
- * 最近几场模拟面试失守的考点，与本地版 context.ts 同口径：最近 5 场、同岗位排前、最多 6 条；
- * "针对练习"指定的题的短板放最前。
+ * 最近几场模拟面试给备课的历史，与本地版 context.ts 同口径：最近 5 场、同岗位排前；
+ * 失守的考点最多 6 条（"针对练习"指定的题的短板放最前）；同岗位问过的基础题主题与切入问题。
  */
-function recentWeaknesses(jobTitle: string, seedQuestionId: string | null): RecentWeakness[] {
+function recentHistory(jobTitle: string, seedQuestionId: string | null): { recentWeaknesses: RecentWeakness[]; recentTopics: string[]; recentQuestions: string[] } {
   const wanted = jobTitle.trim().toLocaleLowerCase();
+  const sameJob = (title: string) => title.trim().toLocaleLowerCase() === wanted;
   const records = currentWorkspace()
     .interviews.filter((interview) => interview.kind === "mock" && interview.status === "completed")
-    .toSorted((left, right) => Number(right.jobTitle.trim().toLocaleLowerCase() === wanted) - Number(left.jobTitle.trim().toLocaleLowerCase() === wanted))
+    .toSorted((left, right) => Number(sameJob(right.jobTitle)) - Number(sameJob(left.jobTitle)))
     .slice(0, RECENT_WEAKNESS_INTERVIEWS);
   const questions = records.flatMap((record) => record.questions);
   const seed = seedQuestionId ? questions.find((question) => question.id === seedQuestionId) : null;
   const ordered = seed ? [seed, ...questions.filter((question) => question !== seed)] : questions;
-  return ordered
+  const recentWeaknesses = ordered
     .flatMap((question): RecentWeakness[] => {
       const weaknesses = question.evaluation?.weaknesses ?? [];
       const area = question.question.slice(0, 80);
@@ -87,6 +90,15 @@ function recentWeaknesses(jobTitle: string, seedQuestionId: string | null): Rece
       return question === seed ? [{ area, point: "候选人要求重练这道题。", kind: "practice", quote: null }] : [];
     })
     .slice(0, RECENT_WEAKNESS_LIMIT);
+  // 主题与切入问题从会话文档的切段元数据取（工作台记录里没有）。
+  const segments = listTrialInterviews()
+    .filter((interview) => interview.status === "completed" && sameJob(interview.job.jobTitle))
+    .flatMap((interview) => interview.questions);
+  return {
+    recentWeaknesses,
+    recentTopics: [...new Set(segments.flatMap((segment) => (segment.metadata.areaKind === "quick" && segment.metadata.areaName ? [segment.metadata.areaName] : [])))],
+    recentQuestions: segments.map((segment) => segment.question.split("\n")[0].trim()).filter(Boolean).slice(0, RECENT_QUESTION_LIMIT),
+  };
 }
 
 /** 与本地版 POST /api/interviews/mock 同责：读表单、建会话、给出房间地址；备课由房间页驱动。 */
@@ -128,7 +140,7 @@ export async function runGeneration(id: string, seedQuestionId: string | null = 
       blueprint: interview.blueprint!,
       pace: interview.pace,
       round: interview.round,
-      recentWeaknesses: recentWeaknesses(interview.job.jobTitle, seedQuestionId),
+      ...recentHistory(interview.job.jobTitle, seedQuestionId),
     });
     mutateTrialInterview(id, (current) => withBrief(current, brief, memory));
   } catch (caught) {
@@ -188,10 +200,8 @@ async function evaluateTrialSegment(id: string, segmentId: string): Promise<void
     const segment = interview.questions.find((item) => item.id === segmentId);
     if (!segment || segment.skipped || segment.evaluationStatus === "completed") return;
     mutateTrialInterview(id, (current) => setSegmentEvaluation(current, segmentId, { evaluationStatus: "running" }));
-    const area = interview.brief?.areas.find((item) => item.id === segment.metadata.areaId);
     const evaluation = await evaluateSegment({
       segment,
-      targetDepth: area?.depth ?? segment.metadata.depth,
       round: interview.round,
       jobTitle: interview.job.jobTitle,
       jobDescription: interview.job.jobDescription,

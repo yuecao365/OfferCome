@@ -28,9 +28,14 @@ export type MockInterviewContext = {
     description: string;
   }[];
   recentWeaknesses: RecentWeakness[];
+  /** 最近几场同岗位问过的基础题主题名：题池抽样时降权。 */
+  recentTopics: string[];
+  /** 最近几场同岗位问过的题（切入问题）：备课换场景、换切入点。 */
+  recentQuestions: string[];
 };
 
 /** 最近几场面试取多少条失守点给备课；再多模型也只会挑几条。 */
+const RECENT_QUESTION_LIMIT = 12;
 const RECENT_WEAKNESS_LIMIT = 6;
 const RECENT_WEAKNESS_INTERVIEWS = 5;
 
@@ -99,6 +104,7 @@ export async function buildMockInterviewContext(input: {
   const recentWeaknesses = recentQuestions
     .flatMap((item) => weaknessesOf(item, item.questionId === input.seedQuestionId))
     .slice(0, RECENT_WEAKNESS_LIMIT);
+  const sameJob = recentQuestions.filter((item) => item.jobTitle.trim().toLocaleLowerCase() === input.jobTitle.trim().toLocaleLowerCase());
 
   const projectsById = new Map<
     string,
@@ -124,6 +130,8 @@ export async function buildMockInterviewContext(input: {
     },
     projects: Array.from(projectsById.values()),
     recentWeaknesses,
+    recentTopics: [...new Set(sameJob.flatMap((item) => (item.areaKind === "quick" && item.areaName ? [item.areaName] : [])))],
+    recentQuestions: sameJob.map((item) => item.question.split("\n")[0].trim()).filter(Boolean).slice(0, RECENT_QUESTION_LIMIT),
   };
 }
 

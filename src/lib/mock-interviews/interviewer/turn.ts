@@ -6,7 +6,8 @@ import type { UIMessageChunk } from "ai";
 
 import type { SkillPack } from "../skills/types";
 import type { CandidateIntent } from "./actions";
-import { evidenceSummary } from "./evidence";
+import type { AreaKind } from "./brief";
+import { currentPhase, questionTurnsUsed } from "./budget";
 import type { MemoryPatch } from "./memory";
 import { applyTurn, planTurn, ruleTurn, type CandidateInput, type TurnDecision, type TurnResult } from "./reducer";
 import type { InterviewerState, MessageMetrics, MessageState } from "./state";
@@ -40,8 +41,9 @@ export type TurnDecisionRow = {
   replacedReason: string | null;
   anchorHit: boolean | null;
   memoryPatch: MemoryPatch | null;
-  evidenceBefore: number;
-  evidenceAfter: number;
+  /** 本回合结束后处于哪个阶段（各阶段走完为 null）、已提问几次。 */
+  phase: AreaKind | null;
+  questionTurns: number;
   skillsLoaded: number;
   effects: string[];
 };
@@ -88,8 +90,8 @@ function decisionRow(
     replacedReason: result.decision.replacedReason,
     anchorHit: result.decision.anchorHit,
     memoryPatch,
-    evidenceBefore: evidenceSummary(input.state).total,
-    evidenceAfter: evidenceSummary(result.state).total,
+    phase: result.state.phase === "ended" ? null : currentPhase(result.state),
+    questionTurns: questionTurnsUsed(result.state),
     skillsLoaded,
     effects: result.effects.map((effect) => effect.type),
   };

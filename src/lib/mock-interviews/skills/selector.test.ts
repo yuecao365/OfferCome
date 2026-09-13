@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { loadSkillPacks } from "./loader";
-import { rankSkillPacks, recommendSkillPacks, selectSkillIndex, SKILL_INDEX_LIMIT } from "./selector";
+import { packsForInterview, packsForTopics, rankSkillPacks } from "./selector";
 
 const javaBackend = {
   jobTitle: "后端开发工程师",
@@ -10,12 +10,12 @@ const javaBackend = {
   resumeText: "熟悉 Java、Spring Boot、MySQL，做过订单系统。",
 };
 
-test("index keeps base packs first, puts the resume's stack right after its domain, and respects the limit", async () => {
+test("ranking keeps base packs first, puts the resume's stack right after its domain, and never drops packs", async () => {
   const packs = await loadSkillPacks();
-  const index = selectSkillIndex(javaBackend, packs);
-  const names = index.map((pack) => pack.name);
+  const ranked = rankSkillPacks(javaBackend, packs);
+  const names = ranked.map((pack) => pack.name);
   const baseCount = packs.filter((pack) => pack.layer === "base").length;
-  assert.ok(index.length <= SKILL_INDEX_LIMIT);
+  assert.equal(ranked.length, packs.length);
   assert.deepEqual(
     names.slice(0, baseCount),
     packs.filter((pack) => pack.layer === "base").map((pack) => pack.name),
@@ -26,7 +26,7 @@ test("index keeps base packs first, puts the resume's stack right after its doma
 
 test("the job decides the domain: a backend resume applying to a frontend job still gets the frontend pack first", async () => {
   const packs = await loadSkillPacks();
-  const names = selectSkillIndex(
+  const names = rankSkillPacks(
     {
       jobTitle: "前端开发工程师",
       jobDescription: "负责小程序与 Web 前端开发，熟悉浏览器渲染、性能优化、工程化。",
@@ -36,38 +36,30 @@ test("the job decides the domain: a backend resume applying to a frontend job st
   ).map((pack) => pack.name);
   const baseCount = packs.filter((pack) => pack.layer === "base").length;
   assert.equal(names[baseCount], "frontend", "岗位对应的领域包排在最前");
-  assert.ok(names.indexOf("frontend") < names.indexOf("backend"));
 });
 
-test("ranking never drops packs, so the agent can still load a pack the keywords missed", async () => {
+test("topic packs: the job's domain pack comes first, one resume stack follows with its parent, HR rounds only use behavioral", async () => {
   const packs = await loadSkillPacks();
-  assert.equal(rankSkillPacks(javaBackend, packs).length, packs.length);
-});
-
-test("legacy recommendation: resume stack pulls in its parent domain and caps stacks at two", async () => {
-  const packs = await loadSkillPacks();
-  const recommended = recommendSkillPacks(javaBackend, packs);
-  assert.ok(recommended.includes("backend"));
-  assert.ok(recommended.includes("backend-java"));
-
-  const mixed = recommendSkillPacks(
-    {
-      jobTitle: "全栈工程师",
-      jobDescription: "React 前端 + Go 服务端 + Java 中间件维护",
-      resumeText: "React、Vue、Go、Java 都写过",
-    },
+  assert.deepEqual(packsForTopics(javaBackend, packs, "first_interview").map((pack) => pack.name), ["backend", "backend-java"]);
+  // Agent 岗 + Python 简历：领域包是 ai-llm，栈包只补一个，父级 backend 跟着进来但排在后面。
+  const agent = packsForTopics(
+    { jobTitle: "Agent开发工程师 - 豆包", jobDescription: "负责 Agent 技术研发，Memory 机制、RAG、工具调用；熟练掌握 Python/Java/Go 至少一门语言。", resumeText: "Python 写的 Agent Harness，FastAPI 服务。" },
     packs,
-  );
-  const stacks = mixed.filter((name) => packs.find((pack) => pack.name === name)?.layer === "stack");
-  assert.equal(stacks.length, 2);
+    "first_interview",
+  ).map((pack) => pack.name);
+  assert.equal(agent[0], "ai-llm");
+  assert.equal(agent.filter((name) => packs.find((pack) => pack.name === name)?.layer === "stack").length, 1);
+  assert.deepEqual(packsForTopics(javaBackend, packs, "hr_interview").map((pack) => pack.name), ["behavioral"]);
 });
 
-test("legacy recommendation falls back to cs-fundamentals when nothing matches", async () => {
+test("topic packs fall back to cs-fundamentals when nothing matches", async () => {
   const packs = await loadSkillPacks();
-  const recommended = recommendSkillPacks(
-    { jobTitle: "xyzzy", jobDescription: "无", resumeText: "无" },
-    packs,
-  );
-  assert.ok(recommended.includes("cs-fundamentals"));
-  assert.equal(recommended.some((name) => packs.find((pack) => pack.name === name)?.layer === "stack"), false);
+  const names = packsForTopics({ jobTitle: "xyzzy", jobDescription: "无", resumeText: "无" }, packs, null).map((pack) => pack.name);
+  assert.deepEqual(names, ["cs-fundamentals"]);
+});
+
+test("packs for the interview follow the brief order and bring in parents", async () => {
+  const packs = await loadSkillPacks();
+  const names = packsForInterview(["backend-java", "project-deep-dive"], packs).map((pack) => pack.name);
+  assert.deepEqual(names, ["backend", "backend-java", "project-deep-dive"]);
 });

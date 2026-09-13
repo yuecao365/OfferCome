@@ -1,9 +1,7 @@
-import { MAX_AREA_DEPTH, type InterviewArea, type InterviewHypothesis, type InterviewPace } from "@/lib/mock-interviews/interviewer/brief";
-import { DEPTH_SLACK } from "@/lib/mock-interviews/interviewer/budget";
-import { QUESTION_KINDS } from "@/lib/mock-interviews/interviewer/evidence";
+import { PROBE_LIMIT, type AreaKind, type InterviewHypothesis, type InterviewPace } from "@/lib/mock-interviews/interviewer/brief";
 import type { InterviewMemory, MemoryPatch } from "@/lib/mock-interviews/interviewer/memory";
 import { THREAD_NOTES } from "@/lib/mock-interviews/interviewer/reducer";
-import type { MessageKind, ThreadState } from "@/lib/mock-interviews/interviewer/state";
+import { QUESTION_KINDS, type MessageKind, type ThreadState } from "@/lib/mock-interviews/interviewer/state";
 import type { MockInterviewQuestionEvaluation } from "@/lib/mock-interviews/question-evaluation";
 import type { MockInterviewReport } from "@/lib/mock-interviews/report";
 import { normalizedText } from "@/lib/text/similarity";
@@ -33,8 +31,8 @@ export type SnapshotDecision = {
   replacedReason: string | null;
   anchorHit: boolean | null;
   memoryPatch: MemoryPatch | null;
-  evidenceBefore: number;
-  evidenceAfter: number;
+  phase: AreaKind | null;
+  questionTurns: number;
   skillsLoaded: number;
 };
 
@@ -55,8 +53,7 @@ export type SessionSnapshot = {
   rep: number;
   status: string;
   pace: InterviewPace;
-  evidenceTarget: number;
-  areas: Pick<InterviewArea, "id" | "name" | "depth" | "weight">[];
+  areas: { id: string; name: string; kind: AreaKind }[];
   hypotheses: InterviewHypothesis[];
   memory: InterviewMemory;
   messages: SnapshotMessage[];
@@ -82,10 +79,6 @@ function contains(haystack: string, needle: string): boolean {
   return normalizedText(haystack).includes(normalizedText(needle));
 }
 
-function probeLimit(area: { depth: number }): number {
-  return Math.min(MAX_AREA_DEPTH, area.depth + DEPTH_SLACK);
-}
-
 /** 一场的 trace 指标。 */
 export type SessionTrace = {
   anchorHitRate: Ratio;
@@ -94,11 +87,10 @@ export type SessionTrace = {
   forcedCount: number;
   /** 卡住后换题的回合数：从第一次提示到线程以"候选人卡住"关闭，含两端；每条卡住的线程一个数。 */
   stuckSwitchTurns: number[];
-  /** 一层都没追就关掉的线程 / 有回答的已关线程。 */
+  /** 项目与场景题里一层都没追就关掉的线程 / 有回答的已关线程（基础题本来就一题一问，不算）。 */
   shallowThreads: Ratio;
   /** 面试官每条消息的字数（开场与收尾除外）。 */
   interviewerChars: number[];
-  finalEvidence: number | null;
   skillsLoaded: number;
   questionTurns: number;
   turns: number;
@@ -118,7 +110,8 @@ export function sessionTrace(snapshot: SessionSnapshot): SessionTrace {
       const hint = interviewer.find((message) => message.kind === "hint" && message.threadId === thread.id);
       return hint ? thread.closedAtTurn! - hint.turnIndex + 1 : 1;
     });
-  const answered = snapshot.threads.filter((thread) => thread.status === "closed" && thread.answer !== null);
+  const deepKinds = new Set(snapshot.areas.filter((area) => area.kind !== "quick").map((area) => area.id));
+  const answered = snapshot.threads.filter((thread) => thread.status === "closed" && thread.answer !== null && deepKinds.has(thread.areaId));
   return {
     shallowThreads: ratio(answered.filter((thread) => thread.depth === 0).length, answered.length),
     interviewerChars: interviewer.filter((message) => message.kind === "question" || message.kind === "probe" || message.kind === "hint").map((message) => message.content.length),
@@ -127,7 +120,6 @@ export function sessionTrace(snapshot: SessionSnapshot): SessionTrace {
     replacementRate: ratio(replaceable.filter((decision) => decision.replacedReason !== null).length, replaceable.length),
     forcedCount: decisions.filter((decision) => decision.replacedReason !== null && FORCED_REASONS.has(decision.replacedReason)).length,
     stuckSwitchTurns,
-    finalEvidence: decisions.length ? decisions[decisions.length - 1].evidenceAfter : null,
     skillsLoaded: decisions.reduce((sum, decision) => sum + decision.skillsLoaded, 0),
     questionTurns,
     turns: decisions.length,
@@ -141,7 +133,7 @@ export type Assertion = { name: string; pass: boolean | null; detail: string };
 function threadDepthWithinLimit(snapshot: SessionSnapshot): Assertion {
   const over = snapshot.threads.filter((thread) => {
     const area = snapshot.areas.find((item) => item.id === thread.areaId);
-    return area ? thread.depth > probeLimit(area) : false;
+    return area ? thread.depth > PROBE_LIMIT[area.kind] : false;
   });
   return { name: "深度不越界", pass: over.length === 0, detail: over.map((thread) => `${thread.areaId}: ${thread.depth}`).join(", ") };
 }
@@ -254,8 +246,14 @@ export function scriptAssertions(snapshot: SessionSnapshot, script: CandidateScr
   switch (script.id) {
     case "hints": {
       const helpTurns = snapshot.messages.filter((message) => message.role === "candidate" && message.kind === "aside").map((message) => message.turnIndex);
-      const unchanged = snapshot.decisions.filter((decision) => helpTurns.includes(decision.turnIndex)).every((decision) => decision.evidenceAfter === decision.evidenceBefore);
-      assertions.push({ name: "求助回合不产生信息量", pass: helpTurns.length > 0 ? unchanged : null, detail: `求助回合 ${helpTurns.join(",")}` });
+      // 提示不算提问：求助回合前后已提问次数不变（换题的回合会开下一题，不在此列）。
+      const hintTurns = snapshot.messages.filter((message) => message.role === "interviewer" && message.kind === "hint").map((message) => message.turnIndex);
+      const unchanged = hintTurns.every((turnIndex) => {
+        const before = snapshot.decisions.find((decision) => decision.turnIndex === turnIndex - 1);
+        const at = snapshot.decisions.find((decision) => decision.turnIndex === turnIndex);
+        return !before || !at || at.questionTurns === before.questionTurns;
+      });
+      assertions.push({ name: "提示回合不计提问", pass: hintTurns.length > 0 ? unchanged : null, detail: `求助回合 ${helpTurns.join(",")}` });
       assertions.push({ name: "面试没有因求助结束", pass: snapshot.endedBy !== "interviewer" || snapshot.decisions.length > helpTurns.length + 3, detail: `endedBy=${snapshot.endedBy}` });
       const leaked = snapshot.threads.some((thread) => thread.answer !== null && /能给点提示|想考什么|不太懂|再提示/.test(thread.answer));
       assertions.push({ name: "求助消息不进回答文本", pass: !leaked, detail: "" });
@@ -322,7 +320,6 @@ export type InterviewerMetrics = {
   stuckSwitchTurns: Spread;
   shallowThreadRate: Ratio;
   interviewerCharsP50: number | null;
-  finalEvidence: Spread;
   skillsLoadedRate: Ratio;
   adversarialPassAtK: Ratio;
   invalidRate: Ratio;
@@ -335,8 +332,6 @@ export type InterviewerMetrics = {
 function assertionRate(outcomes: SessionOutcome[], name: string): Ratio {
   return ratioOf(outcomes.flatMap((outcome) => outcome.assertions.filter((item) => item.name === name).map((item) => item.pass)));
 }
-
-const EVIDENCE_CASES = new Set(["hints", "longform"]);
 
 export function summarizeInterviewer(outcomes: SessionOutcome[]): InterviewerMetrics {
   const ok = outcomes.filter((outcome) => outcome.snapshot.error === null);
@@ -353,7 +348,6 @@ export function summarizeInterviewer(outcomes: SessionOutcome[]): InterviewerMet
     reps.push(outcome.assertions.every((item) => item.pass !== false));
     byCase.set(outcome.snapshot.caseId, reps);
   }
-  const evidenceSessions = valid.filter((outcome) => outcome.snapshot.caseKind === "persona" || EVIDENCE_CASES.has(outcome.snapshot.caseId));
   const latencies = valid.flatMap((outcome) => outcome.snapshot.runs.map((run) => run.durationMs));
   return {
     anchorHitRate: ratio(sum("numerator", (trace) => trace.anchorHitRate), sum("denominator", (trace) => trace.anchorHitRate)),
@@ -371,7 +365,6 @@ export function summarizeInterviewer(outcomes: SessionOutcome[]): InterviewerMet
     stuckSwitchTurns: spread(traces.flatMap((trace) => trace.stuckSwitchTurns)),
     shallowThreadRate: ratio(sum("numerator", (trace) => trace.shallowThreads), sum("denominator", (trace) => trace.shallowThreads)),
     interviewerCharsP50: percentile(traces.flatMap((trace) => trace.interviewerChars), 50),
-    finalEvidence: spread(evidenceSessions.map((outcome) => outcome.trace.finalEvidence)),
     skillsLoadedRate: ratioOf(traces.map((trace) => trace.skillsLoaded >= 1)),
     adversarialPassAtK: passAtK([...byCase.values()]),
     invalidRate: ratio(ok.length - valid.length, ok.length),
@@ -399,9 +392,8 @@ export function interviewerMetricRows(metrics: InterviewerMetrics, judgesTrusted
     { name: "动作替换率", value: metrics.replacementRate, expect: "记基线，升高即警报", note: "模型动作不可用、代码兜底" },
     { name: "每场强制推进次数", value: metrics.forcedPerSession, expect: "记基线", note: "模型没给可用动作" },
     { name: "卡住后换题回合数", value: metrics.stuckSwitchTurns, expect: "≤ 2", note: "一次提示 + 换题" },
-    { name: "一层没追的线程占比", value: metrics.shallowThreadRate, expect: "≤ 0.2", note: "有回答就关、没追问" },
+    { name: "一层没追的线程占比", value: metrics.shallowThreadRate, expect: "≤ 0.2", note: "项目 / 场景题有回答就关、没追问" },
     { name: "面试官每条消息字数 p50", value: metrics.interviewerCharsP50, expect: "记基线", note: "切入 / 追问 / 提示" },
-    { name: "收尾信息量", value: metrics.finalEvidence, expect: "quick ≥ 0.55" },
     { name: "技能包加载率", value: metrics.skillsLoadedRate, expect: "≥ 0.9" },
     { name: "对抗组 pass^k", value: metrics.adversarialPassAtK, expect: "1.0" },
     { name: "用例无效率", value: metrics.invalidRate, expect: "< 0.2", note: "模拟器没说出错句" },

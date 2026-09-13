@@ -3,6 +3,7 @@ import test from "node:test";
 
 import type { InterviewBrief } from "@/lib/mock-interviews/interviewer/brief";
 import type { TurnPayload } from "@/lib/mock-interviews/interviewer/turn-payload";
+import { testBrief } from "@/lib/test-support/interview-brief";
 
 import {
   applyTurnPayload,
@@ -22,36 +23,7 @@ import {
  * 回合结果的形状与本地版落库的是同一个 TurnPayload。
  */
 
-const brief: InterviewBrief = {
-  version: 5,
-  source: "model",
-  pace: "quick",
-  plannedTurns: 10,
-  round: "first_interview",
-  askIntro: true,
-  skillPacks: ["backend"],
-  areas: [
-    {
-      id: "a1",
-      name: "缓存一致性",
-      kind: "technical",
-      style: "scenario",
-      description: "缓存与数据库双写",
-      projectId: null,
-      competencyIds: ["c1"],
-      jdEvidence: null,
-      baseline: null,
-      weight: 3,
-      depth: 2,
-      entryQuestion: "缓存和数据库双写时你怎么保证一致性？",
-      ladder: [{ text: "先删缓存还是先写库？", style: "principle" }, { text: "失败怎么补偿？", style: "tradeoff" }],
-      expectedSignals: ["延迟双删"],
-      rubric: [{ name: "技术正确性", description: "", weight: 50 }, { name: "分析与取舍", description: "", weight: 30 }, { name: "表达结构", description: "", weight: 20 }],
-    },
-  ],
-  droppedAreas: [],
-  hypotheses: [],
-};
+const brief: InterviewBrief = testBrief({ pace: "quick" });
 
 const blueprint = { summary: "后端", completeness: "complete" as const, missingInformation: [], competencies: [] };
 
@@ -91,19 +63,20 @@ test("备课两步各自落文档，失败后重试只重跑失败的那一步",
 
 test("回合结果应用到文档：消息、线程、记忆、切段与决策记录，与本地版落库同语义", () => {
   const interview = seeded();
-  const thread = { id: "t1", areaId: "a1", entryQuestion: brief.areas[0].entryQuestion, status: "closed" as const, depth: 1, hinted: false, verdict: null, openedAtTurn: 1, closedAtTurn: 3, note: "机制清楚" };
+  const thread = { id: "t1", areaId: "q1", entryQuestion: brief.areas[1].entryQuestion, status: "closed" as const, depth: 1, hinted: false, thinStreak: 0, verdict: null, openedAtTurn: 1, closedAtTurn: 3, note: "机制清楚" };
   const payload: TurnPayload = {
     newMessages: [
       { id: "m1", turnIndex: 3, role: "candidate", kind: "answer", content: "先写库再删缓存。", threadId: "t1", toolName: null },
       { id: "m2", turnIndex: 3, role: "interviewer", kind: "closing", content: "这一块够了。", threadId: "t1", toolName: "close_thread" },
     ],
     threads: [thread],
-    memory: { established: [{ areaId: "a1", text: "知道延迟双删", turn: 3 }], doubtful: [], failed: [], hypotheses: [] },
+    memory: { established: [{ areaId: "q1", text: "知道延迟双删", turn: 3 }], doubtful: [], failed: [], hypotheses: [] },
     phase: "running",
+    stage: { phase: "quick", plan: brief.plan, used: { project: 0, quick: 2, scenario: 0 } },
     effects: [
       { type: "thread_closed", thread, segment: { question: "缓存和数据库双写时你怎么保证一致性？\n追问 1：先删缓存还是先写库？", answer: "我们用延迟双删。\n\n先写库再删缓存。", skipped: false, probeCount: 1, answerSeconds: 40 } },
     ],
-    decision: { turnIndex: 3, runId: "trial-turn:3", proposedAction: "close_thread", appliedAction: "close_thread", followUp: null, replacedReason: null, anchorHit: null, memoryPatch: null, evidenceBefore: 0.4, evidenceAfter: 0.8, skillsLoaded: 0, effects: ["thread_closed"] },
+    decision: { turnIndex: 3, runId: "trial-turn:3", proposedAction: "close_thread", appliedAction: "close_thread", followUp: null, replacedReason: null, anchorHit: null, memoryPatch: null, phase: "quick", questionTurns: 3, skillsLoaded: 0, effects: ["thread_closed"] },
   };
 
   const next = applyTurnPayload(interview, payload);
@@ -117,10 +90,11 @@ test("回合结果应用到文档：消息、线程、记忆、切段与决策�
   const [segment] = next.questions;
   assert.equal(segment.threadId, "t1");
   assert.equal(segment.category, "technical");
-  assert.equal(segment.sourceKind, "technical");
-  assert.deepEqual(segment.rubric.map((item) => item.name), ["技术正确性", "分析与取舍", "表达结构"]);
+  assert.equal(segment.sourceKind, "quick");
+  assert.deepEqual(segment.rubric.map((item) => item.name), ["准确性", "原理深度", "表达结构"]);
   assert.equal(segment.metadata.areaName, "缓存一致性");
-  assert.equal(segment.metadata.competencyOrigin, "jd");
+  assert.equal(segment.metadata.areaKind, "quick");
+  assert.equal(segment.metadata.competencyOrigin, "baseline");
   assert.equal(segment.metadata.note, "机制清楚");
   assert.equal(segment.evaluationStatus, "pending");
   assert.deepEqual(segmentsToEvaluate(next).map((item) => item.id), [segment.id]);

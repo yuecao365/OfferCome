@@ -5,9 +5,9 @@ import { REAL_USAGE_INTERVIEW_WHERE } from "@/lib/interviews/types";
 import { parseJsonArray, parseJsonObject, parseJsonValue } from "@/lib/json";
 
 import { parseThreadVerdict } from "./interviewer/actions";
-import { evidenceTargetForPace, parseStoredBrief } from "./interviewer/brief";
+import { isAreaKind, parseStoredBrief } from "./interviewer/brief";
 import { parseStoredMemory, type MemoryPatch } from "./interviewer/memory";
-import type { MessageKind, MessageRole, ThreadStatus } from "./interviewer/state";
+import type { MessageKind, MessageRole, MessageState, ThreadStatus } from "./interviewer/state";
 import {
   parseStoredEvaluationList,
   type AnswerExemplar,
@@ -77,7 +77,7 @@ function buildConversation(session: SessionWithConversation) {
     status: session.status,
     startedAt: session.startedAt?.toISOString() ?? null,
     threads: session.threads.map((thread) => ({ ...thread, status: thread.status as ThreadStatus, verdict: parseThreadVerdict(thread.verdict) })),
-    messages: session.messages.map((message) => ({ ...message, role: message.role as MessageRole, kind: message.kind as MessageKind })),
+    messages: session.messages.map((message): MessageState => ({ ...message, role: message.role as MessageRole, kind: message.kind as MessageKind })),
     memory: parseStoredMemory(session.memoryJson, brief),
   });
 }
@@ -192,8 +192,8 @@ export async function getMockInterviewTrace(id: string): Promise<MockInterviewTr
     jobTitle: session.interview.jobTitle,
     status: session.status,
     pace: brief.pace,
-    evidenceTarget: evidenceTargetForPace(brief.pace),
-    areas: brief.areas.map((area) => ({ id: area.id, name: area.name, kind: area.kind, depth: area.depth })),
+    plan: brief.plan,
+    areas: brief.areas.map((area) => ({ id: area.id, name: area.name, kind: area.kind })),
     turns: traceTurns({
       messages: session.messages.map((message) => ({
         turnIndex: message.turnIndex,
@@ -211,8 +211,8 @@ export async function getMockInterviewTrace(id: string): Promise<MockInterviewTr
         replacedReason: decision.replacedReason,
         anchorHit: decision.anchorHit,
         memoryPatch: (parseJsonValue(decision.memoryPatchJson) as MemoryPatch | null) ?? null,
-        evidenceBefore: decision.evidenceBefore,
-        evidenceAfter: decision.evidenceAfter,
+        phase: isAreaKind(decision.phase) ? decision.phase : null,
+        questionTurns: decision.questionTurns,
         skillsLoaded: decision.skillsLoaded,
         effects: (parseJsonValue(decision.effectsJson) as string[] | null) ?? [],
       })),

@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { InterviewStatus } from "@/lib/interviews/types";
 
 import type { ThreadVerdict } from "./interviewer/actions";
-import type { InterviewHypothesis, InterviewPace } from "./interviewer/brief";
+import type { AreaKind, InterviewHypothesis, InterviewPace, PhaseBudget } from "./interviewer/brief";
 import type { InterviewMaterials } from "./materials";
 import type { InterviewMemory } from "./interviewer/memory";
 import type { AnswerExemplar, EvaluationStrength, EvaluationWeakness } from "./question-evaluation";
@@ -77,22 +77,28 @@ export const storedJobBlueprintSchema = mockInterviewJobBlueprintSchema.extend({
 export type MockInterviewJobBlueprint = z.infer<
   typeof mockInterviewJobBlueprintSchema
 >;
-/** 报告页"这道题在考察什么"：这段所属领域的来源与风格、期望信号、面试官关线程时的判断。 */
+/** 报告页"这道题在考察什么"：这段所属阶段与来源、期望信号、面试官关线程时的判断。 */
 export type MockInterviewQuestionTeaching = {
   areaName: string | null;
-  /** jd：JD 明确要求；baseline：技能包补的岗位常见要求。 */
+  /** jd：JD 明确要求（场景题）；baseline：技能包里的岗位常见考点（基础题）。 */
   competencyOrigin: "jd" | "baseline" | null;
   /** baseline 来源时是哪个技能包。 */
   skillPack: string | null;
-  /** 领域风格（scenario / fundamentals）；非技术领域为 null。 */
-  areaStyle: string | null;
   /** 候选人在这条线程里的作答总时长（秒），只作辅助信号；没有记录为 null。 */
   answerSeconds: number | null;
   expectedSignals: string[];
   /** 面试官关线程时的判断；代码被迫关线程时为 null。 */
   note: string | null;
-  /** 领域类型（technical / project / behavioral）。 */
+  /** 这段属于哪个阶段（project / quick / scenario）。 */
   sourceKind: string;
+};
+
+/** 房间顶栏的阶段进度：现在在哪个阶段、各阶段用了几个提问回合。 */
+export type InterviewStage = {
+  /** 各阶段都走完为 null。 */
+  phase: AreaKind | null;
+  plan: PhaseBudget;
+  used: PhaseBudget;
 };
 
 
@@ -109,22 +115,10 @@ export type MockInterviewConversationMessage = {
 export type MockInterviewConversation = {
   phase: "opening" | "running" | "ended";
   pace: InterviewPace;
-  /** 备课的预计回合，只用于安全上限。 */
-  plannedTurns: number;
   /** 第一回合落库的时间；房间顶栏据此显示已用时。 */
   startedAt: string | null;
-  areas: {
-    id: string;
-    name: string;
-    kind: string;
-    weight: number;
-    /** 简报里的目标追问层数与实际追到的层数。 */
-    depth: number;
-    depthReached: number;
-    status: "pending" | "active" | "covered";
-  }[];
-  /** 备课装箱时丢掉的方向，报告页告诉用户这场没问到。 */
-  droppedAreas: string[];
+  stage: InterviewStage;
+  areas: { id: string; name: string; kind: AreaKind; status: "pending" | "active" | "covered" }[];
   threads: {
     id: string;
     areaId: string;
@@ -205,8 +199,8 @@ export type MockInterviewTraceTurn = {
     replacedReason: string | null;
     anchorHit: boolean | null;
     memoryPatch: unknown;
-    evidenceBefore: number;
-    evidenceAfter: number;
+    phase: AreaKind | null;
+    questionTurns: number;
     skillsLoaded: number;
     effects: string[];
   } | null;
@@ -219,7 +213,7 @@ export type MockInterviewTrace = {
   jobTitle: string;
   status: string;
   pace: InterviewPace;
-  evidenceTarget: number;
-  areas: { id: string; name: string; kind: string; depth: number }[];
+  plan: PhaseBudget;
+  areas: { id: string; name: string; kind: AreaKind }[];
   turns: MockInterviewTraceTurn[];
 };

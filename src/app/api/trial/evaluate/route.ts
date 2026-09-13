@@ -1,5 +1,6 @@
 import { generateAnswerExemplar } from "@/lib/mock-interviews/answer-exemplar-agent";
 import { parseThreadVerdict } from "@/lib/mock-interviews/interviewer/actions";
+import { isAreaKind } from "@/lib/mock-interviews/interviewer/brief";
 import type { SegmentRecord } from "@/lib/mock-interviews/interviewer/segments";
 import { evaluateMockInterviewQuestion } from "@/lib/mock-interviews/question-evaluation-agent";
 import { loadSkillPacks } from "@/lib/mock-interviews/skills/loader";
@@ -13,8 +14,6 @@ export const maxDuration = 60;
 
 type Body = {
   segment: SegmentRecord;
-  /** 该领域的目标深度（简报里的 depth）。 */
-  targetDepth: number;
   round: string | null;
   jobTitle: string;
   jobDescription: string;
@@ -37,14 +36,16 @@ export const POST = withTrialAi<Body>(async (body) => {
     expectedSignals: body.segment.expectedSignals,
     jobTitle: body.jobTitle,
     jobDescription: body.jobDescription,
-    thread: {
-      depth: body.segment.metadata.depth,
-      targetDepth: body.targetDepth,
-      probeCount: body.segment.metadata.probeCount,
-      hinted: body.segment.metadata.hinted,
-      verdict: parseThreadVerdict(body.segment.metadata.verdict),
-      note: body.segment.metadata.note,
-    },
+    thread: isAreaKind(body.segment.metadata.areaKind)
+      ? {
+          kind: body.segment.metadata.areaKind,
+          depth: body.segment.metadata.depth,
+          probeCount: body.segment.metadata.probeCount,
+          hinted: body.segment.metadata.hinted,
+          verdict: parseThreadVerdict(body.segment.metadata.verdict),
+          note: body.segment.metadata.note,
+        }
+      : null,
     round: body.round,
   });
 

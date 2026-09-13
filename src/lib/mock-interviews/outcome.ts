@@ -1,4 +1,4 @@
-import type { InterviewBrief } from "./interviewer/brief";
+import { KIND_WEIGHT, type InterviewBrief } from "./interviewer/brief";
 import type { InterviewMemory } from "./interviewer/memory";
 import { interviewerNote } from "./interviewer/reducer";
 import type { EvaluationWeakness } from "./question-evaluation";
@@ -27,33 +27,26 @@ export type OutcomeQuestion = {
 
 export type AreaOutcome = { summary: SummaryInput["areas"][number]; scores: number[] };
 
-/** 每个问到过的领域：几条线程的深度、判断、分数与短板；跳过的线程记 0 分。 */
+/** 每道问到过的题：阶段、追问层数、面试官判断、分数与短板；跳过的记 0 分。权重按阶段（项目 3、场景 2、基础 1）。 */
 export function areaOutcomes(brief: InterviewBrief, threads: OutcomeThread[], questions: OutcomeQuestion[]): AreaOutcome[] {
   const questionById = new Map(questions.map((question) => [question.id, question]));
   return brief.areas.flatMap((area) => {
-    const own = threads.filter((thread) => thread.areaId === area.id && thread.status !== "active");
-    if (own.length === 0) return [];
-    const asked = own.map((thread) => (thread.questionId ? (questionById.get(thread.questionId) ?? null) : null));
-    const scores = asked.map((question) => question?.evaluation?.score ?? 0);
-    const answered = asked.filter((question) => question && !question.skipped);
-    const best = asked.reduce<OutcomeQuestion | null>(
-      (top, question) => (question && (question.evaluation?.score ?? 0) >= (top?.evaluation?.score ?? -1) ? question : top),
-      null,
-    );
+    const thread = threads.find((item) => item.areaId === area.id && item.status !== "active");
+    if (!thread) return [];
+    const question = thread.questionId ? (questionById.get(thread.questionId) ?? null) : null;
+    const answered = question !== null && !question.skipped;
     return [
       {
-        scores,
+        scores: [question?.evaluation?.score ?? 0],
         summary: {
           name: area.name,
           kind: area.kind,
-          style: area.style,
-          weight: area.weight,
-          depthReached: Math.max(0, ...own.map((thread) => thread.depth)),
-          targetDepth: area.depth,
-          threadNote: interviewerNote(own.at(-1)?.note ?? null),
-          skipped: answered.length === 0,
-          score: answered.length > 0 ? Math.max(...scores) : null,
-          weaknesses: best?.evaluation?.weaknesses ?? [],
+          weight: KIND_WEIGHT[area.kind],
+          depthReached: thread.depth,
+          threadNote: interviewerNote(thread.note),
+          skipped: !answered,
+          score: answered ? (question.evaluation?.score ?? null) : null,
+          weaknesses: question?.evaluation?.weaknesses ?? [],
         },
       },
     ];

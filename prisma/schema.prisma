@@ -258,6 +258,8 @@ model InterviewThread {
   status        String               @default("active")
   depth         Int                  @default(0)
   hinted        Boolean              @default(false)
+  /// 连续几条回答被面试官判为只有关键词：关键词回答只追一次。
+  thinStreak    Int                  @default(0)
   /// 面试官关线程时对这段的判断：answered / thin / failed；跳过或系统推进关掉的为 null。
   verdict       String?
   openedAtTurn  Int
@@ -537,7 +539,7 @@ model AgentRun {
 }
 
 
-/// 每回合一条决策记录：模型提了什么、代码用了什么、为什么换、信息量怎么变。trace 页面与评测读它。
+/// 每回合一条决策记录：模型提了什么、代码用了什么、为什么换、面试走到了哪个阶段。trace 页面与评测读它。
 model InterviewTurnDecision {
   id              String               @id @default(cuid())
   sessionId       String
@@ -550,8 +552,9 @@ model InterviewTurnDecision {
   replacedReason  String?
   anchorHit       Boolean?
   memoryPatchJson String?
-  evidenceBefore  Float
-  evidenceAfter   Float
+  /// 本回合结束后处于哪个阶段（project / quick / scenario；各阶段走完为 null）与已提问次数。
+  phase           String?
+  questionTurns   Int                  @default(0)
   skillsLoaded    Int                  @default(0)
   effectsJson     String
   createdAt       DateTime             @default(now())

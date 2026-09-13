@@ -63,6 +63,7 @@ function toThreadState(row: LoadedSession["session"]["threads"][number]): Thread
     status: row.status as ThreadStatus,
     depth: row.depth,
     hinted: row.hinted,
+    thinStreak: row.thinStreak,
     verdict: parseThreadVerdict(row.verdict),
     openedAtTurn: row.openedAtTurn,
     closedAtTurn: row.closedAtTurn,
@@ -162,6 +163,7 @@ export async function persistTurn(
         status: thread.status,
         depth: thread.depth,
         hinted: thread.hinted,
+        thinStreak: thread.thinStreak,
         verdict: thread.verdict,
         closedAtTurn: thread.closedAtTurn,
         note: thread.note,
@@ -201,7 +203,7 @@ export async function persistTurn(
 
     const closedCount = result.state.threads.filter((thread) => thread.status !== "active").length;
     for (const effect of closedEffects) {
-      const record = segmentRecord(areas.get(effect.thread.areaId) ?? null, effect.thread, effect.segment);
+      const record = segmentRecord(areas.get(effect.thread.areaId) ?? null, effect.thread, effect.segment, loaded.brief.round);
       const sortOrder = result.state.threads.findIndex((thread) => thread.id === effect.thread.id);
       const question = await tx.interviewQuestion.create({
         data: {
@@ -240,8 +242,8 @@ export async function persistTurn(
         replacedReason: decision.replacedReason,
         anchorHit: decision.anchorHit,
         memoryPatchJson: decision.memoryPatch ? JSON.stringify(decision.memoryPatch) : null,
-        evidenceBefore: decision.evidenceBefore,
-        evidenceAfter: decision.evidenceAfter,
+        phase: decision.phase,
+        questionTurns: decision.questionTurns,
         skillsLoaded: decision.skillsLoaded,
         effectsJson: JSON.stringify(decision.effects),
       },

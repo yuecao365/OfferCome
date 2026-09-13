@@ -2,11 +2,11 @@ import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { INTERVIEW_PACE_LABELS } from "@/lib/mock-interviews/interviewer/brief";
+import { AREA_KIND_LABELS, INTERVIEW_PACE_LABELS, PHASE_ORDER } from "@/lib/mock-interviews/interviewer/brief";
 import type { MockInterviewTrace, MockInterviewTraceTurn } from "@/lib/mock-interviews/types";
 
 /**
- * 决策记录：按回合展示候选人的话、面试官的话、模型提案 → 代码裁决、信息量变化、
+ * 决策记录：按回合展示候选人的话、面试官的话、模型提案 → 代码裁决、所处阶段与进度、
  * 记忆增量与模型开销。只读，给开发者与评测看，不给候选人看。
  */
 
@@ -22,10 +22,6 @@ const KIND_LABELS: Record<string, string> = {
 
 /** 面试官一条话超过这个字数在 trace 页标出来：说话收短靠提示词，代码不截断。 */
 const LONG_MESSAGE_CHARS = 150;
-
-function percent(value: number): string {
-  return `${Math.round(value * 100)}%`;
-}
 
 function DecisionLine({ decision }: { decision: NonNullable<MockInterviewTraceTurn["decision"]> }) {
   const replaced = decision.proposedAction !== decision.appliedAction;
@@ -46,7 +42,7 @@ function DecisionLine({ decision }: { decision: NonNullable<MockInterviewTraceTu
         {decision.anchorHit === true ? <Badge className="ml-2" tone="success">追问锚定原话</Badge> : null}
       </p>
       <p>
-        信息量 {percent(decision.evidenceBefore)} → {percent(decision.evidenceAfter)}
+        {decision.phase ? `阶段：${AREA_KIND_LABELS[decision.phase]}` : "各阶段已走完"} · 已提问 {decision.questionTurns} 次
         {decision.skillsLoaded > 0 ? ` · 查了 ${decision.skillsLoaded} 个技能包` : ""}
         {decision.effects.length > 0 ? ` · 副作用：${decision.effects.join(", ")}` : ""}
       </p>
@@ -71,7 +67,7 @@ export function MockInterviewTraceView({ trace }: { trace: MockInterviewTrace })
             返回这场面试
           </ButtonLink>
         }
-        description={`${INTERVIEW_PACE_LABELS[trace.pace]}节奏 · 信息量目标 ${percent(trace.evidenceTarget)} · 领域：${trace.areas.map((area) => `${area.name}（目标 ${area.depth} 层）`).join("、")}`}
+        description={`${INTERVIEW_PACE_LABELS[trace.pace]}节奏 · 预算 ${PHASE_ORDER.map((kind) => `${AREA_KIND_LABELS[kind]} ${trace.plan[kind]}`).join(" / ")} 回合 · ${PHASE_ORDER.map((kind) => `${AREA_KIND_LABELS[kind]}：${trace.areas.filter((area) => area.kind === kind).map((area) => area.name).join("、") || "无"}`).join("；")}`}
         title={`决策记录 · ${trace.companyName} · ${trace.jobTitle}`}
       />
       <ol className="grid gap-3">

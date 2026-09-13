@@ -10,9 +10,12 @@ import { MockInterviewMaterialsDrawer } from "@/components/interviews/mock-inter
 import { ThemeButton } from "@/components/theme-button";
 import { Alert } from "@/components/ui/alert";
 import { Button, ButtonLink } from "@/components/ui/button";
+import { cn } from "@/lib/cn";
 import { CANDIDATE_INTENT_PLACEHOLDERS } from "@/lib/mock-interviews/interviewer/actions";
+import { AREA_KIND_LABELS, PHASE_ORDER } from "@/lib/mock-interviews/interviewer/brief";
 import type { TurnData, TurnPayload } from "@/lib/mock-interviews/interviewer/turn-payload";
 import type {
+  InterviewStage,
   MockInterviewConversation,
   MockInterviewConversationMessage,
   MockInterviewView,
@@ -24,8 +27,8 @@ import type {
  * 前端用它替换流中的临时内容。本地版真相在数据库，体验版真相在浏览器的会话文档，
  * 差别全部收在注入的 driver 里。
  *
- * 候选人看不到考察领域和面试官的计划，顶栏只有一个已用时的钟和"资料"抽屉（简历原文与岗位描述，
- * 面试官对质时引用的简历原句在里面高亮）；计划与笔记在报告页揭晓。
+ * 候选人看不到具体的题和面试官的笔记，只看得到自己在哪个环节（项目 → 基础 → 场景，像真实面试里能感觉到
+ * "面试官开始问基础了"）、已用时和"资料"抽屉（简历原文与岗位描述，面试官对质时引用的简历原句在里面高亮）。
  */
 
 type Intent = "skip" | "hint" | "repeat" | "end";
@@ -133,6 +136,33 @@ function subscribeNoop(): () => void {
   return () => {};
 }
 
+/** 阶段条：项目 → 基础 → 场景，当前阶段高亮，走过的变淡。 */
+function StageBar({ stage, ended }: { stage: InterviewStage; ended: boolean }) {
+  const currentIndex = stage.phase ? PHASE_ORDER.indexOf(stage.phase) : PHASE_ORDER.length;
+  return (
+    <ol aria-label="面试环节" className="hidden items-center gap-1 text-xs sm:flex">
+      {PHASE_ORDER.map((kind, index) => {
+        const current = !ended && index === currentIndex;
+        const done = ended || index < currentIndex;
+        return (
+          <li className="flex items-center gap-1" key={kind}>
+            {index > 0 ? <span aria-hidden="true" className="text-muted-foreground/60">›</span> : null}
+            <span
+              aria-current={current ? "step" : undefined}
+              className={cn(
+                "rounded-full px-2 py-0.5",
+                current ? "bg-accent font-medium text-accent-foreground" : done ? "text-muted-foreground line-through decoration-border" : "text-muted-foreground",
+              )}
+            >
+              {AREA_KIND_LABELS[kind]}
+            </span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
 export function MockInterviewChat({
   session,
   driver: injectedDriver,
@@ -148,6 +178,8 @@ export function MockInterviewChat({
   const conversation = session.conversation;
   const [transcript, setTranscript] = useState(conversation.messages);
   const [phase, setPhase] = useState(conversation.phase);
+  const [stage, setStage] = useState(conversation.stage);
+  const [threads, setThreads] = useState(conversation.threads);
   const [input, setInput] = useState("");
   const [turnError, setTurnError] = useState("");
   const [completing, setCompleting] = useState(false);
@@ -178,6 +210,8 @@ export function MockInterviewChat({
         });
         if (!data.replay) {
           setPhase(data.payload.phase);
+          setStage(data.payload.stage);
+          setThreads(data.payload.threads.map((thread) => ({ ...thread, note: null, questionId: null })));
           driver.onTurn?.(data.payload);
         }
       }
@@ -190,6 +224,9 @@ export function MockInterviewChat({
 
   const busy = status === "submitted" || status === "streaming";
   const ended = phase === "ended" || session.status !== "in_progress";
+  // 基础快问不给台阶：按钮直接说明后果；项目与场景题给一次提示，用过之后再点就是换题。
+  const activeHinted = threads.some((thread) => thread.status === "active" && thread.hinted);
+  const hintLabel = stage.phase === "quick" ? "不会，下一题" : activeHinted ? "还是不会，换一题" : "要个提示";
   const turnsUsed = transcript.reduce((max, message) => Math.max(max, message.turnIndex + 1), 0);
 
   // 只显示当前步骤的文本：模型在工具调用后常再说一步，并把前一步复述一遍。
@@ -281,6 +318,7 @@ export function MockInterviewChat({
         <p className="min-w-0 flex-1 truncate text-sm font-medium">
           {session.companyName} · {session.jobTitle}
         </p>
+        <StageBar ended={ended} stage={stage} />
         <ElapsedClock startedAt={conversation.startedAt ?? openedAt} running={!ended} />
         <Button aria-pressed={materialsOpen} onClick={() => setMaterialsOpen((open) => !open)} size="sm" type="button" variant="ghost">
           <FileText aria-hidden="true" className="size-3.5" strokeWidth={1.5} />
@@ -366,7 +404,7 @@ export function MockInterviewChat({
                 发送
               </Button>
               <Button disabled={busy} onClick={() => send("", "hint")} size="sm" type="button" variant="outline">
-                要个提示
+                {hintLabel}
               </Button>
               <Button disabled={busy} onClick={() => send("", "repeat")} size="sm" type="button" variant="outline">
                 再说一遍

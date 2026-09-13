@@ -1,5 +1,5 @@
 import type { ThreadVerdict } from "./actions";
-import type { InterviewBrief } from "./brief";
+import type { AreaKind, InterviewArea, InterviewBrief } from "./brief";
 import type { InterviewMemory } from "./memory";
 
 /**
@@ -18,6 +18,8 @@ export type ThreadState = {
   depth: number;
   /** 这条线程已经给过一次提示（每线程只给一次）。 */
   hinted: boolean;
+  /** 连续几条回答被面试官判为只有关键词：关键词回答只追一次。 */
+  thinStreak: number;
   /** 关线程时面试官对这段的判断（answered / thin / failed）；进行中、跳过、系统推进关掉的为 null。 */
   verdict: ThreadVerdict | null;
   openedAtTurn: number;
@@ -32,6 +34,9 @@ export type MessageRole = "interviewer" | "candidate";
  * aside 是由代码处理的插话（跳过 / 再说一遍 / 结束 / 卡住 / 否定简历）。
  */
 export type MessageKind = "intro_request" | "question" | "probe" | "hint" | "closing" | "answer" | "aside";
+
+/** 面试官"问了一次"的消息类型：切入问题、追问、开场请自我介绍。 */
+export const QUESTION_KINDS = new Set<MessageKind>(["intro_request", "question", "probe"]);
 
 /** 候选人这条消息的作答元数据：从面试官上一句落库到候选人发送的时间与字数。 */
 export type MessageMetrics = { composeMs: number | null; chars: number };
@@ -63,8 +68,13 @@ export function activeThread(state: InterviewerState): ThreadState | null {
   return state.threads.find((thread) => thread.status === "active") ?? null;
 }
 
-export function areaById(state: InterviewerState, areaId: string) {
+export function areaById(state: InterviewerState, areaId: string): InterviewArea | null {
   return state.brief.areas.find((area) => area.id === areaId) ?? null;
+}
+
+/** 线程属于哪个阶段；简报里找不到领域时按基础题处理（最保守：一题一问）。 */
+export function threadKind(state: InterviewerState, thread: ThreadState): AreaKind {
+  return areaById(state, thread.areaId)?.kind ?? "quick";
 }
 
 /** 挂在这个领域上、还没验证的简历假设。 */
@@ -87,21 +97,7 @@ export function closedThreads(state: InterviewerState): ThreadState[] {
 export function lastInterviewerQuestion(state: InterviewerState): MessageState | null {
   for (let index = state.messages.length - 1; index >= 0; index -= 1) {
     const message = state.messages[index];
-    if (
-      message.role === "interviewer" &&
-      (message.kind === "question" || message.kind === "probe" || message.kind === "intro_request")
-    ) {
-      return message;
-    }
-  }
-  return null;
-}
-
-/** 候选人最近一条实质回答（不含插话）。 */
-export function lastCandidateAnswer(state: InterviewerState): MessageState | null {
-  for (let index = state.messages.length - 1; index >= 0; index -= 1) {
-    const message = state.messages[index];
-    if (message.role === "candidate" && message.kind === "answer") return message;
+    if (message.role === "interviewer" && QUESTION_KINDS.has(message.kind)) return message;
   }
   return null;
 }

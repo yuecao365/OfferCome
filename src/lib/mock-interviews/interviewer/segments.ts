@@ -1,5 +1,5 @@
 import { THREAD_VERDICT_LABELS, type ThreadVerdict } from "./actions";
-import type { AreaKind, InterviewArea, RubricItem } from "./brief";
+import { HR_ROUND, type AreaKind, type InterviewArea, type RubricItem } from "./brief";
 import type { MessageState, ThreadState } from "./state";
 
 /**
@@ -41,8 +41,7 @@ export type SegmentMetadata = {
   areaId: string;
   areaName: string | null;
   areaKind: AreaKind | null;
-  areaStyle: string | null;
-  /** 溯源：这段考的是 JD 明确要求的，还是技能包补的岗位常见要求。 */
+  /** 溯源：这段考的是 JD 明确要求的（场景题），还是技能包里的岗位常见考点（基础题）。 */
   competencyOrigin: "jd" | "baseline" | null;
   skillPack: string | null;
   note: string | null;
@@ -66,28 +65,28 @@ export type SegmentRecord = {
   metadata: SegmentMetadata;
 };
 
-export function categoryForArea(area: Pick<InterviewArea, "kind"> | null): string {
+/** 兼容层题目的分类：项目题、HR 面的软素质题、技术题（复盘页按它筛）。 */
+export function categoryForArea(area: Pick<InterviewArea, "kind"> | null, round: string | null): string {
   if (area?.kind === "project") return "resume_project";
-  if (area?.kind === "behavioral") return "general";
+  if (round === HR_ROUND) return "general";
   return "technical";
 }
 
-export function segmentRecord(area: InterviewArea | null, thread: ThreadState, segment: ThreadSegment): SegmentRecord {
+export function segmentRecord(area: InterviewArea | null, thread: ThreadState, segment: ThreadSegment, round: string | null): SegmentRecord {
   return {
     question: segment.question,
     answer: segment.skipped ? null : segment.answer,
     skipped: segment.skipped,
-    category: categoryForArea(area),
-    sourceKind: area?.kind ?? "technical",
+    category: categoryForArea(area, round),
+    sourceKind: area?.kind ?? "quick",
     rubric: area?.rubric ?? [],
     expectedSignals: area?.expectedSignals ?? [],
     metadata: {
       areaId: thread.areaId,
       areaName: area?.name ?? null,
       areaKind: area?.kind ?? null,
-      areaStyle: area?.style ?? null,
-      competencyOrigin: !area ? null : area.competencyIds.length > 0 ? "jd" : area.baseline ? "baseline" : null,
-      skillPack: area?.baseline?.skill ?? null,
+      competencyOrigin: !area ? null : area.jdEvidence ? "jd" : area.topic ? "baseline" : null,
+      skillPack: area?.topic?.skill ?? null,
       note: thread.note,
       depth: thread.depth,
       probeCount: segment.probeCount,

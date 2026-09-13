@@ -128,6 +128,8 @@ export async function requestBrief(input: {
   pace: InterviewPace;
   round: string | null;
   recentWeaknesses: RecentWeakness[];
+  recentTopics: string[];
+  recentQuestions: string[];
 }): Promise<{ brief: InterviewBrief; memory: InterviewMemory }> {
   return postWithAi("/api/trial/brief", input);
 }
@@ -163,7 +165,6 @@ export function createTrialTurnTransport(input: {
 
 export async function evaluateSegment(input: {
   segment: SegmentRecord;
-  targetDepth: number;
   round: string | null;
   jobTitle: string;
   jobDescription: string;

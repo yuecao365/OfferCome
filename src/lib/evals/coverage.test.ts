@@ -1,13 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { InterviewBrief } from "@/lib/mock-interviews/interviewer/brief";
+import type { InterviewArea, InterviewBrief } from "@/lib/mock-interviews/interviewer/brief";
+import { testBrief } from "@/lib/test-support/interview-brief";
 
 import {
   briefCoverageText,
-  briefLadderRate,
   coverageRates,
-  ladderProgresses,
   loadCoverageConfig,
   summarizeRoleCoverage,
   type BriefCoverage,
@@ -21,51 +20,31 @@ const topics: Topic[] = [
   { id: "mq", name: "消息队列可靠投递", description: "…", count: 2, examples: ["消息丢失怎么办"] },
 ];
 
-function brief(areas: Partial<InterviewBrief["areas"][number]>[]): InterviewBrief {
-  return {
-    version: 5,
+function brief(areas: Partial<InterviewArea>[]): InterviewBrief {
+  return testBrief({
     pace: "quick",
-    plannedTurns: 6,
-    round: null,
-    askIntro: true,
     areas: areas.map((area, index) => ({
       id: `A${index + 1}`,
+      kind: "quick",
       name: `领域${index + 1}`,
-      kind: "technical",
-      style: "scenario",
-      description: "描述",
       projectId: null,
       competencyIds: [],
       jdEvidence: null,
-      baseline: null,
-      weight: 2,
-      depth: 2,
+      topic: null,
       entryQuestion: "切入",
-      ladder: [{ text: "一", style: "fact" }, { text: "二", style: "principle" }],
+      guides: ["一", "二"],
       expectedSignals: ["信号"],
       rubric: [],
       ...area,
     })),
-    droppedAreas: [],
-    hypotheses: [],
-    skillPacks: [],
-    source: "model",
-  };
+  });
 }
 
-test("ladderProgresses checks fact → principle → scenario / tradeoff order and skips unlabeled rungs", () => {
-  assert.equal(ladderProgresses([{ style: "fact" }, { style: "principle" }, { style: "tradeoff" }]), true);
-  assert.equal(ladderProgresses([{ style: "fact" }, { style: null }, { style: "scenario" }]), true);
-  assert.equal(ladderProgresses([{ style: "scenario" }, { style: "fact" }]), false);
-  assert.equal(ladderProgresses([{ style: "fact" }]), null);
-  assert.equal(ladderProgresses([{ style: null }, { style: null }]), null);
-});
-
-test("briefCoverageText includes project areas and keeps ladders readable", () => {
-  const text = briefCoverageText(brief([{ name: "缓存一致性", kind: "technical" }, { name: "项目深挖", kind: "project" }]));
+test("briefCoverageText includes project areas and keeps follow-ups readable", () => {
+  const text = briefCoverageText(brief([{ name: "缓存一致性", kind: "quick" }, { name: "项目深挖", kind: "project" }]));
   assert.ok(text.includes("【缓存一致性】"));
   assert.ok(text.includes("【项目深挖】"));
-  assert.ok(text.includes("追问阶梯：1. 一；2. 二"));
+  assert.ok(text.includes("追问：1. 一；2. 二"));
 });
 
 test("coverageRates weights by mianjing frequency and ignores unjudged topics", () => {
@@ -76,16 +55,14 @@ test("coverageRates weights by mianjing frequency and ignores unjudged topics", 
 
 test("summarizeRoleCoverage merges briefs and lists the most-missed topics", () => {
   const briefs: BriefCoverage[] = [
-    { role: "backend", jd: "a", rep: 1, covered: { "redis-lock": true, "mysql-index": false, mq: false }, ladderProgressRate: { value: 1, numerator: 2, denominator: 2 }, areaCount: 3, baselineAreaCount: 1, skillPacks: ["backend"] },
-    { role: "backend", jd: "b", rep: 1, covered: { "redis-lock": true, "mysql-index": true, mq: false }, ladderProgressRate: { value: 0.5, numerator: 1, denominator: 2 }, areaCount: 2, baselineAreaCount: 0, skillPacks: [] },
+    { role: "backend", jd: "a", rep: 1, covered: { "redis-lock": true, "mysql-index": false, mq: false }, areaCount: 3, baselineAreaCount: 1, skillPacks: ["backend"] },
+    { role: "backend", jd: "b", rep: 1, covered: { "redis-lock": true, "mysql-index": true, mq: false }, areaCount: 2, baselineAreaCount: 0, skillPacks: [] },
   ];
   const metrics = summarizeRoleCoverage("backend", topics, briefs);
   assert.deepEqual(metrics.weightedCoverage, { value: 16 / 24, numerator: 16, denominator: 24 });
   assert.deepEqual(metrics.plainCoverage, { value: 0.5, numerator: 3, denominator: 6 });
-  assert.deepEqual(metrics.ladderProgressRate, { value: 0.75, numerator: 3, denominator: 4 });
   assert.deepEqual(metrics.baselineAreaShare, { value: 0.2, numerator: 1, denominator: 5 });
   assert.deepEqual(metrics.missed.map((topic) => topic.id), ["mq", "mysql-index"]);
-  assert.equal(briefLadderRate(brief([{}, { ladder: [{ text: "x", style: "tradeoff" }, { text: "y", style: "fact" }] }])).value, 0.5);
 });
 
 test("eval/coverage.json names two existing JDs and a same-direction resume per role", () => {

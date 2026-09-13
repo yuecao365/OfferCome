@@ -1,7 +1,8 @@
 import type { InterviewBrief } from "./interviewer/brief";
 import type { InterviewMemory } from "./interviewer/memory";
+import { interviewStage } from "./interviewer/progress";
 import { interviewerNote } from "./interviewer/reducer";
-import type { MessageState, ThreadState } from "./interviewer/state";
+import { createInterviewerState, type MessageState, type ThreadState } from "./interviewer/state";
 import type { TurnDecisionRow } from "./interviewer/turn";
 import type { MockInterviewConversation, MockInterviewTraceTurn } from "./types";
 
@@ -14,30 +15,27 @@ export function conversationView(input: {
   brief: InterviewBrief;
   status: string;
   startedAt: string | null;
-  threads: (Pick<ThreadState, "id" | "areaId" | "status" | "depth" | "hinted" | "verdict" | "note"> & { questionId: string | null })[];
-  messages: Pick<MessageState, "id" | "turnIndex" | "role" | "kind" | "content" | "threadId">[];
+  threads: (ThreadState & { questionId: string | null })[];
+  messages: MessageState[];
   memory: InterviewMemory;
 }): MockInterviewConversation {
   const ended = input.status !== "in_progress";
   const completed = input.status === "completed";
+  const state = createInterviewerState({ brief: input.brief, memory: input.memory, threads: input.threads, messages: input.messages, ended });
   return {
-    phase: ended ? "ended" : input.messages.length === 0 ? "opening" : "running",
+    phase: state.phase,
     pace: input.brief.pace,
-    plannedTurns: input.brief.plannedTurns,
     startedAt: input.startedAt,
+    stage: interviewStage(state),
     areas: input.brief.areas.map((area) => {
       const threads = input.threads.filter((thread) => thread.areaId === area.id);
       return {
         id: area.id,
         name: area.name,
         kind: area.kind,
-        weight: area.weight,
-        depth: area.depth,
-        depthReached: Math.max(0, ...threads.map((thread) => thread.depth)),
         status: threads.some((thread) => thread.status === "active") ? "active" : threads.length > 0 ? "covered" : "pending",
       };
     }),
-    droppedAreas: input.brief.droppedAreas,
     threads: input.threads.map((thread) => ({
       id: thread.id,
       areaId: thread.areaId,
@@ -91,8 +89,8 @@ export function traceTurns(input: {
             replacedReason: decision.replacedReason,
             anchorHit: decision.anchorHit,
             memoryPatch: decision.memoryPatch,
-            evidenceBefore: decision.evidenceBefore,
-            evidenceAfter: decision.evidenceAfter,
+            phase: decision.phase,
+            questionTurns: decision.questionTurns,
             skillsLoaded: decision.skillsLoaded,
             effects: decision.effects,
           }

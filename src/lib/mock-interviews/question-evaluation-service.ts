@@ -5,7 +5,7 @@ import { parseJsonObject, parseJsonValue } from "@/lib/json";
 
 import { generateAnswerExemplar } from "./answer-exemplar-agent";
 import { parseThreadVerdict } from "./interviewer/actions";
-import { parseStoredBrief } from "./interviewer/brief";
+import { isAreaKind, parseStoredBrief } from "./interviewer/brief";
 import { evaluateMockInterviewQuestion } from "./question-evaluation-agent";
 import type { EvaluationThreadContext, EvaluationWeakness } from "./question-evaluation";
 import { loadSkillPacks } from "./skills/loader";
@@ -14,12 +14,12 @@ import { packsForInterview } from "./skills/selector";
 const RUNNING_EVALUATION_WAIT_MS = 32_000;
 const RUNNING_EVALUATION_POLL_MS = 250;
 
-/** 线程切段时写进 generationMetadataJson 的过程信号（见 interviewer/session.ts）。 */
-function threadContext(metadata: Record<string, unknown>, targetDepth: number | null): EvaluationThreadContext | null {
-  if (typeof metadata.depth !== "number") return null;
+/** 线程切段时写进 generationMetadataJson 的过程信号（见 interviewer/segments.ts）。 */
+function threadContext(metadata: Record<string, unknown>): EvaluationThreadContext | null {
+  if (typeof metadata.depth !== "number" || !isAreaKind(metadata.areaKind)) return null;
   return {
+    kind: metadata.areaKind,
     depth: metadata.depth,
-    targetDepth: targetDepth ?? metadata.depth,
     probeCount: typeof metadata.probeCount === "number" ? metadata.probeCount : metadata.depth,
     hinted: metadata.hinted === true,
     verdict: parseThreadVerdict(metadata.verdict),
@@ -78,7 +78,6 @@ export async function evaluatePersistedMockInterviewQuestion(interviewQuestionId
     }
     const metadata = parseJsonObject(evaluation.generationMetadataJson);
     const brief = parseStoredBrief(session.briefJson);
-    const area = brief?.areas.find((item) => item.id === metadata.areaId) ?? null;
     const result = await evaluateMockInterviewQuestion({
       question: question.question,
       answer,
@@ -86,7 +85,7 @@ export async function evaluatePersistedMockInterviewQuestion(interviewQuestionId
       expectedSignals: parseJsonValue(evaluation.expectedSignalsJson),
       jobTitle: question.interview.jobTitle,
       jobDescription: session.jdTextSnapshot,
-      thread: threadContext(metadata, area?.depth ?? null),
+      thread: threadContext(metadata),
       round: brief?.round ?? null,
     });
     // 只允许仍持有 running 认领的调用写终态：交卷路径会把超时的评分强制置

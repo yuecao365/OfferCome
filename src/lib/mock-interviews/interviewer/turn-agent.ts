@@ -9,12 +9,12 @@ import { normalizedText } from "@/lib/text/similarity";
 import { createSkillTools, renderSkillIndex } from "../skills/tools";
 import type { SkillPack } from "../skills/types";
 import { ACTION_DESCRIPTIONS, actionSchemas, compoundQuestionReason, isModelAction, MODEL_ACTIONS, type InterviewerAction } from "./actions";
-import { canAct, probeBeforeClose } from "./budget";
+import { canAct } from "./budget";
 import { buildConversation } from "./conversation";
 import { memoryPatchSchema } from "./memory";
 import { buildDecidePrompt, buildSpeakPrompt, INTERVIEWER_PROMPT_VERSION } from "./prompt";
 import type { TurnDecision, TurnRuling } from "./reducer";
-import type { InterviewerState } from "./state";
+import { activeThread, threadKind, type InterviewerState } from "./state";
 
 /**
  * 一回合两步：先决定（只用工具，文本丢弃），代码裁决，再说话（不给工具，流式返回）。
@@ -43,7 +43,7 @@ type DecideTools = {
  *
  * 追问的锚点在这里校验：必须是候选人这条回答里的原话，让追问贴着回答走。
  * 一次只问一个问题也在这里拒一次（actions.compoundQuestionReason）。
- * 关线程的"最少追一层"也在这里拒一次（budget.probeBeforeClose），面试官判定候选人只给了关键词或没答上时不拒。
+ * 关键词回答只追一次、基础题不追关键词回答：模型在 probe 里自报 lastAnswer，代码据此拒。
  */
 function buildDecideTools(initial: InterviewerState, candidateContent: string | null, packs: SkillPack[]): DecideTools {
   const tools: ToolSet = {};
@@ -56,30 +56,26 @@ function buildDecideTools(initial: InterviewerState, candidateContent: string | 
   let compoundMisses = 0;
   let accepted: InterviewerAction["name"] | null = null;
   let closedThenDecided = false;
-  let closeRefused = false;
 
   for (const name of MODEL_ACTIONS) {
     tools[name] = tool({
       description: ACTION_DESCRIPTIONS[name],
       inputSchema: actionSchemas[name],
       execute: async (input: unknown) => {
-        const fields = (input ?? {}) as { areaId?: unknown; anchor?: unknown; question?: unknown; verdict?: unknown };
+        const fields = (input ?? {}) as { areaId?: unknown; anchor?: unknown; question?: unknown; lastAnswer?: unknown };
         const check = canAct(state, name, { areaId: typeof fields.areaId === "string" ? fields.areaId : undefined });
         if (!check.ok) return { accepted: false, reason: check.reason };
-        if (name === "close_thread" && !closeRefused && candidateContent !== null && fields.verdict === "answered") {
-          // 最少追一层：候选人刚有实质回答、线程还没追到目标深度，第一次关线程被拒，让模型改成追问。
-          const reason = probeBeforeClose(state);
-          if (reason) {
-            closeRefused = true;
-            return { accepted: false, reason };
-          }
-        }
         if (name === "probe" || name === "open_thread") {
           const reason = compoundQuestionReason(typeof fields.question === "string" ? fields.question : "");
           if (reason && compoundMisses < COMPOUND_QUESTION_RETRIES) {
             compoundMisses += 1;
             return { accepted: false, reason };
           }
+        }
+        if (name === "probe" && fields.lastAnswer === "thin") {
+          const active = activeThread(state)!;
+          if (threadKind(state, active) === "quick") return { accepted: false, reason: "基础题不追关键词回答：close_thread（verdict=thin）换下一题" };
+          if (active.thinStreak >= 1) return { accepted: false, reason: "关键词回答已经追过一次，还是关键词就 close_thread（verdict=thin）换题" };
         }
         if (name === "probe") {
           const anchor = normalizedText(typeof fields.anchor === "string" ? fields.anchor : "");

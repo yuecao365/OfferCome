@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { fallbackBrief } from "./brief";
+import { testBrief } from "@/lib/test-support/interview-brief";
+
 import { buildConversation, selectConversation } from "./conversation";
 import { emptyMemory } from "./memory";
 import { createInterviewerState, type MessageKind, type MessageRole, type MessageState, type ThreadState } from "./state";
@@ -11,21 +12,7 @@ import { createInterviewerState, type MessageKind, type MessageRole, type Messag
  * 插话不进对话，超长时保住切入问答。
  */
 
-const brief = fallbackBrief({
-  blueprint: {
-    summary: "后端",
-    completeness: "complete",
-    missingInformation: [],
-    competencies: [
-      { id: "c1", name: "工具调用", description: "", priority: "core", jdEvidence: "工具", origin: "jd", sourceUrl: null },
-      { id: "c2", name: "稳定性", description: "", priority: "core", jdEvidence: "稳定", origin: "jd", sourceUrl: null },
-    ],
-  },
-  projects: [{ id: "p1", name: "Study Assistant" }],
-  pace: "standard",
-  round: null,
-  askIntro: true,
-});
+const brief = testBrief();
 
 let seq = 0;
 function msg(turnIndex: number, role: MessageRole, kind: MessageKind, content: string, threadId: string | null): MessageState {
@@ -41,6 +28,7 @@ function thread(id: string, openedAtTurn: number, closedAtTurn: number | null): 
     status: closedAtTurn === null ? "active" : "closed",
     depth: 2,
     hinted: false,
+    thinStreak: 0,
     verdict: null,
     openedAtTurn,
     closedAtTurn,

@@ -10,7 +10,7 @@
 - 版本号：备课简报 v5、备课提示词 brief-v10、面试官提示词 interviewer-v7、评分 evaluation-v3、汇总 summary-v2、示范 exemplar-v1、报告 reportJson v2、画像 ability-assessment-v5。
 - 体验版（网页版，`src/lib/trial/`、`src/app/api/trial/`）与本地版共用同一套对话式面试核心（阶段 2 完成），会话文档 v4；差别只剩评测工具与 Boss 同步。
 - 面试流程简化（[interview-simplify-plan.md](interview-simplify-plan.md)，2026-09-10 至 09-11）已完成并推送：备课广度优先、动作集缩到五个、候选人插话归代码、一回合两步、资料抽屉。
-- 已完成：[interview-tuning-plan.md](interview-tuning-plan.md)（最少追一层、简历假设进线程、说话收短）、[interview-pacing-plan.md](interview-pacing-plan.md)（关线程不再追、一次一问、关键词回答追一次、项目先行与占比、卡住换题与收尾交给模型说）。技能包切片与内容补缺以后再说。
+- 已完成：[interview-tuning-plan.md](interview-tuning-plan.md)（最少追一层、简历假设进线程、说话收短）、[interview-pacing-plan.md](interview-pacing-plan.md)（关线程不再追、一次一问、关键词回答追一次、项目先行与占比、卡住换题与收尾交给模型说）。之后面试流程按真实一面的阶段重构（[interview-phases-plan.md](interview-phases-plan.md)，2026-09-13）：阶段 × 方法 × 预算取代领域 × 目标深度，题池由代码抽样。技能包切片与内容补缺以后再说。
 - 推送前问用户。
 - 用户的 `.local/` 上传目录曾丢失，默认简历以 txt 恢复，原 PDF 需用户重传。
 

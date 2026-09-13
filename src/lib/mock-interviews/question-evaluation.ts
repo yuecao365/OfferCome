@@ -3,6 +3,7 @@ import { z } from "zod";
 import { normalizedText } from "@/lib/text/similarity";
 
 import type { ThreadVerdict } from "./interviewer/actions";
+import type { AreaKind } from "./interviewer/brief";
 
 /**
  * 逐题评分的纯逻辑：输入解析、输出校验、引用硬门。
@@ -38,10 +39,11 @@ export type AnswerExemplar = {
   degraded: boolean;
 };
 
-/** 线程的过程信号：追问深度与面试官关线程时的判断，评分要按达到的深度给分。 */
+/** 线程的过程信号：属于哪个阶段、追问深度与面试官关线程时的判断，评分要按阶段的方法与达到的深度给分。 */
 export type EvaluationThreadContext = {
+  /** project 项目深挖（最多 3 层）、quick 基础快问（最多 1 层）、scenario 场景题（最多 3 层）。 */
+  kind: AreaKind;
   depth: number;
-  targetDepth: number;
   probeCount: number;
   hinted: boolean;
   /** 面试官关线程时对这段的判断；跳过或系统推进关掉的为 null。 */

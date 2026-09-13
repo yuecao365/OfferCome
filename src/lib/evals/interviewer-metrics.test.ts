@@ -43,8 +43,8 @@ function decision(turnIndex: number, overrides: Partial<SnapshotDecision> = {}):
     replacedReason: null,
     anchorHit: true,
     memoryPatch: null,
-    evidenceBefore: 0,
-    evidenceAfter: 0,
+    phase: "quick",
+    questionTurns: turnIndex + 1,
     skillsLoaded: 0,
     ...overrides,
   };
@@ -58,6 +58,7 @@ function thread(id: string, areaId: string, overrides: Partial<SnapshotThread> =
     status: "closed",
     depth: 1,
     hinted: false,
+    thinStreak: 0,
     verdict: null,
     openedAtTurn: 1,
     closedAtTurn: 3,
@@ -79,10 +80,9 @@ function snapshot(overrides: Partial<SessionSnapshot> = {}): SessionSnapshot {
     rep: 1,
     status: "completed",
     pace: "quick",
-    evidenceTarget: 0.6,
     areas: [
-      { id: "A1", name: "状态机", depth: 2, weight: 3 },
-      { id: "A2", name: "消息队列", depth: 1, weight: 2 },
+      { id: "A1", name: "状态机", kind: "project" },
+      { id: "A2", name: "消息队列", kind: "scenario" },
     ],
     hypotheses: [{ id: "H1", text: "验证复现率", evidence: "复现率从每万单 3 次降为 0", areaId: "A1" }],
     memory: { established: [], doubtful: [], failed: [], hypotheses: [{ id: "H1", status: "refuted", note: null }] },
@@ -114,12 +114,12 @@ function snapshot(overrides: Partial<SessionSnapshot> = {}): SessionSnapshot {
     ],
     decisions: [
       decision(0, { proposedAction: "ask_intro", appliedAction: "ask_intro", anchorHit: null }),
-      decision(1, { proposedAction: "open_thread", appliedAction: "open_thread", anchorHit: null, evidenceAfter: 0 }),
-      decision(2, { evidenceBefore: 0, evidenceAfter: 0.2 }),
-      decision(3, { proposedAction: "close_thread", appliedAction: "close_thread", anchorHit: null, evidenceBefore: 0.2, evidenceAfter: 0.4, skillsLoaded: 1 }),
-      decision(4, { anchorHit: false, evidenceBefore: 0.4, evidenceAfter: 0.5, memoryPatch: { established: [], doubtful: [], failed: ["ack 语义"], hypotheses: [] } }),
-      decision(5, { proposedAction: "hint", appliedAction: "hint", anchorHit: null, evidenceBefore: 0.5, evidenceAfter: 0.5 }),
-      decision(6, { proposedAction: "close_interview", appliedAction: "close_interview", anchorHit: null, evidenceBefore: 0.5, evidenceAfter: 0.62 }),
+      decision(1, { proposedAction: "open_thread", appliedAction: "open_thread", anchorHit: null }),
+      decision(2),
+      decision(3, { proposedAction: "close_thread", appliedAction: "close_thread", anchorHit: null, skillsLoaded: 1 }),
+      decision(4, { anchorHit: false, memoryPatch: { established: [], doubtful: [], failed: ["ack 语义"], hypotheses: [] } }),
+      decision(5, { proposedAction: "hint", appliedAction: "hint", anchorHit: null, questionTurns: 5 }),
+      decision(6, { proposedAction: "close_interview", appliedAction: "close_interview", anchorHit: null }),
     ],
     report: { version: 2, totalScore: 64, summary: "…", strengths: [{ point: "状态机清楚", areaName: "状态机" }], weaknesses: [], advice: [], hypotheses: [{ text: "验证复现率", status: "refuted", verdict: "没有讲清楚度量方法" }] },
     runs: [
@@ -134,7 +134,7 @@ function snapshot(overrides: Partial<SessionSnapshot> = {}): SessionSnapshot {
   };
 }
 
-test("sessionTrace derives anchor, replacement, forced, stuck-switch and evidence numbers from the trace", () => {
+test("sessionTrace derives anchor, replacement, forced, stuck-switch and shallow-thread numbers from the trace", () => {
   const trace = sessionTrace(snapshot());
   assert.deepEqual(trace.anchorHitRate, { value: 0.5, numerator: 1, denominator: 2 });
   assert.deepEqual(trace.relatedRate, { value: 1, numerator: 2, denominator: 2 });
@@ -144,7 +144,6 @@ test("sessionTrace derives anchor, replacement, forced, stuck-switch and evidenc
   assert.equal(trace.interviewerChars.length, 5);
   assert.equal(trace.questionTurns, 5);
   assert.equal(trace.forcedCount, 0);
-  assert.equal(trace.finalEvidence, 0.62);
   assert.equal(trace.skillsLoaded, 1);
   assert.equal(trace.tokensPerTurn, 8500);
 });
@@ -212,7 +211,7 @@ test("a control persona is always valid and flags failure notes, error weaknesse
 test("script assertions cover hints, injection, longform and earlyend", () => {
   const hints = { id: "hints", canary: null } as CandidateScript;
   const hintPasses = scriptAssertions(snapshot({ caseKind: "script", caseId: "hints" }), hints);
-  assert.ok(hintPasses.find((item) => item.name === "求助回合不产生信息量")?.pass);
+  assert.ok(hintPasses.find((item) => item.name === "提示回合不计提问")?.pass);
   assert.ok(hintPasses.find((item) => item.name === "求助消息不进回答文本")?.pass);
 
   const injection = { id: "injection", canary: "CANARY-1" } as CandidateScript;

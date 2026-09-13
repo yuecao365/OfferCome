@@ -22,7 +22,6 @@ import {
 } from "../src/lib/evals/fixtures";
 import {
   briefCoverageText,
-  briefLadderRate,
   COVERAGE_ROLES,
   coverageMetricRows,
   flattenCoverageMetrics,
@@ -72,7 +71,7 @@ import { compareMetrics, gitState, renderMetricTable, type MetricValue, type Run
 import { simulateCandidateReply, type TranscriptLine } from "../src/lib/evals/simulator";
 import { parseJsonValue } from "../src/lib/json";
 import { parseThreadVerdict } from "../src/lib/mock-interviews/interviewer/actions";
-import { evidenceTargetForPace, parseStoredBrief, type InterviewBrief } from "../src/lib/mock-interviews/interviewer/brief";
+import { isAreaKind, parseStoredBrief, type InterviewBrief } from "../src/lib/mock-interviews/interviewer/brief";
 import { BRIEF_PROMPT_VERSION, generateInterviewBrief } from "../src/lib/mock-interviews/interviewer/brief-agent";
 import { INTERVIEWER_PROMPT_VERSION } from "../src/lib/mock-interviews/interviewer/prompt";
 import type { TurnData as WireTurnData } from "../src/lib/mock-interviews/interviewer/turn-payload";
@@ -174,8 +173,6 @@ async function scorerSources(limit: number, existing: Set<string>, evalTag: stri
     if (existing.has(question.id) || !question.evaluation || !question.interview.mockSession) continue;
     if (/说法不对|这个说法/.test(question.question) || personaClaims.some((claim) => question.question.includes(claim.slice(0, 12)))) continue;
     const metadata = (parseJsonValue(question.evaluation.generationMetadataJson) ?? {}) as Record<string, unknown>;
-    const brief = parseStoredBrief(question.interview.mockSession.briefJson);
-    const area = brief?.areas.find((item) => item.id === metadata.areaId);
     const rubric = parseJsonValue(question.evaluation.rubricJson) as ScorerCase["rubric"] | null;
     if (!rubric?.length) continue;
     sources.push({
@@ -188,8 +185,8 @@ async function scorerSources(limit: number, existing: Set<string>, evalTag: stri
       rubric,
       expectedSignals: (parseJsonValue(question.evaluation.expectedSignalsJson) as string[] | null) ?? [],
       thread: {
+        kind: isAreaKind(metadata.areaKind) ? metadata.areaKind : "scenario",
         depth: Number(metadata.depth ?? 0),
-        targetDepth: area?.depth ?? Number(metadata.depth ?? 1),
         probeCount: Number(metadata.probeCount ?? 0),
         hinted: metadata.hinted === true,
         verdict: parseThreadVerdict(metadata.verdict),
@@ -203,7 +200,7 @@ async function scorerSources(limit: number, existing: Set<string>, evalTag: stri
 
 /**
  * 评分器用例的题目来源：按 eval/coverage.json 的 5 岗位 × 2 份 JD 各备一次课（深入节奏），
- * 每个非项目领域出一道题（切入问题 + 阶梯当追问）。题目跨五个方向，错句才有得选；
+ * 每道基础题与场景题出一道用例（问题 + 追问方向当追问）。题目跨五个方向，错句才有得选；
  * 只用评测面试的题目时全在一份简历的两个项目上打转，错句十道雷同。
  */
 async function scorerSourcesFromBriefs(existing: Set<string>, limit: number): Promise<(ScorerCaseSource & { role: string })[]> {
@@ -215,9 +212,9 @@ async function scorerSourcesFromBriefs(existing: Set<string>, limit: number): Pr
       const jd = loadJdFixture(jdId);
       const brief = await generateEvalBrief(jdId, entry!.resume, "scorer-source");
       for (const area of brief.areas) {
-        // 只用技术领域：项目题绑定简历，行为题没有可插的技术错句。
-        if (area.kind !== "technical") continue;
-        // 每次备课的领域 id 都从 a1 开始编，只用 id 会把不同内容的新领域当成已有的；带上切入问题的短哈希。
+        // 只用基础题与场景题：项目题绑定简历。
+        if (area.kind === "project") continue;
+        // 每次备课的题 id 都从 q1 / s1 开始编，只用 id 会把不同内容的新题当成已有的；带上问题的短哈希。
         const digest = createHash("sha1").update(area.entryQuestion).digest("hex").slice(0, 6);
         const questionId = `${jdId}:${area.id}:${digest}`;
         if (existing.has(questionId) || existing.has(`${jdId}:${area.id}`)) continue;
@@ -228,13 +225,13 @@ async function scorerSourcesFromBriefs(existing: Set<string>, limit: number): Pr
           jobTitle: jd.title,
           jobDescription: jd.jobDescription,
           round: "first_interview",
-          question: [area.entryQuestion.trim(), ...area.ladder.map((rung, index) => `追问 ${index + 1}：${rung.text.trim()}`)].join("\n"),
+          question: [area.entryQuestion.trim(), ...area.guides.map((guide, index) => `追问 ${index + 1}：${guide.trim()}`)].join("\n"),
           rubric: area.rubric,
           expectedSignals: area.expectedSignals,
-          thread: { depth: area.ladder.length, targetDepth: area.depth, probeCount: area.ladder.length, hinted: false, verdict: null, note: null },
+          thread: { kind: area.kind, depth: area.guides.length, probeCount: area.guides.length, hinted: false, verdict: null, note: null },
         });
       }
-      console.log(`${role} / ${jdId}：${brief.areas.filter((area) => area.kind === "technical").length} 道`);
+      console.log(`${role} / ${jdId}：${brief.areas.filter((area) => area.kind !== "project").length} 道`);
     }
   }
   // 轮流从各岗位取，保证五个方向都有。
@@ -277,8 +274,8 @@ async function commandFixtures(models: EvalModels): Promise<void> {
   if (personaCount) {
     // 弱项话题要落在备课会考察的领域里，先备一次课拿领域清单（深入节奏，看全貌）。
     const reference = await generateEvalBrief(jdId, resumeId, "persona-reference");
-    const areas = reference.areas.filter((area) => area.kind !== "project").map((area) => ({ name: area.name, description: area.description, ladder: area.ladder.map((rung) => rung.text) }));
-    console.log(`参考简报领域：${areas.map((area) => area.name).join("；")}`);
+    const areas = reference.areas.filter((area) => area.kind !== "project").map((area) => ({ name: area.name, question: area.entryQuestion, guides: area.guides }));
+    console.log(`参考简报的题：${areas.map((area) => area.name).join("；")}`);
     const current = loadPersonas();
     const existing = new Set(current.map((persona) => persona.id));
     const usedTopics = current.flatMap((persona) => (persona.weak ? [persona.weak.topic] : []));
@@ -405,6 +402,8 @@ async function generateEvalBrief(jdId: string, resumeId: string, runLabel: strin
       resume: { id: `eval-${resumeId}`, name: `eval-${resumeId}.md`, text: loadResumeText(resumeId) },
       projects: [],
       recentWeaknesses: [],
+      recentTopics: [],
+      recentQuestions: [],
     },
     // 深入节奏：看备课最多能规划出什么；真实面试按用户节奏裁剪，是另一回事。
     pace: "deep",
@@ -419,9 +418,9 @@ function topicText(topic: { name: string; description: string }): string {
   return `${topic.name}：${topic.description}`;
 }
 
-/** 校准样本要和真实样本同一形状：把一道面经原题包成一个简报领域。 */
+/** 校准样本要和真实样本同一形状：把一道面经原题包成简报里的一道题。 */
 function asBriefArea(question: string): string {
-  return `【考察领域】围绕这道题展开。切入问题：${question}。追问阶梯：1. 追问它的原理；2. 追问它在真实场景里的取舍`;
+  return `【考察点】问题：${question}。追问：1. 追问它的原理；2. 追问它在真实场景里的取舍`;
 }
 
 async function commandCoverage(models: EvalModels): Promise<void> {
@@ -469,20 +468,19 @@ async function commandCoverage(models: EvalModels): Promise<void> {
           const text = briefCoverageText(brief);
           const verdicts = await judgeMany(models.aux, "topic", topics.map((topic) => ({ a: topicText(topic), b: text })));
           const covered = Object.fromEntries(topics.map((topic, index) => [topic.id, calibration.trusted ? verdicts[index] : null]));
-          const areas = brief.areas.map((area) => `${area.name}（${area.kind}${area.baseline ? "，基线" : ""}）`);
+          const areas = brief.areas.map((area) => `${area.name}（${area.kind}）`);
           briefs.push({
             role,
             jd: jdId,
             rep,
             covered,
-            ladderProgressRate: briefLadderRate(brief),
             areaCount: brief.areas.length,
-            baselineAreaCount: brief.areas.filter((area) => area.baseline).length,
+            baselineAreaCount: brief.areas.filter((area) => area.topic).length,
             skillPacks: brief.skillPacks,
             areas,
             text,
           });
-          console.log(`  领域：${areas.join("；")}\n  技能包：${brief.skillPacks.join(", ") || "无"}；覆盖 ${Object.values(covered).filter(Boolean).length}/${topics.length}`);
+          console.log(`  题：${areas.join("；")}\n  技能包：${brief.skillPacks.join(", ") || "无"}；覆盖 ${Object.values(covered).filter(Boolean).length}/${topics.length}`);
         } catch (error) {
           if (isBillingError(error)) throw error;
           console.warn(`  失败：`, error instanceof Error ? error.message : error);
@@ -829,6 +827,7 @@ async function loadSnapshot(sessionId: string, item: EvalCase, rep: number, driv
       status: thread.status as SnapshotThread["status"],
       depth: thread.depth,
       hinted: thread.hinted,
+      thinStreak: thread.thinStreak,
       verdict: parseThreadVerdict(thread.verdict),
       openedAtTurn: thread.openedAtTurn,
       closedAtTurn: thread.closedAtTurn,
@@ -846,8 +845,7 @@ async function loadSnapshot(sessionId: string, item: EvalCase, rep: number, driv
     rep,
     status: session.status,
     pace: brief.pace,
-    evidenceTarget: evidenceTargetForPace(brief.pace),
-    areas: brief.areas.map((area) => ({ id: area.id, name: area.name, depth: area.depth, weight: area.weight })),
+    areas: brief.areas.map((area) => ({ id: area.id, name: area.name, kind: area.kind })),
     hypotheses: brief.hypotheses,
     memory: parseStoredMemory(session.memoryJson, brief),
     messages: session.messages.map((message) => ({
@@ -866,8 +864,8 @@ async function loadSnapshot(sessionId: string, item: EvalCase, rep: number, driv
       replacedReason: decision.replacedReason,
       anchorHit: decision.anchorHit,
       memoryPatch: (parseJsonValue(decision.memoryPatchJson) as MemoryPatch | null) ?? null,
-      evidenceBefore: decision.evidenceBefore,
-      evidenceAfter: decision.evidenceAfter,
+      phase: isAreaKind(decision.phase) ? decision.phase : null,
+      questionTurns: decision.questionTurns,
       skillsLoaded: decision.skillsLoaded,
     })),
     report: parseStoredReport(session.reportJson),
@@ -1074,7 +1072,8 @@ async function commandInterviewer(models: EvalModels): Promise<void> {
         replaced: decision.replacedReason,
         anchorHit: decision.anchorHit,
         related: outcome.snapshot.judged.related[decision.turnIndex] ?? null,
-        evidence: [decision.evidenceBefore, decision.evidenceAfter],
+        phase: decision.phase,
+        questionTurns: decision.questionTurns,
       })),
     })),
   };
@@ -1092,7 +1091,6 @@ function emptySnapshot(sessionId: string, item: EvalCase, rep: number, error: st
     rep,
     status: "error",
     pace: "quick",
-    evidenceTarget: 0,
     areas: [],
     hypotheses: [],
     memory: { established: [], doubtful: [], failed: [], hypotheses: [] },

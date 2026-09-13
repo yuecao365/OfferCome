@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test, { after, before, beforeEach, mock } from "node:test";
 
+import { testBrief } from "@/lib/test-support/interview-brief";
 import { createTestDatabase } from "@/lib/test-support/prisma-test-db";
 
 import type { InterviewBrief } from "./interviewer/brief";
@@ -48,64 +49,8 @@ function defaultBlueprint() {
   };
 }
 
-function testBrief(): InterviewBrief {
-  return {
-    version: 5,
-    pace: "standard",
-    plannedTurns: 11,
-    round: "first_interview",
-    askIntro: true,
-    source: "model",
-    skillPacks: ["project-deep-dive"],
-    droppedAreas: [],
-    hypotheses: [{ id: "h1", text: "验证压测经历", evidence: "压测", areaId: "area-1" }],
-    areas: [
-      {
-        id: "area-1",
-        name: "分布式系统",
-        kind: "technical",
-        style: "scenario",
-        description: "缓存一致性与消息队列",
-        projectId: null,
-        competencyIds: ["bp-1"],
-        jdEvidence: null,
-        baseline: null,
-        weight: 2,
-        depth: 3,
-        entryQuestion: "缓存和数据库双写时你怎么保证一致性？",
-        ladder: [
-          { text: "先说做法", style: "fact" },
-          { text: "追问失效顺序", style: "principle" },
-          { text: "追问故障排查", style: "scenario" },
-          { text: "追问取舍", style: "tradeoff" },
-        ],
-        expectedSignals: ["延迟双删", "订阅 binlog"],
-        rubric: [{ name: "技术正确性", description: "", weight: 50 }, { name: "分析与取舍", description: "", weight: 50 }],
-      },
-      {
-        id: "area-2",
-        name: "项目深挖",
-        kind: "project",
-        style: null,
-        description: "简历项目",
-        projectId: null,
-        competencyIds: ["bp-2"],
-        jdEvidence: null,
-        baseline: null,
-        weight: 3,
-        depth: 3,
-        entryQuestion: "介绍你负责的部分。",
-        ladder: [
-          { text: "职责", style: "fact" },
-          { text: "决策", style: "principle" },
-          { text: "问题", style: "scenario" },
-          { text: "数字", style: "tradeoff" },
-        ],
-        expectedSignals: ["个人职责"],
-        rubric: [{ name: "事实与细节", description: "", weight: 100 }],
-      },
-    ],
-  };
+function briefStub(): InterviewBrief {
+  return testBrief({ hypotheses: [{ id: "h1", text: "验证压测经历", evidence: "压测", areaId: "p1" }] });
 }
 
 mock.module("server-only", { namedExports: {} });
@@ -120,7 +65,7 @@ mock.module("./interviewer/brief-agent", {
   namedExports: {
     generateInterviewBrief: async () => {
       if (stubs.briefError) throw stubs.briefError;
-      return testBrief();
+      return briefStub();
     },
   },
 });
@@ -298,7 +243,7 @@ test("preparation persists the brief with an empty memory and opens the room", a
   const session = await readSession(sessionId);
   assert.equal(session.status, "in_progress");
   assert.equal(session.generationPhase, null);
-  assert.equal(JSON.parse(session.briefJson!).areas.length, 2);
+  assert.equal(JSON.parse(session.briefJson!).areas.length, 6);
   assert.deepEqual(JSON.parse(session.memoryJson).hypotheses, [{ id: "h1", status: "open", note: null }]);
   assert.equal(session.questionCount, 0);
   const interview = await prisma.interview.findUniqueOrThrow({ where: { id: interviewId } });
@@ -349,8 +294,8 @@ test("closing a thread writes the compat question with the area rubric and sched
   const { sessionId, interviewId } = await seedReadySession();
   stubs.decisions = [
     { speech: "你好。", action: { name: "ask_intro", input: {} }, memoryPatch: null },
-    { speech: "好的。", action: { name: "open_thread", input: { areaId: "area-1", question: "缓存和数据库双写时你怎么保证一致性？" } }, memoryPatch: null },
-    { speech: "明白。先删缓存还是先写库？", action: { name: "probe", input: { anchor: "延迟双删", question: "先删缓存还是先写库？" } }, anchorHit: true, memoryPatch: { established: ["知道延迟双删"], doubtful: [], failed: [], hypotheses: [] } },
+    { speech: "好的。", action: { name: "open_thread", input: { areaId: "p1", question: "主循环里你负责哪一段？" } }, memoryPatch: null },
+    { speech: "明白。为什么这么切？", action: { name: "probe", input: { anchor: "延迟双删", question: "为什么这么切？", lastAnswer: "substantive" } }, anchorHit: true, memoryPatch: { established: ["知道延迟双删"], doubtful: [], failed: [], hypotheses: [] } },
     { speech: "这一块够了。", action: { name: "close_thread", input: { note: "机制清楚，取舍偏弱", verdict: "answered" } }, memoryPatch: null },
   ];
   await runTurn(sessionId, null);
@@ -362,25 +307,25 @@ test("closing a thread writes the compat question with the area rubric and sched
   const questions = await prisma.interviewQuestion.findMany({ where: { interviewId }, include: { evaluation: true } });
   assert.equal(questions.length, 1);
   // 追问消息是面试官整段话（回应 + 问句），切段时原样进入题目文本。
-  assert.match(questions[0].question, /双写[\s\S]*\n追问 1：[\s\S]*先删缓存/);
+  assert.match(questions[0].question, /负责哪一段[\s\S]*\n追问 1：[\s\S]*为什么这么切/);
   assert.equal(questions[0].answer, "我们用延迟双删。\n\n先写库再删缓存。");
-  assert.equal(questions[0].category, "technical");
-  assert.deepEqual(JSON.parse(questions[0].evaluation!.rubricJson).map((item: { name: string }) => item.name), ["技术正确性", "分析与取舍"]);
+  assert.equal(questions[0].category, "resume_project");
+  assert.deepEqual(JSON.parse(questions[0].evaluation!.rubricJson).map((item: { name: string }) => item.name), ["事实与细节", "岗位关联", "复盘与表达"]);
   assert.deepEqual(stubs.scheduledEvaluations, [questions[0].id]);
 
   const session = await readSession(sessionId);
   assert.equal(session.questionCount, 1);
   assert.deepEqual(JSON.parse(session.memoryJson).established.map((item: { text: string }) => item.text), ["知道延迟双删"]);
   const threads = await prisma.interviewThread.findMany({ where: { sessionId }, orderBy: { createdAt: "asc" } });
-  // 关掉 area-1 后代码紧接着开了 area-2，候选人不会面对没有下文的过渡语。
-  assert.deepEqual(threads.map((thread) => [thread.areaId, thread.status]), [["area-1", "closed"], ["area-2", "active"]]);
+  // 关掉项目题后代码紧接着进了基础阶段、开了题池第一题，候选人不会面对没有下文的过渡语。
+  assert.deepEqual(threads.map((thread) => [thread.areaId, thread.status]), [["p1", "closed"], ["q1", "active"]]);
   assert.equal(threads[0].questionId, questions[0].id);
-  // 每回合一条决策记录：追问那回合记下锚点命中与信息量上涨。
+  // 每回合一条决策记录：追问那回合记下锚点命中，阶段与已提问次数跟着走。
   const decisions = await prisma.interviewTurnDecision.findMany({ where: { sessionId }, orderBy: { turnIndex: "asc" } });
   assert.equal(decisions.length, 4);
   assert.equal(decisions[2].appliedAction, "probe");
   assert.equal(decisions[2].anchorHit, true);
-  assert.ok(decisions[3].evidenceAfter > decisions[1].evidenceBefore);
+  assert.deepEqual(decisions.map((decision) => [decision.phase, decision.questionTurns]), [["project", 1], ["project", 2], ["project", 3], ["quick", 4]]);
   // 候选人消息带作答元数据（字数一定有，时长视时钟而定）。
   const answers = await prisma.mockInterviewMessage.findMany({ where: { sessionId, role: "candidate" } });
   assert.ok(answers.every((message) => message.metricsJson && JSON.parse(message.metricsJson).chars > 0));
@@ -390,7 +335,7 @@ test("a duplicate clientId replays the stored interviewer reply without a second
   const { sessionId } = await seedReadySession();
   stubs.decisions = [
     { speech: "你好。", action: { name: "ask_intro", input: {} }, memoryPatch: null },
-    { speech: "好。", action: { name: "open_thread", input: { areaId: "area-2", question: "介绍你负责的部分。" } }, memoryPatch: null },
+    { speech: "好。", action: { name: "open_thread", input: { areaId: "p1", question: "介绍你负责的部分。" } }, memoryPatch: null },
   ];
   await runTurn(sessionId, null);
   await runTurn(sessionId, { clientId: "dup", content: "自我介绍" });

@@ -1,20 +1,18 @@
 import type { SkillPack } from "./types";
 
 /**
- * 技能包的排序与索引缩小。
+ * 技能包的选择。
  *
  * 关键词打分：岗位名最高，JD 次之，简历最低——面试考的是这个岗位，简历只决定栈包与项目；
- * 简历权重高时，后端简历投前端 / 测开 / 运维岗会把后端与 AI 包顶到前面，备课就跟着简历跑偏
- * （评测里前端 JD 的简报一半加载的是 ai-llm 包）。
- * 这里只决定"索引里放哪些包"，不替 agent 决定加载哪些。
+ * 简历权重高时，后端简历投前端 / 测开 / 运维岗会把后端与 AI 包顶到前面，备课就跟着简历跑偏。
  */
 
 const TITLE_WEIGHT = 3;
 const JD_WEIGHT = 2;
 const RESUME_WEIGHT = 1;
-/** 索引里最多放这么多包；base 层不占名额之外的优先级，永远在前。 */
-export const SKILL_INDEX_LIMIT = 12;
-const MAX_STACK_PACKS = 2;
+const MAX_STACK_PACKS = 1;
+const FALLBACK_DOMAIN = "cs-fundamentals";
+const HR_PACK = "behavioral";
 
 export type SkillSelectionInput = {
   jobTitle: string;
@@ -38,8 +36,8 @@ function keywordScore(pack: SkillPack, input: SkillSelectionInput): number {
 }
 
 /**
- * 按相关性排序：base 层固定在前；其余按关键词得分降序，得分为 0 的排在最后
- * （仍然保留，让 agent 有机会纠正关键词没覆盖到的情况）；stack 包总在其父级 domain 包之后。
+ * 按相关性排序：base 层固定在前；其余按关键词得分降序，得分为 0 的排在最后；
+ * stack 包总在其父级 domain 包之后。
  */
 export function rankSkillPacks(input: SkillSelectionInput, packs: SkillPack[]): SkillPack[] {
   const byName = new Map(packs.map((pack) => [pack.name, pack]));
@@ -60,46 +58,26 @@ export function rankSkillPacks(input: SkillSelectionInput, packs: SkillPack[]): 
   return ordered;
 }
 
-/** 缩小后的索引：排序结果的前 limit 个，且命中为 0 的包只在名额有余时保留。 */
-export function selectSkillIndex(
-  input: SkillSelectionInput,
-  packs: SkillPack[],
-  limit = SKILL_INDEX_LIMIT,
-): SkillPack[] {
-  return rankSkillPacks(input, packs).slice(0, limit);
-}
-
 /**
- * 旧的确定性推荐清单（体验版的分步出题仍在用）：base → 一个领域包 → 至多两个栈包，
- * 栈包自动带上父级领域包；全无命中时兜底到 cs-fundamentals。
+ * 备课的题池从哪些包抽主题：排第一的是岗位对应的领域包（得分最高的 domain 包；全无命中时 cs-fundamentals），
+ * 之后至多一个命中的栈包（连同它的父级领域包）作补充。HR 面只抽行为包。
+ * 抽样时领域包的主题加分（topics.ts），栈包的主题不会淹没岗位本身的考点。
  */
-export function recommendSkillPacks(input: SkillSelectionInput, packs: SkillPack[]): string[] {
+export function packsForTopics(input: SkillSelectionInput, packs: SkillPack[], round: string | null): SkillPack[] {
   const byName = new Map(packs.map((pack) => [pack.name, pack]));
-  const hits = rankSkillPacks(input, packs).filter(
-    (pack) => pack.layer !== "base" && keywordScore(pack, input) > 0,
-  );
-
-  const domains: string[] = [];
-  const stacks: string[] = [];
-  for (const pack of hits) {
-    if (pack.layer === "stack" && stacks.length < MAX_STACK_PACKS) {
-      stacks.push(pack.name);
-      if (pack.parent && byName.has(pack.parent) && !domains.includes(pack.parent)) {
-        domains.push(pack.parent);
-      }
-    } else if (pack.layer === "domain" && domains.length === 0 && stacks.length === 0) {
-      domains.push(pack.name);
-    }
+  if (round === "hr_interview") return byName.has(HR_PACK) ? [byName.get(HR_PACK)!] : [];
+  const hits = rankSkillPacks(input, packs).filter((pack) => pack.layer !== "base" && keywordScore(pack, input) > 0);
+  const primary = hits.find((pack) => pack.layer === "domain") ?? byName.get(FALLBACK_DOMAIN) ?? null;
+  const picked: SkillPack[] = primary ? [primary] : [];
+  for (const stack of hits.filter((pack) => pack.layer === "stack").slice(0, MAX_STACK_PACKS)) {
+    const parent = stack.parent ? byName.get(stack.parent) : null;
+    if (parent && !picked.includes(parent)) picked.push(parent);
+    picked.push(stack);
   }
-  if (domains.length === 0 && byName.has("cs-fundamentals")) {
-    domains.push("cs-fundamentals");
-  }
-
-  const base = packs.filter((pack) => pack.layer === "base").map((pack) => pack.name);
-  return [...new Set([...base, ...domains, ...stacks])];
+  return picked;
 }
 
-/** 面试中可查的包：备课时加载过的包及其父级领域包，按备课顺序，最多 limit 个。 */
+/** 面试中可查的包：备课时用过的包及其父级领域包，按备课顺序，最多 limit 个。 */
 export function packsForInterview(names: string[], packs: SkillPack[], limit = 6): SkillPack[] {
   const byName = new Map(packs.map((pack) => [pack.name, pack]));
   const picked: SkillPack[] = [];
