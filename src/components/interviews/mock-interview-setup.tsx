@@ -268,28 +268,6 @@ export function MockInterviewSetup({
             })}
           </div>
         </fieldset>
-        <label className="mt-5 flex cursor-pointer items-center justify-between gap-4 rounded-control border border-border-strong bg-surface px-3.5 py-2.5 transition-colors duration-150 hover:bg-surface-subtle">
-          <span className="flex min-w-0 items-center gap-3">
-            <span>
-              <strong className="block text-sm font-medium text-foreground">
-                允许 AI 追问
-              </strong>
-              <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">
-                根据你的回答继续追问关键细节，让模拟过程更接近真实面试。
-              </span>
-            </span>
-          </span>
-          <span className="relative inline-flex shrink-0">
-            <input
-              aria-label="允许 AI 追问"
-              className="peer sr-only"
-              defaultChecked
-              name="followUpsEnabled"
-              type="checkbox"
-            />
-            <span className="relative h-5 w-9 rounded-full bg-border-strong transition-colors duration-150 after:absolute after:left-0.5 after:top-0.5 after:size-4 after:rounded-full after:bg-white after:shadow-sm after:transition-transform after:duration-150 after:ease-app peer-checked:bg-brand peer-checked:after:translate-x-4 peer-focus-visible:ring-2 peer-focus-visible:ring-ring" />
-          </span>
-        </label>
           </div>
         </details>
       </Card>

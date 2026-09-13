@@ -19,6 +19,8 @@ import { decideTurn, speakTurn } from "./turn-agent";
  * 候选人的插话由代码定分支（reducer.planTurn）：跳过 / 再说一遍 / 结束 / 卡住第二次不调模型，
  * 固定措辞直接流回；开场、一次提示、对质简历由代码定动作、模型只写话；其余回合模型先用工具
  * 决定（decideTurn），代码裁决（ruleTurn）后再让模型为最终动作说话（speakTurn，流式）。
+ * 模型偶发失败（超时、5xx）走固定措辞兜底；额度 / 密钥这类不可恢复的错误直接抛出，回合不落库，
+ * 房间显示原因让用户去设置里处理。
  */
 
 export type TurnCandidate = {

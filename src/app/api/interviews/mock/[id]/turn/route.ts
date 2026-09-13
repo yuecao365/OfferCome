@@ -1,5 +1,6 @@
 import { createUIMessageStream, createUIMessageStreamResponse } from "ai";
 
+import { describeAgentError, isAgentRunError } from "@/lib/ai/run-agent";
 import { CANDIDATE_INTENT_PLACEHOLDERS, detectCandidateIntent, type ButtonIntent } from "@/lib/mock-interviews/interviewer/actions";
 import { startInterviewerTurn } from "@/lib/mock-interviews/interviewer/session";
 import { turnPayload, type TurnData } from "@/lib/mock-interviews/interviewer/turn-payload";
@@ -57,7 +58,8 @@ export async function POST(
   try {
     turn = await startInterviewerTurn({ sessionId: id, candidate: parsed.candidate });
   } catch (error) {
-    return Response.json({ error: error instanceof Error ? error.message : "无法开始回合。" }, { status: 409 });
+    const message = isAgentRunError(error) ? describeAgentError(error) : error instanceof Error ? error.message : "无法开始回合。";
+    return Response.json({ error: message }, { status: isAgentRunError(error) ? 503 : 409 });
   }
 
   const started = turn;
@@ -75,7 +77,7 @@ export async function POST(
       const data: TurnData = { replay: false, payload: turnPayload(result, decision) };
       writer.write({ type: "data-turn", data });
     },
-    onError: (error) => (error instanceof Error ? error.message : "回合失败。"),
+    onError: (error) => (isAgentRunError(error) ? describeAgentError(error) : error instanceof Error ? error.message : "回合失败。"),
   });
   return createUIMessageStreamResponse({ stream });
 }

@@ -2,7 +2,7 @@ import "server-only";
 
 import { tool, type ModelMessage, type ToolSet } from "ai";
 
-import { streamAgent, type AgentStreamOutcome } from "@/lib/ai/run-agent";
+import { describeAgentError, isFatalAgentError, streamAgent, type AgentStreamOutcome } from "@/lib/ai/run-agent";
 import { getAiTaskConfig } from "@/lib/settings/ai";
 import { normalizedText } from "@/lib/text/similarity";
 
@@ -194,6 +194,8 @@ export async function decideTurn(input: TurnAgentInput): Promise<{ decision: Tur
   });
   await stream.consumeStream();
   const result = await outcome;
+  // 额度用完 / 密钥无效 / 连不上：重试也不会好，不能让面试靠固定措辞往下走，直接报给房间。
+  if (result.error && isFatalAgentError(result.error.kind)) throw result.error;
   const extras = decideTools.outcome();
   return { decision: decisionFromOutcome(result, extras.anchorHit), skillsLoaded: extras.skillsLoaded };
 }
@@ -216,6 +218,10 @@ export async function speakTurn(input: TurnAgentInput & { ruling: TurnRuling }) 
     // 不截断：字数靠提示词收短，预算只防跑飞。
     maxOutputTokens: 1_200,
   });
-  const settled = outcome.then((result) => ({ speech: result.text.trim(), failed: result.error !== null && result.text.trim().length === 0 }));
-  return { stream, settled };
+  const settled = outcome.then((result) => {
+    if (result.error && isFatalAgentError(result.error.kind)) throw result.error;
+    return { speech: result.text.trim(), failed: result.error !== null && result.text.trim().length === 0 };
+  });
+  // 流里的错误块要带可读原因（AI SDK 默认只给 "An error occurred."）。
+  return { stream: { toUIMessageStream: () => stream.toUIMessageStream({ onError: describeAgentError }) }, settled };
 }

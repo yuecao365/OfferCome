@@ -50,6 +50,18 @@ export type MockInterviewChatDriver = {
   finish: (options: { retry: boolean }) => Promise<void>;
 };
 
+/** 接口以 JSON 拒绝时（模型不可用、会话已结束）传输层把整个响应体当消息抛出来，取里面的 error。 */
+function readableError(caught: unknown): string {
+  const message = caught instanceof Error ? caught.message : "";
+  if (message.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(message) as { error?: string };
+      if (parsed.error) return parsed.error;
+    } catch {}
+  }
+  return message || "回合失败，请重试。";
+}
+
 async function readJson<T>(response: Response, fallback: string): Promise<T> {
   const result = (await response.json()) as T & { error?: string };
   if (!response.ok) throw new Error(result.error ?? fallback);
@@ -144,6 +156,8 @@ export function MockInterviewChat({
   const startedRef = useRef(false);
   const finishedRef = useRef(false);
   const lastInterviewerAtRef = useRef<number | null>(null);
+  /** 上一次发出的回合请求：失败后"重试"原样再发（clientId 不变，服务端按它去重）。 */
+  const lastRequestRef = useRef<{ text: string; body: TurnBody } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   // 开场回合落下前还没有开始时间，先按进入房间的时刻计时。
   const [openedAt] = useState(() => new Date().toISOString());
@@ -170,7 +184,7 @@ export function MockInterviewChat({
       setMessages([]);
     },
     onError: (caught) => {
-      setTurnError(caught instanceof Error ? caught.message : "回合失败，请重试。");
+      setTurnError(readableError(caught));
     },
   });
 
@@ -203,16 +217,25 @@ export function MockInterviewChat({
         { id: `local-${clientId}`, turnIndex: turnsUsed, role: "candidate", kind: "answer", content: text, threadId: null },
       ]);
       setInput("");
+      lastRequestRef.current = { text, body };
       void sendMessage({ text }, { body });
     },
     [sendMessage, turnsUsed],
   );
+
+  const retry = useCallback(() => {
+    const last = lastRequestRef.current;
+    if (!last) return;
+    setTurnError("");
+    void sendMessage({ text: last.text }, { body: last.body });
+  }, [sendMessage]);
 
   // 开场：房间第一次打开、还没有任何消息时，由面试官先说话。
   useEffect(() => {
     if (startedRef.current || ended || transcript.length > 0 || busy) return;
     startedRef.current = true;
     const body: TurnBody = { kind: "start" };
+    lastRequestRef.current = { text: "（开始面试）", body };
     void sendMessage({ text: "（开始面试）" }, { body });
   }, [busy, ended, sendMessage, transcript.length]);
 
@@ -291,8 +314,13 @@ export function MockInterviewChat({
         </div>
 
         {turnError || error ? (
-          <div className="px-3 pb-2 sm:px-4">
-            <Alert tone="danger">{turnError || error?.message}</Alert>
+          <div className="flex items-start gap-2 px-3 pb-2 sm:px-4">
+            <Alert className="min-w-0 flex-1" tone="danger">{turnError || readableError(error)}</Alert>
+            {!ended ? (
+              <Button disabled={busy} onClick={retry} size="sm" type="button" variant="outline">
+                重试
+              </Button>
+            ) : null}
           </div>
         ) : null}
 

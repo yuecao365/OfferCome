@@ -1,5 +1,6 @@
 import { createUIMessageStream, createUIMessageStreamResponse } from "ai";
 
+import { describeAgentError, isAgentRunError } from "@/lib/ai/run-agent";
 import { CANDIDATE_INTENT_PLACEHOLDERS, detectCandidateIntent, type ButtonIntent } from "@/lib/mock-interviews/interviewer/actions";
 import type { InterviewBrief } from "@/lib/mock-interviews/interviewer/brief";
 import type { InterviewMemory } from "@/lib/mock-interviews/interviewer/memory";
@@ -36,7 +37,9 @@ export const POST = withTrialAiResponse<Body>(async (body) => {
 
   const state = createInterviewerState({ ...body.state, ended: false });
   const candidateContent = content || (explicit ? CANDIDATE_INTENT_PLACEHOLDERS[explicit] : "");
-  const run = await runInterviewerTurn({
+  let run: Awaited<ReturnType<typeof runInterviewerTurn>>;
+  try {
+    run = await runInterviewerTurn({
     runId: `trial-turn:${state.turnIndex}:${Date.now()}`,
     state,
     candidate: body.candidate
@@ -48,7 +51,10 @@ export const POST = withTrialAiResponse<Body>(async (body) => {
       : null,
     context: body.context,
     skillPacks: packsForInterview(body.state.brief.skillPacks, await loadSkillPacks()),
-  });
+    });
+  } catch (error) {
+    return Response.json({ error: isAgentRunError(error) ? describeAgentError(error) : "无法开始回合。" }, { status: 503 });
+  }
 
   const stream = createUIMessageStream({
     execute: async ({ writer }) => {
@@ -57,7 +63,7 @@ export const POST = withTrialAiResponse<Body>(async (body) => {
       const data: TurnData = { replay: false, payload: turnPayload(result, decision) };
       writer.write({ type: "data-turn", data });
     },
-    onError: (error) => (error instanceof Error ? error.message : "回合失败。"),
+    onError: (error) => (isAgentRunError(error) ? describeAgentError(error) : error instanceof Error ? error.message : "回合失败。"),
   });
   return createUIMessageStreamResponse({ stream });
 });

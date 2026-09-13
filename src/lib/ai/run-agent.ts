@@ -1,4 +1,6 @@
 import {
+  APICallError,
+  RetryError,
   asSchema,
   generateText,
   NoObjectGeneratedError,
@@ -51,6 +53,10 @@ export type AgentRunErrorKind =
   | "not_configured"
   | "incompatible_schema"
   | "timeout"
+  /** 额度用完、密钥无效、无权限：重试也不会好，必须报给用户去设置里处理。 */
+  | "unavailable"
+  /** 连不上服务商（连接被拒、DNS 失败、代理没开）：每一次调用都会失败，同样要报给用户。 */
+  | "network"
   | "invalid_structured_output"
   | "provider_error";
 
@@ -159,6 +165,27 @@ export function isAgentRunError(error: unknown): error is AgentRunError {
   return error instanceof AgentRunError;
 }
 
+/**
+ * 给用户看的一句话：额度 / 密钥问题要说清楚去哪修，其余只说可以重试。
+ * 流式回合里既用于 UI 消息流的 error 块，也用于接口的 JSON 错误。
+ */
+export function describeAgentError(error: unknown): string {
+  const kind = classifyError(error);
+  const detail = providerMessage(error).slice(0, 160);
+  switch (kind) {
+    case "unavailable":
+      return `模型服务不可用：${detail || "额度用完或密钥无效"}。请到设置里检查密钥与额度后重试。`;
+    case "network":
+      return `连不上模型服务：${detail || "网络错误"}。检查网络或代理（AI_HTTP_PROXY / HTTPS_PROXY 环境变量指向的代理）是否在运行后重试。`;
+    case "not_configured":
+      return detail || "还没有配置模型，请先到设置里填写。";
+    case "timeout":
+      return "模型响应超时，可以重试。";
+    default:
+      return "面试官这一步出错了，可以重试。";
+  }
+}
+
 export function isAgentTimeout(error: unknown): boolean {
   if (isAgentRunError(error)) return error.kind === "timeout";
   return (
@@ -222,8 +249,54 @@ export function assertAiConfigured(config: AiTaskConfig, feature: string): void 
   }
 }
 
-function classifyError(error: unknown): AgentRunErrorKind {
+/** 剥掉 SDK 的重试包装与我们自己的 cause 链，拿到服务商那一层的错误。 */
+function rootError(error: unknown): unknown {
+  let current = error;
+  for (let depth = 0; depth < 5; depth += 1) {
+    if (RetryError.isInstance(current)) current = current.lastError;
+    else if (isAgentRunError(current) && current.cause !== undefined) current = current.cause;
+    else break;
+  }
+  return current;
+}
+
+/** 服务商返回的可读原因（OpenAI 兼容通道的 error.message），没有就用异常消息。 */
+function providerMessage(raw: unknown): string {
+  const error = rootError(raw);
+  if (APICallError.isInstance(error)) {
+    try {
+      const body = JSON.parse(error.responseBody ?? "") as { error?: { message?: string } };
+      if (body.error?.message) return body.error.message;
+    } catch {}
+  }
+  return error instanceof Error ? error.message : "";
+}
+
+function isUnavailable(raw: unknown): boolean {
+  const error = rootError(raw);
+  if (!APICallError.isInstance(error)) return false;
+  const status = error.statusCode ?? 0;
+  if (status === 401 || status === 402 || status === 403) return true;
+  return status === 429 && /insufficient_quota|credit|billing|balance/i.test(error.responseBody ?? "");
+}
+
+function isNetworkError(raw: unknown): boolean {
+  const error = rootError(raw);
+  if (!(error instanceof Error)) return false;
+  const text = `${error.message} ${(error.cause as Error | undefined)?.message ?? ""}`;
+  return /ECONNREFUSED|ENOTFOUND|ECONNRESET|EAI_AGAIN|Cannot connect to API|fetch failed/i.test(text);
+}
+
+/** 这类失败重试也不会好，回合不该靠固定措辞往下走，要把原因报给用户。 */
+export function isFatalAgentError(kind: AgentRunErrorKind): boolean {
+  return kind === "unavailable" || kind === "network" || kind === "not_configured";
+}
+
+export function classifyError(error: unknown): AgentRunErrorKind {
+  if (isAgentRunError(error)) return error.kind;
   if (isAgentTimeout(error)) return "timeout";
+  if (isUnavailable(error)) return "unavailable";
+  if (isNetworkError(error)) return "network";
   if (
     NoObjectGeneratedError.isInstance(error) ||
     NoOutputGeneratedError.isInstance(error)
@@ -357,13 +430,15 @@ export function streamAgent(options: AgentStreamOptions): {
         errorKind: kind,
         payload: options.messages,
         output: { text: textParts.join(""), toolCalls },
+        // 失败原因落库：额度、鉴权、网络这类问题事后要能查到是哪一种。
+        rawText: `${error instanceof Error ? error.name : typeof error}: ${providerMessage(error) || String(error)}`.slice(0, 2_000),
       });
       settle({
         error: new AgentRunError({
           kind,
           agent: options.agent,
           runId,
-          message: error instanceof Error ? error.message : "模型调用失败。",
+          message: providerMessage(error) || "模型调用失败。",
           durationMs,
           cause: error,
         }),
