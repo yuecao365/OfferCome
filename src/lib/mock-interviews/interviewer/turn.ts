@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import type { UIMessageChunk } from "ai";
 
 import type { SkillPack } from "../skills/types";
-import type { CandidateIntent } from "./actions";
+import type { CandidateIntent, ProbeReason } from "./actions";
 import type { AreaKind } from "./brief";
 import { currentPhase, questionTurnsUsed } from "./budget";
 import type { MemoryPatch } from "./memory";
@@ -40,6 +40,7 @@ export type TurnDecisionRow = {
   followUp: string | null;
   replacedReason: string | null;
   anchorHit: boolean | null;
+  probeReason: ProbeReason | null;
   memoryPatch: MemoryPatch | null;
   /** 本回合结束后处于哪个阶段（各阶段走完为 null）、已提问几次。 */
   phase: AreaKind | null;
@@ -89,6 +90,7 @@ function decisionRow(
     followUp: result.decision.followUp,
     replacedReason: result.decision.replacedReason,
     anchorHit: result.decision.anchorHit,
+    probeReason: result.decision.probeReason,
     memoryPatch,
     phase: result.state.phase === "ended" ? null : currentPhase(result.state),
     questionTurns: questionTurnsUsed(result.state),

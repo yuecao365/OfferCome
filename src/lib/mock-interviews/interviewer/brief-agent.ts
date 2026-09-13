@@ -25,7 +25,7 @@ import {
 
 const BRIEF_TIMEOUT_MS = 90_000;
 /** 备课提示词版本，独立于面试官提示词；变更备课规则时升级。 */
-export const BRIEF_PROMPT_VERSION = "brief-v12";
+export const BRIEF_PROMPT_VERSION = "brief-v13";
 const PROJECT_METHOD_PACK = "project-deep-dive";
 
 const rescueBrief = salvageJson(briefOutputSchema, {
@@ -137,8 +137,8 @@ export async function generateInterviewBrief(input: {
 这场面试按真实一面的阶段走：自我介绍 → 项目深挖（${plan.budget.project} 个提问回合，按角度走弧线，每个角度顺着候选人的话追）→ 基础快问（${plan.budget.quick} 个回合，一题一问，最多追 1 层，答不上就下一题）→ 场景题（${plan.budget.scenario} 个回合，一道开放题带引导，最多 3 层）。你要准备的是这些材料，不是题目清单：
 
 0. level：这位候选人按校招（campus）还是社招（experienced）的标准面——看 JD 的届别 / 实习 / 经验年限和简历是否在读。校招的基础题问原理与小场景、项目不要求线上规模；社招问排查与取舍。
-1. projects：项目 × 角度。${projectRule}角度固定为 ${renderAngles()}：overview 让候选人先整体讲（背景、架构、他负责哪块）；module 从简历上他负责的模块切入问实现（简历写了数字或机制的那几行是线索）；hardest 问最难的问题怎么定位解决；outcome 问达到预期没有、预期是什么、怎么量的；redo 问重做会改哪里。每个角度写一道该项目专属的 question（一个问题，禁止"谈谈你对 X 的理解"）和 0–4 条 leads——面试里要验证的点，面试官顺着候选人的话拿着它们去验，不按顺序问。
-2. quick：基础题池。topics 是代码抽好的主题，每个主题写一道题：topic 逐字用主题名；question 一句话一个问题，落到具体机制或小场景，带边界条件，按 level 定难度；标了"候选人简历碰过这个主题"的，题要从他项目里用到的这个东西出发问原理、替代方案或边界（"你项目里用了 X，X 一般是怎么……"），但不要和 projects 的 module 角度问同一个实现细节——module 问他怎么做的，基础题问这东西一般怎么工作、还有什么做法；followUp 是答得实质时唯一一层追问的方向；expectedSignals 是好回答会出现的要点。不要写 topics 之外的主题；与场景题考同一件事的主题直接不写，其余的都写——语言栈与计算机基础的主题也写（真实一面会问一两道候选人自己那门语言或操作系统、网络的基础题）。
+1. projects：项目 × 角度。${projectRule}角度固定为 ${renderAngles()}：overview 让候选人先整体讲（背景、架构、他负责哪块）；module 从简历上他负责的模块切入问实现（简历写了数字或机制的那几行是线索）；hardest 问最难的问题怎么定位解决；outcome 问达到预期没有、预期是什么、怎么量的；redo 问重做会改哪里。每个角度写一道该项目专属的 question（一个问题，禁止"谈谈你对 X 的理解"）和 0–4 条 leads——面试里要验证的点，面试官顺着候选人的话拿着它们去验，不按顺序问。overview 的 leads 列还没被 module 覆盖的模块或方面（工具链路、安全、评估……），hardest / outcome 也尽量落在 module 之外的部分，让五个角度各聊项目的一面。
+2. quick：基础题池。topics 是代码抽好的主题，每个主题写一道题：topic 逐字用主题名；question 一句话一个问题，落到具体机制或小场景，带边界条件，按 level 定难度；标了"候选人简历碰过这个主题"的，题要从他项目里用到的这个东西出发问原理、替代方案或边界（"你项目里用了 X，X 一般是怎么……"），但不要和 projects 的 module 角度问同一个实现细节——module 问他怎么做的，基础题问这东西一般怎么工作、还有什么做法；followUp 是答得实质时唯一一层追问的方向；expectedSignals 是好回答会出现的要点。每个主题都写一道，不要写 topics 之外的主题；问哪几道、跳过哪道（比如与场景题撞了）在面试中由面试官看情况定，不在这里删。
 3. scenarios：${plan.scenarios} 道场景题。从 JD 里团队做的系统或职责里挑一个具体场景（jdEvidence 逐字复制 JD 原文中最能代表它的一句，不得改写；competencyIds 绑定蓝图能力），question 先铺一句场景再问一个点；guides 是三级引导阶梯（候选人卡住或答到一层时下一步往哪引）。场景题不要与项目角度考同一件事。
 4. hypotheses（最多 6 条）：要在项目阶段验证的具体点——写了数字的成果、只写框架名的经历、时间线的空洞。每个被问的项目至少一条，projectId 指向它；text 写成"面试里问什么才能验证"；evidence 必须逐字复制简历原文片段，不得改写；没有依据的假设不要写。
 

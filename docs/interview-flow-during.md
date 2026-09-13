@@ -1,4 +1,4 @@
-# 面试中：一个回合是怎么跑完的（v9，按阶段与角度组织）
+# 面试中：一个回合是怎么跑完的（v10，按阶段与角度组织，宏观调控）
 
 > 上一篇：[面试开始前](interview-flow-before.md) · 下一篇：[面试后](interview-flow-after.md)
 > 代码：`src/app/api/interviews/mock/[id]/turn/route.ts`（接口）→ `interviewer/session.ts`（装配与落库）→ `turn.ts`（回合核心：定分支 → 决定 → 裁决 → 说话 → reducer）→ `turn-agent.ts`（两次模型调用）→ `prompt.ts`（提示词）→ `reducer.ts`（分支与裁决）→ `budget.ts`（阶段与预算）→ `progress.ts`（阶段进度）→ `memory.ts` / `segments.ts` / `state.ts`。前端 `components/interviews/mock-interview-chat.tsx`；决策记录页 `interviews/mock/[id]/trace`。
@@ -81,7 +81,7 @@ phase      opening | running | ended
 
 **候选人状态的出口**（`failureStreak` / `quickGivenUp`）：基础阶段从最后一条线程往前数连续的"卡住 / 跳过 / 面试官判 failed"，答上一题清零；到 5 就不再开基础题，直接进场景题。场景题也失败（提示过再卡住）就收尾。真实面试官三四道连续答不上会换方向或收短，不会把题池问完。
 
-深度由回答决定：模型在 probe 里自报对上一条回答的判断（`lastAnswer`：substantive / thin），代码据此守门（§4.2）；线程里连续的 thin 记在 `thinStreak`。
+深度由回答决定，广度与深度的取舍不用数字管（用户要求宏观调控）：提示词的进度行写着"这个阶段还剩 N 个提问回合；还没碰的：……。追一次就少覆盖一项"，阶段目标写明结束时要覆盖什么（主项目弧线 + 第二个项目背景；基础题覆盖不同方向），模型自己分配。追问要有理由——模型在 probe 里自报 `reason`（verify 验证简历线索 / 数字 / 假设、vague 含糊让他展开、core JD 核心能力往深问），没有理由就换角度 / 换题；理由进决策记录（`probeReason`）与 trace 页，代码不校验真假。`lastAnswer`（substantive / thin）照旧守门（§4.2）；线程里连续的 thin 记在 `thinStreak`。
 
 ### 1.3 不变量（`budget.canAct`，代码持有，模型改不了）
 

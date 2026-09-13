@@ -241,6 +241,7 @@ export async function persistTurn(
         followUp: decision.followUp,
         replacedReason: decision.replacedReason,
         anchorHit: decision.anchorHit,
+        probeReason: decision.probeReason,
         memoryPatchJson: decision.memoryPatch ? JSON.stringify(decision.memoryPatch) : null,
         phase: decision.phase,
         questionTurns: decision.questionTurns,

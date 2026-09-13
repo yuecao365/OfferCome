@@ -8,6 +8,7 @@ import {
   buildBriefFromOutput,
   fallbackBrief,
   fallbackHypothesis,
+  firstQuestion,
   guessLevel,
   PACE_PLAN,
   parseStoredBrief,
@@ -97,7 +98,7 @@ test("项目 × 角度：模型先写到的项目是主项目走五个角度，�
   assert.equal(projectAreas(build({}, { projects: [] })).length, 0);
 });
 
-test("题池就是抽样的主题：模型写了的按抽样顺序入池，没写的只在不够预算加余量时用包里的好题补；抽样之外的丢弃；简历碰过的带标记", () => {
+test("题池就是抽样的主题，一个主题一道：模型没写的用包里的好题第一问；抽样之外的丢弃；简历碰过的带标记", () => {
   const brief = build({ quick: [quickOut("MySQL 索引"), quickOut("Redis 分布式锁")] });
   const pool = brief.areas.filter((area) => area.kind === "quick");
   assert.deepEqual(pool.map((area) => [area.id, area.name]), [["q1", "缓存一致性"], ["q2", "MySQL 索引"], ["q3", "消息队列可靠投递"]]);
@@ -105,12 +106,13 @@ test("题池就是抽样的主题：模型写了的按抽样顺序入池，没�
   assert.equal(pool[0].entryQuestion, "缓存一致性里最容易出错的一步是什么？");
   assert.deepEqual(pool[0].topic, { skill: "backend", name: "缓存一致性", fromResume: true });
   assert.deepEqual(pool[0].rubric.map((item) => item.name), ["准确性", "原理深度", "表达结构"]);
-  // 题池已经够"预算 + 余量"（quick 节奏 4 + 2）：模型没写的主题（比如与场景题撞了）不再补；不够时按抽样顺序补。
+  // 模型少写的主题照样进池：题池的构成由抽样定，问不问在面试中定。
   const eight = ["A", "B", "C", "D", "E", "F", "G", "H"].map((name) => topic(name));
-  const trimmed = build({ quick: ["A", "C", "D", "F", "G", "H"].map(quickOut) }, { pace: "quick", topics: eight });
-  assert.deepEqual(trimmed.areas.filter((area) => area.kind === "quick").map((area) => area.name), ["A", "C", "D", "F", "G", "H"]);
-  const padded = build({ quick: ["A", "C", "D", "F"].map(quickOut) }, { pace: "quick", topics: eight });
-  assert.deepEqual(padded.areas.filter((area) => area.kind === "quick").map((area) => area.name), ["A", "B", "C", "D", "E", "F"]);
+  const full = build({ quick: ["A", "C"].map(quickOut) }, { pace: "quick", topics: eight });
+  assert.deepEqual(full.areas.filter((area) => area.kind === "quick").map((area) => area.name), ["A", "B", "C", "D", "E", "F", "G", "H"]);
+  // 兜底题目只取好题的第一问：多个问号取第一个，一句里顿号并列的几问也只留第一问；顿号并列的名词不切。
+  assert.equal(firstQuestion("同一套提示迁移后失败率涨了，你怀疑哪些差异、怎么快速定位、最终怎么让提示更鲁棒？"), "同一套提示迁移后失败率涨了，你怀疑哪些差异？");
+  assert.equal(firstQuestion("如果工具里有删除、支付这类敏感操作，你会怎么加确认？为什么？"), "如果工具里有删除、支付这类敏感操作，你会怎么加确认？");
 });
 
 test("场景题按节奏取数，JD 原句必须逐字、能力 id 必须在蓝图里，不够时代码兜底", () => {

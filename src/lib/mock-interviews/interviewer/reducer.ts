@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { coverage } from "@/lib/text/similarity";
 
-import type { CandidateIntent, InterviewerAction, ThreadVerdict } from "./actions";
+import type { CandidateIntent, InterviewerAction, ProbeReason, ThreadVerdict } from "./actions";
 import { atSafetyCap, canAct, nextAreaToOpen } from "./budget";
 import { applyMemoryPatch, type MemoryPatch } from "./memory";
 import { threadSegment, type ThreadSegment } from "./segments";
@@ -55,6 +55,8 @@ export type TurnDecisionRecord = {
   followUp: string | null;
   replacedReason: string | null;
   anchorHit: boolean | null;
+  /** 追问的理由（模型自报）；没有追问时为 null。 */
+  probeReason: ProbeReason | null;
 };
 
 export type TurnResult = {
@@ -359,6 +361,7 @@ export function applyTurn(
     followUp: ruling.next?.name ?? null,
     replacedReason: ruling.replaced[0]?.reason ?? null,
     anchorHit: decision.anchorHit ?? null,
+    probeReason: ruling.action?.name === "probe" ? ruling.action.input.reason : null,
   };
 
   if (state.phase === "ended") {

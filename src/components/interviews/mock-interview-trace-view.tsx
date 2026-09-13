@@ -2,6 +2,7 @@ import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { PROBE_REASON_LABELS } from "@/lib/mock-interviews/interviewer/actions";
 import { AREA_KIND_LABELS, INTERVIEW_PACE_LABELS, PHASE_ORDER } from "@/lib/mock-interviews/interviewer/brief";
 import type { MockInterviewTrace, MockInterviewTraceTurn } from "@/lib/mock-interviews/types";
 
@@ -40,6 +41,7 @@ function DecisionLine({ decision }: { decision: NonNullable<MockInterviewTraceTu
         {replaced && decision.replacedReason ? <Badge className="ml-2" tone="warning">替换：{decision.replacedReason}</Badge> : null}
         {decision.anchorHit === false ? <Badge className="ml-2" tone="warning">追问未锚定原话</Badge> : null}
         {decision.anchorHit === true ? <Badge className="ml-2" tone="success">追问锚定原话</Badge> : null}
+        {decision.probeReason ? <Badge className="ml-2">为什么追：{PROBE_REASON_LABELS[decision.probeReason]}</Badge> : null}
       </p>
       <p>
         {decision.phase ? `阶段：${AREA_KIND_LABELS[decision.phase]}` : "各阶段已走完"} · 已提问 {decision.questionTurns} 次

@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { REAL_USAGE_INTERVIEW_WHERE } from "@/lib/interviews/types";
 import { parseJsonArray, parseJsonObject, parseJsonValue } from "@/lib/json";
 
-import { parseThreadVerdict } from "./interviewer/actions";
+import { parseProbeReason, parseThreadVerdict } from "./interviewer/actions";
 import { isAreaKind, parseStoredBrief } from "./interviewer/brief";
 import { parseStoredMemory, type MemoryPatch } from "./interviewer/memory";
 import type { MessageKind, MessageRole, MessageState, ThreadStatus } from "./interviewer/state";
@@ -210,6 +210,7 @@ export async function getMockInterviewTrace(id: string): Promise<MockInterviewTr
         followUp: decision.followUp,
         replacedReason: decision.replacedReason,
         anchorHit: decision.anchorHit,
+        probeReason: parseProbeReason(decision.probeReason),
         memoryPatch: (parseJsonValue(decision.memoryPatchJson) as MemoryPatch | null) ?? null,
         phase: isAreaKind(decision.phase) ? decision.phase : null,
         questionTurns: decision.questionTurns,

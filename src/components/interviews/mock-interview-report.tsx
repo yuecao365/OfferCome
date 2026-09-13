@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { MetaText } from "@/components/ui/data-table";
 import { cn } from "@/lib/cn";
 import { THREAD_VERDICT_LABELS } from "@/lib/mock-interviews/interviewer/actions";
-import { AREA_KIND_LABELS, KIND_WEIGHT, PHASE_ORDER, type AreaKind } from "@/lib/mock-interviews/interviewer/brief";
+import { AREA_KIND_LABELS, KIND_WEIGHT, PHASE_ORDER, type AreaKind, PROJECT_ANGLES } from "@/lib/mock-interviews/interviewer/brief";
 import type { MockInterviewReport as ReportData } from "@/lib/mock-interviews/report";
 import type { MockInterviewView } from "@/lib/mock-interviews/types";
 
@@ -52,6 +52,11 @@ function Quote({ text }: { text: string | null }) {
 }
 
 /** 按阶段分节：每道问到过的题追了几层、面试官的判断、得分。 */
+/** 项目题的领域名是"项目名：角度"，分组标题只要项目名。 */
+function projectTitle(areaName: string): string {
+  return areaName.split("：")[0] ?? areaName;
+}
+
 function StageOverview({ session }: { session: MockInterviewView }) {
   const conversation = session.conversation;
   if (!conversation) return null;
@@ -84,11 +89,14 @@ function StageOverview({ session }: { session: MockInterviewView }) {
             <p className="text-xs font-medium text-muted-foreground">
               {AREA_KIND_LABELS[section.kind as AreaKind]} · {section.rows.length} 题
             </p>
-            {section.rows.map(({ area, note, verdict, depth, score, skipped }) => (
+            {section.rows.map(({ area, note, verdict, depth, score, skipped }, index) => (
               <div className="grid gap-1 border-t border-border pt-2" key={area.id}>
+                {area.projectId && area.projectId !== section.rows[index - 1]?.area.projectId ? (
+                  <p className="text-xs font-medium text-foreground">{projectTitle(area.name)}</p>
+                ) : null}
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-medium text-foreground">{area.name}</span>
+                    <span className="text-sm font-medium text-foreground">{area.angle ? PROJECT_ANGLES[area.angle].label : area.name}</span>
                     {depth > 0 ? <MetaText>追问 {depth} 层</MetaText> : null}
                     {verdict && verdict !== "answered" ? <Badge tone="warning">{THREAD_VERDICT_LABELS[verdict]}</Badge> : null}
                   </div>

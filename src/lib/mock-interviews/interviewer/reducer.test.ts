@@ -22,7 +22,7 @@ function fresh(brief = testBrief()): InterviewerState {
 
 const say = (speech: string, action: TurnDecision["action"] = null): TurnDecision => ({ speech, action, memoryPatch: null });
 const probe = (anchor: string, question: string, lastAnswer: "substantive" | "thin" = "substantive"): TurnDecision =>
-  say(question, { name: "probe", input: { anchor, question, lastAnswer } });
+  say(question, { name: "probe", input: { anchor, question, lastAnswer, reason: "core" } });
 const close = (verdict: "answered" | "thin" | "failed" = "answered", note = "ok"): TurnDecision => say("", { name: "close_thread", input: { note, verdict } });
 
 const P1_QUESTION = "先聊项目：主循环里你负责哪一段？";
@@ -137,13 +137,13 @@ test("各阶段走完才能收尾：模型提前 close_interview 被换成关线
 });
 
 test("跳过：关线程记 skipped、开下一题、固定过渡话；模型的话不采用", () => {
-  const skipped = applyTurn(opened(), { id: "m2", content: "跳过", intent: detectCandidateIntent("跳过") }, say("那我们继续追问", { name: "probe", input: { anchor: "跳过", question: "不该出现", lastAnswer: "substantive" } }));
+  const skipped = applyTurn(opened(), { id: "m2", content: "跳过", intent: detectCandidateIntent("跳过") }, say("那我们继续追问", { name: "probe", input: { anchor: "跳过", question: "不该出现", lastAnswer: "substantive", reason: "core" } }));
   const closed = skipped.effects.find((effect) => effect.type === "thread_closed");
   assert.ok(closed && closed.type === "thread_closed" && closed.thread.status === "skipped" && closed.thread.note === THREAD_NOTES.skipped);
   assert.equal(skipped.newMessages[0].kind, "aside");
   const next = activeThread(skipped.state)!;
   assert.equal(skipped.newMessages.at(-1)?.content, `${FALLBACK_SPEECH.skipped}\n\n${next.entryQuestion}`);
-  assert.deepEqual(skipped.decision, { proposed: "close_thread", applied: "close_thread", followUp: "open_thread", replacedReason: null, anchorHit: null });
+  assert.deepEqual(skipped.decision, { proposed: "close_thread", applied: "close_thread", followUp: "open_thread", replacedReason: null, anchorHit: null, probeReason: null });
 });
 
 test("再说一遍：复述上一问，不调模型、不推进", () => {
@@ -348,7 +348,7 @@ test("adversarial candidate messages cannot move budgets, end the interview or l
 test("the decision record captures proposal, ruling and anchor hit", () => {
   const state = opened();
   const result = applyTurn(state, answer("我负责后端。"), { ...probe("后端", "怎么设计？"), anchorHit: true });
-  assert.deepEqual(result.decision, { proposed: "probe", applied: "probe", followUp: null, replacedReason: null, anchorHit: true });
+  assert.deepEqual(result.decision, { proposed: "probe", applied: "probe", followUp: null, replacedReason: null, anchorHit: true, probeReason: "core" });
   const replaced = applyTurn(state, answer(), say("到这", { name: "close_interview", input: { reason: "想结束" } }));
   assert.equal(replaced.decision.proposed, "close_interview");
   assert.equal(replaced.decision.applied, "close_thread");

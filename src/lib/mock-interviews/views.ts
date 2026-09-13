@@ -33,6 +33,8 @@ export function conversationView(input: {
         id: area.id,
         name: area.name,
         kind: area.kind,
+        projectId: area.projectId,
+        angle: area.angle,
         status: threads.some((thread) => thread.status === "active") ? "active" : threads.length > 0 ? "covered" : "pending",
       };
     }),
@@ -88,6 +90,7 @@ export function traceTurns(input: {
             followUp: decision.followUp,
             replacedReason: decision.replacedReason,
             anchorHit: decision.anchorHit,
+            probeReason: decision.probeReason,
             memoryPatch: decision.memoryPatch,
             phase: decision.phase,
             questionTurns: decision.questionTurns,

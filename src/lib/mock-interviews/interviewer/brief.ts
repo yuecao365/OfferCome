@@ -94,8 +94,6 @@ export const PROBE_LIMIT: Record<Exclude<AreaKind, "project">, number> = { quick
 export const KIND_WEIGHT: Record<AreaKind, number> = { project: 3, quick: 1, scenario: 2 };
 
 export const MAX_HYPOTHESES = 6;
-/** 题池至少比基础阶段的预算多这么多道：换方向、跳过都还有题可开。模型没写的主题补到这个数为止。 */
-export const POOL_SLACK = 2;
 /** 题池比基础阶段的预算大一倍，永远不会没题；上限防止提示词过长。 */
 const POOL_MIN = 8;
 const POOL_MAX = 16;
@@ -370,10 +368,14 @@ function projectAreas(ranked: Project[], round: string | null, written: (project
   return ranked.slice(0, MAX_PROJECTS).flatMap((project, rank) => ANGLES_BY_RANK[rank].map((angle) => projectArea(project, rank, angle, round, written(project, angle))));
 }
 
-/** 好题第一句作兜底题目：包里的好题常带两三个问号，基础题只取第一个。 */
-function firstQuestion(example: string): string {
+/** 一句里用顿号并列的子问题（"你怀疑哪些差异、怎么定位、最终怎么……"）从第二个问句词前切开。 */
+const SUBQUESTION_SPLIT = /、(?=(怎么|哪些|为什么|如何|什么|是否|会不会|能不能))/;
+
+/** 好题第一问作兜底题目：包里的好题常带两三个问号或一句里并列几问，基础题只取第一个。 */
+export function firstQuestion(example: string): string {
   const match = example.match(/^[^？?]+[？?]/);
-  return (match ? match[0] : example).trim();
+  const first = (match ? match[0] : example).trim().split(SUBQUESTION_SPLIT)[0].trim();
+  return /[？?]$/.test(first) ? first : `${first}？`;
 }
 
 function quickArea(topic: SkillTopic, id: string, round: string | null, written: { question: string; followUp: string; expectedSignals: string[] } | null): InterviewArea {
@@ -434,7 +436,7 @@ export function guessLevel(jobDescription: string, resumeText: string): Intervie
 /**
  * 模型产出 → 冻结的简报。规则全部由代码把关：
  * - 项目：projectId 必须存在；先出现的项目是主项目（走五个角度），第二个项目两个角度，再多的项目不问；每个角度一道题，模型没写的角度用兜底问法补齐；
- * - 基础题池 = 抽样的主题：模型写了的按抽样顺序入池；没写的（比如与场景题撞了）只在题池不够"预算 + 余量"时用包里的好题补；模型写了不在抽样里的主题丢弃；
+ * - 基础题池 = 抽样的主题，一个主题一道：题池的构成由抽样定（角色配额），问哪道在面试中定；模型没写的用包里的好题；模型写了不在抽样里的主题丢弃；
  * - 场景题数按节奏，JD 原句必须逐字，能力 id 必须在蓝图里；不够时代码兜底；
  * - 假设的简历证据必须逐字出现在简历里，挂到项目上；每个被问的项目至少一条，没有就从简历里兜底。
  */
@@ -469,12 +471,7 @@ export function buildBriefFromOutput(input: {
   });
 
   const written = new Map(output.quick.map((item) => [normalizedText(item.topic), item]));
-  const pool = input.topics.filter((topic) => written.has(normalizedText(topic.name)));
-  for (const topic of input.topics) {
-    if (pool.length >= plan.budget.quick + POOL_SLACK) break;
-    if (!pool.includes(topic)) pool.push(topic);
-  }
-  const quick = input.topics.filter((topic) => pool.includes(topic)).map((topic, index) => quickArea(topic, `q${index + 1}`, round, written.get(normalizedText(topic.name)) ?? null));
+  const quick = input.topics.map((topic, index) => quickArea(topic, `q${index + 1}`, round, written.get(normalizedText(topic.name)) ?? null));
 
   const scenarios: InterviewArea[] = output.scenarios.slice(0, plan.scenarios).map((raw, index) => {
     const jdEvidence = raw.jdEvidence && isVerbatimEvidence(input.jobDescription, raw.jdEvidence) ? raw.jdEvidence : null;

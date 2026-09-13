@@ -2,8 +2,8 @@ import { z } from "zod";
 
 import type { InterviewStatus } from "@/lib/interviews/types";
 
-import type { ThreadVerdict } from "./interviewer/actions";
-import type { AreaKind, InterviewHypothesis, InterviewPace, PhaseBudget } from "./interviewer/brief";
+import type { ProbeReason, ThreadVerdict } from "./interviewer/actions";
+import type { AreaKind, InterviewHypothesis, InterviewPace, PhaseBudget, ProjectAngle } from "./interviewer/brief";
 import type { InterviewMaterials } from "./materials";
 import type { InterviewMemory } from "./interviewer/memory";
 import type { AnswerExemplar, EvaluationStrength, EvaluationWeakness } from "./question-evaluation";
@@ -118,7 +118,7 @@ export type MockInterviewConversation = {
   /** 第一回合落库的时间；房间顶栏据此显示已用时。 */
   startedAt: string | null;
   stage: InterviewStage;
-  areas: { id: string; name: string; kind: AreaKind; status: "pending" | "active" | "covered" }[];
+  areas: { id: string; name: string; kind: AreaKind; projectId: string | null; angle: ProjectAngle | null; status: "pending" | "active" | "covered" }[];
   threads: {
     id: string;
     areaId: string;
@@ -198,6 +198,7 @@ export type MockInterviewTraceTurn = {
     followUp: string | null;
     replacedReason: string | null;
     anchorHit: boolean | null;
+    probeReason: ProbeReason | null;
     memoryPatch: unknown;
     phase: AreaKind | null;
     questionTurns: number;

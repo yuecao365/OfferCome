@@ -551,6 +551,8 @@ model InterviewTurnDecision {
   followUp        String?
   replacedReason  String?
   anchorHit       Boolean?
+  /// 追问的理由（模型自报：verify / vague / core）；没有追问时为 null。
+  probeReason     String?
   memoryPatchJson String?
   /// 本回合结束后处于哪个阶段（project / quick / scenario；各阶段走完为 null）与已提问次数。
   phase           String?

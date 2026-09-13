@@ -28,6 +28,18 @@ export function parseThreadVerdict(value: unknown): ThreadVerdict | null {
 export const ANSWER_QUALITIES = ["substantive", "thin"] as const;
 export type AnswerQuality = (typeof ANSWER_QUALITIES)[number];
 
+/**
+ * 为什么追：验证简历线索 / 数字 / 假设，回答含糊让他展开，或这是 JD 的核心能力往深问。
+ * 模型自报、代码不校验真假；没有理由就不该追（答得完整又不是重点，换角度 / 换题）。进决策记录与 trace。
+ */
+export const PROBE_REASONS = ["verify", "vague", "core"] as const;
+export type ProbeReason = (typeof PROBE_REASONS)[number];
+export const PROBE_REASON_LABELS: Record<ProbeReason, string> = { verify: "验证线索", vague: "回答含糊", core: "JD 核心" };
+
+export function parseProbeReason(value: unknown): ProbeReason | null {
+  return typeof value === "string" && (PROBE_REASONS as readonly string[]).includes(value) ? (value as ProbeReason) : null;
+}
+
 const SINGLE_QUESTION_RULE = "只问一个问题：一个问号，不要“A、B、C 分别怎么”这样并列几个子问题；要引场景就先铺一句场景，问的点只有一个。";
 
 export const actionSchemas = {
@@ -42,6 +54,8 @@ export const actionSchemas = {
     question: z.string().min(1).max(600),
     /** 上一条回答是实质回答（substantive）还是只有关键词 / 空话（thin）：关键词回答只追一次。 */
     lastAnswer: z.enum(ANSWER_QUALITIES),
+    /** 为什么追：verify 验证线索 / 数字 / 假设，vague 回答含糊，core JD 核心能力。 */
+    reason: z.enum(PROBE_REASONS),
   }),
   hint: z.object({}),
   close_thread: z.object({
@@ -79,7 +93,7 @@ export const ACTION_DESCRIPTIONS: Record<ModelActionName | "note", string> = {
   open_thread:
     `开一道新题：areaId 是当前阶段可开的那些（项目的一个角度 / 题池里的基础题 / 场景题），question 是你要问的话。项目角度的问题可以按候选人前面说过的内容改写（他提到的模块、他自己的说法）；基础题与场景题可以改措辞，不改问的内容。一次只能有一个进行中的线程，若当前线程还没结束，先 close_thread。question ${SINGLE_QUESTION_RULE}`,
   probe:
-    `顺着候选人刚才的回答往下追问，仍在当前这道题里。anchor 填候选人上一条回答里的原话片段（追问要从它出发），question 是追问本身，${SINGLE_QUESTION_RULE}lastAnswer 写你对上一条回答的判断：substantive 有实质内容，thin 只有关键词或空话（只追一次，让他展开）。不要复述评分标准或期望信号。`,
+    `顺着候选人刚才的回答往下追问，仍在当前这道题里。只在有理由时追：reason 写 verify（要验证简历线索、数字或假设）、vague（回答含糊或只有关键词，让他展开）或 core（这是 JD 的核心能力，值得往深问）；答得完整又不是重点，不要追，close_thread 换角度 / 换题。anchor 填候选人上一条回答里的原话片段（追问要从它出发），question 是追问本身，${SINGLE_QUESTION_RULE}lastAnswer 写你对上一条回答的判断：substantive 有实质内容，thin 只有关键词或空话（只追一次）。不要复述评分标准或期望信号。`,
   close_thread:
     "这道题（项目的这个角度 / 基础题 / 场景题）到此为止（答得充分、或已失守、或阶段时间到了）：note 写你对这段的判断——答到哪一层、哪句答得好、哪里失守；verdict 必须写候选人答得怎么样（answered 有实质回答 / thin 只有关键词或空话 / failed 一句没答上）。之后的回合里这段只剩这句 note，对话原文不再保留。同一回合紧接着 open_thread 或 close_interview。",
   close_interview: "各阶段都走完、或候选人明显无法继续时收尾。",

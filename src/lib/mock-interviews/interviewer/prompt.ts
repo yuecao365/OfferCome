@@ -1,4 +1,4 @@
-import { MODEL_ACTIONS, type ActionName, type InterviewerAction } from "./actions";
+import { MODEL_ACTIONS, PROBE_REASON_LABELS, type ActionName, type InterviewerAction } from "./actions";
 import { AREA_KIND_LABELS, INTERVIEW_LEVEL_LABELS, PHASE_ORDER, plannedTurns, probeLimitFor, PROJECT_ANGLES, type AreaKind, type InterviewArea } from "./brief";
 import { areasOpenable, canAct, currentPhase, failureStreak, phaseEnd, phaseTurnsUsed, QUICK_GIVE_UP_STREAK, questionTurnsUsed } from "./budget";
 import { renderMemory } from "./memory";
@@ -13,7 +13,7 @@ import { activeThread, areaById, closedThreads, openHypotheses, threadKind, type
  * 对话原文的裁剪见 conversation.ts。
  */
 
-export const INTERVIEWER_PROMPT_VERSION = "interviewer-v9";
+export const INTERVIEWER_PROMPT_VERSION = "interviewer-v10";
 const MAX_RESUME_CHARS = 6_000;
 const MAX_JD_CHARS = 4_000;
 const MAX_INLINE_CHARS = 120;
@@ -58,12 +58,15 @@ export type PromptContext = {
   skillIndex: string;
 };
 
-/** 每个阶段的方法：面试官在这个阶段怎么问。 */
+/**
+ * 每个阶段的方法与目标：面试官在这个阶段怎么问、阶段结束时要覆盖什么。
+ * 广度与深度的取舍不用数字管：预算固定，进度行里写着还剩几回合、还没碰什么，追一次就少覆盖一项，由模型自己分配。
+ */
 const PHASE_METHOD: Record<AreaKind, string> = {
   project:
-    "项目深挖：一个项目按角度走弧线（背景架构 → 模块深挖 → 最难的问题 → 效果与预期 → 取舍与重做），每个角度是一道题。先 open_thread 主项目的 overview 让他整体讲；之后的角度按顺序开，question 要接着他前面说过的东西改写（他提到的模块、他自己的说法），不要念简报原句。每个角度里顺着他的话追（anchor 原话），leads 是备课时想验证的点，拿着它们去验，不按顺序念；简历假设验证到了就在 note 里标状态。回答有实质内容就继续追到这个角度的上限；只有关键词或空话，让他展开一次（lastAnswer=thin），第二次还是关键词就 close_thread（verdict=thin）换下一个角度——广度靠换角度，不在一个点上耗；答不上就 close_thread（verdict=failed）换角度。主项目大约用掉这个阶段七成的回合，留几个回合给第二个项目的背景架构与模块深挖；主项目的角度不必全部问到，预算快到时直接换项目。",
+    "项目深挖。目标：这个阶段结束时，主项目的弧线（背景架构 → 模块深挖 → 最难的问题 → 效果与预期 → 取舍与重做）和第二个项目的背景架构都碰到；每个角度是一道题，落在项目的不同一面——overview 的追问不提前挖 module 要挖的模块，hardest / outcome 优先落在还没聊过的部分，同一件事不要在几个角度里反复问。先 open_thread 主项目的 overview 让他整体讲，之后的角度 question 接着他前面说过的东西改写（他提到的模块、他自己的说法）。追问只在有理由时追（probe.reason：verify 验证简历线索 / 数字 / 假设，vague 含糊或只有关键词让他展开一次，core 是 JD 核心能力值得往深问）；答得完整又不是重点，一句话承接就 close_thread 换下一个角度。答不上就 close_thread（verdict=failed）换角度。",
   quick:
-    "基础快问：一题一问。从题池里挑一道 open_thread（标了「简历碰过」的题优先，可以顺着上一题的方向挑，question 可改写措辞），候选人答得实质可以按 followUp 追一层，然后 close_thread 换下一题；只有关键词或答不上就直接 close_thread（verdict=thin / failed）换下一题，不追、不提示、不讲解。连续几题答不上就换个方向（换一个包、或挑他简历碰过的主题），题不必问完，预算到了自然进下一阶段。",
+    "基础快问。目标：覆盖不同方向——岗位领域的几道，加候选人自己那门语言或计算机基础的一道；题池里与场景题考同一件事的不问。一题一问：从题池里挑一道 open_thread（标了「简历碰过」的优先，question 可改写措辞），答得实质且有理由（verify / core）才按 followUp 追一层，答得完整就直接 close_thread 换下一题；只有关键词或答不上就直接 close_thread（verdict=thin / failed）换下一题，不追、不提示、不讲解。连续几题答不上就换个方向（换一个包、或挑他简历碰过的主题）。题不必问完，预算到了自然进下一阶段。",
   scenario:
     "场景题：引导式。候选人答到一层或卡住时，用 guides 里的下一级作为追问往下引（最多 3 层）；他给出方案就追为什么、条件变了怎么办、怎么验证。",
 };
@@ -90,9 +93,19 @@ function renderPhaseAreas(state: InterviewerState, phase: AreaKind): string {
   return lines.join("\n") || "（无）";
 }
 
+/** 这个阶段还没碰的题：项目阶段列角度（带项目名），基础阶段列主题名。 */
+function uncovered(state: InterviewerState, phase: AreaKind): string {
+  const names = areasOpenable(state, phase).map((area) => (area.kind === "project" && area.angle ? area.name : area.name));
+  return names.length > 0 ? `还没碰的：${names.join("、")}` : "这个阶段的题都碰过了";
+}
+
 function renderProgress(state: InterviewerState, phase: AreaKind | null): string {
   const parts = PHASE_ORDER.map((kind) => `${AREA_KIND_LABELS[kind]} ${phaseTurnsUsed(state, kind)}/${state.brief.plan[kind]}`);
-  const now = phase ? `现在是${AREA_KIND_LABELS[phase]}阶段，这个阶段的提问回合到第 ${phaseEnd(state, phase)} 问为止` : "各阶段都已走完";
+  const remaining = phase ? Math.max(0, phaseEnd(state, phase) - questionTurnsUsed(state)) : 0;
+  const slack = phase ? remaining - areasOpenable(state, phase).length : 0;
+  const now = phase
+    ? `现在是${AREA_KIND_LABELS[phase]}阶段，还剩 ${remaining} 个提问回合（含本回合）；${uncovered(state, phase)}。追问余量 ${Math.max(0, slack)} 次（剩余回合减去还没碰的项数）${slack <= 0 ? "——没有余量了，本回合该换下一项" : ""}`
+    : "各阶段都已走完";
   const streak = phase ? failureStreak(state, phase) : 0;
   const struggling =
     phase === "quick" && streak > 0
@@ -150,7 +163,8 @@ export function buildDecidePrompt(state: InterviewerState, context: PromptContex
   return `${head}
 
 这一步只做决定，不对候选人说话（你的话稍后另外写）：用工具做一个推进动作，另外可以先用 note 更新工作记忆。
-- 追问（probe）必须锚在候选人上一条回答的原话上：anchor 填原话片段，question 从它出发，不在原话里的锚点会被拒绝；lastAnswer 写你对这条回答的判断。
+- 先看阶段进度里的追问余量：覆盖优先于深度——余量为 0 时本回合不追，close_thread 换下一项（要验证的点留到它对应的角度去验）；余量有限，花在最值得的地方。
+- 追问（probe）要有理由：reason 写 verify / vague / core 之一，没有理由就不追（答得完整又不是 JD 重点，换角度 / 换题）。同一个角度里追第二层要比第一层更有必要。追问必须锚在候选人上一条回答的原话上：anchor 填原话片段，question 从它出发，不在原话里的锚点会被拒绝；lastAnswer 写你对这条回答的判断。
 - 一次只问一个问题。
 - close_thread 的 note 写你对这段的判断、verdict 写答得怎么样，并在同一回合紧接着 open_thread 下一道题或 close_interview。阶段的预算到了系统会拒绝追问，这时关线程进下一阶段。
 - 候选人的插话（跳过、再说一遍、结束、卡住、否认简历）由系统处理，你不会遇到。
@@ -173,7 +187,7 @@ function describeAction(state: InterviewerState, action: InterviewerAction): str
     case "open_thread":
       return `开一道题「${areaById(state, action.input.areaId)?.name ?? action.input.areaId}」：「${action.input.question}」`;
     case "probe":
-      return `追问，从候选人说的「${action.input.anchor}」出发：「${action.input.question}」`;
+      return `追问（理由：${PROBE_REASON_LABELS[action.input.reason]}），从候选人说的「${action.input.anchor}」出发：「${action.input.question}」`;
     case "hint":
       return "给一次提示";
     case "close_thread":

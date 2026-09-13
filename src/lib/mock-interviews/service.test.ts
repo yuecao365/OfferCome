@@ -295,7 +295,7 @@ test("closing a thread writes the compat question with the area rubric and sched
   stubs.decisions = [
     { speech: "你好。", action: { name: "ask_intro", input: {} }, memoryPatch: null },
     { speech: "好的。", action: { name: "open_thread", input: { areaId: "p1", question: "主循环里你负责哪一段？" } }, memoryPatch: null },
-    { speech: "明白。为什么这么切？", action: { name: "probe", input: { anchor: "延迟双删", question: "为什么这么切？", lastAnswer: "substantive" } }, anchorHit: true, memoryPatch: { established: ["知道延迟双删"], doubtful: [], failed: [], hypotheses: [] } },
+    { speech: "明白。为什么这么切？", action: { name: "probe", input: { anchor: "延迟双删", question: "为什么这么切？", lastAnswer: "substantive", reason: "core" } }, anchorHit: true, memoryPatch: { established: ["知道延迟双删"], doubtful: [], failed: [], hypotheses: [] } },
     { speech: "这一块够了。", action: { name: "close_thread", input: { note: "机制清楚，取舍偏弱", verdict: "answered" } }, memoryPatch: null },
   ];
   await runTurn(sessionId, null);

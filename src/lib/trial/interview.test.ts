@@ -76,7 +76,7 @@ test("回合结果应用到文档：消息、线程、记忆、切段与决策�
     effects: [
       { type: "thread_closed", thread, segment: { question: "缓存和数据库双写时你怎么保证一致性？\n追问 1：先删缓存还是先写库？", answer: "我们用延迟双删。\n\n先写库再删缓存。", skipped: false, probeCount: 1, answerSeconds: 40 } },
     ],
-    decision: { turnIndex: 3, runId: "trial-turn:3", proposedAction: "close_thread", appliedAction: "close_thread", followUp: null, replacedReason: null, anchorHit: null, memoryPatch: null, phase: "quick", questionTurns: 3, skillsLoaded: 0, effects: ["thread_closed"] },
+    decision: { turnIndex: 3, runId: "trial-turn:3", proposedAction: "close_thread", appliedAction: "close_thread", followUp: null, replacedReason: null, anchorHit: null, probeReason: null, memoryPatch: null, phase: "quick", questionTurns: 3, skillsLoaded: 0, effects: ["thread_closed"] },
   };
 
   const next = applyTurnPayload(interview, payload);

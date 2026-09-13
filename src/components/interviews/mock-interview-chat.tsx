@@ -12,7 +12,7 @@ import { Alert } from "@/components/ui/alert";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import { CANDIDATE_INTENT_PLACEHOLDERS } from "@/lib/mock-interviews/interviewer/actions";
-import { AREA_KIND_LABELS, PHASE_ORDER } from "@/lib/mock-interviews/interviewer/brief";
+import { AREA_KIND_LABELS, PHASE_ORDER, PROJECT_ANGLES } from "@/lib/mock-interviews/interviewer/brief";
 import type { TurnData, TurnPayload } from "@/lib/mock-interviews/interviewer/turn-payload";
 import type {
   InterviewStage,
@@ -137,7 +137,7 @@ function subscribeNoop(): () => void {
 }
 
 /** 阶段条：项目 → 基础 → 场景，当前阶段高亮，走过的变淡。 */
-function StageBar({ stage, ended }: { stage: InterviewStage; ended: boolean }) {
+function StageBar({ stage, ended, detail }: { stage: InterviewStage; ended: boolean; detail: string | null }) {
   const currentIndex = stage.phase ? PHASE_ORDER.indexOf(stage.phase) : PHASE_ORDER.length;
   return (
     <ol aria-label="面试环节" className="hidden items-center gap-1 text-xs sm:flex">
@@ -155,6 +155,7 @@ function StageBar({ stage, ended }: { stage: InterviewStage; ended: boolean }) {
               )}
             >
               {AREA_KIND_LABELS[kind]}
+              {current && detail ? ` · ${detail}` : ""}
             </span>
           </li>
         );
@@ -227,6 +228,10 @@ export function MockInterviewChat({
   // 基础快问不给台阶：按钮直接说明后果；项目与场景题给一次提示，用过之后再点就是换题。
   const activeHinted = threads.some((thread) => thread.status === "active" && thread.hinted);
   const hintLabel = stage.phase === "quick" ? "不会，下一题" : activeHinted ? "还是不会，换一题" : "要个提示";
+  // 项目阶段的阶段条带上当前角度（背景与架构 / 模块深挖……）。
+  const activeAreaId = threads.find((thread) => thread.status === "active")?.areaId;
+  const activeAngle = conversation.areas.find((area) => area.id === activeAreaId)?.angle ?? null;
+  const stageDetail = activeAngle ? PROJECT_ANGLES[activeAngle].label : null;
   const turnsUsed = transcript.reduce((max, message) => Math.max(max, message.turnIndex + 1), 0);
 
   // 只显示当前步骤的文本：模型在工具调用后常再说一步，并把前一步复述一遍。
@@ -318,7 +323,7 @@ export function MockInterviewChat({
         <p className="min-w-0 flex-1 truncate text-sm font-medium">
           {session.companyName} · {session.jobTitle}
         </p>
-        <StageBar ended={ended} stage={stage} />
+        <StageBar detail={stageDetail} ended={ended} stage={stage} />
         <ElapsedClock startedAt={conversation.startedAt ?? openedAt} running={!ended} />
         <Button aria-pressed={materialsOpen} onClick={() => setMaterialsOpen((open) => !open)} size="sm" type="button" variant="ghost">
           <FileText aria-hidden="true" className="size-3.5" strokeWidth={1.5} />
