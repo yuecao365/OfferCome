@@ -32,7 +32,7 @@ function parseBody(body: Body) {
     candidate: {
       clientId,
       content: content || (explicit ? CANDIDATE_INTENT_PLACEHOLDERS[explicit] : ""),
-      intent: explicit ?? detectCandidateIntent(content),
+      intent: explicit === "end" ? "end" : detectCandidateIntent(content),
       voiceMetricsJson: typeof body.voiceMetricsJson === "string" ? body.voiceMetricsJson : null,
     },
   };

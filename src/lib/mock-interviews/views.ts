@@ -2,7 +2,7 @@ import type { InterviewBrief } from "./interviewer/brief";
 import type { InterviewMemory } from "./interviewer/memory";
 import { interviewStage } from "./interviewer/progress";
 import { interviewerNote } from "./interviewer/reducer";
-import { createInterviewerState, type MessageState, type ThreadState } from "./interviewer/state";
+import { createInterviewerState, type InterviewPlan, type MessageState, type ThreadState } from "./interviewer/state";
 import type { TurnDecisionRow } from "./interviewer/turn";
 import type { MockInterviewConversation, MockInterviewTraceTurn } from "./types";
 
@@ -15,35 +15,26 @@ export function conversationView(input: {
   brief: InterviewBrief;
   status: string;
   startedAt: string | null;
+  plan: InterviewPlan | null;
   threads: (ThreadState & { questionId: string | null })[];
   messages: MessageState[];
   memory: InterviewMemory;
 }): MockInterviewConversation {
   const ended = input.status !== "in_progress";
   const completed = input.status === "completed";
-  const state = createInterviewerState({ brief: input.brief, memory: input.memory, threads: input.threads, messages: input.messages, ended });
+  const state = createInterviewerState({ brief: input.brief, memory: input.memory, plan: input.plan, threads: input.threads, messages: input.messages, ended });
   return {
     phase: state.phase,
     pace: input.brief.pace,
     startedAt: input.startedAt,
     stage: interviewStage(state),
-    areas: input.brief.areas.map((area) => {
-      const threads = input.threads.filter((thread) => thread.areaId === area.id);
-      return {
-        id: area.id,
-        name: area.name,
-        kind: area.kind,
-        projectId: area.projectId,
-        angle: area.angle,
-        status: threads.some((thread) => thread.status === "active") ? "active" : threads.length > 0 ? "covered" : "pending",
-      };
-    }),
     threads: input.threads.map((thread) => ({
       id: thread.id,
       areaId: thread.areaId,
+      kind: thread.kind,
+      label: thread.label,
       status: thread.status,
       depth: thread.depth,
-      hinted: thread.hinted,
       verdict: thread.verdict,
       note: interviewerNote(thread.note),
       questionId: thread.questionId,
@@ -85,15 +76,13 @@ export function traceTurns(input: {
         .map((message) => ({ kind: message.kind, content: message.content, toolName: message.toolName })),
       decision: decision
         ? {
-            proposedAction: decision.proposedAction,
-            appliedAction: decision.appliedAction,
-            followUp: decision.followUp,
-            replacedReason: decision.replacedReason,
-            anchorHit: decision.anchorHit,
-            probeReason: decision.probeReason,
+            planChanged: decision.planChanged,
+            entered: decision.entered,
+            left: decision.left,
+            endedBy: decision.endedBy,
+            failed: decision.failed,
             memoryPatch: decision.memoryPatch,
-            phase: decision.phase,
-            questionTurns: decision.questionTurns,
+            turnsUsed: decision.turnsUsed,
             skillsLoaded: decision.skillsLoaded,
             effects: decision.effects,
           }

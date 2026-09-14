@@ -20,7 +20,7 @@ import type { MockInterviewJobBlueprint } from "../types";
  * 评分表按阶段固定，简历假设逐字引用简历原文（硬门）。
  */
 
-export const BRIEF_VERSION = 7;
+export const BRIEF_VERSION = 8;
 
 export const INTERVIEW_PACES = ["quick", "standard", "deep"] as const;
 export type InterviewPace = (typeof INTERVIEW_PACES)[number];
@@ -42,24 +42,18 @@ export const AREA_KIND_LABELS: Record<AreaKind, string> = {
   quick: "基础快问",
   scenario: "场景题",
 };
-/** 阶段顺序：自我介绍之后先进项目，再问基础，最后一道场景题。 */
-export const PHASE_ORDER: readonly AreaKind[] = ["project", "quick", "scenario"];
-
 export function isAreaKind(value: unknown): value is AreaKind {
   return typeof value === "string" && (AREA_KINDS as readonly string[]).includes(value);
 }
 
-/** 各阶段的提问回合预算；开场自我介绍另占 1 回合。 */
-export type PhaseBudget = Record<AreaKind, number>;
-
 /**
- * 节奏 → 阶段预算与场景题数。项目占一半（一面深挖一个项目 20–30 分钟）、基础题占三成，
- * 与 2026 年公开面经里的一面结构一致。预算是软的：一个阶段提前结束，剩余回合顺延给下一阶段。
+ * 节奏 → 一场的总回合数（面试官说话的次数，含开场与收尾）与场景题数。
+ * 总回合数是唯一的硬数字：用完就收尾；怎么分配由面试官的计划定。
  */
-export const PACE_PLAN: Record<InterviewPace, { budget: PhaseBudget; scenarios: number }> = {
-  quick: { budget: { project: 6, quick: 4, scenario: 2 }, scenarios: 1 },
-  standard: { budget: { project: 10, quick: 6, scenario: 3 }, scenarios: 1 },
-  deep: { budget: { project: 15, quick: 9, scenario: 7 }, scenarios: 2 },
+export const PACE_PLAN: Record<InterviewPace, { turns: number; scenarios: number }> = {
+  quick: { turns: 12, scenarios: 1 },
+  standard: { turns: 20, scenarios: 1 },
+  deep: { turns: 32, scenarios: 2 },
 };
 
 /** 候选人档位：校招问原理与小场景、不要求线上规模；社招问排查与取舍。备课时由模型按 JD 与简历判断。 */
@@ -68,49 +62,35 @@ export type InterviewLevel = (typeof INTERVIEW_LEVELS)[number];
 export const INTERVIEW_LEVEL_LABELS: Record<InterviewLevel, string> = { campus: "校招", experienced: "社招" };
 
 /**
- * 项目阶段的角度：真实一面聊项目的弧线。主项目走全部五段，第二个项目只碰前两段。
- * 每个角度是一道题的材料（一个 project 领域）；模型按项目写问题，没写的用这里的兜底问法补齐。
+ * 项目的五个面：真实一面聊项目的弧线。每个面是一道材料（一个 project 领域）；
+ * 模型按项目写问法，没写的用这里的兜底问法补齐。聊几个面、按什么顺序由面试官的计划定。
  */
 export const PROJECT_ANGLE_ORDER = ["overview", "module", "hardest", "outcome", "redo"] as const;
 export type ProjectAngle = (typeof PROJECT_ANGLE_ORDER)[number];
-export const PROJECT_ANGLES: Record<ProjectAngle, { label: string; probes: number; question: (project: string) => string }> = {
-  overview: { label: "背景与架构", probes: 2, question: (name) => `先整体讲讲「${name}」：它解决什么问题、架构是怎样的、你负责哪一块？` },
-  module: { label: "模块深挖", probes: 3, question: (name) => `挑「${name}」里你负责的一个模块，讲讲它具体是怎么实现的？` },
-  hardest: { label: "最难的问题", probes: 2, question: (name) => `做「${name}」的过程中最难、花时间最久的一个问题是什么，你是怎么定位和解决的？` },
-  outcome: { label: "效果与预期", probes: 2, question: (name) => `「${name}」达到你的预期了吗？预期是什么、怎么量的？` },
-  redo: { label: "取舍与重做", probes: 2, question: (name) => `如果重做「${name}」，你会改哪里？当时为什么没这么做？` },
+export const PROJECT_ANGLES: Record<ProjectAngle, { label: string; question: (project: string) => string }> = {
+  overview: { label: "背景与架构", question: (name) => `先整体讲讲「${name}」：它解决什么问题、架构是怎样的、你负责哪一块？` },
+  module: { label: "模块深挖", question: (name) => `挑「${name}」里你负责的一个模块，讲讲它具体是怎么实现的？` },
+  hardest: { label: "最难的问题", question: (name) => `做「${name}」的过程中最难、花时间最久的一个问题是什么，你是怎么定位和解决的？` },
+  outcome: { label: "效果与预期", question: (name) => `「${name}」达到你的预期了吗？预期是什么、怎么量的？` },
+  redo: { label: "取舍与重做", question: (name) => `如果重做「${name}」，你会改哪里？当时为什么没这么做？` },
 };
-/** 第几个项目走哪些角度：主项目全部，第二个项目只有背景架构与一个模块。 */
-export const ANGLES_BY_RANK: readonly (readonly ProjectAngle[])[] = [PROJECT_ANGLE_ORDER, ["overview", "module"]];
-export const MAX_PROJECTS = ANGLES_BY_RANK.length;
+/** 最多给几个项目备材料（先写与岗位最相关的）。 */
+export const MAX_PROJECTS = 3;
 
 export function isProjectAngle(value: unknown): value is ProjectAngle {
   return typeof value === "string" && (PROJECT_ANGLE_ORDER as readonly string[]).includes(value);
 }
 
-/** 基础题一题一问，场景题最多三层；项目题按角度（PROJECT_ANGLES.probes），见 probeLimitFor。 */
-export const PROBE_LIMIT: Record<Exclude<AreaKind, "project">, number> = { quick: 1, scenario: 3 };
-/** 总分按线程所属阶段加权：项目 3、场景 2、基础 1。 */
+/** 总分按话题的种类加权：项目 3、场景 2、基础 1。 */
 export const KIND_WEIGHT: Record<AreaKind, number> = { project: 3, quick: 1, scenario: 2 };
 
 export const MAX_HYPOTHESES = 6;
-/** 题池比基础阶段的预算大一倍，永远不会没题；上限防止提示词过长。 */
+/** 题池大小：总回合数的一半，8–16 道；面试官从里面挑。 */
 const POOL_MIN = 8;
 const POOL_MAX = 16;
-const OPENING_TURNS = 1;
 
 export function poolSizeFor(pace: InterviewPace): number {
-  return Math.min(POOL_MAX, Math.max(POOL_MIN, PACE_PLAN[pace].budget.quick * 2));
-}
-
-/** 整场的预计提问回合：开场 + 各阶段预算；只用于安全上限与进度显示。 */
-export function plannedTurns(brief: Pick<InterviewBrief, "plan" | "askIntro">): number {
-  return (brief.askIntro ? OPENING_TURNS : 0) + PHASE_ORDER.reduce((sum, kind) => sum + brief.plan[kind], 0);
-}
-
-/** 这道题最多追几层：项目题按角度，模块深挖 3 层、其余 2 层。 */
-export function probeLimitFor(area: Pick<InterviewArea, "kind" | "angle">): number {
-  return area.kind === "project" ? PROJECT_ANGLES[area.angle ?? "overview"].probes : PROBE_LIMIT[area.kind];
+  return Math.min(POOL_MAX, Math.max(POOL_MIN, Math.round(PACE_PLAN[pace].turns / 2)));
 }
 
 export type RubricItem = { name: string; description: string; weight: number };
@@ -170,7 +150,7 @@ const signals = z.array(z.string().min(1).max(200)).min(1).max(5);
 export const briefOutputSchema = z.object({
   /** 校招还是社招：按 JD（届别、实习、经验年限）与简历（在读、工作经历）判断。 */
   level: z.enum(INTERVIEW_LEVELS),
-  /** 项目 × 角度；先出现的项目是主项目。 */
+  /** 项目 × 角度；先出现的项目是最相关的。 */
   projects: z
     .array(
       z.object({
@@ -252,12 +232,12 @@ export type InterviewHypothesis = { id: string; text: string; evidence: string; 
 export type InterviewBrief = {
   version: typeof BRIEF_VERSION;
   pace: InterviewPace;
-  /** 各阶段的提问回合预算。 */
-  plan: PhaseBudget;
+  /** 一场的总回合数（面试官说话的次数）。 */
+  turns: number;
   round: string | null;
   level: InterviewLevel;
   askIntro: boolean;
-  /** 项目角度在前（主项目的五段，再第二个项目的两段），然后是题池，最后是场景题。 */
+  /** 项目的各个面在前，然后是题池，最后是场景题。 */
   areas: InterviewArea[];
   hypotheses: InterviewHypothesis[];
   /** 备课用到的技能包；面试中可查。 */
@@ -361,11 +341,10 @@ function projectArea(project: Project, rank: number, angle: ProjectAngle, round:
 }
 
 /**
- * 项目阶段的领域：按项目名次（主项目、第二个项目）给各自的角度，每个角度一道题；
- * 模型写了的用模型的问题与线索，没写的用兜底问法补齐——弧线的每一段都在，广度由此保证。
+ * 项目材料：每个项目（最多 MAX_PROJECTS 个）五个面各一道；模型写了的用模型的问法与线索，没写的用兜底问法补齐。
  */
 function projectAreas(ranked: Project[], round: string | null, written: (project: Project, angle: ProjectAngle) => ProjectAreaInput): InterviewArea[] {
-  return ranked.slice(0, MAX_PROJECTS).flatMap((project, rank) => ANGLES_BY_RANK[rank].map((angle) => projectArea(project, rank, angle, round, written(project, angle))));
+  return ranked.slice(0, MAX_PROJECTS).flatMap((project, rank) => PROJECT_ANGLE_ORDER.map((angle) => projectArea(project, rank, angle, round, written(project, angle))));
 }
 
 /** 一句里用顿号并列的子问题（"你怀疑哪些差异、怎么定位、最终怎么……"）从第二个问句词前切开。 */
@@ -435,7 +414,7 @@ export function guessLevel(jobDescription: string, resumeText: string): Intervie
 
 /**
  * 模型产出 → 冻结的简报。规则全部由代码把关：
- * - 项目：projectId 必须存在；先出现的项目是主项目（走五个角度），第二个项目两个角度，再多的项目不问；每个角度一道题，模型没写的角度用兜底问法补齐；
+ * - 项目：projectId 必须存在；先出现的项目排前面，最多 MAX_PROJECTS 个，每个项目五个面各一道，模型没写的面用兜底问法补齐；
  * - 基础题池 = 抽样的主题，一个主题一道：题池的构成由抽样定（角色配额），问哪道在面试中定；模型没写的用包里的好题；模型写了不在抽样里的主题丢弃；
  * - 场景题数按节奏，JD 原句必须逐字，能力 id 必须在蓝图里；不够时代码兜底；
  * - 假设的简历证据必须逐字出现在简历里，挂到项目上；每个被问的项目至少一条，没有就从简历里兜底。
@@ -458,7 +437,7 @@ export function buildBriefFromOutput(input: {
   const projectsById = new Map(input.projects.map((project) => [project.id, project]));
   const resume = normalizedText(input.resumeText);
 
-  // 项目名次：模型先写到的项目是主项目；没写到的按简历顺序排在后面。
+  // 项目顺序：模型先写到的排前面；没写到的按简历顺序排在后面。
   const ranked: Project[] = [];
   for (const raw of output.projects) {
     const project = projectsById.get(raw.projectId);
@@ -510,7 +489,7 @@ export function buildBriefFromOutput(input: {
   return {
     version: BRIEF_VERSION,
     pace: input.pace,
-    plan: plan.budget,
+    turns: plan.turns,
     round,
     level: output.level,
     askIntro: input.askIntro,
@@ -543,7 +522,7 @@ export function fallbackBrief(input: {
   return {
     version: BRIEF_VERSION,
     pace: input.pace,
-    plan: plan.budget,
+    turns: plan.turns,
     round: input.round,
     level: guessLevel(input.jobDescription, input.resumeText),
     askIntro: input.askIntro,
@@ -554,7 +533,7 @@ export function fallbackBrief(input: {
   };
 }
 
-/** 读库里的简报。只认 v7：更早的简报（领域清单、切入点）视为没有简报（那些会话只剩题目与评分可看）。 */
+/** 读库里的简报。只认 v8：更早的简报（领域清单、切入点、阶段预算）视为没有简报（那些会话只剩题目与评分可看）。 */
 export function parseStoredBrief(json: string | null): InterviewBrief | null {
   if (!json) return null;
   try {
@@ -562,8 +541,7 @@ export function parseStoredBrief(json: string | null): InterviewBrief | null {
     const usable =
       value.version === BRIEF_VERSION &&
       isInterviewPace(value.pace ?? "") &&
-      value.plan !== undefined &&
-      PHASE_ORDER.every((kind) => typeof value.plan?.[kind] === "number") &&
+      typeof value.turns === "number" &&
       (INTERVIEW_LEVELS as readonly string[]).includes(value.level ?? "") &&
       Array.isArray(value.areas) &&
       value.areas.every((area) => isAreaKind(area.kind));

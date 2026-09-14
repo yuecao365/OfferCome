@@ -1,5 +1,7 @@
 # 面试节奏与广度：微调计划
 
+> **历史文档**：已被 [interviewer-agency-plan.md](interviewer-agency-plan.md) 取代。保留作为决策记录。
+
 > 基于 [interview-flow-during.md](interview-flow-during.md)（interviewer-v6 / brief-v9）。上一轮微调见 [interview-tuning-plan.md](interview-tuning-plan.md)。
 > 2026-09-13 第一稿。起因：用户真机跑了一场标准节奏（会话 `cmtzf18ts0001lcta7a4zbod7`，gpt-5.4-mini），体感"有点过深"。本文先按 trace 诊断这一场，再对照网上大厂一面的流程，最后列改动。
 > 不跑评测回归；验收全部是真机一场看 trace（见 [interview-tuning-plan.md §6](interview-tuning-plan.md)）。

@@ -5,23 +5,18 @@ import { randomUUID } from "node:crypto";
 import type { UIMessageChunk } from "ai";
 
 import type { SkillPack } from "../skills/types";
-import type { CandidateIntent, ProbeReason } from "./actions";
-import type { AreaKind } from "./brief";
-import { currentPhase, questionTurnsUsed } from "./budget";
+import type { CandidateIntent } from "./actions";
 import type { MemoryPatch } from "./memory";
-import { applyTurn, planTurn, ruleTurn, type CandidateInput, type TurnDecision, type TurnResult } from "./reducer";
+import { applyTurn, planTurn, turnsUsed, type CandidateInput, type TurnDecision, type TurnDecisionRecord, type TurnResult } from "./reducer";
 import type { InterviewerState, MessageMetrics, MessageState } from "./state";
-import { decideTurn, speakTurn } from "./turn-agent";
+import { runTurnAgent } from "./turn-agent";
 
 /**
- * 一个面试官回合的纯核心：定分支 → 决定 → 裁决 → 说话 → reducer。不知道状态从哪来、写到哪去：
+ * 一个面试官回合的纯核心：分支 → 模型一次调用 → reducer。不知道状态从哪来、写到哪去：
  * 本地版从数据库装配并落库（session.ts），体验版从浏览器带上来、结果原样带回去。
  *
- * 候选人的插话由代码定分支（reducer.planTurn）：跳过 / 再说一遍 / 结束 / 卡住第二次不调模型，
- * 固定措辞直接流回；开场、一次提示、对质简历由代码定动作、模型只写话；其余回合模型先用工具
- * 决定（decideTurn），代码裁决（ruleTurn）后再让模型为最终动作说话（speakTurn，流式）。
- * 模型偶发失败（超时、5xx）走固定措辞兜底；额度 / 密钥这类不可恢复的错误直接抛出，回合不落库，
- * 房间显示原因让用户去设置里处理。
+ * 只有两种回合不调模型：候选人按了"结束"，或总回合预算用完——固定告别语直接流回。
+ * 模型偶发失败（超时、5xx）用一句固定的话接上；额度 / 密钥这类不可恢复的错误直接抛出。
  */
 
 export type TurnCandidate = {
@@ -32,19 +27,12 @@ export type TurnCandidate = {
 };
 
 /** 每回合一条决策记录：本地版写 InterviewTurnDecision，体验版存进会话文档，trace 页两边读同一形状。 */
-export type TurnDecisionRow = {
+export type TurnDecisionRow = TurnDecisionRecord & {
   turnIndex: number;
   runId: string;
-  proposedAction: string | null;
-  appliedAction: string | null;
-  followUp: string | null;
-  replacedReason: string | null;
-  anchorHit: boolean | null;
-  probeReason: ProbeReason | null;
   memoryPatch: MemoryPatch | null;
-  /** 本回合结束后处于哪个阶段（各阶段走完为 null）、已提问几次。 */
-  phase: AreaKind | null;
-  questionTurns: number;
+  /** 本回合结束后面试官已说了几回合（预算按它算）。 */
+  turnsUsed: number;
   skillsLoaded: number;
   effects: string[];
 };
@@ -76,24 +64,13 @@ function fixedSpeechStream(messages: MessageState[]): TurnStream {
   };
 }
 
-function decisionRow(
-  input: { runId: string; state: InterviewerState },
-  result: TurnResult,
-  memoryPatch: MemoryPatch | null,
-  skillsLoaded: number,
-): TurnDecisionRow {
+function decisionRow(input: { runId: string; state: InterviewerState }, result: TurnResult, memoryPatch: MemoryPatch | null, skillsLoaded: number): TurnDecisionRow {
   return {
+    ...result.decision,
     turnIndex: input.state.turnIndex,
     runId: input.runId,
-    proposedAction: result.decision.proposed,
-    appliedAction: result.decision.applied,
-    followUp: result.decision.followUp,
-    replacedReason: result.decision.replacedReason,
-    anchorHit: result.decision.anchorHit,
-    probeReason: result.decision.probeReason,
     memoryPatch,
-    phase: result.state.phase === "ended" ? null : currentPhase(result.state),
-    questionTurns: questionTurnsUsed(result.state),
+    turnsUsed: turnsUsed(result.state),
     skillsLoaded,
     effects: result.effects.map((effect) => effect.type),
   };
@@ -109,33 +86,28 @@ export async function runInterviewerTurn(input: {
   const candidateInput: CandidateInput | null = input.candidate
     ? { id: randomUUID(), content: input.candidate.content, intent: input.candidate.intent, metrics: input.candidate.metrics ?? null }
     : null;
-  const plan = planTurn(input.state, candidateInput?.intent ?? null);
+  const empty: TurnDecision = { speech: "", plan: null, moves: [], ended: false, memoryPatch: null };
 
-  if (plan.kind === "fixed") {
-    const result = applyTurn(input.state, candidateInput, { speech: "", action: null, memoryPatch: null });
+  if (planTurn(input.state, candidateInput?.intent ?? null).kind === "fixed") {
+    const result = applyTurn(input.state, candidateInput, empty);
     return {
       stream: fixedSpeechStream(result.newMessages),
       finalize: async () => ({ result, decision: decisionRow(input, result, null, 0) }),
     };
   }
 
-  const agentInput = {
+  const { stream, settled } = await runTurnAgent({
     runId: input.runId,
     state: input.state,
     candidate: input.candidate ? { content: input.candidate.content } : null,
     context: input.context,
     skillPacks: input.skillPacks,
-  };
-  let decision: TurnDecision = { speech: "", action: null, memoryPatch: null };
-  let skillsLoaded = 0;
-  if (plan.kind === "model") ({ decision, skillsLoaded } = await decideTurn(agentInput));
-  const ruling = ruleTurn(input.state, candidateInput, decision);
-  const { stream, settled } = await speakTurn({ ...agentInput, ruling });
+  });
   return {
     stream,
     finalize: async () => {
-      const { speech } = await settled;
-      const result = applyTurn(input.state, candidateInput, { ...decision, speech });
+      const { decision, skillsLoaded } = await settled;
+      const result = applyTurn(input.state, candidateInput, decision);
       return { result, decision: decisionRow(input, result, decision.memoryPatch, skillsLoaded) };
     },
   };

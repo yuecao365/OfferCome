@@ -1,7 +1,7 @@
 import type { InterviewBrief, InterviewPace } from "@/lib/mock-interviews/interviewer/brief";
 import type { InterviewMemory } from "@/lib/mock-interviews/interviewer/memory";
 import { segmentRecord, type SegmentRecord } from "@/lib/mock-interviews/interviewer/segments";
-import { createInterviewerState, type InterviewerState, type MessageState, type ThreadState } from "@/lib/mock-interviews/interviewer/state";
+import { createInterviewerState, type InterviewerState, type InterviewPlan, type MessageState, type ThreadState } from "@/lib/mock-interviews/interviewer/state";
 import type { TurnDecisionRow } from "@/lib/mock-interviews/interviewer/turn";
 import type { TurnPayload } from "@/lib/mock-interviews/interviewer/turn-payload";
 import type { AnswerExemplar, MockInterviewQuestionEvaluation } from "@/lib/mock-interviews/question-evaluation";
@@ -16,7 +16,7 @@ import type { MockInterviewJobBlueprint } from "@/lib/mock-interviews/types";
  * 三者互不知道对方的实现。`version` 不匹配的旧文档一律丢弃重来（体验数据一次性）。
  */
 
-export const TRIAL_INTERVIEW_VERSION = 6;
+export const TRIAL_INTERVIEW_VERSION = 7;
 
 export type TrialResumeInput = {
   /** 简历全文，备课的主要素材。 */
@@ -78,6 +78,8 @@ export type TrialInterview = {
   blueprint: MockInterviewJobBlueprint | null;
   brief: InterviewBrief | null;
   memory: InterviewMemory;
+  /** 面试官自己写的计划。 */
+  plan: InterviewPlan | null;
   threads: ThreadState[];
   messages: MessageState[];
   questions: TrialSegment[];
@@ -108,6 +110,7 @@ export function createTrialInterview(input: {
     blueprint: null,
     brief: null,
     memory: { established: [], doubtful: [], failed: [], hypotheses: [] },
+    plan: null,
     threads: [],
     messages: [],
     questions: [],
@@ -149,6 +152,7 @@ export function interviewerState(interview: TrialInterview): InterviewerState {
   return createInterviewerState({
     brief: interview.brief,
     memory: interview.memory,
+    plan: interview.plan,
     threads: interview.threads,
     messages: interview.messages,
     ended: interview.status !== "in_progress",
@@ -162,7 +166,7 @@ export function applyTurnPayload(interview: TrialInterview, payload: TurnPayload
     effect.type === "thread_closed"
       ? [
           {
-            ...segmentRecord(areas.get(effect.thread.areaId) ?? null, effect.thread, effect.segment, interview.round),
+            ...segmentRecord(effect.thread.areaId ? (areas.get(effect.thread.areaId) ?? null) : null, effect.thread, effect.segment, interview.round),
             id: crypto.randomUUID(),
             threadId: effect.thread.id,
             evaluationStatus: "pending" as const,
@@ -177,6 +181,7 @@ export function applyTurnPayload(interview: TrialInterview, payload: TurnPayload
     startedAt: interview.startedAt ?? new Date().toISOString(),
     messages: [...interview.messages, ...payload.newMessages],
     threads: payload.threads,
+    plan: payload.plan,
     memory: payload.memory,
     questions: [...interview.questions, ...closed],
     decisions: [...interview.decisions, payload.decision],

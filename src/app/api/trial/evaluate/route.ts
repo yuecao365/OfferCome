@@ -41,7 +41,6 @@ export const POST = withTrialAi<Body>(async (body) => {
           kind: body.segment.metadata.areaKind,
           depth: body.segment.metadata.depth,
           probeCount: body.segment.metadata.probeCount,
-          hinted: body.segment.metadata.hinted,
           verdict: parseThreadVerdict(body.segment.metadata.verdict),
           note: body.segment.metadata.note,
         }

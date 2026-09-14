@@ -13,8 +13,8 @@ flowchart TD
   BG --> EX[有短板 → 示范回答 agent]
   E[面试结束<br/>ready_to_evaluate] --> AUTO[after() 自动交卷<br/>completeMockInterview]
   AUTO --> WAIT[等在途评分 ≤32s<br/>补跑 failed / pending]
-  WAIT --> TOTAL[总分 = 每道题按阶段权重加权<br/>项目 3 · 场景 2 · 基础 1]
-  TOTAL --> SUM[汇总 agent<br/>读全貌：每道题的阶段、层数与判断、记忆、假设]
+  WAIT --> TOTAL[总分 = 每个话题按种类权重加权<br/>项目 3 · 场景 2 · 基础 1]
+  TOTAL --> SUM[汇总 agent<br/>读全貌：每个话题的种类、轮数与判断、记忆、假设]
   SUM --> DONE[status=completed<br/>reportJson v2]
   DONE --> PROF[画像刷新（后台）]
   DONE --> PAGE[报告页]
@@ -42,8 +42,8 @@ answerSeconds = 候选人各条回答 composeMs 之和（秒），没有记录�
 |---|---|
 | InterviewQuestion.category | project→resume_project；behavioral→general；technical→technical |
 | InterviewQuestion.answer / skippedAt | 跳过则 answer=null、skippedAt=now |
-| Evaluation.sourceKind | 这道题的阶段（project / quick / scenario） |
-| Evaluation.rubricJson | 该题的评分表（按阶段固定，见面试前一篇） |
+| Evaluation.sourceKind | 这个话题的种类（project / quick / scenario） |
+| Evaluation.rubricJson | 该话题的评分表（按种类固定，见面试前一篇；计划外的话题也按种类） |
 | Evaluation.expectedSignalsJson | 该题的期望信号 |
 | Evaluation.generationMetadataJson | `{ areaId, areaName, areaKind, areaStyle, competencyOrigin: jd \| baseline, skillPack, note（面试官关线程时的判断）, depth, probeCount, hinted, verdict（answered / thin / failed / null）, answerSeconds }` |
 | Evaluation.evaluationStatus | pending（跳过的段不调度评分） |
@@ -64,7 +64,7 @@ answerSeconds = 候选人各条回答 composeMs 之和（秒），没有记录�
 
 ### 2.2 评分 agent（`question-evaluation-agent.ts`，evaluation-v3）
 
-输入：`{ jobTitle, jobDescription≤12000, question, answer≤20000, rubric, expectedSignals, thread: { kind, depth, probeCount, hinted, verdict, note }, round }`。thread 来自切段 metadata（kind 是这道题的阶段：基础快问只追一层、一两句回答是正常的，评分按这一层答得准不准给）；metadata 不全时传 `thread: null`。
+输入：`{ jobTitle, jobDescription≤12000, question, answer≤20000, rubric, expectedSignals, thread: { kind, depth, probeCount, verdict, note }, round }`。thread 来自切段 metadata（kind 是这个话题的种类：基础题通常一两轮、一两句回答是正常的，评分按问到的那一层答得准不准给）；metadata 不全时传 `thread: null`。
 
 输出 schema：
 
@@ -113,8 +113,8 @@ advice: 补一版完整的 Agent 主循环设计稿，重点写清上下文构�
 
 | 触发 | 结果 |
 |---|---|
-| 面试官 close_interview（各阶段走完，或到安全上限被迫） | 关掉 active 线程并切段；`status=ready_to_evaluate`；同一处 `after()` 安排自动交卷 |
-| 候选人点"结束面试"或说"结束" | 同上，无视阶段；进行中的线程照样切段评分，没问到的题不产生题目、不计分 |
+| 面试官 `end`（该聊的聊完），或总回合用完由代码收尾 | 关掉 active 线程并切段；`status=ready_to_evaluate`；同一处 `after()` 安排自动交卷 |
+| 候选人点"结束面试"或说"结束" | 同上，不经模型；进行中的线程照样切段评分，没聊到的材料不产生题目、不计分 |
 
 房间显示"面试已结束，正在评分并生成报告"并每 3 秒刷新；报告一出来页面切回带导航的报告视图。超过 90 秒还没出来（评分失败会把会话退回 ready_to_evaluate）才显示"重新生成报告"按钮，它调原来的 `POST /complete`。
 
@@ -123,7 +123,7 @@ advice: 补一版完整的 Agent 主循环设计稿，重点写清上下文构�
 1. 已有报告直接返回；状态不是 ready_to_evaluate → 报错；没有简报（旧流程会话）→ 报错
 2. 乐观锁把状态改成 evaluating；抢不到说明另一个请求在评分
 3. **收集评分**：等在途（running）的评分最多 32 秒；pending / failed 的当场补跑；仍不完整 → 退回 ready_to_evaluate 并报错
-4. **每道题的结果**（`areaOutcomes`）：每道问到过的题：阶段、追问层数、面试官关线程时的判断、分数（跳过记 0）、weaknesses；权重按阶段（`KIND_WEIGHT`：项目 3、场景 2、基础 1）
+4. **每个话题的结果**（`areaOutcomes`）：按线程（不再按简报领域，计划外的话题也在内）：种类、追问轮数、面试官离开时的判断、分数（跳过记 0）、weaknesses；权重按种类（`KIND_WEIGHT`：项目 3、场景 2、基础 1）
 5. **总分**（`scoring.computeInterviewTotalScore`）：`round(Σ w_a · score_a / Σ w_a)`，只算问到过的题
 6. **汇总 agent**（`summary-agent.ts`，summary-v2）。输入：
 
@@ -162,10 +162,10 @@ advice: 补一版完整的 Agent 主循环设计稿，重点写清上下文构�
 | 区块 | 内容 |
 |---|---|
 | 总分 + 总体评价 | 0–100；summary |
-| 这场问了什么 | 按阶段分节（项目深挖 / 基础快问 / 场景题）：每道问到过的题一行：名称、追问了几层、面试官关线程时的判断、得分；跳过的标出。注明"总分按阶段加权（项目 3 : 基础 1 : 场景 2）；跳过的题计 0 分，没问到的不计" |
+| 这场问了什么 | 按话题种类分节（项目深挖 / 基础快问 / 场景题）：每个聊过的话题一行：标签、追问了几轮、面试官离开时的判断、得分；跳过的标出。注明"总分按话题种类加权（项目 3 : 基础 1 : 场景 2）；跳过的计 0 分，没聊到的不计" |
 | 简历上的说法经不经得起问 | 每条假设：状态徽章（已验证 / 没有讲清楚 / 没问到）、假设原文、一句结论 |
 | 站得住的 / 失守在哪 / 下一步练什么 | 三栏；短板标"说错了 / 没答上 / 反复出现"并挂题名 |
-| 逐段反馈 | 每条线程一张卡：题目（切入 + 追问）、作答用时、分数、可展开"查看我的回答"、可展开"这道题在考察什么"（题名、阶段、来源、期望信号、面试官的判断）、feedback、维度分（证据 + 缺口）、答得好的与短板（带原话引用）、练什么、可展开"用你的项目，这段可以这样答" |
+| 逐段反馈 | 每条线程一张卡：题目（第一问 + 追问）、作答用时、分数、可展开"查看我的回答"、可展开"这道题在考察什么"（话题、种类、来源、期望信号、面试官的判断）、feedback、维度分（证据 + 缺口）、答得好的与短板（带原话引用）、练什么、可展开"用你的项目，这段可以这样答" |
 | 面试官的工作记忆 | 折叠：已确认 / 存疑 / 失守原文 |
 | 决策记录入口 + 对话记录 | 会话页提供 |
 

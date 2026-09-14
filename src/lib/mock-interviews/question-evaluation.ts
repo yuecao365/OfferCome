@@ -45,8 +45,7 @@ export type EvaluationThreadContext = {
   kind: AreaKind;
   depth: number;
   probeCount: number;
-  hinted: boolean;
-  /** 面试官关线程时对这段的判断；跳过或系统推进关掉的为 null。 */
+  /** 面试官离开话题时对这段的判断；没交代就换了话题的为 null。 */
   verdict: ThreadVerdict | null;
   note: string | null;
 };

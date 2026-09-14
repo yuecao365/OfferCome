@@ -168,7 +168,7 @@ export function createTrialChatTransport(id: string) {
     readState: () => {
       const current = requireInterview(id);
       if (!current.brief) throw new Error("这场面试还没有准备好。");
-      return { brief: current.brief, memory: current.memory, threads: current.threads, messages: current.messages };
+      return { brief: current.brief, memory: current.memory, plan: current.plan, threads: current.threads, messages: current.messages };
     },
     context: {
       jobTitle: interview.job.jobTitle,
@@ -240,6 +240,8 @@ export async function completeTrialMockSession(id: string): Promise<void> {
       memory: current.memory,
       threads: current.threads.map((thread) => ({
         areaId: thread.areaId,
+        kind: thread.kind,
+        label: thread.label,
         status: thread.status,
         depth: thread.depth,
         note: thread.note,

@@ -4,7 +4,7 @@ import { describeAgentError, isAgentRunError } from "@/lib/ai/run-agent";
 import { CANDIDATE_INTENT_PLACEHOLDERS, detectCandidateIntent, type ButtonIntent } from "@/lib/mock-interviews/interviewer/actions";
 import type { InterviewBrief } from "@/lib/mock-interviews/interviewer/brief";
 import type { InterviewMemory } from "@/lib/mock-interviews/interviewer/memory";
-import { createInterviewerState, type MessageState, type ThreadState } from "@/lib/mock-interviews/interviewer/state";
+import { createInterviewerState, type InterviewPlan, type MessageState, type ThreadState } from "@/lib/mock-interviews/interviewer/state";
 import { runInterviewerTurn } from "@/lib/mock-interviews/interviewer/turn";
 import { turnPayload, type TurnData } from "@/lib/mock-interviews/interviewer/turn-payload";
 import { loadSkillPacks } from "@/lib/mock-interviews/skills/loader";
@@ -18,7 +18,7 @@ const INTENTS = Object.keys(CANDIDATE_INTENT_PLACEHOLDERS) as ButtonIntent[];
 const MAX_CONTENT_LENGTH = 20_000;
 
 type Body = {
-  state: { brief: InterviewBrief; memory: InterviewMemory; threads: ThreadState[]; messages: MessageState[] };
+  state: { brief: InterviewBrief; memory: InterviewMemory; plan: InterviewPlan | null; threads: ThreadState[]; messages: MessageState[] };
   context: { jobTitle: string; jobDescription: string; resumeText: string };
   /** null = 开场回合。 */
   candidate: { content: string; intent: string | null; composeMs: number | null } | null;
@@ -35,7 +35,7 @@ export const POST = withTrialAiResponse<Body>(async (body) => {
   if (body.candidate && !content && !explicit) return Response.json({ error: "消息不能为空。" }, { status: 400 });
   if (content.length > MAX_CONTENT_LENGTH) return Response.json({ error: "消息不能超过 2 万字符。" }, { status: 400 });
 
-  const state = createInterviewerState({ ...body.state, ended: false });
+  const state = createInterviewerState({ ...body.state, plan: body.state.plan ?? null, ended: false });
   const candidateContent = content || (explicit ? CANDIDATE_INTENT_PLACEHOLDERS[explicit] : "");
   let run: Awaited<ReturnType<typeof runInterviewerTurn>>;
   try {
@@ -45,7 +45,7 @@ export const POST = withTrialAiResponse<Body>(async (body) => {
     candidate: body.candidate
       ? {
           content: candidateContent,
-          intent: explicit ?? detectCandidateIntent(content),
+          intent: explicit === "end" ? "end" : detectCandidateIntent(content),
           metrics: { composeMs: body.candidate.composeMs ?? null, chars: candidateContent.length },
         }
       : null,

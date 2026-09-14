@@ -1,10 +1,10 @@
 import { THREAD_VERDICT_LABELS, type ThreadVerdict } from "./actions";
-import { HR_ROUND, type AreaKind, type InterviewArea, type RubricItem } from "./brief";
+import { AREA_KIND_LABELS, HR_ROUND, rubricForArea, type AreaKind, type InterviewArea, type RubricItem } from "./brief";
 import type { MessageState, ThreadState } from "./state";
 
 /**
- * 线程 → 对话段。关闭线程时由代码确定性地切出：
- * 题目 = 切入问题 + 追问，回答 = 候选人在该线程内的全部实质回答（插话不算）。这一段写成 InterviewQuestion，评分、复盘、画像照旧。
+ * 线程 → 对话段。离开话题时由代码确定性地切出：
+ * 题目 = 进入时的第一问 + 之后的每一问，回答 = 候选人在该话题内说的全部话。这一段写成 InterviewQuestion，评分、复盘、画像照旧。
  */
 
 export type ThreadSegment = {
@@ -30,7 +30,7 @@ export function threadSegment(thread: ThreadState, messages: MessageState[]): Th
   return {
     question,
     answer,
-    skipped: thread.status === "skipped" || answer.length === 0,
+    skipped: thread.verdict === "skipped" || answer.length === 0,
     probeCount: probes.length,
     answerSeconds: timed.length > 0 ? Math.round(timed.reduce((sum, value) => sum + value, 0) / 1000) : null,
   };
@@ -47,8 +47,7 @@ export type SegmentMetadata = {
   note: string | null;
   depth: number;
   probeCount: number;
-  hinted: boolean;
-  /** 面试官关线程时对这段的判断；跳过或系统推进关掉的为 null。 */
+  /** 面试官离开话题时对这段的判断；没交代就换了话题的为 null。 */
   verdict: ThreadVerdict | null;
   answerSeconds: number | null;
 };
@@ -66,40 +65,39 @@ export type SegmentRecord = {
 };
 
 /** 兼容层题目的分类：项目题、HR 面的软素质题、技术题（复盘页按它筛）。 */
-export function categoryForArea(area: Pick<InterviewArea, "kind"> | null, round: string | null): string {
-  if (area?.kind === "project") return "resume_project";
+export function categoryForKind(kind: AreaKind, round: string | null): string {
+  if (kind === "project") return "resume_project";
   if (round === HR_ROUND) return "general";
   return "technical";
 }
 
+/** 话题对应简报里的材料时用材料的评分表与期望信号；计划外的话题按种类用固定评分表。 */
 export function segmentRecord(area: InterviewArea | null, thread: ThreadState, segment: ThreadSegment, round: string | null): SegmentRecord {
   return {
     question: segment.question,
     answer: segment.skipped ? null : segment.answer,
     skipped: segment.skipped,
-    category: categoryForArea(area, round),
-    sourceKind: area?.kind ?? "quick",
-    rubric: area?.rubric ?? [],
+    category: categoryForKind(thread.kind, round),
+    sourceKind: thread.kind,
+    rubric: area?.rubric ?? rubricForArea(thread.kind, round),
     expectedSignals: area?.expectedSignals ?? [],
     metadata: {
-      areaId: thread.areaId,
-      areaName: area?.name ?? null,
-      areaKind: area?.kind ?? null,
+      areaId: thread.areaId ?? thread.id,
+      areaName: thread.label,
+      areaKind: thread.kind,
       competencyOrigin: !area ? null : area.jdEvidence ? "jd" : area.topic ? "baseline" : null,
       skillPack: area?.topic?.skill ?? null,
       note: thread.note,
       depth: thread.depth,
       probeCount: segment.probeCount,
-      hinted: thread.hinted,
       verdict: thread.verdict,
       answerSeconds: segment.answerSeconds,
     },
   };
 }
 
-/** 给提示词看的已结束线程摘要：不带原文，只带判断。 */
-export function closedThreadSummary(thread: ThreadState, areaName: string): string {
-  const note = thread.status === "skipped" ? thread.note ?? "候选人跳过" : thread.note ?? "已结束";
+/** 给提示词看的已结束话题摘要：不带原文，只带判断。 */
+export function closedThreadSummary(thread: ThreadState): string {
   const verdict = thread.verdict ? `，${THREAD_VERDICT_LABELS[thread.verdict]}` : "";
-  return `- ${areaName}（${thread.depth} 层追问${verdict}）：${note}`;
+  return `- ${thread.label}（${AREA_KIND_LABELS[thread.kind]}，问了 ${thread.depth + 1} 轮${verdict}）：${thread.note ?? "已结束"}`;
 }

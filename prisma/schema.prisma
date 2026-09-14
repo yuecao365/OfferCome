@@ -204,6 +204,8 @@ model MockInterviewSession {
   briefJson            String?
   /// 面试官的工作记忆：已确认 / 存疑 / 失守 / 假设状态。
   memoryJson           String    @default("{}")
+  /// 面试官自己写的计划（InterviewPlan）；开场后第一回合写，之后可改。
+  planJson             String?
   /// 已结束的线程数；仅作展示，真相在 InterviewThread。
   questionCount        Int       @default(0)
   /// 旧分步流程遗留，只读回放用。
@@ -247,20 +249,23 @@ model MockInterviewMessage {
   @@index([sessionId, turnIndex])
 }
 
-/// 一段围绕某个考察领域的对话：切入问题 + 追问 + 候选人的全部回答。
-/// 关闭时写一条 InterviewQuestion 作为兼容层，评分、复盘、画像照旧。
+/// 一个话题的线程：面试官进入它到离开它之间的问答。
+/// 离开时写一条 InterviewQuestion 作为兼容层，评分、复盘、画像照旧。
 model InterviewThread {
   id            String               @id @default(cuid())
   sessionId     String
   session       MockInterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  areaId        String
+  /// 对应计划里的哪一项；计划外的为 null。
+  planItemId    String?
+  /// 对应简报里的哪道材料；没有对应材料的为 null。
+  areaId        String?
+  kind          String               @default("quick")
+  label         String               @default("")
   entryQuestion String
   status        String               @default("active")
+  /// 进入之后又问了几轮。
   depth         Int                  @default(0)
-  hinted        Boolean              @default(false)
-  /// 连续几条回答被面试官判为只有关键词：关键词回答只追一次。
-  thinStreak    Int                  @default(0)
-  /// 面试官关线程时对这段的判断：answered / thin / failed；跳过或系统推进关掉的为 null。
+  /// 面试官离开话题时对这段的判断：answered / thin / failed / skipped；没交代就换了话题的为 null。
   verdict       String?
   openedAtTurn  Int
   closedAtTurn  Int?
@@ -546,17 +551,15 @@ model InterviewTurnDecision {
   session         MockInterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   turnIndex       Int
   runId           String
-  proposedAction  String?
-  appliedAction   String?
-  followUp        String?
-  replacedReason  String?
-  anchorHit       Boolean?
-  /// 追问的理由（模型自报：verify / vague / core）；没有追问时为 null。
-  probeReason     String?
+  /// 面试官这回合做的事：改没改计划、进了哪个话题、离开时怎么判、收尾是谁定的。
+  planChanged     Boolean              @default(false)
+  entered         String?
+  leftVerdict     String?
+  endedBy         String?
+  failed          Boolean              @default(false)
   memoryPatchJson String?
-  /// 本回合结束后处于哪个阶段（project / quick / scenario；各阶段走完为 null）与已提问次数。
-  phase           String?
-  questionTurns   Int                  @default(0)
+  /// 本回合结束后面试官已说了几回合（预算按它算）。
+  turnsUsed       Int                  @default(0)
   skillsLoaded    Int                  @default(0)
   effectsJson     String
   createdAt       DateTime             @default(now())

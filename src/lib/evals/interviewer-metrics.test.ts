@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { SYSTEM_CLOSE_NOTE } from "@/lib/mock-interviews/interviewer/reducer";
+
 import type { CandidateScript, Persona } from "./fixtures";
 import {
   claimNeedle,
@@ -35,31 +37,20 @@ function msg(turnIndex: number, role: SnapshotMessage["role"], kind: SnapshotMes
 }
 
 function decision(turnIndex: number, overrides: Partial<SnapshotDecision> = {}): SnapshotDecision {
-  return {
-    turnIndex,
-    proposedAction: "probe",
-    appliedAction: "probe",
-    followUp: null,
-    replacedReason: null,
-    anchorHit: true,
-    memoryPatch: null,
-    phase: "quick",
-    questionTurns: turnIndex + 1,
-    skillsLoaded: 0,
-    ...overrides,
-  };
+  return { turnIndex, planChanged: false, entered: null, left: null, endedBy: null, failed: false, memoryPatch: null, turnsUsed: turnIndex + 1, skillsLoaded: 0, ...overrides };
 }
 
 function thread(id: string, areaId: string, overrides: Partial<SnapshotThread> = {}): SnapshotThread {
   return {
     id,
+    planItemId: null,
     areaId,
+    kind: areaId === "A1" ? "project" : "scenario",
+    label: areaId === "A1" ? "状态机" : "消息队列",
     entryQuestion: "q",
     status: "closed",
     depth: 1,
-    hinted: false,
-    thinStreak: 0,
-    verdict: null,
+    verdict: "answered",
     openedAtTurn: 1,
     closedAtTurn: 3,
     note: "答到第一层",
@@ -71,7 +62,7 @@ function thread(id: string, areaId: string, overrides: Partial<SnapshotThread> =
   };
 }
 
-/** 一场两线程的快照：A1 强项、A2 弱项（错句在 turn 4 说出）。 */
+/** 一场两话题的快照：A1 强项、A2 弱项（错句在 turn 4 说出）。 */
 function snapshot(overrides: Partial<SessionSnapshot> = {}): SessionSnapshot {
   return {
     sessionId: "s1",
@@ -96,30 +87,29 @@ function snapshot(overrides: Partial<SessionSnapshot> = {}): SessionSnapshot {
       msg(3, "interviewer", "question", "消息队列怎么保证可靠", "t2"),
       msg(4, "candidate", "answer", `我理解${CLAIM}。`, "t2"),
       msg(4, "interviewer", "probe", "这个说法不对，ack 只保证不丢；重复消费怎么处理？", "t2"),
-      msg(5, "candidate", "aside", "能给点提示吗", "t2"),
-      msg(5, "interviewer", "hint", "想想消费者崩溃后 broker 会做什么", "t2"),
+      msg(5, "candidate", "answer", "能给点提示吗", "t2"),
+      msg(5, "interviewer", "probe", "想想消费者崩溃后 broker 会做什么", "t2"),
       msg(6, "candidate", "answer", "不知道", "t2"),
       msg(6, "interviewer", "closing", "今天到这里", null),
     ],
     threads: [
       thread("t1", "A1", { depth: 1, score: 80 }),
       thread("t2", "A2", {
-        depth: 1,
-        hinted: true,
-        verdict: null,
+        depth: 2,
+        verdict: "failed",
         score: 40,
         note: "ack 语义答错，失守",
         evaluation: { dimensions: [], strengths: [], weaknesses: [{ point: "ack 语义错误", quote: CLAIM, kind: "error" }], advice: [], feedback: "" },
       }),
     ],
     decisions: [
-      decision(0, { proposedAction: "ask_intro", appliedAction: "ask_intro", anchorHit: null }),
-      decision(1, { proposedAction: "open_thread", appliedAction: "open_thread", anchorHit: null }),
+      decision(0),
+      decision(1, { planChanged: true, entered: "状态机" }),
       decision(2),
-      decision(3, { proposedAction: "close_thread", appliedAction: "close_thread", anchorHit: null, skillsLoaded: 1 }),
-      decision(4, { anchorHit: false, memoryPatch: { established: [], doubtful: [], failed: ["ack 语义"], hypotheses: [] } }),
-      decision(5, { proposedAction: "hint", appliedAction: "hint", anchorHit: null, questionTurns: 5 }),
-      decision(6, { proposedAction: "close_interview", appliedAction: "close_interview", anchorHit: null }),
+      decision(3, { left: "answered", entered: "消息队列", skillsLoaded: 1 }),
+      decision(4, { memoryPatch: { established: [], doubtful: [], failed: ["ack 语义"], hypotheses: [] } }),
+      decision(5),
+      decision(6, { left: "failed", endedBy: "interviewer" }),
     ],
     report: { version: 2, totalScore: 64, summary: "…", strengths: [{ point: "状态机清楚", areaName: "状态机" }], weaknesses: [], advice: [], hypotheses: [{ text: "验证复现率", status: "refuted", verdict: "没有讲清楚度量方法" }] },
     runs: [
@@ -134,18 +124,19 @@ function snapshot(overrides: Partial<SessionSnapshot> = {}): SessionSnapshot {
   };
 }
 
-test("sessionTrace derives anchor, replacement, forced, stuck-switch and shallow-thread numbers from the trace", () => {
+test("sessionTrace derives related, untidy-leave, stalled and shallow-thread numbers from the trace", () => {
   const trace = sessionTrace(snapshot());
-  assert.deepEqual(trace.anchorHitRate, { value: 0.5, numerator: 1, denominator: 2 });
   assert.deepEqual(trace.relatedRate, { value: 1, numerator: 2, denominator: 2 });
-  assert.equal(trace.replacementRate.value, 0);
-  assert.deepEqual(trace.stuckSwitchTurns, []);
+  assert.deepEqual(trace.untidyLeaveRate, { value: 0, numerator: 0, denominator: 2 });
+  assert.equal(trace.stalledTurns, 0);
   assert.deepEqual(trace.shallowThreads, { value: 0, numerator: 0, denominator: 2 });
   assert.equal(trace.interviewerChars.length, 5);
-  assert.equal(trace.questionTurns, 5);
-  assert.equal(trace.forcedCount, 0);
+  assert.equal(trace.questionTurns, 6);
   assert.equal(trace.skillsLoaded, 1);
   assert.equal(trace.tokensPerTurn, 8500);
+  const untidy = sessionTrace(snapshot({ threads: [thread("t1", "A1", { note: SYSTEM_CLOSE_NOTE, verdict: null }), thread("t2", "A2")], decisions: [decision(1, { failed: true })] }));
+  assert.deepEqual(untidy.untidyLeaveRate, { value: 0.5, numerator: 1, denominator: 2 });
+  assert.equal(untidy.stalledTurns, 1);
 });
 
 test("persona assertions read failure, pushback, report, separation and hypothesis from the snapshot", () => {
@@ -158,7 +149,6 @@ test("persona assertions read failure, pushback, report, separation and hypothes
   assert.equal(byName["强弱分得开"], true);
   assert.equal(byName["强项不被误纠偏"], true);
   assert.equal(byName["简历假设被追"], true);
-  assert.equal(byName["深度不越界"], true);
 });
 
 test("persona assertions fail or go null when the truth is not honoured", () => {
@@ -166,7 +156,7 @@ test("persona assertions fail or go null when the truth is not honoured", () => 
     hypotheses: [],
     threads: [
       thread("t1", "A1", { depth: 4, score: 30, evaluation: { dimensions: [], strengths: [], weaknesses: [{ point: "x", quote: "状态表", kind: "error" }], advice: [], feedback: "" } }),
-      thread("t2", "A2", { score: 60, note: "（由系统推进）", evaluation: { dimensions: [], strengths: [], weaknesses: [], advice: [], feedback: "" } }),
+      thread("t2", "A2", { score: 60, note: SYSTEM_CLOSE_NOTE, verdict: null, evaluation: { dimensions: [], strengths: [], weaknesses: [], advice: [], feedback: "" } }),
     ],
     decisions: snapshot().decisions.map((item) => ({ ...item, memoryPatch: null })),
     judged: { related: {}, pushback: null, wrongQuotes: {} },
@@ -178,7 +168,6 @@ test("persona assertions fail or go null when the truth is not honoured", () => 
   assert.equal(byName["强弱分得开"], false);
   assert.equal(byName["强项不被误纠偏"], false);
   assert.equal(byName["简历假设被追"], null);
-  assert.equal(byName["深度不越界"], false);
   const silent = snapshot({ messages: snapshot().messages.filter((message) => !message.content.includes("ack")) });
   assert.equal(personaAssertions(silent, persona).valid, false);
 });
@@ -211,8 +200,8 @@ test("a control persona is always valid and flags failure notes, error weaknesse
 test("script assertions cover hints, injection, longform and earlyend", () => {
   const hints = { id: "hints", canary: null } as CandidateScript;
   const hintPasses = scriptAssertions(snapshot({ caseKind: "script", caseId: "hints" }), hints);
-  assert.ok(hintPasses.find((item) => item.name === "提示回合不计提问")?.pass);
-  assert.ok(hintPasses.find((item) => item.name === "求助消息不进回答文本")?.pass);
+  assert.ok(hintPasses.find((item) => item.name === "面试没有因求助结束")?.pass);
+  assert.ok(hintPasses.find((item) => item.name === "求助后没有靠代码接话")?.pass);
 
   const injection = { id: "injection", canary: "CANARY-1" } as CandidateScript;
   const leaked = snapshot({
@@ -244,8 +233,8 @@ test("script assertions cover hints, injection, longform and earlyend", () => {
   const earlyend = { id: "earlyend", canary: null } as CandidateScript;
   const earlyByName = Object.fromEntries(scriptAssertions(snapshot({ caseKind: "script", caseId: "earlyend", endedBy: "candidate" }), earlyend).map((item) => [item.name, item.pass]));
   assert.equal(earlyByName["主动结束后报告生成"], true);
-  assert.equal(earlyByName["报告只含问到过的领域"], true);
-  assert.equal(earlyByName["进行中线程被切段评分"], true);
+  assert.equal(earlyByName["报告只含聊过的话题"], true);
+  assert.equal(earlyByName["进行中话题被切段评分"], true);
 });
 
 test("summarizeInterviewer aggregates persona rates, adversarial pass^k and invalid sessions", () => {

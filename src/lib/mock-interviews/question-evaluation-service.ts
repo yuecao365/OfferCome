@@ -21,7 +21,6 @@ function threadContext(metadata: Record<string, unknown>): EvaluationThreadConte
     kind: metadata.areaKind,
     depth: metadata.depth,
     probeCount: typeof metadata.probeCount === "number" ? metadata.probeCount : metadata.depth,
-    hinted: metadata.hinted === true,
     verdict: parseThreadVerdict(metadata.verdict),
     note: typeof metadata.note === "string" ? metadata.note : null,
   };

@@ -2,8 +2,9 @@ import { z } from "zod";
 
 import type { InterviewStatus } from "@/lib/interviews/types";
 
-import type { ProbeReason, ThreadVerdict } from "./interviewer/actions";
-import type { AreaKind, InterviewHypothesis, InterviewPace, PhaseBudget, ProjectAngle } from "./interviewer/brief";
+import type { ThreadVerdict } from "./interviewer/actions";
+import type { AreaKind, InterviewHypothesis, InterviewPace } from "./interviewer/brief";
+import type { PlanItemStatus } from "./interviewer/state";
 import type { InterviewMaterials } from "./materials";
 import type { InterviewMemory } from "./interviewer/memory";
 import type { AnswerExemplar, EvaluationStrength, EvaluationWeakness } from "./question-evaluation";
@@ -93,12 +94,11 @@ export type MockInterviewQuestionTeaching = {
   sourceKind: string;
 };
 
-/** 房间顶栏的阶段进度：现在在哪个阶段、各阶段用了几个提问回合。 */
+/** 房间顶栏：面试官的计划各项走到哪了、用了几回合。 */
 export type InterviewStage = {
-  /** 各阶段都走完为 null。 */
-  phase: AreaKind | null;
-  plan: PhaseBudget;
-  used: PhaseBudget;
+  turnsUsed: number;
+  turnsTotal: number;
+  items: { id: string; label: string; kind: AreaKind; status: PlanItemStatus }[];
 };
 
 
@@ -118,16 +118,16 @@ export type MockInterviewConversation = {
   /** 第一回合落库的时间；房间顶栏据此显示已用时。 */
   startedAt: string | null;
   stage: InterviewStage;
-  areas: { id: string; name: string; kind: AreaKind; projectId: string | null; angle: ProjectAngle | null; status: "pending" | "active" | "covered" }[];
   threads: {
     id: string;
-    areaId: string;
-    status: "active" | "closed" | "skipped";
+    areaId: string | null;
+    kind: AreaKind;
+    label: string;
+    status: "active" | "closed";
     depth: number;
-    hinted: boolean;
-    /** 面试官关线程时对这段的判断（answered / thin / failed）；跳过或系统推进关掉的为 null。 */
+    /** 面试官离开话题时对这段的判断；没交代就换了话题的为 null。 */
     verdict: ThreadVerdict | null;
-    /** 面试官关掉这段时的判断；切段后对应的兼容题目。 */
+    /** 面试官离开这段时的一句判断；切段后对应的兼容题目。 */
     note: string | null;
     questionId: string | null;
   }[];
@@ -193,15 +193,13 @@ export type MockInterviewTraceTurn = {
   candidate: { kind: string; content: string; composeMs: number | null } | null;
   interviewer: { kind: string; content: string; toolName: string | null }[];
   decision: {
-    proposedAction: string | null;
-    appliedAction: string | null;
-    followUp: string | null;
-    replacedReason: string | null;
-    anchorHit: boolean | null;
-    probeReason: ProbeReason | null;
+    planChanged: boolean;
+    entered: string | null;
+    left: ThreadVerdict | null;
+    endedBy: "interviewer" | "candidate" | "budget" | null;
+    failed: boolean;
     memoryPatch: unknown;
-    phase: AreaKind | null;
-    questionTurns: number;
+    turnsUsed: number;
     skillsLoaded: number;
     effects: string[];
   } | null;
@@ -214,7 +212,8 @@ export type MockInterviewTrace = {
   jobTitle: string;
   status: string;
   pace: InterviewPace;
-  plan: PhaseBudget;
+  /** 一场的总回合数。 */
+  turns: number;
   areas: { id: string; name: string; kind: AreaKind }[];
-  turns: MockInterviewTraceTurn[];
+  rows: MockInterviewTraceTurn[];
 };

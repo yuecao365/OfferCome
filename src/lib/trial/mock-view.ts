@@ -32,6 +32,7 @@ export function trialInterviewToView(interview: TrialInterview): MockInterviewVi
           brief: interview.brief,
           status: interview.status,
           startedAt: interview.startedAt,
+          plan: interview.plan,
           threads: interview.threads.map((thread) => ({
             ...thread,
             questionId: interview.questions.find((segment) => segment.threadId === thread.id)?.id ?? null,
@@ -69,9 +70,9 @@ export function trialInterviewToTrace(interview: TrialInterview): MockInterviewT
     jobTitle: interview.job.jobTitle,
     status: interview.status,
     pace: interview.brief.pace,
-    plan: interview.brief.plan,
+    turns: interview.brief.turns,
     areas: interview.brief.areas.map((area) => ({ id: area.id, name: area.name, kind: area.kind })),
-    turns: traceTurns({
+    rows: traceTurns({
       messages: interview.messages.map((message) => ({ ...message, composeMs: message.metrics?.composeMs ?? null })),
       decisions: interview.decisions,
     }),

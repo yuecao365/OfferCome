@@ -1,23 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { compoundQuestionReason, detectCandidateIntent, parseThreadVerdict } from "./actions";
+import { detectCandidateIntent, parseThreadVerdict } from "./actions";
 
-test("一次只问一个问题：两个以上问号或“分别”并列子问题算复合问题", () => {
-  assert.equal(compoundQuestionReason("你们的工具是怎么注册的？"), null);
-  assert.equal(compoundQuestionReason("如果一个复杂任务被拆成主 Agent 加多个 subagent，你怎么决定哪些任务该拆？"), null);
-  assert.match(compoundQuestionReason("怎么决定哪些任务该拆、哪些不该拆？子任务返回什么内容才不会污染主上下文？") ?? "", /一次只问一个问题/);
-  assert.match(compoundQuestionReason("检索、规划、写作、校验这几类分别怎么分到主 Agent 和 subagent？") ?? "", /一次只问一个问题/);
-  assert.equal(compoundQuestionReason("Why did you choose Redis here?"), null);
-  assert.ok(compoundQuestionReason("Why Redis? And why not Kafka?"));
-});
-
-test("verdict 只认三个枚举值", () => {
+test("verdict 只认四个枚举值", () => {
   assert.equal(parseThreadVerdict("thin"), "thin");
+  assert.equal(parseThreadVerdict("skipped"), "skipped");
   assert.equal(parseThreadVerdict("great"), null);
   assert.equal(parseThreadVerdict(null), null);
 });
 
-test("想结束的说法都算结束：别问了 / 不想答了 / 算了吧", () => {
+test("候选人的插话只有结束由代码判：别问了 / 不想答了 / 算了吧算结束，求助、跳过交给面试官", () => {
   for (const text of ["别问了", "不想答了", "算了吧", "我们结束吧"]) assert.equal(detectCandidateIntent(text), "end", text);
+  for (const text of ["这题跳过", "能给点提示吗", "再说一遍", "具体点"]) assert.equal(detectCandidateIntent(text), null, text);
+  assert.equal(detectCandidateIntent("这个系统最后结束的时候会把状态写回数据库，然后再通知下游，整个链路大概是这样的，中间还有一次幂等校验和一次重试。"), null, "长回答里的\"结束\"不算");
 });

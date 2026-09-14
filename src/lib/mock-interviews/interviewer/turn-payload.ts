@@ -2,7 +2,7 @@ import type { InterviewStage } from "../types";
 import type { InterviewMemory } from "./memory";
 import { interviewStage } from "./progress";
 import type { TurnEffect, TurnResult } from "./reducer";
-import type { InterviewPhase, MessageState, ThreadState } from "./state";
+import type { InterviewPhase, InterviewPlan, MessageState, ThreadState } from "./state";
 import type { TurnDecisionRow } from "./turn";
 
 /**
@@ -12,9 +12,10 @@ import type { TurnDecisionRow } from "./turn";
 export type TurnPayload = {
   newMessages: MessageState[];
   threads: ThreadState[];
+  plan: InterviewPlan | null;
   memory: InterviewMemory;
   phase: InterviewPhase;
-  /** 房间顶栏的阶段进度。 */
+  /** 房间顶栏：面试官的计划与进度。 */
   stage: InterviewStage;
   effects: TurnEffect[];
   decision: TurnDecisionRow;
@@ -24,6 +25,7 @@ export function turnPayload(result: TurnResult, decision: TurnDecisionRow): Turn
   return {
     newMessages: result.newMessages,
     threads: result.state.threads,
+    plan: result.state.plan,
     memory: result.state.memory,
     phase: result.state.phase,
     stage: interviewStage(result.state),

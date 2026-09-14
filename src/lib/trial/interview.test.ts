@@ -63,20 +63,21 @@ test("备课两步各自落文档，失败后重试只重跑失败的那一步",
 
 test("回合结果应用到文档：消息、线程、记忆、切段与决策记录，与本地版落库同语义", () => {
   const interview = seeded();
-  const thread = { id: "t1", areaId: "q1", entryQuestion: brief.areas[1].entryQuestion, status: "closed" as const, depth: 1, hinted: false, thinStreak: 0, verdict: null, openedAtTurn: 1, closedAtTurn: 3, note: "机制清楚" };
+  const thread = { id: "t1", planItemId: null, areaId: "q1", kind: "quick" as const, label: "缓存一致性", entryQuestion: brief.areas[2].entryQuestion, status: "closed" as const, depth: 1, verdict: "answered" as const, openedAtTurn: 1, closedAtTurn: 3, note: "机制清楚" };
   const payload: TurnPayload = {
     newMessages: [
       { id: "m1", turnIndex: 3, role: "candidate", kind: "answer", content: "先写库再删缓存。", threadId: "t1", toolName: null },
       { id: "m2", turnIndex: 3, role: "interviewer", kind: "closing", content: "这一块够了。", threadId: "t1", toolName: "close_thread" },
     ],
     threads: [thread],
+    plan: { items: [{ id: "a", label: "缓存一致性", kind: "quick", areaId: "q1", turns: 2 }], note: null, revisedAtTurn: 1 },
     memory: { established: [{ areaId: "q1", text: "知道延迟双删", turn: 3 }], doubtful: [], failed: [], hypotheses: [] },
     phase: "running",
-    stage: { phase: "quick", plan: brief.plan, used: { project: 0, quick: 2, scenario: 0 } },
+    stage: { turnsUsed: 3, turnsTotal: brief.turns, items: [{ id: "a", label: "缓存一致性", kind: "quick", status: "done" }] },
     effects: [
       { type: "thread_closed", thread, segment: { question: "缓存和数据库双写时你怎么保证一致性？\n追问 1：先删缓存还是先写库？", answer: "我们用延迟双删。\n\n先写库再删缓存。", skipped: false, probeCount: 1, answerSeconds: 40 } },
     ],
-    decision: { turnIndex: 3, runId: "trial-turn:3", proposedAction: "close_thread", appliedAction: "close_thread", followUp: null, replacedReason: null, anchorHit: null, probeReason: null, memoryPatch: null, phase: "quick", questionTurns: 3, skillsLoaded: 0, effects: ["thread_closed"] },
+    decision: { turnIndex: 3, runId: "trial-turn:3", planChanged: false, entered: null, left: "answered", ended: false, endedBy: null, failed: false, memoryPatch: null, turnsUsed: 3, skillsLoaded: 0, effects: ["thread_closed"] },
   };
 
   const next = applyTurnPayload(interview, payload);

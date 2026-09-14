@@ -4,7 +4,6 @@ import test from "node:test";
 import type { SkillTopic } from "../skills/topics";
 import type { MockInterviewJobBlueprint } from "../types";
 import {
-  ANGLES_BY_RANK,
   buildBriefFromOutput,
   fallbackBrief,
   fallbackHypothesis,
@@ -12,16 +11,14 @@ import {
   guessLevel,
   PACE_PLAN,
   parseStoredBrief,
-  plannedTurns,
   poolSizeFor,
-  probeLimitFor,
   PROJECT_ANGLE_ORDER,
   type BriefOutput,
 } from "./brief";
 
 /**
- * 备课的代码把关（v7，按阶段组织）：项目 × 角度补齐、题池 = 抽样主题（没写的只在不够预算时补）、
- * 场景题数按节奏、JD 证据逐字、简历假设挂项目并兜底、档位。
+ * 备课的代码把关（v8，材料）：每个项目五个面补齐、题池 = 抽样主题、场景题数按节奏、JD 证据逐字、
+ * 简历假设挂项目并兜底、档位、总回合数。
  */
 
 const jobDescription = "1、负责社交与通讯产品的后端开发；2、参与 API 设计与自动化测试；3、将智能对话能力融入产品。2027 届本科及以上。";
@@ -75,12 +72,12 @@ function build(output: Partial<BriefOutput>, extra: { pace?: "quick" | "standard
 
 const projectAreas = (brief: ReturnType<typeof build>) => brief.areas.filter((area) => area.kind === "project");
 
-test("项目 × 角度：模型先写到的项目是主项目走五个角度，第二个项目两个角度，没写的角度用兜底问法补齐，不存在的项目丢弃", () => {
+test("项目 × 角度：模型先写到的项目排前面，每个项目五个面，没写的面用兜底问法补齐，不存在的项目丢弃", () => {
   const brief = build({ projects: [projectOut("p2", "overview", "先讲讲二手平台？"), projectOut("p9", "module"), projectOut("p1", "module", "主循环怎么做的？")] });
   const kept = projectAreas(brief);
   assert.deepEqual(
     kept.map((area) => [area.id, area.projectId, area.angle]),
-    [...PROJECT_ANGLE_ORDER.map((angle) => [`p1-${angle}`, "p2", angle]), ...ANGLES_BY_RANK[1].map((angle) => [`p2-${angle}`, "p1", angle])],
+    [...PROJECT_ANGLE_ORDER.map((angle) => [`p1-${angle}`, "p2", angle]), ...PROJECT_ANGLE_ORDER.map((angle) => [`p2-${angle}`, "p1", angle])],
   );
   assert.equal(kept[0].entryQuestion, "先讲讲二手平台？");
   assert.deepEqual(kept[0].guides, ["边界"]);
@@ -89,10 +86,8 @@ test("项目 × 角度：模型先写到的项目是主项目走五个角度，�
   assert.equal(kept[6].entryQuestion, "主循环怎么做的？");
   assert.equal(kept[0].name, "校园二手平台：背景与架构");
   assert.deepEqual(kept[0].rubric.map((item) => item.name), ["事实与细节", "岗位关联", "复盘与表达"]);
-  assert.equal(probeLimitFor(kept[1]), 3, "模块深挖追 3 层");
-  assert.equal(probeLimitFor(kept[0]), 2, "其余角度追 2 层");
-  // 模型一个都没给：按简历顺序，主项目五段、第二项目两段。
-  assert.equal(projectAreas(build({})).length, 7);
+  // 模型一个都没给：按简历顺序，每个项目五段。
+  assert.equal(projectAreas(build({})).length, 10);
   // 简历只有一个项目：五段；没有项目：无。
   assert.equal(projectAreas(build({}, { projects: [projects[0]] })).length, 5);
   assert.equal(projectAreas(build({}, { projects: [] })).length, 0);
@@ -144,25 +139,24 @@ test("简历假设：证据逐字、按 projectId 或简历段落挂到项目；
   assert.equal(fallbackHypothesis("Study Assistant 2026年4月–现在", projects[0]), null);
 });
 
-test("兜底简报、档位与预算：各阶段预算按节奏，题池至少 8 道，预计回合 = 开场 + 各阶段之和", () => {
+test("兜底简报、档位与总回合数：总回合按节奏，题池 8–16 道", () => {
   const brief = fallbackBrief({ blueprint, jobDescription, resumeText, projects, topics, skillPacks: ["backend"], pace: "quick", round: null, askIntro: true });
   assert.equal(brief.source, "fallback");
-  assert.deepEqual(brief.plan, PACE_PLAN.quick.budget);
+  assert.equal(brief.turns, PACE_PLAN.quick.turns);
   assert.equal(brief.level, "campus", "JD 写了届别按校招");
-  assert.equal(projectAreas(brief).length, 7);
+  assert.equal(projectAreas(brief).length, 10);
   assert.equal(brief.areas.filter((area) => area.kind === "scenario").length, 1);
-  assert.equal(plannedTurns(brief), 1 + 6 + 4 + 2);
   assert.equal(poolSizeFor("quick"), 8);
-  assert.equal(poolSizeFor("standard"), 12);
+  assert.equal(poolSizeFor("standard"), 10);
   assert.equal(poolSizeFor("deep"), 16);
   assert.equal(guessLevel("负责后端开发，3 年以上经验", "五年 Java 开发经验"), "experienced");
   assert.equal(build({ level: "experienced" }).level, "experienced", "模型判断的档位直接用");
 });
 
-test("只读 v7 简报：旧的按切入点或领域清单组织的简报视为没有简报", () => {
+test("只读 v8 简报：旧的按阶段预算、切入点或领域清单组织的简报视为没有简报", () => {
   const brief = build({});
   assert.deepEqual(parseStoredBrief(JSON.stringify(brief)), brief);
-  assert.equal(parseStoredBrief(JSON.stringify({ ...brief, version: 6, level: undefined })), null);
+  assert.equal(parseStoredBrief(JSON.stringify({ ...brief, version: 7, turns: undefined, plan: { project: 10, quick: 6, scenario: 3 } })), null);
   assert.equal(parseStoredBrief(JSON.stringify({ version: 5, pace: "standard", areas: [{ id: "a1", kind: "technical", depth: 2 }] })), null);
   assert.equal(parseStoredBrief("not json"), null);
 });

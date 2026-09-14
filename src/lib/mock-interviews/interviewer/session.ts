@@ -7,12 +7,13 @@ import { claimSession } from "../session-state";
 import { loadSkillPacks } from "../skills/loader";
 import { packsForInterview } from "../skills/selector";
 import { parseThreadVerdict, type CandidateIntent } from "./actions";
-import { parseStoredBrief, type InterviewBrief } from "./brief";
+import { isAreaKind, parseStoredBrief, type InterviewBrief } from "./brief";
 import { parseStoredMemory } from "./memory";
 import type { TurnResult } from "./reducer";
 import { segmentRecord } from "./segments";
 import {
   createInterviewerState,
+  parseStoredPlan,
   type InterviewerState,
   type MessageKind,
   type MessageMetrics,
@@ -55,15 +56,16 @@ function loadSessionRow(sessionId: string) {
   });
 }
 
-function toThreadState(row: LoadedSession["session"]["threads"][number]): ThreadState {
+export function toThreadState(row: { id: string; planItemId: string | null; areaId: string | null; kind: string; label: string; entryQuestion: string; status: string; depth: number; verdict: string | null; openedAtTurn: number; closedAtTurn: number | null; note: string | null }): ThreadState {
   return {
     id: row.id,
+    planItemId: row.planItemId,
     areaId: row.areaId,
+    kind: isAreaKind(row.kind) ? row.kind : "quick",
+    label: row.label,
     entryQuestion: row.entryQuestion,
     status: row.status as ThreadStatus,
     depth: row.depth,
-    hinted: row.hinted,
-    thinStreak: row.thinStreak,
     verdict: parseThreadVerdict(row.verdict),
     openedAtTurn: row.openedAtTurn,
     closedAtTurn: row.closedAtTurn,
@@ -105,6 +107,7 @@ export async function loadInterviewerSession(sessionId: string): Promise<LoadedS
   const state = createInterviewerState({
     brief,
     memory: parseStoredMemory(session.memoryJson, brief),
+    plan: parseStoredPlan(session.planJson ? JSON.parse(session.planJson) : null),
     threads: session.threads.map(toThreadState),
     messages: session.messages.map(toMessageState),
     ended: session.status !== "in_progress",
@@ -162,8 +165,6 @@ export async function persistTurn(
       const counters = {
         status: thread.status,
         depth: thread.depth,
-        hinted: thread.hinted,
-        thinStreak: thread.thinStreak,
         verdict: thread.verdict,
         closedAtTurn: thread.closedAtTurn,
         note: thread.note,
@@ -173,7 +174,10 @@ export async function persistTurn(
           data: {
             id: thread.id,
             sessionId,
+            planItemId: thread.planItemId,
             areaId: thread.areaId,
+            kind: thread.kind,
+            label: thread.label,
             entryQuestion: thread.entryQuestion,
             openedAtTurn: thread.openedAtTurn,
             ...counters,
@@ -203,7 +207,7 @@ export async function persistTurn(
 
     const closedCount = result.state.threads.filter((thread) => thread.status !== "active").length;
     for (const effect of closedEffects) {
-      const record = segmentRecord(areas.get(effect.thread.areaId) ?? null, effect.thread, effect.segment, loaded.brief.round);
+      const record = segmentRecord(effect.thread.areaId ? (areas.get(effect.thread.areaId) ?? null) : null, effect.thread, effect.segment, loaded.brief.round);
       const sortOrder = result.state.threads.findIndex((thread) => thread.id === effect.thread.id);
       const question = await tx.interviewQuestion.create({
         data: {
@@ -236,15 +240,13 @@ export async function persistTurn(
         sessionId,
         turnIndex: decision.turnIndex,
         runId: decision.runId,
-        proposedAction: decision.proposedAction,
-        appliedAction: decision.appliedAction,
-        followUp: decision.followUp,
-        replacedReason: decision.replacedReason,
-        anchorHit: decision.anchorHit,
-        probeReason: decision.probeReason,
+        planChanged: decision.planChanged,
+        entered: decision.entered,
+        leftVerdict: decision.left,
+        endedBy: decision.endedBy,
+        failed: decision.failed,
         memoryPatchJson: decision.memoryPatch ? JSON.stringify(decision.memoryPatch) : null,
-        phase: decision.phase,
-        questionTurns: decision.questionTurns,
+        turnsUsed: decision.turnsUsed,
         skillsLoaded: decision.skillsLoaded,
         effectsJson: JSON.stringify(decision.effects),
       },
@@ -254,6 +256,7 @@ export async function persistTurn(
       where: { id: sessionId },
       data: {
         memoryJson: JSON.stringify(result.state.memory),
+        planJson: result.state.plan ? JSON.stringify(result.state.plan) : null,
         questionCount: closedCount,
         currentQuestionIndex: closedCount,
         startedAt: loaded.session.startedAt ?? new Date(),

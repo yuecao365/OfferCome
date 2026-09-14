@@ -1,5 +1,7 @@
 # 面试流程重构：按真实一面的阶段组织
 
+> **历史文档**：阶段 × 预算的结构已被 [interviewer-agency-plan.md](interviewer-agency-plan.md) 取代。保留作为决策记录。
+
 > 2026-09-13 第一稿。前两轮微调见 [interview-tuning-plan.md](interview-tuning-plan.md)、[interview-pacing-plan.md](interview-pacing-plan.md)。这份文档不再打补丁，回答两个问题：现在的现象为什么反复出现（结构原因），以及流程要改成什么样才在环节、广度、深度、方法、体验上靠近真实一面。
 > 现状描述见 [interview-flow-during.md](interview-flow-during.md)（interviewer-v7 / brief-v10）。
 

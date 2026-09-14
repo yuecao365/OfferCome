@@ -4,10 +4,11 @@ import { prisma } from "@/lib/db";
 import { REAL_USAGE_INTERVIEW_WHERE } from "@/lib/interviews/types";
 import { parseJsonArray, parseJsonObject, parseJsonValue } from "@/lib/json";
 
-import { parseProbeReason, parseThreadVerdict } from "./interviewer/actions";
-import { isAreaKind, parseStoredBrief } from "./interviewer/brief";
+import { parseThreadVerdict } from "./interviewer/actions";
+import { parseStoredBrief } from "./interviewer/brief";
 import { parseStoredMemory, type MemoryPatch } from "./interviewer/memory";
-import type { MessageKind, MessageRole, MessageState, ThreadStatus } from "./interviewer/state";
+import { toThreadState } from "./interviewer/session";
+import { parseStoredPlan, type MessageKind, type MessageRole, type MessageState } from "./interviewer/state";
 import {
   parseStoredEvaluationList,
   type AnswerExemplar,
@@ -76,7 +77,8 @@ function buildConversation(session: SessionWithConversation) {
     brief,
     status: session.status,
     startedAt: session.startedAt?.toISOString() ?? null,
-    threads: session.threads.map((thread) => ({ ...thread, status: thread.status as ThreadStatus, verdict: parseThreadVerdict(thread.verdict) })),
+    plan: parseStoredPlan(session.planJson ? JSON.parse(session.planJson) : null),
+    threads: session.threads.map((thread) => ({ ...toThreadState(thread), questionId: thread.questionId })),
     messages: session.messages.map((message): MessageState => ({ ...message, role: message.role as MessageRole, kind: message.kind as MessageKind })),
     memory: parseStoredMemory(session.memoryJson, brief),
   });
@@ -192,9 +194,9 @@ export async function getMockInterviewTrace(id: string): Promise<MockInterviewTr
     jobTitle: session.interview.jobTitle,
     status: session.status,
     pace: brief.pace,
-    plan: brief.plan,
+    turns: brief.turns,
     areas: brief.areas.map((area) => ({ id: area.id, name: area.name, kind: area.kind })),
-    turns: traceTurns({
+    rows: traceTurns({
       messages: session.messages.map((message) => ({
         turnIndex: message.turnIndex,
         role: message.role as MessageRole,
@@ -205,15 +207,14 @@ export async function getMockInterviewTrace(id: string): Promise<MockInterviewTr
       })),
       decisions: session.decisions.map((decision) => ({
         turnIndex: decision.turnIndex,
-        proposedAction: decision.proposedAction,
-        appliedAction: decision.appliedAction,
-        followUp: decision.followUp,
-        replacedReason: decision.replacedReason,
-        anchorHit: decision.anchorHit,
-        probeReason: parseProbeReason(decision.probeReason),
+        planChanged: decision.planChanged,
+        entered: decision.entered,
+        left: parseThreadVerdict(decision.leftVerdict),
+        ended: decision.endedBy !== null,
+        endedBy: decision.endedBy === "interviewer" || decision.endedBy === "candidate" || decision.endedBy === "budget" ? decision.endedBy : null,
+        failed: decision.failed,
         memoryPatch: (parseJsonValue(decision.memoryPatchJson) as MemoryPatch | null) ?? null,
-        phase: isAreaKind(decision.phase) ? decision.phase : null,
-        questionTurns: decision.questionTurns,
+        turnsUsed: decision.turnsUsed,
         skillsLoaded: decision.skillsLoaded,
         effects: (parseJsonValue(decision.effectsJson) as string[] | null) ?? [],
       })),

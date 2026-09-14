@@ -4,7 +4,7 @@ import type { RecentWeakness } from "@/lib/mock-interviews/context";
 import type { InterviewBrief, InterviewPace } from "@/lib/mock-interviews/interviewer/brief";
 import type { InterviewMemory } from "@/lib/mock-interviews/interviewer/memory";
 import type { SegmentRecord } from "@/lib/mock-interviews/interviewer/segments";
-import type { MessageState, ThreadState } from "@/lib/mock-interviews/interviewer/state";
+import type { InterviewPlan, MessageState, ThreadState } from "@/lib/mock-interviews/interviewer/state";
 import type { OutcomeQuestion, OutcomeThread } from "@/lib/mock-interviews/outcome";
 import type { MockInterviewReport } from "@/lib/mock-interviews/report";
 import type { MockInterviewJobBlueprint } from "@/lib/mock-interviews/types";
@@ -134,7 +134,7 @@ export async function requestBrief(input: {
   return postWithAi("/api/trial/brief", input);
 }
 
-export type TurnRequestState = { brief: InterviewBrief; memory: InterviewMemory; threads: ThreadState[]; messages: MessageState[] };
+export type TurnRequestState = { brief: InterviewBrief; memory: InterviewMemory; plan: InterviewPlan | null; threads: ThreadState[]; messages: MessageState[] };
 
 /**
  * 回合走 AI SDK 的聊天传输（流式）。状态从浏览器文档现取，随每个请求带上；

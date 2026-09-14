@@ -1,7 +1,7 @@
 import { PACE_PLAN, rubricForArea, type InterviewArea, type InterviewBrief, type InterviewPace } from "@/lib/mock-interviews/interviewer/brief";
 
 /**
- * 测试用的 v7 简报：一个项目角度（模块深挖）、四道基础题、一道场景题，标准节奏。
+ * 测试用的 v8 简报（材料）：一个项目的两个面、四道基础题、一道场景题，标准节奏。
  * reducer / 对话窗口 / 服务层 / 体验版的测试共用同一份，形状变了只改这里。
  */
 
@@ -9,7 +9,21 @@ const round = "first_interview";
 
 export const TEST_AREAS: InterviewArea[] = [
   {
-    id: "p1",
+    id: "p1-overview",
+    kind: "project",
+    name: "Study Assistant：背景与架构",
+    projectId: "proj-1",
+    angle: "overview",
+    competencyIds: [],
+    jdEvidence: null,
+    topic: null,
+    entryQuestion: "先整体讲讲 Study Assistant：解决什么问题、架构是怎样的、你负责哪一块？",
+    guides: ["工具链路", "安全链路"],
+    expectedSignals: ["模块划分", "个人职责"],
+    rubric: rubricForArea("project", round),
+  },
+  {
+    id: "p1-module",
     kind: "project",
     name: "Study Assistant：模块深挖",
     projectId: "proj-1",
@@ -30,7 +44,7 @@ export const TEST_AREAS: InterviewArea[] = [
     angle: null,
     competencyIds: [],
     jdEvidence: null,
-    topic: { skill: "backend", name, fromResume: false },
+    topic: { skill: "backend", name, fromResume: index === 0 },
     entryQuestion: `${name}：最关键的一个机制是什么？`,
     guides: ["追问它的边界条件"],
     expectedSignals: ["机制准确"],
@@ -55,9 +69,9 @@ export const TEST_AREAS: InterviewArea[] = [
 export function testBrief(overrides: Partial<InterviewBrief> & { pace?: InterviewPace } = {}): InterviewBrief {
   const pace = overrides.pace ?? "standard";
   return {
-    version: 7,
+    version: 8,
     pace,
-    plan: PACE_PLAN[pace].budget,
+    turns: PACE_PLAN[pace].turns,
     round,
     level: "campus",
     askIntro: true,

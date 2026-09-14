@@ -23,12 +23,13 @@ function msg(turnIndex: number, role: MessageRole, kind: MessageKind, content: s
 function thread(id: string, openedAtTurn: number, closedAtTurn: number | null): ThreadState {
   return {
     id,
+    planItemId: null,
     areaId: brief.areas[0].id,
+    kind: "project",
+    label: `${id} 话题`,
     entryQuestion: `${id} 切入`,
     status: closedAtTurn === null ? "active" : "closed",
     depth: 2,
-    hinted: false,
-    thinStreak: 0,
     verdict: null,
     openedAtTurn,
     closedAtTurn,
@@ -37,10 +38,10 @@ function thread(id: string, openedAtTurn: number, closedAtTurn: number | null): 
 }
 
 function state(threads: ThreadState[], messages: MessageState[]) {
-  return createInterviewerState({ brief, memory: emptyMemory(brief), threads, messages, ended: false });
+  return createInterviewerState({ brief, memory: emptyMemory(brief), plan: null, threads, messages, ended: false });
 }
 
-/** 第一条线程 t1 的完整往来：切入、追问、卡住与提示、追问。 */
+/** 第一条线程 t1 的完整往来：切入、追问、求助与面试官的回应、追问。 */
 function firstThread(): MessageState[] {
   return [
     msg(0, "interviewer", "intro_request", "请先自我介绍。", null),
@@ -48,14 +49,14 @@ function firstThread(): MessageState[] {
     msg(1, "interviewer", "question", "t1 切入", "t1"),
     msg(2, "candidate", "answer", "主循环分五段。", "t1"),
     msg(2, "interviewer", "probe", "追问一", "t1"),
-    msg(3, "candidate", "aside", "能给点提示吗？", "t1"),
-    msg(3, "interviewer", "hint", "从工具协议说起。", "t1"),
+    msg(3, "candidate", "answer", "能给点提示吗？", "t1"),
+    msg(3, "interviewer", "probe", "从工具协议说起。", "t1"),
     msg(4, "candidate", "answer", "工具通过注册表注册。", "t1"),
     msg(4, "interviewer", "probe", "追问二", "t1"),
   ];
 }
 
-test("进行中线程整段保留，候选人的插话不进对话、面试官的提示保留", () => {
+test("进行中线程整段保留，候选人的求助与面试官的回应都在对话里", () => {
   const picked = selectConversation(state([thread("t1", 1, null)], firstThread())).map((m) => m.content);
   assert.deepEqual(picked, [
     "请先自我介绍。",
@@ -63,6 +64,7 @@ test("进行中线程整段保留，候选人的插话不进对话、面试官�
     "t1 切入",
     "主循环分五段。",
     "追问一",
+    "能给点提示吗？",
     "从工具协议说起。",
     "工具通过注册表注册。",
     "追问二",

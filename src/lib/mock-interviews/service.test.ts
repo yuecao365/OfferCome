@@ -86,20 +86,13 @@ mock.module("./context", {
   },
 });
 
-// 一回合两步：决定这一步取队列里的下一条；说话这一步用同一条的 speech（代码定动作的回合没有决定这一步，直接取队列）。
-let pendingSpeech: string | null = null;
+// 一回合一次模型调用：取队列里的下一条当作模型这回合做的事。
 mock.module("./interviewer/turn-agent", {
   namedExports: {
-    decideTurn: async () => {
-      const decision = stubs.decisions.shift() ?? { speech: "", action: null, memoryPatch: null, failed: true };
-      pendingSpeech = decision.speech;
-      return { decision, skillsLoaded: 0 };
-    },
-    speakTurn: async () => {
+    runTurnAgent: async () => {
       stubs.turnCalls += 1;
-      const speech = pendingSpeech ?? stubs.decisions.shift()?.speech ?? "";
-      pendingSpeech = null;
-      return { stream: null, settled: Promise.resolve({ speech, failed: false }) };
+      const decision = stubs.decisions.shift() ?? { speech: "", plan: null, moves: [], ended: false, memoryPatch: null, failed: true };
+      return { stream: null, settled: Promise.resolve({ decision, skillsLoaded: 0 }) };
     },
   },
 });
@@ -121,6 +114,10 @@ mock.module("@/lib/candidate-profile/background", {
     scheduleCandidateProfileRefresh: () => {},
   },
 });
+
+function say(speech: string, extras: Partial<TurnDecision> = {}): TurnDecision {
+  return { speech, plan: null, moves: [], ended: false, memoryPatch: null, ...extras };
+}
 
 type Service = typeof import("./service");
 type Prisma = (typeof import("@/lib/db"))["prisma"];
@@ -227,7 +224,7 @@ async function seedReadySession() {
 async function runTurn(sessionId: string, candidate: { clientId: string; content: string; intent?: "skip" | "hint" | "repeat" | "end" | null } | null) {
   const turn = await service.startInterviewerTurn({
     sessionId,
-    candidate: candidate ? { clientId: candidate.clientId, content: candidate.content, intent: candidate.intent ?? null } : null,
+    candidate: candidate ? { clientId: candidate.clientId, content: candidate.content, intent: candidate.intent === "end" ? "end" : null } : null,
   });
   if (turn.replay) return { replay: true as const, messages: turn.messages };
   const result = await turn.finalize();
@@ -243,7 +240,7 @@ test("preparation persists the brief with an empty memory and opens the room", a
   const session = await readSession(sessionId);
   assert.equal(session.status, "in_progress");
   assert.equal(session.generationPhase, null);
-  assert.equal(JSON.parse(session.briefJson!).areas.length, 6);
+  assert.equal(JSON.parse(session.briefJson!).areas.length, 7);
   assert.deepEqual(JSON.parse(session.memoryJson).hypotheses, [{ id: "h1", status: "open", note: null }]);
   assert.equal(session.questionCount, 0);
   const interview = await prisma.interview.findUniqueOrThrow({ where: { id: interviewId } });
@@ -278,7 +275,7 @@ test("retry is only claimed from the failed state and restarts at the blueprint"
 
 test("the opening turn asks for an intro and is replayed instead of regenerated", async () => {
   const { sessionId } = await seedReadySession();
-  stubs.decisions = [{ speech: "你好，欢迎。请先介绍一下自己。", action: { name: "ask_intro", input: {} }, memoryPatch: null }];
+  stubs.decisions = [say("你好，欢迎。请先介绍一下自己。")];
   const first = await runTurn(sessionId, null);
   assert.equal(first.replay, false);
   const messages = await prisma.mockInterviewMessage.findMany({ where: { sessionId } });
@@ -290,13 +287,13 @@ test("the opening turn asks for an intro and is replayed instead of regenerated"
   assert.equal(stubs.turnCalls, 1);
 });
 
-test("closing a thread writes the compat question with the area rubric and schedules its evaluation", async () => {
+test("leaving a topic writes the compat question with the area rubric and schedules its evaluation", async () => {
   const { sessionId, interviewId } = await seedReadySession();
   stubs.decisions = [
-    { speech: "你好。", action: { name: "ask_intro", input: {} }, memoryPatch: null },
-    { speech: "好的。", action: { name: "open_thread", input: { areaId: "p1", question: "主循环里你负责哪一段？" } }, memoryPatch: null },
-    { speech: "明白。为什么这么切？", action: { name: "probe", input: { anchor: "延迟双删", question: "为什么这么切？", lastAnswer: "substantive", reason: "core" } }, anchorHit: true, memoryPatch: { established: ["知道延迟双删"], doubtful: [], failed: [], hypotheses: [] } },
-    { speech: "这一块够了。", action: { name: "close_thread", input: { note: "机制清楚，取舍偏弱", verdict: "answered" } }, memoryPatch: null },
+    say("你好。"),
+    say("主循环里你负责哪一段？", { plan: { items: [{ id: "a", label: "主循环", kind: "project", areaId: "p1-module", turns: 3 }, { id: "b", label: "缓存一致性", kind: "quick", areaId: "q1", turns: 1 }], note: null }, moves: [{ type: "enter", input: { itemId: "a", label: "主循环", kind: "project", areaId: "p1-module" } }] }),
+    say("明白。为什么这么切？", { memoryPatch: { established: ["知道延迟双删"], doubtful: [], failed: [], hypotheses: [] } }),
+    say("这一块够了。缓存和数据库双写怎么保证一致？", { moves: [{ type: "leave", input: { note: "机制清楚，取舍偏弱", verdict: "answered" } }, { type: "enter", input: { itemId: "b", label: "缓存一致性", kind: "quick", areaId: "q1" } }] }),
   ];
   await runTurn(sessionId, null);
   await runTurn(sessionId, { clientId: "c1", content: "我叫小明。" });
@@ -317,15 +314,14 @@ test("closing a thread writes the compat question with the area rubric and sched
   assert.equal(session.questionCount, 1);
   assert.deepEqual(JSON.parse(session.memoryJson).established.map((item: { text: string }) => item.text), ["知道延迟双删"]);
   const threads = await prisma.interviewThread.findMany({ where: { sessionId }, orderBy: { createdAt: "asc" } });
-  // 关掉项目题后代码紧接着进了基础阶段、开了题池第一题，候选人不会面对没有下文的过渡语。
-  assert.deepEqual(threads.map((thread) => [thread.areaId, thread.status]), [["p1", "closed"], ["q1", "active"]]);
+  assert.deepEqual(threads.map((thread) => [thread.areaId, thread.label, thread.status]), [["p1-module", "主循环", "closed"], ["q1", "缓存一致性", "active"]]);
   assert.equal(threads[0].questionId, questions[0].id);
-  // 每回合一条决策记录：追问那回合记下锚点命中，阶段与已提问次数跟着走。
+  assert.equal(threads[0].planItemId, "a");
+  // 每回合一条决策记录：改计划、进入、离开各记在自己的回合；计划落库。
   const decisions = await prisma.interviewTurnDecision.findMany({ where: { sessionId }, orderBy: { turnIndex: "asc" } });
   assert.equal(decisions.length, 4);
-  assert.equal(decisions[2].appliedAction, "probe");
-  assert.equal(decisions[2].anchorHit, true);
-  assert.deepEqual(decisions.map((decision) => [decision.phase, decision.questionTurns]), [["project", 1], ["project", 2], ["project", 3], ["quick", 4]]);
+  assert.deepEqual(decisions.map((decision) => [decision.planChanged, decision.entered, decision.leftVerdict, decision.turnsUsed]), [[false, null, null, 1], [true, "主循环", null, 2], [false, null, null, 3], [false, "缓存一致性", "answered", 4]]);
+  assert.equal(JSON.parse(session.planJson!).items.length, 2);
   // 候选人消息带作答元数据（字数一定有，时长视时钟而定）。
   const answers = await prisma.mockInterviewMessage.findMany({ where: { sessionId, role: "candidate" } });
   assert.ok(answers.every((message) => message.metricsJson && JSON.parse(message.metricsJson).chars > 0));
@@ -333,10 +329,7 @@ test("closing a thread writes the compat question with the area rubric and sched
 
 test("a duplicate clientId replays the stored interviewer reply without a second model call", async () => {
   const { sessionId } = await seedReadySession();
-  stubs.decisions = [
-    { speech: "你好。", action: { name: "ask_intro", input: {} }, memoryPatch: null },
-    { speech: "好。", action: { name: "open_thread", input: { areaId: "p1", question: "介绍你负责的部分。" } }, memoryPatch: null },
-  ];
+  stubs.decisions = [say("你好。"), say("介绍你负责的部分。", { moves: [{ type: "enter", input: { itemId: null, label: "主循环", kind: "project", areaId: "p1-module" } }] })];
   await runTurn(sessionId, null);
   await runTurn(sessionId, { clientId: "dup", content: "自我介绍" });
   const calls = stubs.turnCalls;
@@ -348,10 +341,7 @@ test("a duplicate clientId replays the stored interviewer reply without a second
 
 test("a candidate asking to end moves the session to ready_to_evaluate and later turns are refused", async () => {
   const { sessionId } = await seedReadySession();
-  stubs.decisions = [
-    { speech: "你好。", action: { name: "ask_intro", input: {} }, memoryPatch: null },
-    { speech: "那我们就到这里。", action: null, memoryPatch: null },
-  ];
+  stubs.decisions = [say("你好。"), say("那我们就到这里。")];
   await runTurn(sessionId, null);
   const ended = await runTurn(sessionId, { clientId: "e1", content: "我们结束吧", intent: "end" });
   assert.equal(ended.replay, false);
@@ -363,7 +353,7 @@ test("a candidate asking to end moves the session to ready_to_evaluate and later
 
 test("a failed model turn still produces a deterministic interviewer message", async () => {
   const { sessionId } = await seedReadySession();
-  stubs.decisions = [{ speech: "", action: null, memoryPatch: null, failed: true }];
+  stubs.decisions = [say("", { failed: true })];
   const first = await runTurn(sessionId, null);
   assert.equal(first.replay, false);
   const messages = await prisma.mockInterviewMessage.findMany({ where: { sessionId } });

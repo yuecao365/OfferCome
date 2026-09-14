@@ -1,4 +1,4 @@
-import { KIND_WEIGHT, type InterviewBrief } from "./interviewer/brief";
+import { isAreaKind, KIND_WEIGHT, type InterviewBrief } from "./interviewer/brief";
 import type { InterviewMemory } from "./interviewer/memory";
 import { interviewerNote } from "./interviewer/reducer";
 import type { EvaluationWeakness } from "./question-evaluation";
@@ -12,7 +12,9 @@ import type { SummaryInput, SummaryOutput } from "./summary-agent";
  */
 
 export type OutcomeThread = {
-  areaId: string;
+  areaId: string | null;
+  kind: string;
+  label: string;
   status: string;
   depth: number;
   note: string | null;
@@ -27,21 +29,21 @@ export type OutcomeQuestion = {
 
 export type AreaOutcome = { summary: SummaryInput["areas"][number]; scores: number[] };
 
-/** 每道问到过的题：阶段、追问层数、面试官判断、分数与短板；跳过的记 0 分。权重按阶段（项目 3、场景 2、基础 1）。 */
-export function areaOutcomes(brief: InterviewBrief, threads: OutcomeThread[], questions: OutcomeQuestion[]): AreaOutcome[] {
+/** 每个聊过的话题：种类、追问轮数、面试官判断、分数与短板；跳过的记 0 分。权重按种类（项目 3、场景 2、基础 1）。 */
+export function areaOutcomes(_brief: InterviewBrief, threads: OutcomeThread[], questions: OutcomeQuestion[]): AreaOutcome[] {
   const questionById = new Map(questions.map((question) => [question.id, question]));
-  return brief.areas.flatMap((area) => {
-    const thread = threads.find((item) => item.areaId === area.id && item.status !== "active");
-    if (!thread) return [];
+  return threads.flatMap((thread) => {
+    if (thread.status === "active") return [];
+    const kind = isAreaKind(thread.kind) ? thread.kind : "quick";
     const question = thread.questionId ? (questionById.get(thread.questionId) ?? null) : null;
     const answered = question !== null && !question.skipped;
     return [
       {
         scores: [question?.evaluation?.score ?? 0],
         summary: {
-          name: area.name,
-          kind: area.kind,
-          weight: KIND_WEIGHT[area.kind],
+          name: thread.label,
+          kind,
+          weight: KIND_WEIGHT[kind],
           depthReached: thread.depth,
           threadNote: interviewerNote(thread.note),
           skipped: !answered,
