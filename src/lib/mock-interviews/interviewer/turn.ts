@@ -86,7 +86,7 @@ export async function runInterviewerTurn(input: {
   const candidateInput: CandidateInput | null = input.candidate
     ? { id: randomUUID(), content: input.candidate.content, intent: input.candidate.intent, metrics: input.candidate.metrics ?? null }
     : null;
-  const empty: TurnDecision = { speech: "", plan: null, leave: null, enter: null, ended: false, memoryPatch: null };
+  const empty: TurnDecision = { speech: "", plan: null, leave: null, enter: null, ended: false, aside: false, memoryPatch: null };
 
   if (planTurn(input.state, candidateInput?.intent ?? null).kind === "fixed") {
     const result = applyTurn(input.state, candidateInput, empty);

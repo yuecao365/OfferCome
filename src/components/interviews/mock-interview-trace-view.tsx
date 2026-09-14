@@ -92,7 +92,7 @@ export function MockInterviewTraceView({ trace }: { trace: MockInterviewTrace })
             {turn.interviewer.map((message, index) => (
               <div className="rounded-control border border-border bg-surface px-3 py-2 text-sm leading-6" key={index}>
                 <span className="mr-2 text-xs text-muted-foreground">
-                  面试官 · {KIND_LABELS[message.kind] ?? message.kind}
+                  面试官 · {message.kind === "aside" ? "答疑（不算回合）" : (KIND_LABELS[message.kind] ?? message.kind)}
                   {message.content.length > LONG_MESSAGE_CHARS ? ` · 较长 ${message.content.length} 字` : ""}
                 </span>
                 <span className="whitespace-pre-wrap">{message.content}</span>

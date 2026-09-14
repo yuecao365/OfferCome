@@ -5,7 +5,7 @@ import { testBrief } from "@/lib/test-support/interview-brief";
 
 import { detectCandidateIntent, type EnterInput, type LeaveInput, type ThreadVerdict } from "./actions";
 import { emptyMemory } from "./memory";
-import { applyTurn, FALLBACK_SPEECH, interviewerNote, pickSpeech, planTurn, SYSTEM_CLOSE_NOTE, turnsLeft, turnsUsed, type CandidateInput, type TurnDecision } from "./reducer";
+import { applyTurn, asideAllowance, asidesUsed, FALLBACK_SPEECH, interviewerNote, pickSpeech, planTurn, SYSTEM_CLOSE_NOTE, turnsLeft, turnsUsed, type CandidateInput, type TurnDecision } from "./reducer";
 import { activeThread, closedThreads, createInterviewerState, planItemStatus, type InterviewerState } from "./state";
 
 /**
@@ -19,7 +19,7 @@ function fresh(): InterviewerState {
 }
 
 function say(speech: string, extras: Partial<TurnDecision> = {}): TurnDecision {
-  return { speech, plan: null, leave: null, enter: null, ended: false, memoryPatch: null, ...extras };
+  return { speech, plan: null, leave: null, enter: null, ended: false, aside: false, memoryPatch: null, ...extras };
 }
 
 const enter = (label: string, kind: "project" | "quick" | "scenario" = "project", areaId: string | null = null, itemId: string | null = null): EnterInput => ({ itemId, label, kind, areaId });
@@ -125,6 +125,37 @@ test("同一话题里又调了 enter（哪怕先 leave 了）：视为继续，�
   assert.equal(dangling.effects.length, 0);
   assert.equal(activeThread(dangling.state)?.depth, 1);
   assert.equal(dangling.newMessages.at(-1)?.threadId, activeThread(state)!.id);
+});
+
+test("答疑不算回合：模型标 aside 的那句不计数、不加深度、留在话题里；超过软顶后按普通回合数", () => {
+  const state = opened();
+  const before = turnsUsed(state);
+  const clarified = applyTurn(state, answer("DAU 是什么？"), say("日活。", { aside: true }));
+  assert.equal(clarified.newMessages.at(-1)?.kind, "aside");
+  assert.equal(clarified.newMessages.at(-1)?.threadId, activeThread(state)!.id);
+  assert.equal(turnsUsed(clarified.state), before);
+  assert.equal(asidesUsed(clarified.state), 1);
+  assert.equal(activeThread(clarified.state)?.depth, 0);
+  // 标了 aside 却进入了新话题：按进入算。
+  const entered = applyTurn(state, answer(), say("换个话题：缓存怎么失效？", { aside: true, enter: enter("缓存一致性", "quick", "q1") }));
+  assert.equal(entered.newMessages.at(-1)?.kind, "question");
+  assert.equal(turnsUsed(entered.state), before + 1);
+  // 软顶：总回合的四分之一，之后的答疑按追问数。
+  let capped = state;
+  for (let index = 0; index < asideAllowance(state); index += 1) capped = applyTurn(capped, answer("没听清"), say("我重复一遍。", { aside: true })).state;
+  const over = applyTurn(capped, answer("再说一遍"), say("再重复一遍。", { aside: true }));
+  assert.equal(over.newMessages.at(-1)?.kind, "probe");
+  assert.equal(turnsUsed(over.state), before + 1);
+});
+
+test("同一回合既进入新话题又收尾：按进入算，这句话是一道题；预算到头由代码下一回合收", () => {
+  const state = opened();
+  const result = applyTurn(state, answer(), say("最后一题：日历改错时间怎么兜底？", { leave: leave(), enter: enter("安全与回退", "scenario", "s1"), ended: true }));
+  assert.equal(result.state.phase, "running");
+  assert.equal(result.decision.endedBy, null);
+  assert.equal(result.newMessages.at(-1)?.kind, "question");
+  assert.equal(activeThread(result.state)?.label, "安全与回退");
+  assert.equal(result.decision.left, "answered");
 });
 
 test("没交代就换了话题：代码替它离开，verdict 为空、note 是系统标记，不算面试官的判断", () => {

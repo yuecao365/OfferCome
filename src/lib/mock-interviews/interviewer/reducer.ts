@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import type { CandidateIntent, EnterInput, LeaveInput, PlanInput, ThreadVerdict } from "./actions";
 import { applyMemoryPatch, type MemoryPatch } from "./memory";
 import { threadSegment, type ThreadSegment } from "./segments";
-import { activeThread, turnsLeft, turnsUsed, type InterviewerState, type InterviewPlan, type MessageKind, type MessageMetrics, type MessageState, type ThreadState } from "./state";
+import { activeThread, asideAllowance, asidesUsed, turnsLeft, turnsUsed, type InterviewerState, type InterviewPlan, type MessageKind, type MessageMetrics, type MessageState, type ThreadState } from "./state";
 
 /**
  * 回合 reducer：把"候选人这条消息 + 面试官这回合做的事"应用到状态上。
@@ -20,6 +20,8 @@ export type TurnDecision = {
   leave: LeaveInput | null;
   enter: EnterInput | null;
   ended: boolean;
+  /** 这句只是答疑（复述、换个说法、给方向），不算回合。 */
+  aside: boolean;
   memoryPatch: MemoryPatch | null;
   /** 模型回合失败（超时、5xx）：speech 为空，由代码接一句。 */
   failed?: boolean;
@@ -258,20 +260,23 @@ export function applyTurn(initial: InterviewerState, candidate: CandidateInput |
 
   // 5. 先离开、再进入。开场回合请自我介绍，不是话题，不接受 enter；指向当前话题的 enter 视为继续
   //    （模型常在追问时又 leave 再 enter 同一个话题：两个都不算）；只 leave 不 enter 也不收尾的，话题继续
-  //    （否则接下来的问答落在话题之外，切不了段）。
+  //    （否则接下来的问答落在话题之外，切不了段）。记账自相矛盾时取对候选人无害的解释：
+  //    既进入新话题又收尾的按进入算（这句话是一道题，候选人得答；预算到头由代码下一回合收）。
   const continuing = decision.enter !== null && sameTopic(activeThread(state), decision.enter);
-  const leaving = decision.leave !== null && !continuing && (decision.enter !== null || decision.ended);
+  const entering = decision.enter !== null && !opening && !continuing ? decision.enter : null;
+  const ending = decision.ended && !entering;
+  const leaving = decision.leave !== null && !continuing && (entering !== null || ending);
   if (leaving) leave({ verdict: decision.leave!.verdict, note: decision.leave!.note });
   let entered: ThreadState | null = null;
-  if (decision.enter && !opening && !continuing) {
+  if (entering) {
     leave({ verdict: null, note: SYSTEM_CLOSE_NOTE });
-    const item = decision.enter.itemId ? (state.plan?.items.find((planItem) => planItem.id === decision.enter!.itemId) ?? null) : null;
+    const item = entering.itemId ? (state.plan?.items.find((planItem) => planItem.id === entering.itemId) ?? null) : null;
     entered = {
       id: randomUUID(),
       planItemId: item?.id ?? null,
-      areaId: knownAreaId(state, decision.enter.areaId) ?? item?.areaId ?? null,
-      kind: decision.enter.kind,
-      label: decision.enter.label,
+      areaId: knownAreaId(state, entering.areaId) ?? item?.areaId ?? null,
+      kind: entering.kind,
+      label: entering.label,
       entryQuestion: speech,
       status: "active",
       depth: 0,
@@ -284,17 +289,18 @@ export function applyTurn(initial: InterviewerState, candidate: CandidateInput |
     record.entered = entered.label;
   }
 
-  // 6. 收尾，或者说话。
-  if (decision.ended) {
+  // 6. 收尾，或者说话。答疑（模型标 aside、没进入也没收尾）不算回合、不加深度，超过软顶后按普通回合数。
+  if (ending) {
     endInterview(speech, "interviewer");
     return finish();
   }
   const active = activeThread(state);
-  const kind: MessageKind = entered ? "question" : opening ? "intro_request" : "probe";
-  newMessages.push(message(state, "interviewer", kind, speech, { threadId: active?.id ?? null, toolName: entered ? "enter" : null }));
-  if (active && !entered) state = bumpDepth(state, active);
+  const aside = decision.aside && !entered && !opening && asidesUsed(state) < asideAllowance(state);
+  const kind: MessageKind = entered ? "question" : opening ? "intro_request" : aside ? "aside" : "probe";
+  newMessages.push(message(state, "interviewer", kind, speech, { threadId: active?.id ?? null, toolName: entered ? "enter" : aside ? "aside" : null }));
+  if (active && !entered && !aside) state = bumpDepth(state, active);
   state = { ...state, phase: "running" };
   return finish();
 }
 
-export { turnsLeft, turnsUsed };
+export { asideAllowance, asidesUsed, turnsLeft, turnsUsed };

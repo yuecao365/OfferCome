@@ -53,19 +53,23 @@ export function parseSkillTopics(pack: SkillPack): SkillTopic[] {
   return topics.filter((topic) => topic.example.length > 0);
 }
 
-/** 主题名切成可匹配的片段：拉丁词（≥2 字符）与中文二字组。 */
-function fragments(name: string): string[] {
+/**
+ * 主题名切成整词：拉丁词（≥2 字符）与按 与 / 、 / 冒号 / 括号 / 斜杠 / 空格 切出来的中文词（≥2 字）。
+ * "推理优化与部署" → 推理优化、部署；"RAG 链路设计与失败归因" → rag、链路设计、失败归因。
+ * 不按二字片段：那样"优化""设计""工程"这些哪份 JD 都有的词会决定权重，题池老是同几道。
+ */
+export function topicTerms(name: string): string[] {
   const parts = new Set<string>();
   for (const word of name.toLowerCase().match(/[a-z0-9+#.]{2,}/g) ?? []) parts.add(word);
-  for (const run of name.match(/[\p{Script=Han}]{2,}/gu) ?? []) {
-    for (let index = 0; index + 2 <= run.length; index += 1) parts.add(run.slice(index, index + 2));
+  for (const word of name.match(/[\p{Script=Han}]{2,}/gu) ?? []) {
+    for (const term of word.split(/[与、]/)) if (term.length >= 2) parts.add(term);
   }
   return [...parts];
 }
 
-function hitRatio(text: string, parts: string[]): number {
-  if (parts.length === 0) return 0;
-  return parts.filter((part) => text.includes(part)).length / parts.length;
+function hitRatio(text: string, terms: string[]): number {
+  if (terms.length === 0) return 0;
+  return terms.filter((term) => text.includes(term)).length / terms.length;
 }
 
 export type TopicContext = {
@@ -79,10 +83,12 @@ export type TopicContext = {
 const RECENT_PENALTY = 0.15;
 const OPTIONAL_PENALTY = 0.5;
 const MIN_WEIGHT = 0.2;
+/** 简历碰过：主题名里至少一半的词在简历里出现。 */
+const RESUME_TOUCH_RATIO = 0.5;
 
 /** 简历里提到过这个主题：候选人项目碰过的东西，基础题从它的项目出发问原理。 */
 export function topicFromResume(topic: Pick<SkillTopic, "name">, resumeText: string): boolean {
-  return hitRatio(resumeText.toLowerCase(), fragments(topic.name)) > 0;
+  return hitRatio(resumeText.toLowerCase(), topicTerms(topic.name)) >= RESUME_TOUCH_RATIO;
 }
 
 /**
@@ -90,10 +96,10 @@ export function topicFromResume(topic: Pick<SkillTopic, "name">, resumeText: str
  * 最近问过的和可选主题降权。包与包之间不比权重——名额按角色分（sampleTopicPool）。
  */
 export function topicWeight(topic: SkillTopic, context: TopicContext): number {
-  const parts = fragments(topic.name);
-  const jd = hitRatio(context.jobDescription.toLowerCase(), parts);
-  const title = hitRatio(context.jobTitle.toLowerCase(), parts);
-  const resume = hitRatio(context.resumeText.toLowerCase(), parts);
+  const terms = topicTerms(topic.name);
+  const jd = hitRatio(context.jobDescription.toLowerCase(), terms);
+  const title = hitRatio(context.jobTitle.toLowerCase(), terms);
+  const resume = hitRatio(context.resumeText.toLowerCase(), terms);
   let weight = Math.max(MIN_WEIGHT, 0.5 + 2 * jd + title + 0.5 * resume);
   if (topic.optional) weight *= OPTIONAL_PENALTY;
   if (context.recent.some((name) => name === topic.name)) weight *= RECENT_PENALTY;

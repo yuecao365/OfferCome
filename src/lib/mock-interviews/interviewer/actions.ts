@@ -68,6 +68,8 @@ export const turnSchema = z.object({
   note: memoryPatchSchema.nullable(),
   /** 收尾：这回合说的话就是告别；不收尾为 null。 */
   end: z.string().min(1).max(200).nullable(),
+  /** 这句不推进面试（答疑、复述、换个说法、给方向，题还是原来那道）：不算回合。推进的填 null / false。 */
+  aside: z.boolean().nullable(),
 });
 
 export type TurnInput = z.infer<typeof turnSchema>;
@@ -77,7 +79,7 @@ export type LeaveInput = z.infer<typeof leaveSchema>;
 
 export const TURN_TOOL = "turn";
 export const TURN_TOOL_DESCRIPTION =
-  "这回合的记账，一次调用记完所有账目，然后再说话。plan：写或改面试计划（开场后第一回合必须写；整份重写，沿用没变的项的 id；areaId 填材料里方括号内的 id，没有对应材料填 null）。leave：离开当前话题，verdict 写候选人这段答得怎么样（answered / thin / failed / skipped），note 写一句判断——之后这段只剩这句话。enter：只在换到一个新话题时填（含候选人临场带出来的话题）；同一话题里继续追问不要填。note：工作记忆增量。end：收尾的理由，这回合说的话就是告别。什么都不用记就一个字段也不填。";
+  "这回合的记账，一次调用记完所有账目，然后再说话。plan：写或改面试计划（开场后第一回合必须写；整份重写，沿用没变的项的 id；areaId 填材料里方括号内的 id，没有对应材料填 null）。leave：离开当前话题，verdict 写候选人这段答得怎么样（answered / thin / failed / skipped），note 写一句判断——之后这段只剩这句话。enter：只在换到一个新话题时填（含候选人临场带出来的话题）；同一话题里继续追问不要填。note：工作记忆增量。end：收尾的理由，这回合说的话就是告别。aside：这句只是答疑、复述、换个说法或给方向，题还是原来那道，填 true 就不算回合；提出新问题或追问的不要填。什么都不用记就一个字段也不填。";
 
 /**
  * 候选人的插话里只有"结束"由代码执行（用户的操作必须生效，不经模型）。

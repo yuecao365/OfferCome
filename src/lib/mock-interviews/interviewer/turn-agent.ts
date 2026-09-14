@@ -35,7 +35,7 @@ function buildTools(packs: SkillPack[]) {
 
 /** 从一次调用的结果里读出这回合做的事：多次 turn 调用按先后合并（后面非空的字段覆盖前面的），话取最后一步说的。 */
 export function decisionFromOutcome(outcome: AgentStreamOutcome): TurnDecision {
-  const decision: TurnDecision = { speech: "", plan: null, leave: null, enter: null, ended: false, memoryPatch: null, failed: false };
+  const decision: TurnDecision = { speech: "", plan: null, leave: null, enter: null, ended: false, aside: false, memoryPatch: null, failed: false };
   for (const call of outcome.toolCalls) {
     if (call.toolName !== TURN_TOOL) continue;
     const parsed = turnSchema.safeParse(call.input);
@@ -46,6 +46,7 @@ export function decisionFromOutcome(outcome: AgentStreamOutcome): TurnDecision {
     if (input.enter) decision.enter = input.enter;
     if (input.note) decision.memoryPatch = input.note;
     if (input.end) decision.ended = true;
+    if (input.aside) decision.aside = true;
   }
   decision.speech = pickSpeech(outcome.stepTexts, outcome.text);
   decision.failed = outcome.error !== null && decision.speech.length === 0;

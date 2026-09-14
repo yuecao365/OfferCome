@@ -91,7 +91,7 @@ mock.module("./interviewer/turn-agent", {
   namedExports: {
     runTurnAgent: async () => {
       stubs.turnCalls += 1;
-      const decision = stubs.decisions.shift() ?? { speech: "", plan: null, leave: null, enter: null, ended: false, memoryPatch: null, failed: true };
+      const decision = stubs.decisions.shift() ?? { speech: "", plan: null, leave: null, enter: null, ended: false, aside: false, memoryPatch: null, failed: true };
       return { stream: null, settled: Promise.resolve({ decision, skillsLoaded: 0 }) };
     },
   },
@@ -116,7 +116,7 @@ mock.module("@/lib/candidate-profile/background", {
 });
 
 function say(speech: string, extras: Partial<TurnDecision> = {}): TurnDecision {
-  return { speech, plan: null, leave: null, enter: null, ended: false, memoryPatch: null, ...extras };
+  return { speech, plan: null, leave: null, enter: null, ended: false, aside: false, memoryPatch: null, ...extras };
 }
 
 type Service = typeof import("./service");

@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { loadSkillPacks } from "./loader";
 import { packsForTopics } from "./selector";
-import { parseSkillTopics, sampleTopicPool, sampleTopics, topicWeight } from "./topics";
+import { parseSkillTopics, sampleTopicPool, sampleTopics, topicFromResume, topicTerms, topicWeight } from "./topics";
 
 test("every built-in pack parses into topics with a ladder and an example question", async () => {
   const packs = await loadSkillPacks();
@@ -30,6 +30,18 @@ test("topics named in the JD weigh most, topics the resume touched weigh more, r
   assert.ok(topicWeight(rag, context) > topicWeight(agent, context), "JD 点名的最重");
   assert.ok(topicWeight(agent, context) > topicWeight(eval_, context), "简历碰过的比谁都没提的重");
   assert.ok(topicWeight(agent, { ...context, recent: [agent.name] }) < topicWeight(agent, context) / 2);
+});
+
+test("topic names match by whole term, so generic words like 优化 / 设计 neither weigh nor mark the resume", () => {
+  assert.deepEqual(topicTerms("推理优化与部署"), ["推理优化", "部署"]);
+  assert.deepEqual(topicTerms("RAG 链路设计与失败归因"), ["rag", "链路设计", "失败归因"]);
+  assert.deepEqual(topicTerms("分布式锁与缓存实践（Java 视角）"), ["java", "分布式锁", "缓存实践", "视角"]);
+  const inference = { skill: "ai-llm", name: "推理优化与部署", ladder: "a → b", example: "问？", redFlags: "", signals: "s", optional: false, fromResume: false };
+  const generic = { jobTitle: "Agent 研发", jobDescription: "负责 Agent 链路设计与性能优化，上线部署。", resumeText: "优化了上下文工程，设计了记忆系统。", recent: [] };
+  const named = { ...generic, jobDescription: "负责推理优化与部署：vLLM、量化。", resumeText: "做过推理优化与部署。" };
+  assert.equal(topicFromResume(inference, generic.resumeText), false, "简历只有'优化'两个字不算碰过");
+  assert.equal(topicFromResume(inference, named.resumeText), true);
+  assert.ok(topicWeight(inference, named) > topicWeight(inference, generic) * 1.5, "整词点名的才明显加分");
 });
 
 test("the pool is filled by role: the domain pack takes most slots, stack and basics one sixth each, resume-touched topics are marked", async () => {

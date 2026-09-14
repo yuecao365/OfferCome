@@ -70,7 +70,7 @@ const RECENT_QUESTION_LIMIT = 12;
 
 /**
  * 最近几场模拟面试给备课的历史，与本地版 context.ts 同口径：最近 5 场、同岗位排前；
- * 失守的考点最多 6 条（"针对练习"指定的题的短板放最前）；同岗位问过的基础题主题与切入问题。
+ * 失守的考点最多 6 条（"针对练习"指定的题的短板放最前）；最近问过的基础题主题（按候选人）与同岗位的切入问题。
  */
 function recentHistory(jobTitle: string, seedQuestionId: string | null): { recentWeaknesses: RecentWeakness[]; recentTopics: string[]; recentQuestions: string[] } {
   const wanted = jobTitle.trim().toLocaleLowerCase();
@@ -90,14 +90,18 @@ function recentHistory(jobTitle: string, seedQuestionId: string | null): { recen
       return question === seed ? [{ area, point: "候选人要求重练这道题。", kind: "practice", quote: null }] : [];
     })
     .slice(0, RECENT_WEAKNESS_LIMIT);
-  // 主题与切入问题从会话文档的切段元数据取（工作台记录里没有）。
-  const segments = listTrialInterviews()
-    .filter((interview) => interview.status === "completed" && sameJob(interview.job.jobTitle))
+  // 主题与切入问题从会话文档的切段元数据取（工作台记录里没有）。最近问过的基础题按候选人算、不按岗位名
+  //（同一个人换个岗位名再练，也不该老碰到同几道），切入问题仍只看同岗位；与本地版 context.ts 同口径。
+  const completed = listTrialInterviews().filter((interview) => interview.status === "completed");
+  const recent = completed
+    .toSorted((left, right) => Number(sameJob(right.job.jobTitle)) - Number(sameJob(left.job.jobTitle)))
+    .slice(0, RECENT_WEAKNESS_INTERVIEWS)
     .flatMap((interview) => interview.questions);
+  const sameJobSegments = completed.filter((interview) => sameJob(interview.job.jobTitle)).flatMap((interview) => interview.questions);
   return {
     recentWeaknesses,
-    recentTopics: [...new Set(segments.flatMap((segment) => (segment.metadata.areaKind === "quick" && segment.metadata.areaName ? [segment.metadata.areaName] : [])))],
-    recentQuestions: segments.map((segment) => segment.question.split("\n")[0].trim()).filter(Boolean).slice(0, RECENT_QUESTION_LIMIT),
+    recentTopics: [...new Set(recent.flatMap((segment) => (segment.metadata.areaKind === "quick" && segment.metadata.areaName ? [segment.metadata.areaName] : [])))],
+    recentQuestions: sameJobSegments.map((segment) => segment.question.split("\n")[0].trim()).filter(Boolean).slice(0, RECENT_QUESTION_LIMIT),
   };
 }
 

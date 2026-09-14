@@ -53,7 +53,8 @@ export type ThreadState = {
 
 export type MessageRole = "interviewer" | "candidate";
 /**
- * 面试官侧：intro_request 开场、question 进入一个话题的那句、probe 话题内的后续、closing 收尾。
+ * 面试官侧：intro_request 开场、question 进入一个话题的那句、probe 话题内的后续、aside 答疑（复述、换个说法、
+ * 给方向——题还是原来那道，不算回合）、closing 收尾。
  * 候选人侧：answer 是他说的话（含求助、要求澄清——都交给模型应对），aside 只有代码执行的"结束"。
  */
 export type MessageKind = "intro_request" | "question" | "probe" | "closing" | "answer" | "aside";
@@ -109,9 +110,22 @@ export function closedThreads(state: InterviewerState): ThreadState[] {
     .sort((left, right) => (left.closedAtTurn ?? 0) - (right.closedAtTurn ?? 0));
 }
 
-/** 面试官已经说了几回合（含开场）；预算按它算。 */
+/** 面试官已经说了几回合（含开场，不含答疑）；预算按它算。 */
 export function turnsUsed(state: InterviewerState): number {
-  return state.messages.filter((message) => message.role === "interviewer").length;
+  return state.messages.filter((message) => message.role === "interviewer" && message.kind !== "aside").length;
+}
+
+/** 面试官答疑了几句（不算回合的那些）。 */
+export function asidesUsed(state: InterviewerState): number {
+  return state.messages.filter((message) => message.role === "interviewer" && message.kind === "aside").length;
+}
+
+/**
+ * 答疑的软顶：总回合的四分之一（标准节奏 5 句）。超过之后答疑按普通回合数——这是"一场总会结束"
+ * 这条底线的一部分，正常用碰不到，不是流程门。
+ */
+export function asideAllowance(state: InterviewerState): number {
+  return Math.ceil(state.brief.turns / 4);
 }
 
 export function turnsLeft(state: InterviewerState): number {
