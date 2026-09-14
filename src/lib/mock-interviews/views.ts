@@ -53,7 +53,7 @@ export function conversationView(input: {
   };
 }
 
-export type TraceRun = { status: string; durationMs: number; totalTokens: number | null; errorKind: string | null };
+export type TraceRun = { status: string; durationMs: number; totalTokens: number | null; cachedTokens: number | null; errorKind: string | null };
 
 /** trace 页：按回合把候选人的话、面试官的话、决策记录与模型开销拼在一起。 */
 export function traceTurns(input: {

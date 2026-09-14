@@ -91,7 +91,7 @@ mock.module("./interviewer/turn-agent", {
   namedExports: {
     runTurnAgent: async () => {
       stubs.turnCalls += 1;
-      const decision = stubs.decisions.shift() ?? { speech: "", plan: null, moves: [], ended: false, memoryPatch: null, failed: true };
+      const decision = stubs.decisions.shift() ?? { speech: "", plan: null, leave: null, enter: null, ended: false, memoryPatch: null, failed: true };
       return { stream: null, settled: Promise.resolve({ decision, skillsLoaded: 0 }) };
     },
   },
@@ -116,7 +116,7 @@ mock.module("@/lib/candidate-profile/background", {
 });
 
 function say(speech: string, extras: Partial<TurnDecision> = {}): TurnDecision {
-  return { speech, plan: null, moves: [], ended: false, memoryPatch: null, ...extras };
+  return { speech, plan: null, leave: null, enter: null, ended: false, memoryPatch: null, ...extras };
 }
 
 type Service = typeof import("./service");
@@ -291,9 +291,9 @@ test("leaving a topic writes the compat question with the area rubric and schedu
   const { sessionId, interviewId } = await seedReadySession();
   stubs.decisions = [
     say("你好。"),
-    say("主循环里你负责哪一段？", { plan: { items: [{ id: "a", label: "主循环", kind: "project", areaId: "p1-module", turns: 3 }, { id: "b", label: "缓存一致性", kind: "quick", areaId: "q1", turns: 1 }], note: null }, moves: [{ type: "enter", input: { itemId: "a", label: "主循环", kind: "project", areaId: "p1-module" } }] }),
+    say("主循环里你负责哪一段？", { plan: { items: [{ id: "a", label: "主循环", kind: "project", areaId: "p1-module", turns: 3 }, { id: "b", label: "缓存一致性", kind: "quick", areaId: "q1", turns: 1 }], note: null }, enter: { itemId: "a", label: "主循环", kind: "project", areaId: "p1-module" } }),
     say("明白。为什么这么切？", { memoryPatch: { established: ["知道延迟双删"], doubtful: [], failed: [], hypotheses: [] } }),
-    say("这一块够了。缓存和数据库双写怎么保证一致？", { moves: [{ type: "leave", input: { note: "机制清楚，取舍偏弱", verdict: "answered" } }, { type: "enter", input: { itemId: "b", label: "缓存一致性", kind: "quick", areaId: "q1" } }] }),
+    say("这一块够了。缓存和数据库双写怎么保证一致？", { leave: { note: "机制清楚，取舍偏弱", verdict: "answered" }, enter: { itemId: "b", label: "缓存一致性", kind: "quick", areaId: "q1" } }),
   ];
   await runTurn(sessionId, null);
   await runTurn(sessionId, { clientId: "c1", content: "我叫小明。" });
@@ -329,7 +329,7 @@ test("leaving a topic writes the compat question with the area rubric and schedu
 
 test("a duplicate clientId replays the stored interviewer reply without a second model call", async () => {
   const { sessionId } = await seedReadySession();
-  stubs.decisions = [say("你好。"), say("介绍你负责的部分。", { moves: [{ type: "enter", input: { itemId: null, label: "主循环", kind: "project", areaId: "p1-module" } }] })];
+  stubs.decisions = [say("你好。"), say("介绍你负责的部分。", { enter: { itemId: null, label: "主循环", kind: "project", areaId: "p1-module" } })];
   await runTurn(sessionId, null);
   await runTurn(sessionId, { clientId: "dup", content: "自我介绍" });
   const calls = stubs.turnCalls;

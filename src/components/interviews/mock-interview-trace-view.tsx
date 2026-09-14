@@ -75,6 +75,7 @@ export function MockInterviewTraceView({ trace }: { trace: MockInterviewTrace })
                   {" · "}
                   {(turn.run.durationMs / 1000).toFixed(1)}s
                   {turn.run.totalTokens !== null ? ` · ${turn.run.totalTokens} tokens` : ""}
+                  {turn.run.cachedTokens !== null && turn.run.cachedTokens > 0 ? `（缓存 ${turn.run.cachedTokens}）` : ""}
                   {turn.run.errorKind ? ` · ${turn.run.errorKind}` : ""}
                 </p>
               ) : null}

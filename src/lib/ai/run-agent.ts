@@ -110,6 +110,7 @@ export function logAgentRun(record: AgentLogRecord): void {
       usage: record.usage
         ? {
             inputTokens: record.usage.inputTokens,
+            cachedTokens: record.usage.inputTokenDetails?.cacheReadTokens,
             outputTokens: record.usage.outputTokens,
             totalTokens: record.usage.totalTokens,
           }

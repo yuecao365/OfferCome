@@ -35,49 +35,49 @@ export const planItemSchema = z.object({
   turns: z.number().int().min(1).max(40).nullable(),
 });
 
-export const toolSchemas = {
-  plan: z.object({
-    items: z.array(planItemSchema).min(1).max(20),
-    /** 一句话：为什么这么排。 */
-    note: z.string().max(200).nullable(),
-  }),
-  enter: z.object({
-    /** 计划里的哪一项；临场进入计划外的话题为 null。 */
-    itemId: z.string().min(1).max(20).nullable(),
-    label: z.string().min(1).max(60),
-    kind: z.enum(AREA_KINDS),
-    areaId: z.string().min(1).max(40).nullable(),
-  }),
-  leave: z.object({
-    verdict: z.enum(THREAD_VERDICTS),
-    /** 对这段的一句判断：答到哪一层、哪里好、哪里失守。之后的回合里这段只剩这句话。 */
-    note: z.string().min(1).max(300),
-  }),
-  note: memoryPatchSchema,
-  end: z.object({
-    reason: z.string().min(1).max(200),
-  }),
-} as const;
+export const planSchema = z.object({
+  items: z.array(planItemSchema).min(1).max(20),
+  /** 一句话：为什么这么排。 */
+  note: z.string().max(200).nullable(),
+});
+export const enterSchema = z.object({
+  /** 计划里的哪一项；临场进入计划外的话题为 null。 */
+  itemId: z.string().min(1).max(20).nullable(),
+  label: z.string().min(1).max(60),
+  kind: z.enum(AREA_KINDS),
+  areaId: z.string().min(1).max(40).nullable(),
+});
+export const leaveSchema = z.object({
+  verdict: z.enum(THREAD_VERDICTS),
+  /** 对这段的一句判断：答到哪一层、哪里好、哪里失守。之后的回合里这段只剩这句话。 */
+  note: z.string().min(1).max(300),
+});
 
-export type ToolName = keyof typeof toolSchemas;
-export type ToolInputs = { [K in ToolName]: z.infer<(typeof toolSchemas)[K]> };
-export type PlanInput = ToolInputs["plan"];
-export type EnterInput = ToolInputs["enter"];
-export type LeaveInput = ToolInputs["leave"];
+/**
+ * 一回合一次记账：所有账目在一次工具调用里记完（各字段可空），下一步说话。
+ * 拆成五个工具时模型会一个一个调、每步都重发整段提示词，成本翻几倍。
+ */
+export const turnSchema = z.object({
+  /** 写 / 改计划；不改为 null。 */
+  plan: planSchema.nullable(),
+  /** 离开当前话题；不离开为 null。先于 enter 应用。 */
+  leave: leaveSchema.nullable(),
+  /** 进入新话题；继续当前话题为 null。 */
+  enter: enterSchema.nullable(),
+  /** 工作记忆增量；没有为 null。 */
+  note: memoryPatchSchema.nullable(),
+  /** 收尾：这回合说的话就是告别；不收尾为 null。 */
+  end: z.string().min(1).max(200).nullable(),
+});
 
-export const TOOL_NAMES = ["plan", "enter", "leave", "note", "end"] as const satisfies readonly ToolName[];
+export type TurnInput = z.infer<typeof turnSchema>;
+export type PlanInput = z.infer<typeof planSchema>;
+export type EnterInput = z.infer<typeof enterSchema>;
+export type LeaveInput = z.infer<typeof leaveSchema>;
 
-export function isToolName(name: string): name is ToolName {
-  return (TOOL_NAMES as readonly string[]).includes(name);
-}
-
-export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
-  plan: "写或改你的面试计划：要聊哪些话题（项目的哪几面、几道基础题、场景题）、各打算花几个回合、按什么顺序。开场后第一回合必须写；之后想改随时改（整份重写，沿用没变的项的 id）。",
-  enter: "进入一个话题：你这回合开始问一个新的话题时调用（itemId 指向计划里的项；候选人临场带出来、计划外的话题 itemId 为 null）。切段、评分以它为边界。上一个话题还没 leave 的话，系统替你按“没交代”离开。",
-  leave: "离开当前话题：verdict 写候选人这段答得怎么样（answered 有实质回答 / thin 只有关键词或空话 / failed 没答上 / skipped 他要求跳过），note 写你的一句判断。之后的回合里这段只剩这句 note，对话原文不再保留。",
-  note: "更新你的工作记忆：本回合新确认的、存疑的、失守的要点，以及简历假设的验证状态。",
-  end: "收尾结束面试：预算用完、该聊的聊完，或候选人明显无法继续时调用；这回合说的话就是告别。",
-};
+export const TURN_TOOL = "turn";
+export const TURN_TOOL_DESCRIPTION =
+  "这回合的记账，一次调用记完所有账目，然后再说话。plan：写或改面试计划（开场后第一回合必须写；整份重写，沿用没变的项的 id；areaId 填材料里方括号内的 id，没有对应材料填 null）。leave：离开当前话题，verdict 写候选人这段答得怎么样（answered / thin / failed / skipped），note 写一句判断——之后这段只剩这句话。enter：只在换到一个新话题时填（含候选人临场带出来的话题）；同一话题里继续追问不要填。note：工作记忆增量。end：收尾的理由，这回合说的话就是告别。什么都不用记就一个字段也不填。";
 
 /**
  * 候选人的插话里只有"结束"由代码执行（用户的操作必须生效，不经模型）。

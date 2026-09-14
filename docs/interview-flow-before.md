@@ -37,7 +37,7 @@ flowchart TD
 | seedQuestionId | 可选，从复盘页或画像页"针对练习"进来时带上；真实面试与模拟面试的题都可以 |
 | applicationId | 可选，关联投递记录，并把 JD 回填到还没有描述的投递上 |
 
-创建时写入 `Interview`（kind=mock）和 `MockInterviewSession`：`jdTextSnapshot`、`resumeTextSnapshot`（原文快照，之后不再读源文件）、`contextSnapshotJson`（上下文 id 清单与生成参数，备课阶段补入蓝图）、`pace`、`promptVersion`（interviewer-v11）、`status=generating`。接口返回 `{ id, href }`，备课由 `after()` 调度的后台任务执行，页面轮询 `GET /api/interviews/mock/[id]/status`。
+创建时写入 `Interview`（kind=mock）和 `MockInterviewSession`：`jdTextSnapshot`、`resumeTextSnapshot`（原文快照，之后不再读源文件）、`contextSnapshotJson`（上下文 id 清单与生成参数，备课阶段补入蓝图）、`pace`、`promptVersion`（interviewer-v12）、`status=generating`。接口返回 `{ id, href }`，备课由 `after()` 调度的后台任务执行，页面轮询 `GET /api/interviews/mock/[id]/status`。
 
 ## 2. 装配上下文（`context.ts`）
 
@@ -135,12 +135,12 @@ hypotheses[0..6]: { id, text≤300, evidence≤300（简历原文逐字）, proj
 > 3. scenarios：${n} 道场景题。从 JD 里团队做的系统或职责里挑一个具体场景（jdEvidence 逐字复制 JD 原文中最能代表它的一句，不得改写；competencyIds 绑定蓝图能力），question 先铺一句场景再问一个点；guides 是三级引导阶梯（候选人卡住或答到一层时下一步往哪引）。场景题不要与项目角度考同一件事。
 > 4. hypotheses（最多 6 条）：要在项目阶段验证的具体点——写了数字的成果、只写框架名的经历、时间线的空洞。每个被问的项目至少一条，projectId 指向它；text 写成"面试里问什么才能验证"；evidence 必须逐字复制简历原文片段，不得改写；没有依据的假设不要写。
 >
-> 一次只问一个问题：question 里只有一个问号，不要"A、B、C 分别怎么"并列子问题。基础题的名称和问题里不要出现简历项目的名字。
+> 问法规则（候选人要一听就知道往哪个方向答）：开题可以宽，但必须给一个抓手——一个角度、一个例子或一个约束（"挑你最熟的一层记忆，讲它怎么写入和召回"，而不是"讲讲你的记忆系统"）；其余的题落到一个点——一个机制、一个数字或一个决策。一句只问一个要点：一个问号，不要"A、B、C 分别怎么"并列，不要"先说 X 再说 Y"；要问的后续要点放到 leads / followUp / guides 里。基础题的名称和问题里不要出现简历项目的名字。
 > {recentWeaknesses 非空时：……在对应主题的基础题或场景题里复测……}{recentQuestions 非空时：……不要再问同一件事。}
 > 这个岗位的考察重点（技能包，可信资料）：{领域包的"岗位职责与考察重点"}
 > 简历上出现某类经历时基础题从哪里切（技能包，可信资料）：{领域包的"项目结合钩子"}
 > 项目深挖的方法（技能包，可信资料）：{project-deep-dive 的同名段}
-> 提示词版本：brief-v14
+> 提示词版本：brief-v15
 
 ### 5.5 代码后处理（`buildBriefFromOutput`）
 

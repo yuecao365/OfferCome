@@ -8,18 +8,17 @@ import { activeThread, turnsLeft, turnsUsed, type InterviewerState, type Intervi
 /**
  * 回合 reducer：把"候选人这条消息 + 面试官这回合做的事"应用到状态上。
  *
- * 面试官这回合做的事 = 说的话 + 记账（改计划、进入 / 离开话题、记忆、收尾），全部来自模型；
+ * 面试官这回合做的事 = 说的话 + 一次记账（改计划、离开 / 进入话题、记忆、收尾），全部来自模型；
  * 代码不裁决它做得对不对，只做三件事：候选人点"结束"直接收尾、总回合预算用完直接收尾、
  * 模型没说出话来时用一句固定的话把回合接上。全程纯函数，返回新状态、要落库的消息、副作用与一条决策记录。
  */
 
-/** 面试官这回合的记账动作，按模型调用的顺序。 */
-export type TurnMove = { type: "enter"; input: EnterInput } | { type: "leave"; input: LeaveInput };
-
 export type TurnDecision = {
   speech: string;
   plan: PlanInput | null;
-  moves: TurnMove[];
+  /** 先应用 leave，再应用 enter。 */
+  leave: LeaveInput | null;
+  enter: EnterInput | null;
   ended: boolean;
   memoryPatch: MemoryPatch | null;
   /** 模型回合失败（超时、5xx）：speech 为空，由代码接一句。 */
@@ -73,22 +72,58 @@ export function interviewerNote(note: string | null): string | null {
   return note && note !== SYSTEM_CLOSE_NOTE ? note : null;
 }
 
-/** 一段文本是不是整个就是一个 JSON 对象：模型偶尔把工具入参当成话写出来，这种不能给候选人看。 */
-function looksLikeJson(text: string): boolean {
-  if (!text.startsWith("{") && !text.startsWith("[")) return false;
-  try {
-    JSON.parse(text);
-    return true;
-  } catch {
-    return false;
+/**
+ * 模型偶尔把工具入参当成话写出来（整段是 JSON，或 JSON 后面才是真正的话）：去掉开头那个 JSON 对象，剩下的才给候选人看。
+ * 找 JSON 的结尾靠括号配平（字符串里的括号跳过）。
+ */
+function stripLeadingJson(text: string): string {
+  if (!text.startsWith("{") && !text.startsWith("[")) return text;
+  let depth = 0;
+  let inString = false;
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    if (inString) {
+      if (char === "\\") index += 1;
+      else if (char === '"') inString = false;
+      continue;
+    }
+    if (char === '"') inString = true;
+    else if (char === "{" || char === "[") depth += 1;
+    else if (char === "}" || char === "]") {
+      depth -= 1;
+      if (depth === 0) {
+        try {
+          JSON.parse(text.slice(0, index + 1));
+          return text.slice(index + 1).trim();
+        } catch {
+          return text;
+        }
+      }
+    }
   }
+  return text;
 }
 
-/** 这回合对候选人说的话：取最后一步说的（多步时后一步常会复述前一步），整段是 JSON 的不算。 */
+/** 同一段话原句写了两遍（"问题？问题？"）：折成一遍。 */
+function foldRepeat(text: string): string {
+  const compact = text.replace(/\s+/g, "");
+  if (compact.length < 8 || compact.length % 2 !== 0) return text;
+  const half = compact.length / 2;
+  if (compact.slice(0, half) !== compact.slice(half)) return text;
+  // 在原文里找到第二遍的起点：去掉空白后的第 half 个字符。
+  let seen = 0;
+  for (let index = 0; index < text.length; index += 1) {
+    if (!/\s/.test(text[index])) seen += 1;
+    if (seen === half) return text.slice(0, index + 1).trim();
+  }
+  return text;
+}
+
+/** 这回合对候选人说的话：取最后一步说的（多步时后一步常会复述前一步），整段是 JSON 的不算，原句重复两遍的折半。 */
 export function pickSpeech(stepTexts: string[], fallback: string): string {
-  const spoken = stepTexts.map((text) => text.trim()).filter((text) => text.length > 0 && !looksLikeJson(text));
-  const last = spoken.at(-1) ?? fallback.trim();
-  return looksLikeJson(last) ? "" : last;
+  const spoken = stepTexts.map((text) => stripLeadingJson(text.trim())).filter((text) => text.length > 0);
+  const last = spoken.at(-1) ?? stripLeadingJson(fallback.trim());
+  return foldRepeat(last);
 }
 
 export function planTurn(state: InterviewerState, intent: CandidateIntent): TurnPlan {
@@ -164,6 +199,7 @@ export function applyTurn(initial: InterviewerState, candidate: CandidateInput |
   });
 
   if (state.phase === "ended") return { state, newMessages, effects, decision: record };
+  const opening = state.phase === "opening";
 
   // 1. 候选人消息落进当前话题；代码执行的"结束"记为插话。
   if (candidate) {
@@ -204,7 +240,6 @@ export function applyTurn(initial: InterviewerState, candidate: CandidateInput |
   const speech = decision.speech.trim();
   if (!speech) {
     const active = activeThread(state);
-    const opening = state.phase === "opening";
     newMessages.push(message(state, "interviewer", opening ? "intro_request" : "probe", opening ? FALLBACK_SPEECH.askIntro : FALLBACK_SPEECH.stall, { threadId: active?.id ?? null }));
     if (active) state = bumpDepth(state, active);
     state = { ...state, phase: "running" };
@@ -221,24 +256,22 @@ export function applyTurn(initial: InterviewerState, candidate: CandidateInput |
     record.planChanged = true;
   }
 
-  // 5. 离开 / 进入话题，按模型调用的顺序；一个回合只进入一个新话题，进入之后的 leave 不算（那段话还没说）。
-  // 模型常在同一话题里继续问时又调一次 enter：指向当前话题的 enter 视为继续，不另开线程。
+  // 5. 先离开、再进入。开场回合请自我介绍，不是话题，不接受 enter；指向当前话题的 enter 视为继续
+  //    （模型常在追问时又 leave 再 enter 同一个话题：两个都不算）；只 leave 不 enter 也不收尾的，话题继续
+  //    （否则接下来的问答落在话题之外，切不了段）。
+  const continuing = decision.enter !== null && sameTopic(activeThread(state), decision.enter);
+  const leaving = decision.leave !== null && !continuing && (decision.enter !== null || decision.ended);
+  if (leaving) leave({ verdict: decision.leave!.verdict, note: decision.leave!.note });
   let entered: ThreadState | null = null;
-  for (const move of decision.moves) {
-    if (entered) break;
-    if (move.type === "leave") {
-      leave({ verdict: move.input.verdict, note: move.input.note });
-      continue;
-    }
-    if (sameTopic(activeThread(state), move.input)) continue;
+  if (decision.enter && !opening && !continuing) {
     leave({ verdict: null, note: SYSTEM_CLOSE_NOTE });
-    const item = move.input.itemId ? (state.plan?.items.find((planItem) => planItem.id === move.input.itemId) ?? null) : null;
+    const item = decision.enter.itemId ? (state.plan?.items.find((planItem) => planItem.id === decision.enter!.itemId) ?? null) : null;
     entered = {
       id: randomUUID(),
       planItemId: item?.id ?? null,
-      areaId: knownAreaId(state, move.input.areaId) ?? item?.areaId ?? null,
-      kind: move.input.kind,
-      label: move.input.label,
+      areaId: knownAreaId(state, decision.enter.areaId) ?? item?.areaId ?? null,
+      kind: decision.enter.kind,
+      label: decision.enter.label,
       entryQuestion: speech,
       status: "active",
       depth: 0,
@@ -257,7 +290,7 @@ export function applyTurn(initial: InterviewerState, candidate: CandidateInput |
     return finish();
   }
   const active = activeThread(state);
-  const kind: MessageKind = entered ? "question" : state.phase === "opening" ? "intro_request" : "probe";
+  const kind: MessageKind = entered ? "question" : opening ? "intro_request" : "probe";
   newMessages.push(message(state, "interviewer", kind, speech, { threadId: active?.id ?? null, toolName: entered ? "enter" : null }));
   if (active && !entered) state = bumpDepth(state, active);
   state = { ...state, phase: "running" };

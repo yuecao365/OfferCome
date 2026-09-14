@@ -5,12 +5,9 @@ import { testBrief } from "@/lib/test-support/interview-brief";
 
 import { buildConversation, selectConversation } from "./conversation";
 import { emptyMemory } from "./memory";
-import { createInterviewerState, type MessageKind, type MessageRole, type MessageState, type ThreadState } from "./state";
+import { createInterviewerState, type MessageKind, type MessageRole, type MessageState } from "./state";
 
-/**
- * 对话窗口按线程对齐：进行中线程整段保留，上一条线程只留最后一问一答，
- * 插话不进对话，超长时保住切入问答。
- */
+/** 对话原文只追加：整场保留，结束插话不进，超长从最旧的整条丢，相邻同角色合并。 */
 
 const brief = testBrief();
 
@@ -20,109 +17,40 @@ function msg(turnIndex: number, role: MessageRole, kind: MessageKind, content: s
   return { id: `m${seq}`, turnIndex, role, kind, content, threadId, toolName: null };
 }
 
-function thread(id: string, openedAtTurn: number, closedAtTurn: number | null): ThreadState {
-  return {
-    id,
-    planItemId: null,
-    areaId: brief.areas[0].id,
-    kind: "project",
-    label: `${id} 话题`,
-    entryQuestion: `${id} 切入`,
-    status: closedAtTurn === null ? "active" : "closed",
-    depth: 2,
-    verdict: null,
-    openedAtTurn,
-    closedAtTurn,
-    note: "答到第二层",
-  };
+function state(messages: MessageState[]) {
+  return createInterviewerState({ brief, memory: emptyMemory(brief), plan: null, threads: [], messages, ended: false });
 }
 
-function state(threads: ThreadState[], messages: MessageState[]) {
-  return createInterviewerState({ brief, memory: emptyMemory(brief), plan: null, threads, messages, ended: false });
-}
-
-/** 第一条线程 t1 的完整往来：切入、追问、求助与面试官的回应、追问。 */
-function firstThread(): MessageState[] {
-  return [
+test("整场保留：开场、自我介绍、每个话题的问答与候选人的求助都在；结束插话不进", () => {
+  const messages = [
     msg(0, "interviewer", "intro_request", "请先自我介绍。", null),
     msg(1, "candidate", "answer", "我是曹岳。", null),
     msg(1, "interviewer", "question", "t1 切入", "t1"),
-    msg(2, "candidate", "answer", "主循环分五段。", "t1"),
-    msg(2, "interviewer", "probe", "追问一", "t1"),
-    msg(3, "candidate", "answer", "能给点提示吗？", "t1"),
-    msg(3, "interviewer", "probe", "从工具协议说起。", "t1"),
-    msg(4, "candidate", "answer", "工具通过注册表注册。", "t1"),
-    msg(4, "interviewer", "probe", "追问二", "t1"),
+    msg(2, "candidate", "answer", "能给点提示吗？", "t1"),
+    msg(2, "interviewer", "probe", "从工具协议说起。", "t1"),
+    msg(3, "candidate", "answer", "工具通过注册表注册。", "t1"),
+    msg(3, "interviewer", "question", "t2 切入", "t2"),
+    msg(4, "candidate", "aside", "我们结束吧。", "t2"),
   ];
-}
-
-test("进行中线程整段保留，候选人的求助与面试官的回应都在对话里", () => {
-  const picked = selectConversation(state([thread("t1", 1, null)], firstThread())).map((m) => m.content);
-  assert.deepEqual(picked, [
-    "请先自我介绍。",
-    "我是曹岳。",
-    "t1 切入",
-    "主循环分五段。",
-    "追问一",
-    "能给点提示吗？",
-    "从工具协议说起。",
-    "工具通过注册表注册。",
-    "追问二",
-  ]);
+  assert.deepEqual(
+    selectConversation(state(messages)).map((m) => m.content),
+    ["请先自我介绍。", "我是曹岳。", "t1 切入", "能给点提示吗？", "从工具协议说起。", "工具通过注册表注册。", "t2 切入"],
+  );
 });
 
-test("上一条线程只留最后一问一答，开场与插话不进对话", () => {
-  const messages = [
-    ...firstThread(),
-    msg(5, "candidate", "answer", "第二层的回答。", "t1"),
-    msg(5, "interviewer", "question", "t2 切入", "t2"),
-    msg(6, "candidate", "answer", "t2 的回答。", "t2"),
-    msg(6, "interviewer", "probe", "t2 追问", "t2"),
-    msg(7, "candidate", "aside", "再说一遍", "t2"),
-    msg(7, "interviewer", "aside", "我再说一遍：t2 追问", "t2"),
-    msg(8, "candidate", "answer", "t2 第二个回答。", "t2"),
-    msg(8, "interviewer", "probe", "t2 追问二", "t2"),
-  ];
-  const picked = selectConversation(state([thread("t1", 1, 5), thread("t2", 5, null)], messages)).map((m) => m.content);
-  assert.deepEqual(picked, [
-    "追问二",
-    "第二层的回答。",
-    "t2 切入",
-    "t2 的回答。",
-    "t2 追问",
-    "我再说一遍：t2 追问",
-    "t2 第二个回答。",
-    "t2 追问二",
-  ]);
-});
-
-test("线程之间的过渡语境跟着上一条线程的边界走", () => {
-  const messages = [
-    ...firstThread(),
-    msg(5, "candidate", "answer", "第二层的回答。", "t1"),
-    msg(5, "interviewer", "closing", "这段到这里。", null),
-    msg(6, "candidate", "answer", "好的。", null),
-  ];
-  const picked = selectConversation(state([thread("t1", 1, 5)], messages)).map((m) => m.content);
-  assert.deepEqual(picked, ["追问二", "第二层的回答。", "这段到这里。", "好的。"]);
-});
-
-test("插话被丢掉后相邻的同角色消息合并，保持交替", () => {
+test("相邻的同角色消息合并，保持交替", () => {
   const messages = [
     msg(1, "interviewer", "question", "t1 切入", "t1"),
-    msg(2, "candidate", "aside", "跳过", "t1"),
+    msg(2, "candidate", "answer", "跳过", "t1"),
+    msg(2, "candidate", "answer", "再补一句", "t1"),
     msg(2, "interviewer", "question", "我们跳过这题。\n\nt2 切入", "t2"),
-    msg(3, "candidate", "answer", "t2 的回答。", "t2"),
   ];
-  const conversation = buildConversation(state([thread("t1", 1, 2), thread("t2", 2, null)], messages));
-  assert.deepEqual(
-    conversation.map((m) => m.role),
-    ["assistant", "user"],
-  );
-  assert.equal(conversation[0].content, "t1 切入\n\n我们跳过这题。\n\nt2 切入");
+  const conversation = buildConversation(state(messages));
+  assert.deepEqual(conversation.map((m) => m.role), ["assistant", "user", "assistant"]);
+  assert.equal(conversation[1].content, "跳过\n\n再补一句");
 });
 
-test("超出字符上限时从最旧的丢，切入问答与最后两条保住", () => {
+test("超出字符上限时从最旧的整条丢，最后两条保住", () => {
   const long = "字".repeat(100);
   const messages = [
     msg(0, "interviewer", "intro_request", "请先自我介绍。", null),
@@ -132,9 +60,8 @@ test("超出字符上限时从最旧的丢，切入问答与最后两条保住",
     msg(2, "interviewer", "probe", "追问一", "t1"),
     msg(3, "candidate", "answer", `二答${long}`, "t1"),
     msg(3, "interviewer", "probe", "追问二", "t1"),
-    msg(4, "candidate", "answer", `三答${long}`, "t1"),
-    msg(4, "interviewer", "probe", "追问三", "t1"),
   ];
-  const picked = selectConversation(state([thread("t1", 1, null)], messages), 220).map((m) => m.content.slice(0, 4));
-  assert.deepEqual(picked, ["t1 切", "首答字字", "追问二", "三答字字", "追问三"]);
+  assert.deepEqual(selectConversation(state(messages), 220).map((m) => m.content.slice(0, 4)), ["t1 切", "首答字字", "追问一", "二答字字", "追问二"]);
+  assert.deepEqual(selectConversation(state(messages), 110).map((m) => m.content.slice(0, 4)), ["追问一", "二答字字", "追问二"]);
+  assert.equal(selectConversation(state(messages), 10).length, 2, "再小的上限也留最后两条");
 });

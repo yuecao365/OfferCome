@@ -39,7 +39,7 @@ test("persists a model call with payload, output and usage, then a selection", a
     event: "model_call",
     status: "success",
     finishReason: "stop",
-    usage: { inputTokens: 100, outputTokens: 20, totalTokens: 120 } as never,
+    usage: { inputTokens: 100, outputTokens: 20, totalTokens: 120, inputTokenDetails: { cacheReadTokens: 60 } } as never,
     payload: { jobTitle: "后端" },
     output: { competencies: [] },
     rawText: "{}",
@@ -57,6 +57,7 @@ test("persists a model call with payload, output and usage, then a selection", a
   assert.equal(chain.length, 2);
   assert.equal(chain[0].event, "model_call");
   assert.equal(chain[0].totalTokens, 120);
+  assert.equal(chain[0].cachedTokens, 60);
   assert.equal(chain[0].payloadJson, JSON.stringify({ jobTitle: "后端" }));
   assert.equal(chain[0].outputJson, JSON.stringify({ competencies: [] }));
   assert.equal(chain[1].event, "selection");

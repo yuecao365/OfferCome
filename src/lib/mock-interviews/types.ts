@@ -203,7 +203,7 @@ export type MockInterviewTraceTurn = {
     skillsLoaded: number;
     effects: string[];
   } | null;
-  run: { status: string; durationMs: number; totalTokens: number | null; errorKind: string | null } | null;
+  run: { status: string; durationMs: number; totalTokens: number | null; cachedTokens: number | null; errorKind: string | null } | null;
 };
 
 export type MockInterviewTrace = {

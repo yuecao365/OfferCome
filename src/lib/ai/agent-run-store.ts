@@ -63,6 +63,7 @@ async function writeAgentRun(record: AgentLogRecord): Promise<void> {
       durationMs: Math.max(0, Math.round(record.durationMs)),
       finishReason: record.finishReason ?? null,
       inputTokens: tokenCount(record.usage?.inputTokens),
+      cachedTokens: tokenCount(record.usage?.inputTokenDetails?.cacheReadTokens),
       outputTokens: tokenCount(record.usage?.outputTokens),
       totalTokens: tokenCount(record.usage?.totalTokens),
       errorKind: record.errorKind ?? null,

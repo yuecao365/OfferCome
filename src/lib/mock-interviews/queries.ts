@@ -173,17 +173,19 @@ export async function getMockInterviewTrace(id: string): Promise<MockInterviewTr
   if (!brief) return null;
   const runs = await prisma.agentRun.findMany({
     where: { runId: { startsWith: `turn:${id}:` }, event: "model_call" },
-    select: { runId: true, status: true, durationMs: true, totalTokens: true, errorKind: true },
+    select: { runId: true, status: true, durationMs: true, totalTokens: true, cachedTokens: true, errorKind: true },
   });
-  // 一回合两次模型调用（先决定、再说话）共用一个 runId：按回合合并开销，状态取最差的那次。
+  // 一回合一次模型调用（多步共用一个 runId）：按回合合并开销，状态取最差的那次。
   const runByTurn = new Map<number, TraceRun>();
+  const sum = (previous: number | null | undefined, current: number | null) => (current === null && previous == null ? null : (previous ?? 0) + (current ?? 0));
   for (const run of runs) {
     const turnIndex = Number(run.runId.split(":").pop());
     const previous = runByTurn.get(turnIndex);
     runByTurn.set(turnIndex, {
       status: previous && previous.status !== "success" ? previous.status : run.status,
       durationMs: (previous?.durationMs ?? 0) + run.durationMs,
-      totalTokens: run.totalTokens === null && previous?.totalTokens == null ? null : (previous?.totalTokens ?? 0) + (run.totalTokens ?? 0),
+      totalTokens: sum(previous?.totalTokens, run.totalTokens),
+      cachedTokens: sum(previous?.cachedTokens, run.cachedTokens),
       errorKind: previous?.errorKind ?? run.errorKind,
     });
   }

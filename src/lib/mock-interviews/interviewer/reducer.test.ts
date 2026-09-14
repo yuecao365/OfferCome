@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { testBrief } from "@/lib/test-support/interview-brief";
 
-import { detectCandidateIntent, type LeaveInput, type ThreadVerdict } from "./actions";
+import { detectCandidateIntent, type EnterInput, type LeaveInput, type ThreadVerdict } from "./actions";
 import { emptyMemory } from "./memory";
 import { applyTurn, FALLBACK_SPEECH, interviewerNote, pickSpeech, planTurn, SYSTEM_CLOSE_NOTE, turnsLeft, turnsUsed, type CandidateInput, type TurnDecision } from "./reducer";
 import { activeThread, closedThreads, createInterviewerState, planItemStatus, type InterviewerState } from "./state";
@@ -19,12 +19,11 @@ function fresh(): InterviewerState {
 }
 
 function say(speech: string, extras: Partial<TurnDecision> = {}): TurnDecision {
-  return { speech, plan: null, moves: [], ended: false, memoryPatch: null, ...extras };
+  return { speech, plan: null, leave: null, enter: null, ended: false, memoryPatch: null, ...extras };
 }
 
-const enter = (label: string, kind: "project" | "quick" | "scenario" = "project", areaId: string | null = null, itemId: string | null = null) =>
-  ({ type: "enter" as const, input: { itemId, label, kind, areaId } });
-const leave = (verdict: ThreadVerdict = "answered", note = "答得清楚"): { type: "leave"; input: LeaveInput } => ({ type: "leave", input: { verdict, note } });
+const enter = (label: string, kind: "project" | "quick" | "scenario" = "project", areaId: string | null = null, itemId: string | null = null): EnterInput => ({ itemId, label, kind, areaId });
+const leave = (verdict: ThreadVerdict = "answered", note = "答得清楚"): LeaveInput => ({ verdict, note });
 
 let seq = 0;
 function answer(content = "我负责主循环。"): CandidateInput {
@@ -35,13 +34,14 @@ function answer(content = "我负责主循环。"): CandidateInput {
 /** 开场 + 自我介绍后进入了项目话题。 */
 function opened(): InterviewerState {
   let state = applyTurn(fresh(), null, say("你好，先介绍一下自己？")).state;
-  state = applyTurn(state, answer("自我介绍"), say("先聊项目：主循环里你负责哪一段？", { moves: [enter("Study Assistant：主循环", "project", "p1-module")] })).state;
+  state = applyTurn(state, answer("自我介绍"), say("先聊项目：主循环里你负责哪一段？", { enter: enter("Study Assistant：主循环", "project", "p1-module") })).state;
   return state;
 }
 
-test("开场：模型只写问候，没说话就用固定措辞；开场回合不进任何话题", () => {
+test("开场：模型只写问候，没说话就用固定措辞；开场回合不接受 enter，自我介绍不成段", () => {
   assert.deepEqual(planTurn(fresh(), null), { kind: "model" });
-  const spoken = applyTurn(fresh(), null, say("欢迎，先介绍一下自己。"));
+  const spoken = applyTurn(fresh(), null, say("欢迎，先介绍一下自己。", { enter: enter("项目", "project", "p1-overview") }));
+  assert.equal(spoken.state.threads.length, 0);
   assert.equal(spoken.newMessages[0].kind, "intro_request");
   assert.equal(spoken.newMessages[0].content, "欢迎，先介绍一下自己。");
   assert.equal(spoken.state.phase, "running");
@@ -58,7 +58,7 @@ test("计划由模型写，代码只记录：同 id 去重，各项状态按线�
     answer("自我介绍"),
     say("先聊你的助手项目。", {
       plan: { items: [{ id: "a", label: "助手：架构", kind: "project", areaId: "p1-overview", turns: 4 }, { id: "a", label: "重复", kind: "quick", areaId: null, turns: null }, { id: "b", label: "缓存一致性", kind: "quick", areaId: "q1", turns: 1 }], note: "先项目后基础" },
-      moves: [enter("助手：架构", "project", null, "a")],
+      enter: enter("助手：架构", "project", null, "a"),
     }),
   );
   assert.equal(planned.decision.planChanged, true);
@@ -91,7 +91,7 @@ test("进入话题：这句话成为第一问，之后的话记为追问、深�
 test("离开再进入：离开的话题切段（第一问 + 追问 + 全部回答）、带 verdict 与判断；新话题从这句话开始", () => {
   let state = opened();
   state = applyTurn(state, answer("参数校验那段。"), say("校验不过怎么办？")).state;
-  const result = applyTurn(state, answer("回给模型自纠。"), say("好。缓存和数据库双写时怎么保证一致？", { moves: [leave("answered", "机制清楚"), enter("缓存一致性", "quick", "q1")] }));
+  const result = applyTurn(state, answer("回给模型自纠。"), say("好。缓存和数据库双写时怎么保证一致？", { leave: leave("answered", "机制清楚"), enter: enter("缓存一致性", "quick", "q1") }));
   const closed = result.effects.find((effect) => effect.type === "thread_closed");
   assert.ok(closed && closed.type === "thread_closed");
   assert.equal(closed.thread.verdict, "answered");
@@ -108,19 +108,28 @@ test("离开再进入：离开的话题切段（第一问 + 追问 + 全部回�
   assert.equal(closedThreads(result.state).length, 1);
 });
 
-test("同一话题里又调了 enter：视为继续，不另开线程、不记没交代", () => {
+test("同一话题里又调了 enter（哪怕先 leave 了）：视为继续，不另开线程、不记没交代", () => {
   const state = opened();
-  const again = applyTurn(state, answer(), say("再往下一层？", { moves: [enter("Study Assistant：主循环", "project", "p1-module")] }));
+  const again = applyTurn(state, answer(), say("再往下一层？", { enter: enter("Study Assistant：主循环", "project", "p1-module") }));
   assert.equal(again.effects.length, 0);
   assert.equal(again.state.threads.length, 1);
   assert.equal(activeThread(again.state)?.depth, 1);
   assert.equal(again.newMessages.at(-1)?.kind, "probe");
   assert.equal(again.decision.entered, null);
+  const relabeled = applyTurn(state, answer(), say("再往下一层？", { leave: leave("answered", "不该生效"), enter: enter("Study Assistant：主循环追问", "project", "p1-module") }));
+  assert.equal(relabeled.effects.length, 0);
+  assert.equal(relabeled.state.threads.length, 1);
+  assert.equal(relabeled.decision.left, null);
+  // 只 leave 不 enter、也不收尾：话题继续，这句话仍在话题里。
+  const dangling = applyTurn(state, answer(), say("那校验不过怎么办？", { leave: leave("answered", "先放着") }));
+  assert.equal(dangling.effects.length, 0);
+  assert.equal(activeThread(dangling.state)?.depth, 1);
+  assert.equal(dangling.newMessages.at(-1)?.threadId, activeThread(state)!.id);
 });
 
-test("没交代就换了话题：代码替它离开，verdict 为空、note 是系统标记，不算面试官的判断；进入之后的 leave 不算", () => {
+test("没交代就换了话题：代码替它离开，verdict 为空、note 是系统标记，不算面试官的判断", () => {
   const state = opened();
-  const result = applyTurn(state, answer(), say("换个话题。", { moves: [enter("缓存一致性", "quick", "q1"), leave("failed", "不该生效")] }));
+  const result = applyTurn(state, answer(), say("换个话题。", { enter: enter("缓存一致性", "quick", "q1") }));
   const closed = result.effects.find((effect) => effect.type === "thread_closed");
   assert.ok(closed && closed.type === "thread_closed");
   assert.equal(closed.thread.verdict, null);
@@ -133,7 +142,7 @@ test("没交代就换了话题：代码替它离开，verdict 为空、note 是�
 
 test("模型收尾：这句话是告别，进行中的话题切段，面试结束；结束后再来消息不再变化", () => {
   const state = opened();
-  const ended = applyTurn(state, answer(), say("今天到这里，谢谢。", { moves: [leave("thin", "只有关键词")], ended: true }));
+  const ended = applyTurn(state, answer(), say("今天到这里，谢谢。", { leave: leave("thin", "只有关键词"), ended: true }));
   assert.equal(ended.state.phase, "ended");
   assert.equal(ended.newMessages.at(-1)?.kind, "closing");
   assert.ok(ended.effects.some((effect) => effect.type === "interview_ended"));
@@ -158,7 +167,7 @@ test("候选人按结束：不调模型，固定告别语，进行中的话题�
 test("总回合预算用完：下一回合由代码收尾，不调模型", () => {
   let state = applyTurn(fresh(), null, say("你好")).state;
   state = { ...state, brief: { ...state.brief, turns: 3 } };
-  state = applyTurn(state, answer("自我介绍"), say("先聊项目。", { moves: [enter("项目", "project", "p1-overview")] })).state;
+  state = applyTurn(state, answer("自我介绍"), say("先聊项目。", { enter: enter("项目", "project", "p1-overview") })).state;
   assert.deepEqual(planTurn(state, null), { kind: "model" });
   state = applyTurn(state, answer(), say("最后一问。")).state;
   assert.equal(turnsLeft(state), 0);
@@ -171,7 +180,7 @@ test("总回合预算用完：下一回合由代码收尾，不调模型", () =>
 
 test("模型没说出话来：接一句固定的话，不改计划、不换话题", () => {
   const state = opened();
-  const result = applyTurn(state, answer(), say("", { failed: true, moves: [enter("不该生效", "quick", "q1")], plan: { items: [{ id: "x", label: "x", kind: "quick", areaId: null, turns: null }], note: null } }));
+  const result = applyTurn(state, answer(), say("", { failed: true, enter: enter("不该生效", "quick", "q1"), plan: { items: [{ id: "x", label: "x", kind: "quick", areaId: null, turns: null }], note: null } }));
   assert.equal(result.newMessages.at(-1)?.content, FALLBACK_SPEECH.stall);
   assert.equal(result.newMessages.at(-1)?.kind, "probe");
   assert.equal(result.decision.failed, true);
@@ -194,11 +203,14 @@ test("工作记忆按话题累计，只认简报里有的假设", () => {
 test("说的话取最后一步的文本，整段是 JSON 的不算；areaId 只认材料里有的", () => {
   assert.equal(pickSpeech(["先聊项目。", '{"items":[{"id":"a"}]}'], ""), "先聊项目。");
   assert.equal(pickSpeech(['{"items":[]}'], '{"items":[]}'), "");
+  assert.equal(pickSpeech(['{"leave":{"verdict":"answered","note":"覆盖了 {一部分}"},"note":null}\n那常驻记忆什么时候写入？'], ""), "那常驻记忆什么时候写入？");
   assert.equal(pickSpeech([], " 好。 "), "好。");
+  assert.equal(pickSpeech(["你说的时间分布误差怎么定义？你说的时间分布误差怎么定义？"], ""), "你说的时间分布误差怎么定义？");
+  assert.equal(pickSpeech(["先说 A。 再说 B。"], ""), "先说 A。 再说 B。");
   const state = applyTurn(fresh(), null, say("你好")).state;
   const planned = applyTurn(state, answer("自我介绍"), say("先聊项目。", {
     plan: { items: [{ id: "a", label: "记忆", kind: "quick", areaId: "ai-llm", turns: 2 }], note: null },
-    moves: [enter("记忆", "quick", "not-a-material", "a")],
+    enter: enter("记忆", "quick", "not-a-material", "a"),
   }));
   assert.equal(planned.state.plan?.items[0].areaId, null);
   assert.equal(activeThread(planned.state)?.areaId, null);

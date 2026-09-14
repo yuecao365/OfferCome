@@ -526,6 +526,8 @@ model AgentRun {
   durationMs    Int
   finishReason  String?
   inputTokens   Int?
+  /// 输入里命中提示词缓存的部分（provider 报的 cached tokens）；没报为 null。
+  cachedTokens  Int?
   outputTokens  Int?
   totalTokens   Int?
   errorKind     String?
