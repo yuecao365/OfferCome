@@ -28,7 +28,7 @@ flowchart TD
 |---|---|
 | brief | 材料（见开始前篇）：项目的五个面、基础题池、场景题、简历假设、总回合数 |
 | plan | 面试官自己写的计划 `{ items[{ id, label, kind, areaId, turns }], note, revisedAtTurn }`；开场后第一回合写，之后可改 |
-| memory | 工作记忆：已确认 / 存疑 / 失守 / 假设状态（`memory.ts`，不变） |
+| memory | 工作记忆：已确认 / 存疑 / 失守 / 假设状态（`memory.ts`）。模型每回合只写增量；入库时按相似度合并（3 元字符组 Dice ≥ 0.45 或短句被长句覆盖 ≥ 0.85 算同一条，留更长的那句），写进已确认 / 失守的条目把存疑里相似的去掉；每列表最多 20 条，旧会话读出来时过同样的合并 |
 | threads | 话题线程：`{ planItemId, areaId, kind, label, entryQuestion, status: active \| closed, depth, verdict, note, openedAtTurn, closedAtTurn }`。一个话题一条；进入时这句话是 `entryQuestion`，之后每问一句 `depth + 1` |
 | messages | 面试官：intro_request / question（进入话题的那句）/ probe（话题内的后续）/ aside（答疑：复述、换个说法、给方向，不算回合）/ closing；候选人：answer（他说的一切，含求助、要求澄清）/ aside（只有代码执行的"结束"） |
 | turnIndex / phase | 下一回合序号；opening / running / ended |
