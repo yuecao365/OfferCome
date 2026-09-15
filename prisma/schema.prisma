@@ -220,6 +220,7 @@ model MockInterviewSession {
   messages             MockInterviewMessage[]
   threads              InterviewThread[]
   decisions            InterviewTurnDecision[]
+  events               InterviewEvent[]
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 
@@ -567,4 +568,21 @@ model InterviewTurnDecision {
   createdAt       DateTime             @default(now())
 
   @@unique([sessionId, turnIndex])
+}
+
+/// 面试的事件日志：一场里发生的一切，按 seq 追加写，是唯一的事实来源；逐字稿、线程、报告都是它的投影。
+/// 重构阶段 A 起与旧表双写（interview-refactor-plan.md）。
+model InterviewEvent {
+  id          String               @id @default(cuid())
+  sessionId   String
+  session     MockInterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  seq         Int
+  type        String
+  payloadJson String
+  /// 产生这个事件的模型调用（AgentRun.runId）；没有为 null。
+  runId       String?
+  createdAt   DateTime             @default(now())
+
+  @@unique([sessionId, seq])
+  @@index([sessionId, type])
 }

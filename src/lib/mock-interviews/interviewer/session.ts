@@ -6,8 +6,10 @@ import { scheduleMockInterviewCompletion, scheduleMockInterviewQuestionEvaluatio
 import { claimSession } from "../session-state";
 import { loadSkillPacks } from "../skills/loader";
 import { packsForInterview } from "../skills/selector";
-import { parseThreadVerdict, type CandidateIntent } from "./actions";
+import { parseThreadVerdict, type ButtonIntent, type CandidateIntent } from "./actions";
 import { isAreaKind, parseStoredBrief, type InterviewBrief } from "./brief";
+import { appendEvents, event, type NewEvent } from "@/lib/interview/events";
+
 import { parseStoredMemory } from "./memory";
 import type { TurnResult } from "./reducer";
 import { segmentRecord } from "./segments";
@@ -34,6 +36,8 @@ export type CandidateMessageInput = {
   clientId: string;
   content: string;
   intent: CandidateIntent;
+  /** 候选人按的房间按钮（提示 / 跳过 / 再说一遍 / 结束）；打字发的为 null。只进事件日志。 */
+  control: ButtonIntent | null;
   /** 语音作答的指标（P2 接入），原样并入消息元数据。 */
   voiceMetricsJson?: string | null;
 };
@@ -234,6 +238,19 @@ export async function persistTurn(
       });
       if (!record.skipped) evaluationIds.push(question.id);
     }
+
+    // 事件日志（重构阶段 A：与旧表双写）。候选人的话 → 面试官的话 → 降级 / 结束。
+    const events: NewEvent[] = [];
+    for (const message of result.newMessages) {
+      if (message.role === "candidate") {
+        events.push(event("candidate_said", { content: message.content, clientId: candidate?.clientId ?? null, control: candidate?.control ?? null, composeMs: message.metrics?.composeMs ?? null }));
+      } else {
+        events.push(event("interviewer_said", { content: message.content, kind: message.kind }, decision.runId));
+      }
+    }
+    if (decision.failed) events.push(event("fallback_used", { reason: "模型没说出话" }, decision.runId));
+    if (decision.endedBy) events.push(event("ended", { by: decision.endedBy }));
+    await appendEvents(tx, sessionId, events);
 
     await tx.interviewTurnDecision.create({
       data: {

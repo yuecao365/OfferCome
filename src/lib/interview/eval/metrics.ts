@@ -1,0 +1,206 @@
+import { questionSimilarity } from "@/lib/text/similarity";
+
+import { endedBy, transcriptOf, type InterviewEvent, type TranscriptLine } from "../events";
+
+/**
+ * 一场面试的指标（interview-system-design.md §8）：全部从事件日志加两份投影算出来，
+ * 不看模型的记账。阶段 A 里"聊了什么"来自旧系统的线程表；阶段 C 起来自整理员的分段，
+ * 输入形状不变（SegmentFact）。
+ */
+
+/** 一段问答的事实：种类、对应材料、所属项目、追问轮数。 */
+export type SegmentFact = { kind: "project" | "quick" | "scenario"; areaId: string | null; projectId: string | null; depth: number; answered: boolean };
+
+/** 一次模型调用的开销（AgentRun）。 */
+export type RunFact = { runId: string; durationMs: number; inputTokens: number; cachedTokens: number; outputTokens: number };
+
+export type SessionFacts = {
+  sessionId: string;
+  /** 预算：回合数（旧系统）或分钟（新系统），两者只填一个。 */
+  turnsTotal: number | null;
+  events: InterviewEvent[];
+  segments: SegmentFact[];
+  /** 面试官的模型调用（不含评分等事后调用）。 */
+  runs: RunFact[];
+};
+
+export type SessionMetrics = {
+  sessionId: string;
+  interviewerTurns: number;
+  candidateTurns: number;
+  asides: number;
+  endedBy: "interviewer" | "candidate" | "budget" | null;
+  /** 面试官说的回合数（不含答疑）没超预算。 */
+  budgetKept: boolean;
+  projectsCovered: number;
+  /** 每个聊过的项目摸了几个面（平均）。 */
+  facesPerProject: number;
+  quickCount: number;
+  scenarioAsked: boolean;
+  scenarioAnswered: boolean;
+  /** 项目段的平均追问轮数。 */
+  projectProbeDepth: number;
+  /** 与前面某句几乎一样的提问数。 */
+  repeatedQuestions: number;
+  helpRequests: number;
+  /** 求助 / 澄清之后面试官没有换题（仍在同一段）的比例；没求助为 null。 */
+  helpHandledRate: number | null;
+  fallbacks: number;
+  tokens: { input: number; cached: number; output: number; cacheRate: number };
+  latencyMs: { p50: number; p95: number };
+};
+
+const REPEAT_SIMILARITY = 0.6;
+/** 候选人短句里的求助 / 澄清；房间按钮另算。 */
+const HELP_PATTERN = /(具体一点|具体点|什么意思|没听懂|没太懂|是什么|能再说|再说一遍|给个方向|提示|不太明白|哪个方向)/;
+const HELP_MAX_CHARS = 40;
+
+function percentile(values: number[], ratio: number): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((left, right) => left - right);
+  return sorted[Math.max(0, Math.ceil(ratio * sorted.length) - 1)];
+}
+
+export function isHelpRequest(line: TranscriptLine): boolean {
+  if (line.role !== "candidate") return false;
+  if (line.control === "hint" || line.control === "repeat") return true;
+  const text = line.content.trim();
+  return text.length > 0 && text.length <= HELP_MAX_CHARS && HELP_PATTERN.test(text);
+}
+
+/** 面试官的一句是不是在重复前面说过的话（问法几乎一样）。 */
+export function repeatedQuestionCount(transcript: TranscriptLine[]): number {
+  const said: string[] = [];
+  let repeats = 0;
+  for (const line of transcript) {
+    if (line.role !== "interviewer" || line.kind === "closing" || line.kind === "aside") continue;
+    if (said.some((previous) => questionSimilarity(previous, line.content) >= REPEAT_SIMILARITY)) repeats += 1;
+    said.push(line.content);
+  }
+  return repeats;
+}
+
+/**
+ * 求助之后有没有被换题：面试官的下一句还在原来的段里（旧系统：kind 不是 question；新系统：整理员的分段没有换）。
+ * 阶段 A 用 kind 判断。
+ */
+export function helpHandling(transcript: TranscriptLine[]): { requests: number; handled: number } {
+  let requests = 0;
+  let handled = 0;
+  for (let index = 0; index < transcript.length; index += 1) {
+    if (!isHelpRequest(transcript[index])) continue;
+    requests += 1;
+    const next = transcript.slice(index + 1).find((line) => line.role === "interviewer");
+    if (next && next.kind !== "question" && next.kind !== "closing") handled += 1;
+  }
+  return { requests, handled };
+}
+
+export function sessionMetrics(facts: SessionFacts): SessionMetrics {
+  const transcript = transcriptOf(facts.events);
+  const interviewerLines = transcript.filter((line) => line.role === "interviewer");
+  const asides = interviewerLines.filter((line) => line.kind === "aside").length;
+  const counted = interviewerLines.length - asides;
+  const projects = new Map<string, Set<string>>();
+  for (const segment of facts.segments) {
+    if (segment.kind !== "project" || !segment.projectId) continue;
+    const faces = projects.get(segment.projectId) ?? new Set<string>();
+    if (segment.areaId) faces.add(segment.areaId);
+    projects.set(segment.projectId, faces);
+  }
+  const projectSegments = facts.segments.filter((segment) => segment.kind === "project");
+  const scenario = facts.segments.filter((segment) => segment.kind === "scenario");
+  const help = helpHandling(transcript);
+  const input = facts.runs.reduce((sum, run) => sum + run.inputTokens, 0);
+  const cached = facts.runs.reduce((sum, run) => sum + run.cachedTokens, 0);
+  const output = facts.runs.reduce((sum, run) => sum + run.outputTokens, 0);
+  const latencies = facts.runs.map((run) => run.durationMs);
+  return {
+    sessionId: facts.sessionId,
+    interviewerTurns: counted,
+    candidateTurns: transcript.filter((line) => line.role === "candidate").length,
+    asides,
+    endedBy: endedBy(facts.events),
+    budgetKept: facts.turnsTotal === null || counted <= facts.turnsTotal,
+    projectsCovered: projects.size,
+    facesPerProject: projects.size === 0 ? 0 : [...projects.values()].reduce((sum, faces) => sum + faces.size, 0) / projects.size,
+    quickCount: facts.segments.filter((segment) => segment.kind === "quick").length,
+    scenarioAsked: scenario.length > 0,
+    scenarioAnswered: scenario.some((segment) => segment.answered),
+    projectProbeDepth: projectSegments.length === 0 ? 0 : projectSegments.reduce((sum, segment) => sum + segment.depth, 0) / projectSegments.length,
+    repeatedQuestions: repeatedQuestionCount(transcript),
+    helpRequests: help.requests,
+    helpHandledRate: help.requests === 0 ? null : help.handled / help.requests,
+    fallbacks: facts.events.filter((item) => item.type === "fallback_used").length,
+    tokens: { input, cached, output, cacheRate: input === 0 ? 0 : cached / input },
+    latencyMs: { p50: percentile(latencies, 0.5), p95: percentile(latencies, 0.95) },
+  };
+}
+
+/** 一组会话的汇总：数值取均值，布尔取比例，null 跳过。 */
+export type MetricSummary = Record<string, number | null>;
+
+const SUMMARY_KEYS = [
+  "interviewerTurns",
+  "asides",
+  "budgetKept",
+  "projectsCovered",
+  "facesPerProject",
+  "quickCount",
+  "scenarioAsked",
+  "scenarioAnswered",
+  "projectProbeDepth",
+  "repeatedQuestions",
+  "helpRequests",
+  "helpHandledRate",
+  "fallbacks",
+] as const;
+
+export function summarize(list: SessionMetrics[]): MetricSummary {
+  const summary: MetricSummary = { sessions: list.length };
+  for (const key of SUMMARY_KEYS) {
+    const values = list.map((item) => item[key]).filter((value): value is number | boolean => value !== null).map((value) => (typeof value === "boolean" ? Number(value) : value));
+    summary[key] = values.length === 0 ? null : values.reduce((sum, value) => sum + value, 0) / values.length;
+  }
+  const input = list.reduce((sum, item) => sum + item.tokens.input, 0);
+  summary.inputTokensPerSession = list.length === 0 ? null : input / list.length;
+  summary.outputTokensPerSession = list.length === 0 ? null : list.reduce((sum, item) => sum + item.tokens.output, 0) / list.length;
+  summary.cacheRate = input === 0 ? null : list.reduce((sum, item) => sum + item.tokens.cached, 0) / input;
+  summary.latencyP95Ms = list.length === 0 ? null : percentile(list.map((item) => item.latencyMs.p95), 0.5);
+  return summary;
+}
+
+const LABELS: Record<string, string> = {
+  sessions: "场次",
+  interviewerTurns: "面试官回合（不含答疑）",
+  asides: "答疑句数",
+  budgetKept: "守住预算的比例",
+  projectsCovered: "聊到的项目数",
+  facesPerProject: "每项目摸的面数",
+  quickCount: "基础题数",
+  scenarioAsked: "问了场景题的比例",
+  scenarioAnswered: "场景题答上的比例",
+  projectProbeDepth: "项目段平均追问轮数",
+  repeatedQuestions: "重复提问数",
+  helpRequests: "求助次数",
+  helpHandledRate: "求助后不换题的比例",
+  fallbacks: "代码接话次数",
+  inputTokensPerSession: "每场输入 token",
+  outputTokensPerSession: "每场输出 token",
+  cacheRate: "缓存命中率",
+  latencyP95Ms: "回合 p95 延迟（ms，取各场中位）",
+};
+
+export function renderSummaryTable(columns: { name: string; summary: MetricSummary }[]): string {
+  const keys = Object.keys(columns[0]?.summary ?? {});
+  const header = `| 指标 | ${columns.map((column) => column.name).join(" | ")} |`;
+  const divider = `|---|${columns.map(() => "---").join("|")}|`;
+  const rows = keys.map((key) => `| ${LABELS[key] ?? key} | ${columns.map((column) => format(column.summary[key])).join(" | ")} |`);
+  return [header, divider, ...rows].join("\n");
+}
+
+function format(value: number | null | undefined): string {
+  if (value === null || value === undefined) return "—";
+  if (Number.isInteger(value)) return String(value);
+  return value.toFixed(2);
+}

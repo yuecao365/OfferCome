@@ -14,7 +14,9 @@
     "boss:login": "tsx scripts/boss-login.ts",
     "boss:sync": "tsx scripts/boss-sync.ts",
     "agent:runs": "tsx scripts/agent-runs.ts",
-    "eval": "tsx --conditions=react-server scripts/eval.ts"
+    "eval": "tsx --conditions=react-server scripts/eval.ts",
+    "simulate": "tsx --conditions=react-server scripts/simulate.ts",
+    "replay": "tsx --conditions=react-server scripts/replay.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.60",

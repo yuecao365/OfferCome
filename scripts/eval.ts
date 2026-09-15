@@ -6,6 +6,7 @@ import process from "node:process";
 import { flushAgentRunPersistence, installAgentRunPersistence, setAgentRunTag } from "../src/lib/ai/agent-run-store";
 import { prisma } from "../src/lib/db";
 import { loadEvalModels, type EvalModels } from "../src/lib/evals/models";
+import { ensureFixtureResume } from "../src/lib/evals/resume-row";
 import {
   EVAL_DIR,
   loadCandidateScripts,
@@ -80,7 +81,6 @@ import { parseStoredMemory, type MemoryPatch } from "../src/lib/mock-interviews/
 import { EVALUATION_PROMPT_VERSION, evaluateMockInterviewQuestion } from "../src/lib/mock-interviews/question-evaluation-agent";
 import { parseStoredEvaluationList, type EvaluationStrength, type EvaluationWeakness } from "../src/lib/mock-interviews/question-evaluation";
 import { parseStoredReport } from "../src/lib/mock-interviews/report";
-import { buildStoredResumeName, RESUME_UPLOAD_DIR } from "../src/lib/resumes/storage";
 
 /**
  * 评测运行器。必须用 react-server 条件跑，让 server-only 解析成空模块：
@@ -100,7 +100,6 @@ const MAX_TURNS = 30;
 const FORCE_CLAIM_AFTER_TURN = 3;
 /** 再往后模拟器还没说，就由运行器把 Z 接在回答末尾：评测要的是面试官对已知错句的反应，谁把它说出来不重要。 */
 const APPEND_CLAIM_AFTER_TURN = 5;
-const RESUME_MIME = "text/markdown";
 
 function argValue(name: string): string | undefined {
   const index = process.argv.indexOf(name);
@@ -136,23 +135,6 @@ async function writeRun(kind: string, body: unknown): Promise<string> {
 }
 
 /* ---------------------------------------------------------------- fixtures */
-
-async function ensureEvalResume(resumeId: string): Promise<string> {
-  const originalName = `eval-${resumeId}.md`;
-  const existing = await prisma.resume.findFirst({ where: { originalName }, select: { id: true } });
-  if (existing) return existing.id;
-  const text = loadResumeText(resumeId);
-  await fs.mkdir(RESUME_UPLOAD_DIR, { recursive: true });
-  const storedName = buildStoredResumeName(".md");
-  const filePath = path.join(RESUME_UPLOAD_DIR, storedName);
-  await fs.writeFile(filePath, text, "utf8");
-  const created = await prisma.resume.create({
-    data: { originalName, storedName, filePath, mimeType: RESUME_MIME, fileSize: Buffer.byteLength(text), isDefault: false },
-    select: { id: true },
-  });
-  console.log(`已为合成简历 ${resumeId} 建了 Resume 记录 ${created.id}`);
-  return created.id;
-}
 
 async function scorerSources(limit: number, existing: Set<string>, evalTag: string | null): Promise<ScorerCaseSource[]> {
   const questions = await prisma.interviewQuestion.findMany({
@@ -1009,7 +991,7 @@ async function commandInterviewer(models: EvalModels): Promise<void> {
       throw new Error(`连不上 ${base}；先启动 dev 服务器。`);
     });
     for (const item of selected) {
-      const resumeDbId = await ensureEvalResume(item.resume);
+      const resumeDbId = await ensureFixtureResume(item.resume);
       const resumeText = loadResumeText(item.resume);
       const jobTitle = loadJdFixture(item.jd).title;
       for (let rep = 1; rep <= k; rep += 1) {

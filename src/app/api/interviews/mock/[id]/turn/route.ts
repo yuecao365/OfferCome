@@ -33,6 +33,7 @@ function parseBody(body: Body) {
       clientId,
       content: content || (explicit ? CANDIDATE_INTENT_PLACEHOLDERS[explicit] : ""),
       intent: explicit === "end" ? "end" : detectCandidateIntent(content),
+      control: explicit,
       voiceMetricsJson: typeof body.voiceMetricsJson === "string" ? body.voiceMetricsJson : null,
     },
   };

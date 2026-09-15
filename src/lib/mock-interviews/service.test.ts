@@ -224,7 +224,7 @@ async function seedReadySession() {
 async function runTurn(sessionId: string, candidate: { clientId: string; content: string; intent?: "skip" | "hint" | "repeat" | "end" | null } | null) {
   const turn = await service.startInterviewerTurn({
     sessionId,
-    candidate: candidate ? { clientId: candidate.clientId, content: candidate.content, intent: candidate.intent === "end" ? "end" : null } : null,
+    candidate: candidate ? { clientId: candidate.clientId, content: candidate.content, intent: candidate.intent === "end" ? "end" : null, control: candidate.intent ?? null } : null,
   });
   if (turn.replay) return { replay: true as const, messages: turn.messages };
   const result = await turn.finalize();

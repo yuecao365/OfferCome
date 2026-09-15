@@ -111,3 +111,16 @@
 - 一场全流程 ≈ 0.13 美元；评测时跳过画像合成（打 evalTag 不进画像）≈ 0.08 美元。
 - 阶段 A 基线 15 场 ≈ 2 美元；100 场扫一遍 ≈ 8–13 美元；1000 场 ≈ 80–130 美元。
 - 输出 token 占六成，面试官每回合 550 输出里一半是工具入参 JSON——阶段 B 只输出 `{ say, notebook }` 后会再降。
+
+## 7. 执行记录
+
+### 阶段 A（2026-09-14）
+
+代码（本地提交）：
+- `InterviewEvent` 表；`src/lib/interview/events.ts`：事件类型与 payload schema（含后续阶段预留的类型）、`appendEvents`（seq 连续分配）、`parseEventRow`（坏数据丢弃）、逐字稿投影。旧回合在 `persistTurn` 里双写候选人 / 面试官说话、房间按钮（`control`）、降级、结束。
+- `src/lib/interview/eval/simulator.ts`：五种画像（扎实 / 一知半解 / 爱跑题 / 爱求助 / 对抗）× 每项岗位能力的真实水平（按种子采样，写进作答规则）；爱求助的按节奏澄清与要提示，对抗的按节奏夹注入句。走真实 HTTP 接口。
+- `src/lib/interview/eval/metrics.ts`：覆盖（项目数、每项目面数、基础题数、场景题问没问 / 答没答）、预算、重复提问（3 元字符组相似度 ≥ 0.6）、求助识别与"求助后没换题"比例、代码接话、token / 缓存率 / p95。`facts.ts` 装事实（阶段 A 的分段来自线程表）并做逐字稿对账。
+- `scripts/simulate.ts`（`npm run simulate`）：用例 = 画像 × 种子，并发跑，产物 `eval/runs/sim-<tag>.json`，会话打 `evalTag = sim:<tag>`；`--recompute` 只重算指标。`scripts/replay.ts`（`npm run replay`）：事件重建逐字稿、与消息表对账、算指标，不调模型。
+- 合成简历建 Resume 行的逻辑抽到 `lib/evals/resume-row.ts`，评测与模拟器共用。
+
+冒烟（快速节奏，爱求助画像）：跑通；事件 30 条、逐字稿 29 句与消息表 29 行对账一致；6 次求助里 5 次没被换题；输入 281k、缓存 86%、p95 6.9 秒。
