@@ -2,6 +2,7 @@ import "server-only";
 
 import { prisma } from "@/lib/db";
 import { parseStoredBrief } from "@/lib/mock-interviews/brief/brief";
+import { competenciesOf } from "@/lib/mock-interviews/context";
 import { scheduleMockInterviewQuestionEvaluation } from "@/lib/mock-interviews/question-evaluation-background";
 import { evaluatePersistedMockInterviewQuestion } from "@/lib/mock-interviews/question-evaluation-service";
 import { getAiTaskConfig } from "@/lib/settings/ai";
@@ -31,7 +32,7 @@ async function loadForSegmenting(sessionId: string) {
 async function segmentAndPersist(sessionId: string): Promise<{ count: number; questionIds: string[] }> {
   const { session, brief, transcript } = await loadForSegmenting(sessionId);
   if (transcript.length === 0) return { count: 0, questionIds: [] };
-  const { segments, hypotheses } = await segmentTranscript({ runId: `segment:${sessionId}`, config: await getAiTaskConfig("text"), transcript, brief });
+  const { segments, hypotheses } = await segmentTranscript({ runId: `segment:${sessionId}`, config: await getAiTaskConfig("text"), transcript, brief, competencies: competenciesOf(session.contextSnapshotJson) });
   const questionIds = await persistSegments(sessionId, session.interview.id, brief, transcript, segments, hypotheses);
   return { count: segments.length, questionIds };
 }
@@ -98,6 +99,8 @@ async function persistSegments(sessionId: string, interviewId: string, brief: Aw
             note: segment.note,
             startSeq: segment.startSeq,
             endSeq: segment.endSeq,
+            competencyId: segment.competencyId,
+            difficulty: segment.difficulty,
             questionId: question.id,
           },
         });

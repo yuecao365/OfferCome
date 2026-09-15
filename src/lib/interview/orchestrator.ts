@@ -2,6 +2,7 @@ import "server-only";
 
 import { prisma } from "@/lib/db";
 import { parseStoredBrief } from "@/lib/mock-interviews/brief/brief";
+import { competenciesOf } from "@/lib/mock-interviews/context";
 import { scheduleMockInterviewCompletion } from "@/lib/mock-interviews/question-evaluation-background";
 import { claimSession } from "@/lib/mock-interviews/session-state";
 import { loadSkillPacks } from "@/lib/mock-interviews/skills/loader";
@@ -9,6 +10,7 @@ import { packsForInterview } from "@/lib/mock-interviews/skills/selector";
 import { getAiTaskConfig } from "@/lib/settings/ai";
 
 import { scheduleLabeling } from "./background";
+import { estimate, observationsFromEvents } from "./estimator";
 import { appendEvents, parseEventRow, transcriptOf, type InterviewEvent } from "./events";
 import { coveredMaterials } from "./labeler";
 import { runTurn, type CandidateInput, type TurnResult, type TurnState } from "./turn";
@@ -45,6 +47,7 @@ function turnState(loaded: Loaded): TurnState {
     totalMinutes: loaded.durationMinutes,
     phase: loaded.status !== "in_progress" ? "ended" : transcript.length === 0 ? "opening" : "running",
     covered: coveredMaterials(events),
+    estimates: estimate(competenciesOf(loaded.contextSnapshotJson), observationsFromEvents(events)),
   };
 }
 

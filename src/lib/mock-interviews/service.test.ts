@@ -60,6 +60,7 @@ mock.module("./context", {
       return { jobDescription: "JD", resume: { id: "resume-1", name: "简历.pdf", text: "简历正文" }, projects: [], history: [], profile: { revision: 0, insights: [] } };
     },
     serializeMockInterviewContext: () => JSON.stringify({ resumeId: "resume-1" }),
+    competenciesOf: () => [],
   },
 });
 

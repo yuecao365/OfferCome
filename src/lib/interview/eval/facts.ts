@@ -1,14 +1,15 @@
 import { prisma } from "@/lib/db";
 import { parseStoredBrief } from "@/lib/mock-interviews/brief/brief";
+import { competenciesOf } from "@/lib/mock-interviews/context";
 
 import { parseEventRow, type InterviewEvent } from "../events";
 import type { RunFact, SegmentFact, SessionFacts } from "./metrics";
 
 /**
- * 从库里装一场的事实：事件日志 + 分段投影 + 面试官的模型开销。指标只看这三样。
- * 分段来自整理员写的线程投影（阶段 C 起）。
+ * 从库里装一场的事实：事件日志 + 分段投影（带事后评分）+ 面试官的模型开销 + 岗位能力清单。指标只看这些。
+ * 分段来自整理员写的线程投影（阶段 C 起）；truth 是模拟候选人的能力真值（阶段 D 的估计器对照）。
  */
-export async function loadSessionFacts(sessionId: string): Promise<SessionFacts> {
+export async function loadSessionFacts(sessionId: string, truth?: { competencyId: string; level: number }[]): Promise<SessionFacts> {
   const session = await prisma.mockInterviewSession.findUnique({
     where: { id: sessionId },
     include: {
@@ -20,6 +21,11 @@ export async function loadSessionFacts(sessionId: string): Promise<SessionFacts>
   const brief = parseStoredBrief(session.briefJson);
   const projectOf = new Map(brief?.areas.map((area) => [area.id, area.projectId] as const) ?? []);
   const events = session.events.map(parseEventRow).filter((item): item is InterviewEvent => item !== null);
+  const evaluations = await prisma.interviewQuestionEvaluation.findMany({
+    where: { interviewQuestionId: { in: session.threads.flatMap((thread) => (thread.questionId ? [thread.questionId] : [])) } },
+    select: { interviewQuestionId: true, score: true, lowConfidence: true },
+  });
+  const evaluationOf = new Map(evaluations.map((item) => [item.interviewQuestionId, item]));
   const segments: SegmentFact[] = session.threads.map((thread) => ({
     kind: thread.kind === "project" || thread.kind === "scenario" ? thread.kind : "quick",
     areaId: thread.areaId,
@@ -28,6 +34,10 @@ export async function loadSessionFacts(sessionId: string): Promise<SessionFacts>
     answered: thread.verdict !== "skipped",
     startSeq: thread.startSeq,
     endSeq: thread.endSeq,
+    competencyId: thread.competencyId,
+    difficulty: thread.difficulty,
+    score: thread.questionId ? (evaluationOf.get(thread.questionId)?.score ?? null) : null,
+    lowConfidence: thread.questionId ? (evaluationOf.get(thread.questionId)?.lowConfidence ?? false) : false,
   }));
   const runs: RunFact[] = (
     await prisma.agentRun.findMany({
@@ -36,7 +46,7 @@ export async function loadSessionFacts(sessionId: string): Promise<SessionFacts>
     })
   ).map((run) => ({ runId: run.runId, durationMs: run.durationMs, inputTokens: run.inputTokens ?? 0, cachedTokens: run.cachedTokens ?? 0, outputTokens: run.outputTokens ?? 0 }));
   // 重建后预算是时间盒而不是回合数：回合预算指标不再适用（守住预算恒为真），时间盒由 clock_tick / ended 事件体现。
-  return { sessionId, turnsTotal: null, events, segments, runs };
+  return { sessionId, turnsTotal: null, events, segments, runs, competencies: competenciesOf(session.contextSnapshotJson), ...(truth ? { truth } : {}) };
 }
 
 /** 逐字稿投影与消息表对账：事件日志是否完整地记下了双方说的话。 */

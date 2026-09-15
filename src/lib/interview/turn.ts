@@ -2,6 +2,7 @@ import type { AiTaskConfig } from "@/lib/ai/config";
 import type { InterviewBrief } from "@/lib/mock-interviews/brief/brief";
 
 import { estimateClock, type Clock } from "./clock";
+import { estimateLine, type Estimate } from "./estimator";
 import { event, isHelpRequest, type CandidateControl, type NewEvent, type TranscriptLine } from "./events";
 import { FALLBACK_SPEECH, runPolicy, type PolicyContext, type PolicyOutput } from "./policy";
 
@@ -22,6 +23,8 @@ export type TurnState = {
   phase: TurnPhase;
   /** 标注器回填的"聊过什么"（材料 id，按第一次出现的顺序）；体验版没有标注器，为空。 */
   covered: string[];
+  /** 估计器对每项能力的当前估计（从在线评委的分数算）；体验版没有评委，为空。 */
+  estimates: Estimate[];
 };
 
 export type CandidateInput = {
@@ -106,8 +109,8 @@ export function speak(state: TurnState, clock: Clock, output: PolicyOutput | nul
     return { say: opening ? FALLBACK_SPEECH.askIntro : FALLBACK_SPEECH.stall, kind: "fallback", notebook: null, failed: true, runId, skillsLoaded, endedBy: null };
   }
   const say = LEAK_PATTERN.test(output.say) ? FALLBACK_SPEECH.stall : output.say.trim();
-  // 告别不会以问号结尾：模型在收尾提醒下常把 closing 标在最后一问上，那样候选人没机会答。
-  const closing = output.closing && !opening && clock.usedMinutes / clock.totalMinutes >= CLOSING_ALLOWED_RATIO && !/[？?]\s*$/.test(say);
+  // 告别里不会有问号：模型在收尾提醒下常把 closing 标在"最后再问一个"上（问号后面还会补一句"一句话说完就行"），那样候选人没机会答。
+  const closing = output.closing && !opening && clock.usedMinutes / clock.totalMinutes >= CLOSING_ALLOWED_RATIO && !/[？?]/.test(say);
   return { say, kind: closing ? "closing" : "say", notebook: output.notebook.trim(), failed: false, runId, skillsLoaded, endedBy: closing ? "interviewer" : null };
 }
 
@@ -137,7 +140,7 @@ export function runTurn(input: { runId: string; config: AiTaskConfig; state: Tur
     brief: state.brief,
     context: input.context,
     transcript: state.transcript,
-    card: { clock: plan.clock, notebook: state.notebook, opening: state.phase === "opening", covered: state.covered, helping: candidate ? isHelpRequest({ role: "candidate", ...candidate }) : false },
+    card: { clock: plan.clock, notebook: state.notebook, opening: state.phase === "opening", covered: state.covered, helping: candidate ? isHelpRequest({ role: "candidate", ...candidate }) : false, estimate: estimateLine(state.estimates) },
     candidateContent: candidate?.content ?? null,
   });
   return {

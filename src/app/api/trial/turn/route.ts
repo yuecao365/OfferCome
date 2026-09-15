@@ -40,6 +40,7 @@ export const POST = withTrialAiResponse<Body>(async (body) => {
     totalMinutes: body.state.totalMinutes,
     phase: messages.length === 0 ? "opening" : "running",
     covered: [],
+    estimates: [],
   };
   try {
     const run = runTurn({

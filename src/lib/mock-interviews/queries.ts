@@ -4,9 +4,11 @@ import { prisma } from "@/lib/db";
 import { REAL_USAGE_INTERVIEW_WHERE } from "@/lib/interviews/types";
 import { parseJsonArray, parseJsonObject, parseJsonValue } from "@/lib/json";
 
+import { estimate, type Estimate, type Observation } from "@/lib/interview/estimator";
 import { conversationView, traceTurns, type TraceRun } from "@/lib/interview/views";
 
 import { parseStoredBrief } from "./brief/brief";
+import { competenciesOf } from "./context";
 import {
   parseStoredEvaluationList,
   type AnswerExemplar,
@@ -62,8 +64,22 @@ function loadSessionForView(id: string) {
         },
       },
       messages: { orderBy: [{ turnIndex: "asc" }, { createdAt: "asc" }] },
+      threads: { select: { competencyId: true, difficulty: true, questionId: true } },
     },
   });
+}
+
+/** 事后的能力估计：整理员的分段（能力、答到第几层）+ 双采样评分（低置信的段只算半次），与面试中同一个估计器。 */
+function buildEstimates(session: SessionWithConversation): Estimate[] {
+  const competencies = competenciesOf(session.contextSnapshotJson);
+  if (session.status !== "completed" || competencies.length === 0) return [];
+  const scoreOf = new Map(session.interview.questions.map((question) => [question.id, question.evaluation] as const));
+  const observations: Observation[] = session.threads.flatMap((thread) => {
+    const evaluation = thread.questionId ? scoreOf.get(thread.questionId) : null;
+    if (!thread.competencyId || thread.difficulty === null || !evaluation || evaluation.score === null) return [];
+    return [{ competencyId: thread.competencyId, difficulty: thread.difficulty, score: evaluation.score, confidence: evaluation.lowConfidence ? 0.5 : 1 }];
+  });
+  return estimate(competencies, observations);
 }
 
 /** 对话式会话的视图；没有简报（备课未完成）时为 null。 */
@@ -107,6 +123,7 @@ export async function getMockInterviewView(id: string): Promise<MockInterviewVie
     report: parseStoredReport(session.reportJson),
     materials: { resumeText: session.resumeTextSnapshot, jobDescription: session.jdTextSnapshot },
     conversation: buildConversation(session),
+    estimates: buildEstimates(session),
     questions: session.interview.questions.map((question) => {
       const completedEvaluation =
         session.status === "completed" ? question.evaluation : null;
@@ -187,6 +204,7 @@ export async function getMockInterviewTrace(id: string): Promise<MockInterviewTr
     pace: brief.pace,
     totalMinutes: session.durationMinutes,
     areas: brief.areas.map((area) => ({ id: area.id, name: area.name, kind: area.kind })),
+    competencies: competenciesOf(session.contextSnapshotJson).map((item) => ({ id: item.id, name: item.name })),
     rows: traceTurns(
       session.events.map((row) => ({ type: row.type, payload: parseJsonObject(row.payloadJson), runId: row.runId })),
       runById,

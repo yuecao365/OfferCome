@@ -28,13 +28,13 @@ flowchart TD
 
 **触发**：交卷（`completeMockInterview`）第一步 `ensureSegments`，幂等——已有分段直接返回；`resegment` 删掉旧分段与兼容题目重切（调试用）。体验版在浏览器发起交卷时调 `/api/trial/segment`。
 
-**一次调用**（`segmenter.ts`，segmenter-v3）：输入带编号的逐字稿（每句 ≤ 700 字）与材料清单（id、种类、名称、建议问法）；输出每段的 `startSeq`（这段第一问的编号）、对应材料 id（临场话题 null）、种类、一句标签、verdict（answered / thin / failed / skipped）、一句判断。规则：一段从面试官进入一个话题的那句开始到下一段开始之前；同一材料的连续追问同一段；候选人的澄清、求助、跑题不开新段；开场与收尾不算段。
+**一次调用**（`segmenter.ts`，segmenter-v4）：输入带编号的逐字稿（每句 ≤ 700 字）、材料清单（id、种类、名称、建议问法）与岗位能力清单；输出每段的 `startSeq`（这段第一问的编号）、对应材料 id（临场话题 null）、种类、一句标签、verdict（answered / thin / failed / skipped）、一句判断。规则：一段从面试官进入一个话题的那句开始到下一段开始之前；同一材料的连续追问同一段；候选人的澄清、求助、跑题不开新段；开场与收尾不算段。
 
 **代码修复**（`repairSegments`，纯函数）：编号要是面试官那句（写成候选人那句的靠到前一句面试官）、开场那句不算（从开场起的段靠到第一问，除非第一问已有段）、去重排序、结束编号取下一段开始之前（最后一段到逐字稿末尾）；areaId 只认材料里有的；没有候选人回答的段 verdict 强制 skipped；深度 = 段内面试官发言数 − 1。
 
 **重切**：`npm run resegment -- <sessionId> [...]` 用当前版本的整理员重切已结束的场次（删旧段、兼容题目与评分，评分同步跑完）；改了整理员之后对旧场次重跑用。
 
-**落库**（一个事务）：每段一行 `InterviewThread`（areaId、kind、label、entryQuestion、depth、verdict、note、startSeq、endSeq；competencyId / difficulty 阶段 D 起）+ 一行兼容 `InterviewQuestion`（题目 = 第一问 + "追问 n：…"，回答 = 段内候选人的话拼接，skipped = verdict 为 skipped 或没有回答）+ 待评分的 `InterviewQuestionEvaluation`（评分表与期望信号取材料的，没有材料按种类兜底；`generationMetadataJson` = areaId / areaName / areaKind / competencyOrigin / skillPack / note / depth / probeCount / verdict / startSeq / endSeq）。有回答的段安排后台评分。
+**落库**（一个事务）：每段一行 `InterviewThread`（areaId、kind、label、entryQuestion、depth、verdict、note、startSeq、endSeq、competencyId（这段主要考的能力，只认岗位能力清单里的；对不上取材料的第一个）、difficulty（候选人答到阶梯第几层 1–4））+ 一行兼容 `InterviewQuestion`（题目 = 第一问 + "追问 n：…"，回答 = 段内候选人的话拼接，skipped = verdict 为 skipped 或没有回答）+ 待评分的 `InterviewQuestionEvaluation`（评分表与期望信号取材料的，没有材料按种类兜底；`generationMetadataJson` = areaId / areaName / areaKind / competencyOrigin / skillPack / note / depth / probeCount / verdict / startSeq / endSeq）。有回答的段安排后台评分。
 
 **评分的引用硬门与置信**：strengths / weaknesses 里写了引用却不在回答里的条目整条丢掉（不再只是置空）；同一段两次采样，总分相差超过 15 标 `lowConfidence`（报告里提示"仅供参考"，不改分）。
 
@@ -152,6 +152,7 @@ advice: 补一版完整的 Agent 主循环设计稿，重点写清上下文构�
 | 总分 + 总体评价 | 0–100；summary |
 | 这场问了什么 | 按话题种类分节（项目深挖 / 基础快问 / 场景题）：每个聊过的话题一行：标签、追问了几轮、面试官离开时的判断、得分；跳过的标出。注明"总分按话题种类加权（项目 3 : 基础 1 : 场景 2）；跳过的计 0 分，没聊到的不计" |
 | 简历上的说法经不经得起问 | 每条假设：状态徽章（已验证 / 没有讲清楚 / 没问到）、假设原文、一句结论 |
+| 能力估计 | 岗位每项能力：估计（低 / 中 / 高）、置信、评了几段、是否核心；没问到的标出。用面试中同一个估计器，输入换成整理员的分段（能力、答到第几层）+ 双采样评分（低置信的段只算半次）；`queries.buildEstimates` 读时现算 |
 | 站得住的 / 失守在哪 / 下一步练什么 | 三栏；短板标"说错了 / 没答上 / 反复出现"并挂题名 |
 | 逐段反馈 | 每条线程一张卡：题目（第一问 + 追问）、作答用时、分数、可展开"查看我的回答"、可展开"这道题在考察什么"（话题、种类、来源、期望信号、面试官的判断）、feedback、维度分（证据 + 缺口）、答得好的与短板（带原话引用）、练什么、可展开"用你的项目，这段可以这样答" |
 | 面试官的工作记忆 | 折叠：已确认 / 存疑 / 失守原文 |

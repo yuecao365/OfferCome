@@ -13,7 +13,7 @@ import { applyTurn, candidateWantsToEnd, planTurn, speak, type CandidateInput, t
  */
 
 function state(overrides: Partial<TurnState> = {}): TurnState {
-  return { brief: testBrief(), notebook: "", transcript: [], totalMinutes: 20, phase: "opening", covered: [], ...overrides };
+  return { brief: testBrief(), notebook: "", transcript: [], totalMinutes: 20, phase: "opening", covered: [], estimates: [], ...overrides };
 }
 
 const candidate = (content: string, control: CandidateInput["control"] = null): CandidateInput => ({ clientId: "c1", content, control, composeMs: null });
@@ -51,7 +51,7 @@ test("说话：没产出接一句；泄露内部词换固定的话；面试过�
   assert.equal(late.kind, "closing");
   assert.equal(late.endedBy, "interviewer");
   // 以问号结尾的"告别"其实是最后一问：不认，候选人还要答。
-  const question = speak(running, { usedMinutes: 18, totalMinutes: 20, exchanges: 14, phase: "wrap_up" }, { say: "最后一个点：你会先抽样复核，还是先看分布？", notebook: "n", closing: true }, "r5", 0);
+  const question = speak(running, { usedMinutes: 18, totalMinutes: 20, exchanges: 14, phase: "wrap_up" }, { say: "最后一个点：你会先抽样复核，还是先看分布？一句话说完就行。", notebook: "n", closing: true }, "r5", 0);
   assert.equal(question.kind, "say");
   assert.equal(question.endedBy, null);
 });

@@ -5,6 +5,7 @@ import { runAgent } from "@/lib/ai/run-agent";
 import { AREA_KINDS, type AreaKind, type InterviewBrief } from "@/lib/mock-interviews/brief/brief";
 import { THREAD_VERDICTS, type ThreadVerdict } from "@/lib/mock-interviews/verdicts";
 
+import { DIFFICULTY_LEVELS, type Competency } from "../estimator";
 import type { TranscriptLine } from "../events";
 
 /**
@@ -15,7 +16,7 @@ import type { TranscriptLine } from "../events";
  * 幂等、可重跑：输入完整（逐字稿 + 材料清单），错了重跑一次就好，面试本身不受影响。
  */
 
-export const SEGMENTER_PROMPT_VERSION = "segmenter-v3";
+export const SEGMENTER_PROMPT_VERSION = "segmenter-v4";
 const MAX_SEGMENTS = 30;
 const LINE_MAX_CHARS = 700;
 
@@ -32,6 +33,10 @@ export const segmenterOutputSchema = z.object({
         verdict: z.enum(THREAD_VERDICTS),
         /** 一句判断：答到哪一层、哪里好、哪里失守。 */
         note: z.string().min(1).max(300),
+        /** 这段主要考的能力（能力清单里的 id）；对不上为 null。 */
+        competencyId: z.string().max(40).nullable(),
+        /** 候选人答到阶梯第几层：1 只到概念，2 说清机制，3 讲到取舍与边界，4 有自己的判断并能验证。 */
+        difficulty: z.number().int().min(1).max(DIFFICULTY_LEVELS),
       }),
     )
     .max(MAX_SEGMENTS),
@@ -73,14 +78,17 @@ export type Segment = {
   depth: number;
   /** 候选人在这段里说的话（按顺序）。 */
   answers: string[];
+  competencyId: string | null;
+  difficulty: number;
 };
 
 /**
  * 模型产出 → 可用的分段（纯函数）：编号要是面试官那句（写成候选人那句的靠到前一句面试官）、开场那句不算（从开场起的段靠到第一问，除非第一问已有段）、去重排序、
  * 结束编号取下一段开始之前；areaId 只认材料里有的；没有候选人回答的段 verdict 强制 skipped。
  */
-export function repairSegments(output: SegmenterOutput, transcript: TranscriptLine[], brief: InterviewBrief): Segment[] {
+export function repairSegments(output: SegmenterOutput, transcript: TranscriptLine[], brief: InterviewBrief, competencies: Competency[] = []): Segment[] {
   const bySeq = new Map(transcript.map((line) => [line.seq, line]));
+  const competencyIds = new Set(competencies.map((item) => item.id));
   const areas = new Map(brief.areas.map((area) => [area.id, area]));
   const starts = new Map<number, SegmenterOutput["segments"][number]>();
   const openingSeq = transcript[0]?.seq;
@@ -118,6 +126,8 @@ export function repairSegments(output: SegmenterOutput, transcript: TranscriptLi
       entryQuestion: bySeq.get(startSeq)!.content,
       depth: Math.max(0, lines.filter((line) => line.role === "interviewer").length - 1),
       answers,
+      competencyId: raw.competencyId && competencyIds.has(raw.competencyId) ? raw.competencyId : (area?.competencyIds.find((id) => competencyIds.has(id)) ?? null),
+      difficulty: raw.difficulty,
     };
   });
 }
@@ -130,15 +140,15 @@ function renderMaterials(brief: InterviewBrief): { id: string; kind: AreaKind; n
   return brief.areas.map((area) => ({ id: area.id, kind: area.kind, name: area.name, question: area.entryQuestion.slice(0, 80) }));
 }
 
-const SYSTEM = `你是面试整理员。输入是一场模拟面试的逐字稿（每句带编号）和面试官手边的材料清单（每道材料有 id、种类、名称、建议问法）。把逐字稿切成话题段：
+const SYSTEM = `你是面试整理员。输入是一场模拟面试的逐字稿（每句带编号）、面试官手边的材料清单（每道材料有 id、种类、名称、建议问法）和岗位的能力清单。把逐字稿切成话题段：
 - 一段从面试官进入一个话题的那句提问开始，到下一个话题开始之前结束；同一道材料的连续追问属于同一段；候选人的澄清、求助、跑题都不开新段；面试官换到另一道材料、另一个项目的面或临场话题时才开新段。
 - 开场问候与候选人的自我介绍不算段；收尾告别不算段。
 - hypotheses：材料清单里附了备课时从简历提出的假设（id、要验证什么、简历原句）。逐条判断这场有没有碰到：碰到并且候选人讲清了 → confirmed，note 写哪段话证实了；碰到但没讲清或与简历不符 → refuted，note 用"没有讲清楚""还需要更多证据"这类措辞说差在哪；没碰到 → open。
-- 每段：startSeq 是这段第一问（面试官那句）的编号；areaId 是对应材料的 id（只填材料清单里的 id，不是假设的 id；顺着材料的建议问法或名称对上就填，临场话题填 null）；kind 是种类（project 项目 / quick 基础题 / scenario 场景题）；label 一句标签；verdict 是候选人这段答得怎么样：answered 有实质内容、thin 只有关键词没机制、failed 没答上或答错关键点、skipped 候选人要求跳过或没答；note 一句判断：答到哪一层、哪里好、哪里失守，写给评分与报告看。
+- 每段：startSeq 是这段第一问（面试官那句）的编号；areaId 是对应材料的 id（只填材料清单里的 id，不是假设的 id；顺着材料的建议问法或名称对上就填，临场话题填 null）；kind 是种类（project 项目 / quick 基础题 / scenario 场景题）；label 一句标签；verdict 是候选人这段答得怎么样：answered 有实质内容、thin 只有关键词没机制、failed 没答上或答错关键点、skipped 候选人要求跳过或没答；note 一句判断：答到哪一层、哪里好、哪里失守，写给评分与报告看；competencyId 是这段主要考的能力（只填能力清单里的 id，对不上填 null）；difficulty 是候选人实际答到阶梯第几层（1 只到概念或名词，2 说清了机制，3 讲到了取舍与边界，4 有自己的判断并说得出怎么验证）。
 - 只输出 JSON。`;
 
 /** 一次调用：逐字稿 + 材料 → 分段。 */
-export async function segmentTranscript(input: { runId: string; config: AiTaskConfig; transcript: TranscriptLine[]; brief: InterviewBrief }): Promise<{ segments: Segment[]; hypotheses: HypothesisJudgement[] }> {
+export async function segmentTranscript(input: { runId: string; config: AiTaskConfig; transcript: TranscriptLine[]; brief: InterviewBrief; competencies: Competency[] }): Promise<{ segments: Segment[]; hypotheses: HypothesisJudgement[] }> {
   const { output } = await runAgent({
     agent: "segmenter",
     runId: input.runId,
@@ -151,10 +161,11 @@ export async function segmentTranscript(input: { runId: string; config: AiTaskCo
       transcript: renderTranscript(input.transcript),
       materials: renderMaterials(input.brief),
       hypotheses: input.brief.hypotheses.map((item) => ({ id: item.id, text: item.text, evidence: item.evidence })),
+      competencies: input.competencies.map((item) => ({ id: item.id, name: item.name })),
     },
     schema: segmenterOutputSchema,
     maxOutputTokens: 3_500,
     timeoutMs: 60_000,
   });
-  return { segments: repairSegments(output, input.transcript, input.brief), hypotheses: repairHypotheses(output, input.brief) };
+  return { segments: repairSegments(output, input.transcript, input.brief, input.competencies), hypotheses: repairHypotheses(output, input.brief) };
 }

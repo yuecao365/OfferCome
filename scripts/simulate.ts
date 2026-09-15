@@ -10,6 +10,7 @@ import { loadSessionFacts } from "../src/lib/interview/eval/facts";
 import { renderSummaryTable, sessionMetrics, summarize, type SessionMetrics } from "../src/lib/interview/eval/metrics";
 import { ARCHETYPE_LABELS, ARCHETYPES, sampleAbilities, simulateReply, type Archetype, type SyntheticCandidate } from "../src/lib/interview/eval/simulator";
 import type { TranscriptLine } from "../src/lib/interview/events";
+import { competenciesOf } from "../src/lib/mock-interviews/context";
 import { getAiTaskConfig } from "../src/lib/settings/ai";
 
 /**
@@ -124,9 +125,10 @@ async function createSession(base: string, input: { jd: string; resumeDbId: stri
 /** 备课完成后从会话快照里取岗位能力模型：能力真值按它采样。 */
 async function loadCompetencies(sessionId: string): Promise<{ id: string; name: string }[]> {
   const session = await prisma.mockInterviewSession.findUniqueOrThrow({ where: { id: sessionId }, select: { contextSnapshotJson: true } });
-  const snapshot = JSON.parse(session.contextSnapshotJson) as { jobBlueprint?: { competencies?: { id: string; name: string }[] } | null };
-  return (snapshot.jobBlueprint?.competencies ?? []).map((item) => ({ id: item.id, name: item.name }));
+  return competenciesOf(session.contextSnapshotJson);
 }
+
+const truthOf = (abilities: { competencyId: string; level: number }[]) => abilities.map((item) => ({ competencyId: item.competencyId, level: item.level }));
 
 async function runCase(base: string, item: Case, config: { jd: string; resume: string; resumeDbId: string; pace: string; tag: string; maxTurns: number }): Promise<CaseResult> {
   const jd = loadJdFixture(config.jd);
@@ -163,7 +165,7 @@ async function runCase(base: string, item: Case, config: { jd: string; resume: s
     result.error = error instanceof Error ? error.message : String(error);
     console.error(`  [${item.id}] 失败：${result.error}`);
   }
-  result.metrics = sessionMetrics(await loadSessionFacts(sessionId));
+  result.metrics = sessionMetrics(await loadSessionFacts(sessionId, truthOf(result.abilities)));
   return result;
 }
 
@@ -188,7 +190,10 @@ async function recompute(tag: string): Promise<CaseResult[]> {
   for (const session of sessions) {
     const match = session.interview.companyName.match(/^模拟 ([a-z]+)-(\d+)$/);
     const archetype = (match?.[1] ?? "solid") as Archetype;
-    results.push({ id: match ? `${match[1]}-${match[2]}` : session.id, archetype, seed: Number(match?.[2] ?? 0), sessionId: session.id, abilities: [], turns: 0, error: null, metrics: sessionMetrics(await loadSessionFacts(session.id)) });
+    const seed = Number(match?.[2] ?? 0);
+    // 真值按 seed 重采（采样是确定的），重算时也能对照估计器。
+    const abilities = match ? sampleAbilities(competenciesOf(session.contextSnapshotJson), archetype, seed) : [];
+    results.push({ id: match ? `${match[1]}-${match[2]}` : session.id, archetype, seed, sessionId: session.id, abilities, turns: 0, error: null, metrics: sessionMetrics(await loadSessionFacts(session.id, truthOf(abilities))) });
   }
   return results;
 }

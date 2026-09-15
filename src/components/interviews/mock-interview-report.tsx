@@ -3,6 +3,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { MetaText } from "@/components/ui/data-table";
 import { cn } from "@/lib/cn";
+import { levelLabel } from "@/lib/interview/estimator";
 import { AREA_KIND_LABELS, type AreaKind } from "@/lib/mock-interviews/brief/brief";
 import type { MockInterviewReport as ReportData } from "@/lib/mock-interviews/report";
 import type { MockInterviewView } from "@/lib/mock-interviews/types";
@@ -73,6 +74,33 @@ function Hypotheses({ items }: { items: ReportData["hypotheses"] }) {
 }
 
 /** 面试官最后一份笔记：他对候选人的现场判断，只在报告页展示。 */
+/** 事后的能力估计：每项能力答到哪、有多确定；没问到的标出来。 */
+function Estimates({ items }: { items: MockInterviewView["estimates"] }) {
+  if (items.length === 0) return null;
+  return (
+    <section className="grid gap-3">
+      <h3 className="text-sm font-semibold text-foreground">能力估计</h3>
+      <ul className="grid gap-2 text-sm leading-6 text-muted-foreground md:grid-cols-2">
+        {items.map((item) => (
+          <li className="flex flex-wrap items-center gap-2" key={item.competencyId}>
+            <span className="text-foreground">{item.name}</span>
+            {item.samples === 0 ? (
+              <MetaText>没问到</MetaText>
+            ) : (
+              <>
+                <Badge tone={item.mean >= 0.7 ? "success" : item.mean >= 0.4 ? "neutral" : "warning"}>估计 {levelLabel(item.mean)}</Badge>
+                <MetaText>
+                  置信 {levelLabel(item.confidence)} · {item.samples} 段{item.weight >= 1 ? " · 核心" : ""}
+                </MetaText>
+              </>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 function Notebook({ session }: { session: MockInterviewView }) {
   const notebook = session.conversation?.notebook?.trim();
   if (!notebook) return null;
@@ -208,6 +236,7 @@ export function MockInterviewReport({ session }: { session: MockInterviewView })
         </div>
       </section>
       <Hypotheses items={report.hypotheses} />
+      <Estimates items={session.estimates} />
 
       <section className="grid gap-4 md:grid-cols-3">
         <Card className="p-4">

@@ -28,6 +28,7 @@ export function trialInterviewToView(interview: TrialInterview): MockInterviewVi
     conversation: interview.brief
       ? conversationView({ brief: interview.brief, status: interview.status, startedAt: interview.startedAt, totalMinutes: interview.totalMinutes, notebook: interview.notebook, messages: interview.messages })
       : null,
+    estimates: [],
     questions: interview.questions.map((segment, index) => ({
       id: segment.id,
       question: segment.question,
@@ -53,6 +54,7 @@ export function trialInterviewToTrace(interview: TrialInterview): MockInterviewT
     pace: interview.brief.pace,
     totalMinutes: interview.totalMinutes,
     areas: interview.brief.areas.map((area) => ({ id: area.id, name: area.name, kind: area.kind })),
+    competencies: [],
     rows: traceTurns(
       interview.messages.map((message) => ({
         type: message.role === "candidate" ? "candidate_said" : "interviewer_said",

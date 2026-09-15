@@ -13,7 +13,7 @@ import { event } from "./events";
  * 它不进关键路径：跑慢了就用上一次的，错了只影响一行提示。
  */
 
-export const LABELER_PROMPT_VERSION = "labeler-v1";
+export const LABELER_PROMPT_VERSION = "labeler-v2";
 /** 每几次交换（面试官说几句）跑一次。 */
 export const LABEL_EVERY_EXCHANGES = 2;
 const CONTEXT_LINES = 10;
@@ -58,7 +58,7 @@ export function labelingDue(transcript: TranscriptLine[], events: InterviewEvent
   return transcript.filter((line) => line.role === "interviewer" && line.seq > last).length >= LABEL_EVERY_EXCHANGES;
 }
 
-const SYSTEM = `你是面试记录员。给面试官最近说的每一句打标签：碰了材料清单里的哪一道（按建议问法或名称对上就填 id，对不上填 null），以及这句是什么动作：open 开一个新话题、probe 在同一话题里追问、clarify 答疑或把题说具体、hint 给方向、switch 换到另一个话题、close 收尾。只标 pending 里列出的编号，只输出 JSON。`;
+const SYSTEM = `你是面试记录员。给面试官最近说的每一句打标签：碰了材料清单里的哪一道（按建议问法或名称对上就填 id，对不上填 null），以及这句是什么动作：open 开一个新话题、probe 在同一话题里追问、clarify 答疑或把题说具体、hint 给方向、switch 换到另一个话题、close 收尾。换到另一道材料（另一个项目、另一个面、另一道题）就是 switch，不是 probe；probe 只用于同一道材料的继续追问。只标 pending 里列出的编号，只输出 JSON。`;
 
 /** 给还没标的面试官发言打标签；产出事件（不落库）。 */
 export async function labelRecent(input: { runId: string; config: AiTaskConfig; brief: InterviewBrief; transcript: TranscriptLine[]; events: InterviewEvent[] }): Promise<NewEvent[]> {

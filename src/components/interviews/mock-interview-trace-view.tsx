@@ -2,6 +2,7 @@ import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { levelLabel } from "@/lib/interview/estimator";
 import { AREA_KIND_LABELS, AREA_KINDS, INTERVIEW_PACE_LABELS } from "@/lib/mock-interviews/brief/brief";
 import type { MockInterviewTrace } from "@/lib/mock-interviews/types";
 
@@ -20,6 +21,10 @@ const KIND_LABELS: Record<string, string> = {
 
 /** 面试官一条话超过这个字数在 trace 页标出来：说话收短靠提示词，代码不截断。 */
 const LONG_MESSAGE_CHARS = 150;
+
+function competencyName(trace: MockInterviewTrace, id: string): string {
+  return trace.competencies.find((item) => item.id === id)?.name ?? id;
+}
 
 export function MockInterviewTraceView({ trace }: { trace: MockInterviewTrace }) {
   return (
@@ -72,6 +77,16 @@ export function MockInterviewTraceView({ trace }: { trace: MockInterviewTrace })
             ))}
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               {turn.fallback ? <Badge tone="warning">模型没说出话，代码接了一句</Badge> : null}
+              {turn.scored.map((item) => (
+                <span className="rounded-control bg-surface-subtle px-2 py-1" key={`${item.competencyId}-${item.score}`} title={item.note}>
+                  评委：{competencyName(trace, item.competencyId)} · 第 {item.difficulty} 层 · {Math.round(item.score)} 分（把握 {item.confidence.toFixed(1)}）
+                </span>
+              ))}
+              {turn.estimates.map((item) => (
+                <span className="rounded-control bg-surface-subtle px-2 py-1" key={`${item.competencyId}-${item.samples}`}>
+                  估计：{competencyName(trace, item.competencyId)} {levelLabel(item.mean)}（置信 {levelLabel(item.confidence)}，{item.samples} 段）
+                </span>
+              ))}
               {turn.notebook !== null ? (
                 <details className="w-full">
                   <summary className="cursor-pointer">这回合的笔记</summary>

@@ -1,5 +1,6 @@
 import { questionSimilarity } from "@/lib/text/similarity";
 
+import { coreSettled, estimate, estimatePairs, observationsFromEvents, pearson, type Competency, type Observation } from "../estimator";
 import { endedBy, isHelpRequest, transcriptOf, type InterviewEvent, type TranscriptLine } from "../events";
 
 /**
@@ -8,8 +9,20 @@ import { endedBy, isHelpRequest, transcriptOf, type InterviewEvent, type Transcr
  * 输入形状不变（SegmentFact）。
  */
 
-/** 一段问答的事实：种类、对应材料、所属项目、追问轮数。 */
-export type SegmentFact = { kind: "project" | "quick" | "scenario"; areaId: string | null; projectId: string | null; depth: number; answered: boolean; startSeq: number; endSeq: number };
+/** 一段问答的事实：种类、对应材料、所属项目、追问轮数；阶段 D 起还有考的能力、答到第几层与事后评分。 */
+export type SegmentFact = {
+  kind: "project" | "quick" | "scenario";
+  areaId: string | null;
+  projectId: string | null;
+  depth: number;
+  answered: boolean;
+  startSeq: number;
+  endSeq: number;
+  competencyId?: string | null;
+  difficulty?: number | null;
+  score?: number | null;
+  lowConfidence?: boolean;
+};
 
 /** 一次模型调用的开销（AgentRun）。 */
 export type RunFact = { runId: string; durationMs: number; inputTokens: number; cachedTokens: number; outputTokens: number };
@@ -22,6 +35,10 @@ export type SessionFacts = {
   segments: SegmentFact[];
   /** 面试官的模型调用（不含评分等事后调用）。 */
   runs: RunFact[];
+  /** 岗位能力清单（估计器用）；没有为空。 */
+  competencies?: Competency[];
+  /** 模拟候选人的能力真值（只有模拟器有）。 */
+  truth?: { competencyId: string; level: number }[];
 };
 
 export type SessionMetrics = {
@@ -52,7 +69,32 @@ export type SessionMetrics = {
   timeShare: { project: number; quick: number; scenario: number };
   tokens: { input: number; cached: number; output: number; cacheRate: number };
   latencyMs: { p50: number; p95: number };
+  /** 在线评委评过的段数。 */
+  scoredSegments: number;
+  /** 面试中的估计 / 事后的估计与真值的平均绝对误差（0–1；只有模拟器有真值，只算测过的能力；没测过为 null）。 */
+  onlineError: number | null;
+  offlineError: number | null;
+  /** （估计，真值）对：一场里真值常常相同（同一画像），相关要跨场合并算。 */
+  estimatePairs: { online: [number, number][]; offline: [number, number][] };
+  /** 核心能力全部足够确定时评到了第几段；没到为 null。 */
+  coreSettledAfter: number | null;
 };
+
+/** 估计器准不准：在线与事后两条路各算一遍，再看核心能力多少段能定下来。 */
+export function estimatorMetrics(facts: SessionFacts): Pick<SessionMetrics, "scoredSegments" | "onlineError" | "offlineError" | "estimatePairs" | "coreSettledAfter"> {
+  const competencies = facts.competencies ?? [];
+  const online = observationsFromEvents(facts.events);
+  const offline: Observation[] = facts.segments.flatMap((segment) =>
+    segment.competencyId && segment.difficulty != null && segment.score != null ? [{ competencyId: segment.competencyId, difficulty: segment.difficulty, score: segment.score, confidence: segment.lowConfidence ? 0.5 : 1 }] : [],
+  );
+  let coreSettledAfter: number | null = null;
+  for (let count = 1; count <= online.length && coreSettledAfter === null; count += 1) {
+    if (coreSettled(estimate(competencies, online.slice(0, count)))) coreSettledAfter = count;
+  }
+  const pairs = { online: facts.truth ? estimatePairs(estimate(competencies, online), facts.truth) : [], offline: facts.truth ? estimatePairs(estimate(competencies, offline), facts.truth) : [] };
+  const error = (list: [number, number][]) => (list.length === 0 ? null : list.reduce((sum, [mean, level]) => sum + Math.abs(mean - level), 0) / list.length);
+  return { scoredSegments: online.length, onlineError: error(pairs.online), offlineError: error(pairs.offline), estimatePairs: pairs, coreSettledAfter };
+}
 
 const REPEAT_SIMILARITY = 0.6;
 
@@ -144,6 +186,7 @@ export function sessionMetrics(facts: SessionFacts): SessionMetrics {
     timeShare: totalChars === 0 ? { project: 0, quick: 0, scenario: 0 } : { project: chars.project / totalChars, quick: chars.quick / totalChars, scenario: chars.scenario / totalChars },
     tokens: { input, cached, output, cacheRate: input === 0 ? 0 : cached / input },
     latencyMs: { p50: percentile(latencies, 0.5), p95: percentile(latencies, 0.95) },
+    ...estimatorMetrics(facts),
   };
 }
 
@@ -165,6 +208,10 @@ const SUMMARY_KEYS = [
   "helpHandledRate",
   "fallbacks",
   "multiQuestionRate",
+  "scoredSegments",
+  "onlineError",
+  "offlineError",
+  "coreSettledAfter",
 ] as const;
 
 export function summarize(list: SessionMetrics[]): MetricSummary {
@@ -179,6 +226,8 @@ export function summarize(list: SessionMetrics[]): MetricSummary {
   summary.outputTokensPerSession = list.length === 0 ? null : list.reduce((sum, item) => sum + item.tokens.output, 0) / list.length;
   summary.cacheRate = input === 0 ? null : list.reduce((sum, item) => sum + item.tokens.cached, 0) / input;
   summary.latencyP95Ms = list.length === 0 ? null : percentile(list.map((item) => item.latencyMs.p95), 0.5);
+  summary.onlineCorrelation = pearson(list.flatMap((item) => item.estimatePairs.online));
+  summary.offlineCorrelation = pearson(list.flatMap((item) => item.estimatePairs.offline));
   return summary;
 }
 
@@ -198,6 +247,12 @@ const LABELS: Record<string, string> = {
   helpHandledRate: "求助后不换题的比例",
   fallbacks: "代码接话次数",
   multiQuestionRate: "一句多问的比例",
+  scoredSegments: "在线评委评过的段数",
+  onlineError: "面试中估计与真值的平均误差",
+  offlineError: "事后估计与真值的平均误差",
+  coreSettledAfter: "核心能力定下来用了几段",
+  onlineCorrelation: "面试中估计与真值的相关（跨场合并）",
+  offlineCorrelation: "事后估计与真值的相关（跨场合并）",
   timeShare_project: "时间占比：项目",
   timeShare_quick: "时间占比：基础题",
   timeShare_scenario: "时间占比：场景题",

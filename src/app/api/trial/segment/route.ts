@@ -15,7 +15,7 @@ type Body = { brief: InterviewBrief; messages: ConversationMessage[]; round: str
 export const POST = withTrialAi<Body>(async (body) => {
   if (!body.brief || !Array.isArray(body.messages)) return { segments: [] as TrialSegment[], hypotheses: [] };
   const transcript = body.messages.map((message, seq) => ({ seq, role: message.role, content: message.content, kind: message.role === "interviewer" ? message.kind : null, control: null }));
-  const { segments, hypotheses } = await segmentTranscript({ runId: `trial-segment:${Date.now()}`, config: await getAiTaskConfig("text"), transcript, brief: body.brief });
+  const { segments, hypotheses } = await segmentTranscript({ runId: `trial-segment:${Date.now()}`, config: await getAiTaskConfig("text"), transcript, brief: body.brief, competencies: [] });
   const areas = new Map(body.brief.areas.map((area) => [area.id, area]));
   return {
     hypotheses,

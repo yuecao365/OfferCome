@@ -38,9 +38,9 @@ const transcript: TranscriptLine[] = [
 
 test("候选人编号靠到前一句面试官；从开场起的段靠到第一问，第一问已有段时丢掉", () => {
   const brief = testBrief();
-  const snapped = repairSegments({ segments: [{ startSeq: 9, areaId: "q1", kind: "quick", label: "缓存", verdict: "thin", note: "" }, { startSeq: 1, areaId: "p1-module", kind: "project", label: "自我介绍加主循环", verdict: "answered", note: "从开场起：靠到第一问" }], hypotheses: [] }, transcript, brief);
+  const snapped = repairSegments({ segments: [{ startSeq: 9, areaId: "q1", kind: "quick", label: "缓存", verdict: "thin", note: "", competencyId: null, difficulty: 2 }, { startSeq: 1, areaId: "p1-module", kind: "project", label: "自我介绍加主循环", verdict: "answered", note: "从开场起：靠到第一问", competencyId: null, difficulty: 2 }], hypotheses: [] }, transcript, brief);
   assert.deepEqual(snapped.map((segment) => [segment.startSeq, segment.endSeq, segment.areaId, segment.label]), [[2, 7, "p1-module", "自我介绍加主循环"], [8, 12, "q1", "缓存"]]);
-  const explicit = repairSegments({ segments: [{ startSeq: 0, areaId: null, kind: "project", label: "开场", verdict: "answered", note: "" }, { startSeq: 2, areaId: "p1-module", kind: "project", label: "主循环", verdict: "answered", note: "" }], hypotheses: [] }, transcript, brief);
+  const explicit = repairSegments({ segments: [{ startSeq: 0, areaId: null, kind: "project", label: "开场", verdict: "answered", note: "", competencyId: null, difficulty: 2 }, { startSeq: 2, areaId: "p1-module", kind: "project", label: "主循环", verdict: "answered", note: "", competencyId: null, difficulty: 2 }], hypotheses: [] }, transcript, brief);
   assert.deepEqual(explicit.map((segment) => [segment.startSeq, segment.label]), [[2, "主循环"]]);
 });
 
@@ -49,13 +49,13 @@ test("只认面试官说话的编号、开场不算、去重排序、结束编�
   const segments = repairSegments(
     {
       segments: [
-        { startSeq: 0, areaId: null, kind: "project", label: "开场", verdict: "answered", note: "不该成段" },
-        { startSeq: 8, areaId: "q1", kind: "quick", label: "缓存一致性", verdict: "thin", note: "只说了名词" },
-        { startSeq: 2, areaId: "p1-module", kind: "project", label: "主循环", verdict: "answered", note: "机制清楚" },
-        { startSeq: 9, areaId: "q1", kind: "quick", label: "候选人的编号", verdict: "answered", note: "靠到前一句面试官（8），与 8 重复则不算" },
-        { startSeq: 2, areaId: "p1-module", kind: "project", label: "重复", verdict: "failed", note: "重复的起点" },
-        { startSeq: 10, areaId: "nope", kind: "scenario", label: "场景", verdict: "answered", note: "材料 id 不认识" },
-        { startSeq: 12, areaId: null, kind: "quick", label: "收尾", verdict: "answered", note: "没有回答" },
+        { startSeq: 0, areaId: null, kind: "project", label: "开场", verdict: "answered", note: "不该成段", competencyId: null, difficulty: 2 },
+        { startSeq: 8, areaId: "q1", kind: "quick", label: "缓存一致性", verdict: "thin", note: "只说了名词", competencyId: null, difficulty: 2 },
+        { startSeq: 2, areaId: "p1-module", kind: "project", label: "主循环", verdict: "answered", note: "机制清楚", competencyId: null, difficulty: 2 },
+        { startSeq: 9, areaId: "q1", kind: "quick", label: "候选人的编号", verdict: "answered", note: "靠到前一句面试官（8），与 8 重复则不算", competencyId: null, difficulty: 2 },
+        { startSeq: 2, areaId: "p1-module", kind: "project", label: "重复", verdict: "failed", note: "重复的起点", competencyId: null, difficulty: 2 },
+        { startSeq: 10, areaId: "nope", kind: "scenario", label: "场景", verdict: "answered", note: "材料 id 不认识", competencyId: null, difficulty: 2 },
+        { startSeq: 12, areaId: null, kind: "quick", label: "收尾", verdict: "answered", note: "没有回答", competencyId: null, difficulty: 2 },
       ],
       hypotheses: [],
     },
@@ -78,7 +78,7 @@ test("只认面试官说话的编号、开场不算、去重排序、结束编�
 test("一段 → 兼容题目：第一问加追问、回答拼接、评分表取材料的、元数据带过程信号", () => {
   const brief = testBrief();
   const area = brief.areas.find((item) => item.id === "p1-module")!;
-  const segment = repairSegments({ segments: [{ startSeq: 2, areaId: "p1-module", kind: "project", label: "主循环", verdict: "answered", note: "机制清楚" }], hypotheses: [] }, transcript.slice(0, 8), brief)[0];
+  const segment = repairSegments({ segments: [{ startSeq: 2, areaId: "p1-module", kind: "project", label: "主循环", verdict: "answered", note: "机制清楚", competencyId: null, difficulty: 2 }], hypotheses: [] }, transcript.slice(0, 8), brief)[0];
   const record = segmentRecord(area, segment, ["校验不过怎么办？", "就说 schema 不过时回给模型什么。"], "first_interview");
   assert.equal(record.question, "先讲主循环里你负责哪一段？\n追问 1：校验不过怎么办？\n追问 2：就说 schema 不过时回给模型什么。");
   assert.equal(record.answer, "参数校验和重试。\n\n能具体一点吗？\n\n错误字段和原因。");

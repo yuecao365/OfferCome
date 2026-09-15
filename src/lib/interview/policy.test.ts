@@ -31,13 +31,18 @@ test("建议随时间与覆盖变：项目吃掉一半以上时间还没问基�
 
 test("现场卡：开场没有覆盖账；之后覆盖账是最后一行，紧贴候选人的话", () => {
   const brief = testBrief();
-  const opening = renderTurnMessage({ clock: clock(0), notebook: "", opening: true, covered: [], helping: false }, null, brief);
+  const opening = renderTurnMessage({ clock: clock(0), notebook: "", opening: true, covered: [], helping: false, estimate: null }, null, brief);
   assert.doesNotMatch(opening, /已聊：/);
   assert.match(opening, /还没开场/);
-  const running = renderTurnMessage({ clock: clock(6), notebook: "先问主循环。", opening: false, covered: ["p1-module"], helping: false }, "我负责参数校验。", brief);
+  const running = renderTurnMessage({ clock: clock(6), notebook: "先问主循环。", opening: false, covered: ["p1-module"], helping: false, estimate: null }, "我负责参数校验。", brief);
   const lines = running.split("\n");
   const coverageIndex = lines.findIndex((line) => line.startsWith("已聊："));
   assert.ok(coverageIndex > 0);
+  // 估计器的一行放在覆盖账之前；没有能力清单时不出现。
+  assert.doesNotMatch(running, /能力估计：/);
+  const estimated = renderTurnMessage({ clock: clock(6), notebook: "n", opening: false, covered: [], helping: false, estimate: "能力估计：最值得追：系统可靠性（估计 中，置信 低，岗位权重 高）。" }, "答。", brief).split("\n");
+  const estimateIndex = estimated.findIndex((line) => line.startsWith("能力估计："));
+  assert.ok(estimateIndex > 0 && estimateIndex < estimated.findIndex((line) => line.startsWith("已聊：")));
   assert.equal(lines[coverageIndex + 1], "");
   assert.equal(lines[coverageIndex + 2], "候选人说：");
   assert.equal(lines.at(-1), "我负责参数校验。");

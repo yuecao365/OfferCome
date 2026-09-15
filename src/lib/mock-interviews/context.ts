@@ -1,4 +1,5 @@
 import "server-only";
+import type { Competency } from "@/lib/interview/estimator";
 
 import { prisma } from "@/lib/db";
 import { ensureResumeExperiences } from "@/lib/resumes/experience-store";
@@ -33,6 +34,18 @@ export type MockInterviewContext = {
   /** 最近几场同岗位问过的题（切入问题）：备课换场景、换切入点。 */
   recentQuestions: string[];
 };
+
+/** 会话快照里的岗位能力清单（备课时的蓝图）；没有蓝图为空。估计器、评委、整理员、报告、模拟器共用这一处解析。 */
+export function competenciesOf(contextSnapshotJson: string | null | undefined): Competency[] {
+  try {
+    const parsed = JSON.parse(contextSnapshotJson ?? "{}") as { jobBlueprint?: { competencies?: { id?: unknown; name?: unknown; priority?: unknown }[] } | null };
+    return (parsed.jobBlueprint?.competencies ?? []).flatMap((item) =>
+      typeof item.id === "string" && typeof item.name === "string" ? [{ id: item.id, name: item.name, priority: item.priority === "secondary" ? ("secondary" as const) : ("core" as const) }] : [],
+    );
+  } catch {
+    return [];
+  }
+}
 
 /** 最近几场面试取多少条失守点给备课；再多模型也只会挑几条。 */
 const RECENT_QUESTION_LIMIT = 12;

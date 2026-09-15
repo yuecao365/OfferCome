@@ -1,3 +1,4 @@
+import type { Estimate } from "@/lib/interview/estimator";
 import { z } from "zod";
 
 import type { InterviewStatus } from "@/lib/interviews/types";
@@ -113,6 +114,8 @@ export type MockInterviewView = {
   materials: InterviewMaterials;
   /** 旧的分步会话没有简报，为 null，房间按只读回放处理。 */
   conversation?: MockInterviewConversation | null;
+  /** 事后的能力估计（完成后才有；没有岗位能力清单为空）。 */
+  estimates: Estimate[];
   questions: {
     id: string;
     question: string;
