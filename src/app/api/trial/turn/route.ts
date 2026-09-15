@@ -41,6 +41,7 @@ export const POST = withTrialAiResponse<Body>(async (body) => {
     phase: messages.length === 0 ? "opening" : "running",
     covered: [],
     estimates: [],
+    critic: null,
   };
   try {
     const run = runTurn({

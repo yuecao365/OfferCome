@@ -10,8 +10,10 @@ import { packsForInterview } from "@/lib/mock-interviews/skills/selector";
 import { getAiTaskConfig } from "@/lib/settings/ai";
 
 import { scheduleLabeling } from "./background";
+import { latestCriticNote } from "./critic";
 import { estimate, observationsFromEvents } from "./estimator";
 import { appendEvents, parseEventRow, transcriptOf, type InterviewEvent } from "./events";
+import { sessionFlags } from "./flags";
 import { coveredMaterials } from "./labeler";
 import { runTurn, type CandidateInput, type TurnResult, type TurnState } from "./turn";
 import type { ConversationMessage, TurnPayload } from "./views";
@@ -48,6 +50,7 @@ function turnState(loaded: Loaded): TurnState {
     phase: loaded.status !== "in_progress" ? "ended" : transcript.length === 0 ? "opening" : "running",
     covered: coveredMaterials(events),
     estimates: estimate(competenciesOf(loaded.contextSnapshotJson), observationsFromEvents(events)),
+    critic: sessionFlags(loaded.flagsJson).critic ? latestCriticNote(events, transcript) : null,
   };
 }
 

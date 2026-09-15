@@ -13,7 +13,7 @@ import { applyTurn, candidateWantsToEnd, planTurn, speak, type CandidateInput, t
  */
 
 function state(overrides: Partial<TurnState> = {}): TurnState {
-  return { brief: testBrief(), notebook: "", transcript: [], totalMinutes: 20, phase: "opening", covered: [], estimates: [], ...overrides };
+  return { brief: testBrief(), notebook: "", transcript: [], totalMinutes: 20, phase: "opening", covered: [], estimates: [], critic: null, ...overrides };
 }
 
 const candidate = (content: string, control: CandidateInput["control"] = null): CandidateInput => ({ clientId: "c1", content, control, composeMs: null });

@@ -78,7 +78,22 @@ export type SessionMetrics = {
   estimatePairs: { online: [number, number][]; offline: [number, number][] };
   /** 核心能力全部足够确定时评到了第几段；没到为 null。 */
   coreSettledAfter: number | null;
+  /** 评论员的提醒条数与被提醒的回合占面试官回合的比例；按准则计数。 */
+  criticNotes: number;
+  criticNoteRate: number;
+  criticByRule: Record<string, number>;
 };
+
+function criticMetrics(events: InterviewEvent[], interviewerTurns: number): Pick<SessionMetrics, "criticNotes" | "criticNoteRate" | "criticByRule"> {
+  const byRule: Record<string, number> = {};
+  const noted = new Set<number>();
+  for (const item of events) {
+    if (item.type !== "critic_noted") continue;
+    noted.add(item.payload.seq);
+    byRule[item.payload.rule] = (byRule[item.payload.rule] ?? 0) + 1;
+  }
+  return { criticNotes: noted.size, criticNoteRate: interviewerTurns === 0 ? 0 : noted.size / interviewerTurns, criticByRule: byRule };
+}
 
 /** 估计器准不准：在线与事后两条路各算一遍，再看核心能力多少段能定下来。 */
 export function estimatorMetrics(facts: SessionFacts): Pick<SessionMetrics, "scoredSegments" | "onlineError" | "offlineError" | "estimatePairs" | "coreSettledAfter"> {
@@ -187,6 +202,7 @@ export function sessionMetrics(facts: SessionFacts): SessionMetrics {
     tokens: { input, cached, output, cacheRate: input === 0 ? 0 : cached / input },
     latencyMs: { p50: percentile(latencies, 0.5), p95: percentile(latencies, 0.95) },
     ...estimatorMetrics(facts),
+    ...criticMetrics(facts.events, counted),
   };
 }
 
@@ -212,6 +228,8 @@ const SUMMARY_KEYS = [
   "onlineError",
   "offlineError",
   "coreSettledAfter",
+  "criticNotes",
+  "criticNoteRate",
 ] as const;
 
 export function summarize(list: SessionMetrics[]): MetricSummary {
@@ -251,6 +269,8 @@ const LABELS: Record<string, string> = {
   onlineError: "面试中估计与真值的平均误差",
   offlineError: "事后估计与真值的平均误差",
   coreSettledAfter: "核心能力定下来用了几段",
+  criticNotes: "评论员提醒条数",
+  criticNoteRate: "被评论员提醒的回合比例",
   onlineCorrelation: "面试中估计与真值的相关（跨场合并）",
   offlineCorrelation: "事后估计与真值的相关（跨场合并）",
   timeShare_project: "时间占比：项目",

@@ -63,6 +63,8 @@ export type TraceTurn = {
   /** 这回合之后评委给已结束的段打的分与估计器的更新。 */
   scored: { competencyId: string; difficulty: number; score: number; confidence: number; note: string }[];
   estimates: { competencyId: string; mean: number; confidence: number; samples: number }[];
+  /** 评论员对这回合面试官那句的提醒。 */
+  critic: { rule: string; text: string } | null;
   run: TraceRun | null;
 };
 
@@ -92,7 +94,7 @@ export function traceTurns(events: TraceSource[], runs?: Map<string, TraceRun>):
       continue;
     }
     if (item.type === "interviewer_said") {
-      rows.push({ turnIndex: rows.length, candidate: pendingCandidate, interviewer: [{ kind: String(item.payload.kind ?? "say"), content: String(item.payload.content ?? "") }], notebook: null, clock: null, fallback: false, scored: [], estimates: [], run: item.runId ? (runs?.get(item.runId) ?? null) : null });
+      rows.push({ turnIndex: rows.length, candidate: pendingCandidate, interviewer: [{ kind: String(item.payload.kind ?? "say"), content: String(item.payload.content ?? "") }], notebook: null, clock: null, fallback: false, scored: [], estimates: [], critic: null, run: item.runId ? (runs?.get(item.runId) ?? null) : null });
       pendingCandidate = null;
       continue;
     }
@@ -102,6 +104,7 @@ export function traceTurns(events: TraceSource[], runs?: Map<string, TraceRun>):
     if (item.type === "clock_tick") current.clock = { usedMinutes: Number(item.payload.usedMinutes), totalMinutes: Number(item.payload.totalMinutes) };
     if (item.type === "fallback_used") current.fallback = true;
     if (item.type === "segment_scored") current.scored.push({ competencyId: String(item.payload.competencyId), difficulty: Number(item.payload.difficulty), score: Number(item.payload.score), confidence: Number(item.payload.confidence), note: String(item.payload.note ?? "") });
+    if (item.type === "critic_noted") current.critic = { rule: String(item.payload.rule ?? ""), text: String(item.payload.text ?? "") };
     if (item.type === "estimate_updated") current.estimates.push({ competencyId: String(item.payload.competencyId), mean: Number(item.payload.mean), confidence: Number(item.payload.confidence), samples: Number(item.payload.samples) });
   }
   return rows;

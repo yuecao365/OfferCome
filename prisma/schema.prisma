@@ -210,6 +210,8 @@ model MockInterviewSession {
   clockJson            String?
   /// 整理员对简历假设的判断（[{ id, status, note }]），交卷时喂给汇总。
   hypothesesJson       String?
+  /// 这场的开关（评论员开 / 关、之后的影子 / 灰度）；null = 全默认。
+  flagsJson            String?
   /// 已切出的段数；仅作展示，真相在 InterviewThread。
   questionCount        Int       @default(0)
   provider             String

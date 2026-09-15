@@ -52,8 +52,8 @@ export const eventPayloadSchemas = {
   label_added: z.object({ seq: z.number().int(), materialId: z.string().nullable(), competencyId: z.string().nullable(), act: z.string() }),
   /** 能力估计器更新。 */
   estimate_updated: z.object({ competencyId: z.string(), mean: z.number(), confidence: z.number(), samples: z.number().int() }),
-  /** 评论员的一句提醒。 */
-  critic_noted: z.object({ text: z.string() }),
+  /** 评论员对面试官某一句（seq）的提醒：违反了哪条准则、下一句怎么改。 */
+  critic_noted: z.object({ seq: z.number().int(), rule: z.string(), text: z.string() }),
   /** 在线评委给一段（按标注器的分段）打的分：考的哪项能力、答到阶梯第几层、分数与把握。 */
   segment_scored: z.object({ startSeq: z.number().int(), endSeq: z.number().int(), competencyId: z.string(), difficulty: z.number().int(), score: z.number(), confidence: z.number(), note: z.string() }),
   /** 模型没说出话，代码接了一句。 */

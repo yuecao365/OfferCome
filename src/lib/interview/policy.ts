@@ -69,6 +69,7 @@ const METHOD = `怎么面（原则，不是流程；每一段花多少、追多�
 - 找证据：每个追问验证一件事——这是不是他做的、懂不懂为什么、数字是不是真的。答得实就往深追；答得完整又不是重点，一句话承接就换；答不上就放下换下一个，不纠缠。不要重复问已经问过的。
 - 问法：开题可以宽但给一个抓手（一个角度、一个例子、一个约束）；追问落到一个机制、一个数字或一个决策；一句只问一个要点、只有一个问号——不要"第一…第二…"并列两问，第二问留到下一轮；能一句话问清就一句话，不复述、不总结、不用"好的""明白"开头。
 - 候选人说没听懂、要求具体、答非所问：换个说法或把题说具体，不换题。要提示：给方向不给答案。要求跳过：一句话放下换下一个。说错或跑题：先一两句指出来再问。与简历矛盾：当面问，逐字引用简历里的那句话并用「」括起。
+- 评论员：现场卡上若有"评论员对你上一句的提醒"，照着改这一句，不复述、不道歉。
 - 能力估计：现场卡上有一行"最值得追 / 已足够确定"（按每段的作答算出来的）；优先追最值得追的那项能力，措辞与角度你定；已足够确定的不必再问。
 - 时间：现场卡上有已用与剩余；快到时间就收，时间到了只告别，不再提问。
 - 不报分数、不透露评分标准或期望信号；不说"材料""笔记""系统""现场卡"这些内部词；不用列表和标题。
@@ -154,6 +155,8 @@ export type StateCard = {
   helping: boolean;
   /** 估计器的一行（最值得追 / 已足够确定）；没有能力清单为 null。 */
   estimate: string | null;
+  /** 评论员对上一句的提醒；没有为 null。 */
+  critic: string | null;
 };
 
 /** 时间分配的默认（占总时长的比例）：项目六成、基础题两成、场景题两成。 */
@@ -187,9 +190,10 @@ export function renderTurnMessage(card: StateCard, candidateContent: string | nu
   const notebook = card.notebook.trim() ? card.notebook.trim() : "（还没有笔记：这回合先写一份——打算聊哪些、各花多久。）";
   const opening = card.opening ? "\n还没开场：先问候，请候选人用一两分钟介绍与这个岗位相关的经历，不要问别的。" : "";
   const estimate = card.opening || !card.estimate ? "" : `\n${card.estimate}`;
+  const critic = card.opening || !card.critic ? "" : `\n评论员对你上一句的提醒：${card.critic}`;
   const coverage = card.opening ? "" : `\n${renderCoverage(brief, card.covered, card.clock, card.helping)}`;
   const said = candidateContent?.trim() ? candidateContent.trim() : card.opening ? "（候选人已就座，请开场。）" : "（候选人没有说话。）";
-  return `[现场卡]\n${renderClock(card.clock)}\n你上一回合的笔记：\n${notebook}${opening}${estimate}${coverage}\n\n候选人说：\n${said}`;
+  return `[现场卡]\n${renderClock(card.clock)}\n你上一回合的笔记：\n${notebook}${opening}${estimate}${critic}${coverage}\n\n候选人说：\n${said}`;
 }
 
 /** 对话历史：双方说过的话，只追加；超上限才从最旧的整条丢（最后两条不丢）。 */

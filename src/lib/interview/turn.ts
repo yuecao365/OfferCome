@@ -25,6 +25,8 @@ export type TurnState = {
   covered: string[];
   /** 估计器对每项能力的当前估计（从在线评委的分数算）；体验版没有评委，为空。 */
   estimates: Estimate[];
+  /** 评论员对面试官上一句的提醒；没有（或关了）为 null。 */
+  critic: string | null;
 };
 
 export type CandidateInput = {
@@ -140,7 +142,7 @@ export function runTurn(input: { runId: string; config: AiTaskConfig; state: Tur
     brief: state.brief,
     context: input.context,
     transcript: state.transcript,
-    card: { clock: plan.clock, notebook: state.notebook, opening: state.phase === "opening", covered: state.covered, helping: candidate ? isHelpRequest({ role: "candidate", ...candidate }) : false, estimate: estimateLine(state.estimates) },
+    card: { clock: plan.clock, notebook: state.notebook, opening: state.phase === "opening", covered: state.covered, helping: candidate ? isHelpRequest({ role: "candidate", ...candidate }) : false, estimate: estimateLine(state.estimates), critic: state.critic },
     candidateContent: candidate?.content ?? null,
   });
   return {
