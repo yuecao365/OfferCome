@@ -11,6 +11,10 @@ import type { TurnPayload } from "./views";
 
 export type TurnData = { replay: true; messages: TurnPayload["newMessages"] } | { replay: false; payload: TurnPayload };
 
+function describeError(error: unknown): string {
+  return isAgentRunError(error) ? describeAgentError(error) : error instanceof Error ? error.message : "回合失败。";
+}
+
 async function writeSay(writer: UIMessageStreamWriter, say: AsyncIterable<string>): Promise<void> {
   const id = crypto.randomUUID();
   writer.write({ type: "text-start", id });
@@ -31,14 +35,16 @@ export function turnResponse(run: { replay: true; messages: TurnPayload["newMess
       try {
         payload = await run.finalize();
       } catch (error) {
-        // 落库或裁决失败：记下来再抛，否则只有客户端看得到"没有 data-turn"。
+        // 落库或裁决失败（额度、密钥、写锁超时）：记日志，并把原因显式写进流——
+        // 文本块已经发出去之后再抛，客户端只会看到流断了、没有错误块。
         console.error("[interview] 回合收尾失败：", error instanceof Error ? error.stack ?? error.message : error);
-        throw error;
+        writer.write({ type: "error", errorText: describeError(error) });
+        return;
       }
       const data: TurnData = { replay: false, payload };
       writer.write({ type: "data-turn", data });
     },
-    onError: (error) => (isAgentRunError(error) ? describeAgentError(error) : error instanceof Error ? error.message : "回合失败。"),
+    onError: describeError,
   });
   return createUIMessageStreamResponse({ stream });
 }
