@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { DURATION_MINUTES } from "@/lib/interview/clock";
 import { fillFlags } from "@/lib/interview/flags";
+import { recallCandidateMemory } from "@/lib/interview/memory-recall";
 import { assignVariant, rolloutConfig } from "@/lib/interview/variants";
 
 import {
@@ -109,6 +110,8 @@ async function persistBrief(
   blueprint: MockInterviewJobBlueprint,
   brief: Awaited<ReturnType<typeof generateInterviewBrief>>,
 ): Promise<void> {
+  // 语义记忆：同一份简历上几场的说法、能力估计、短板、问过的题，作为这场的快照（可重放）。
+  const memory = session.resumeId ? await recallCandidateMemory({ resumeId: session.resumeId, excludeSessionId: session.id }) : null;
   await prisma.$transaction(async (tx) => {
     // 开关要读事务里的现值：备课期间模拟器可能已经写了策略 / 影子变体，入口时的快照是旧的。
     const current = await tx.mockInterviewSession.findUnique({ where: { id: session.id }, select: { flagsJson: true } });
@@ -118,6 +121,7 @@ async function persistBrief(
         contextSnapshotJson: JSON.stringify({
           ...parseGenerationSnapshot(serializeMockInterviewContext(context, { blueprint })),
           generationRequest: snapshot.generationRequest,
+          memory,
         }),
         briefJson: JSON.stringify(brief),
         notebook: "",

@@ -8,6 +8,7 @@ import type { SkillPack } from "@/lib/mock-interviews/skills/types";
 
 import { LATE_RATIO, minutesLeft, renderClock, type Clock } from "./clock";
 import type { TranscriptLine } from "./events";
+import { EMPTY_MEMORY, renderMemory, searchMemory, type InterviewMemory } from "./memory";
 import { policyVariant, type PolicyVariant } from "./variants";
 
 /**
@@ -121,6 +122,8 @@ export type PolicyContext = {
   totalMinutes: number;
   /** 本场可查的技能包（备课时加载过的及其父包）。 */
   skillPacks: SkillPack[];
+  /** 上几场的语义记忆（备课时的快照）；体验版没有。 */
+  memory?: InterviewMemory;
 };
 
 function renderSkillIndex(packs: SkillPack[]): string {
@@ -139,7 +142,8 @@ ${method}
 
 材料（备课产出；可信）：
 ${renderMaterials(brief)}
-${skills}
+${skills}${renderMemory(brief, context.memory ?? EMPTY_MEMORY) ?? ""}
+
 岗位描述（节选）：
 ${context.jobDescription.slice(0, MAX_JD_CHARS)}
 
@@ -225,6 +229,11 @@ function buildTools(context: PolicyContext): { tools: ToolSet; loaded: string[] 
         loaded.push(name);
         return { name: pack.name, body: pack.body.slice(0, 12_000) };
       },
+    }),
+    lookup_memory: tool({
+      description: "按关键词查上几场的记忆：候选人简历上的说法验过没、上次失守的点、问过的题。",
+      inputSchema: z.object({ query: z.string().min(1).max(60) }),
+      execute: async ({ query }) => ({ query, hits: searchMemory(context.memory ?? EMPTY_MEMORY, query).map((hit) => ({ kind: hit.kind, text: hit.text, status: hit.status, at: hit.at.slice(0, 10) })) }),
     }),
     lookup_resume: tool({
       description: "按关键词查简历原文里包含它的段落（简历很长、节选里没有时用）。",

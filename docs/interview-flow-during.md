@@ -45,7 +45,9 @@ flowchart TD
 
 **策略变体与灰度**（`variants.ts`，阶段 E-2）：面试官策略以变体为单位（`v2` 现状、`v2-terse` 短问句），变体只在流程段末尾追加规则，AgentRun 的 promptVersion 记变体；放量配置 `INTERVIEW_ROLLOUT`（JSON：live / canary{variant, percent} / shadow）在备课完成时按会话 id 分桶写进 `flagsJson.policy`（同一场永远同一变体；模拟器先写的不覆盖）。
 
-输出是结构化对象 `{ say, notebook, closing }`：`say` 逐段流回房间（从 partialOutputStream 的 say 字段取增量），`notebook` 整份替换，`closing` 只在这句是告别时为 true。工具只有两个只读的：`lookup_skill`（技能包正文）、`lookup_resume`（简历段落）。一回合最多 3 步，最后一步不许再查材料（否则连查三步用完步数就没有话；`prepareStep` 设 toolChoice none）。
+**语义记忆**（`memory.ts` / `memory-recall.ts`，阶段 E-3）：同一份简历上几场（已完成、非评测、最近 10 场）的说法验证、事后能力估计、评分短板、问过的题，备课完成时 recall 一次存进 `contextSnapshotJson.memory`（快照，可重放）。系统提示词里多一段"上几场的记忆"：这场简报里每条说法在上几场的结论（上次已验证 / 上次没讲清 / 上次说法不同——前后场结论相反）、上次失守的点；估计器从跨场先验起步（上几场的估计折成 Beta 伪计数，样本数 × 半衰期 30 天的衰减，每场每项最多 3）。`npm run recall -- <resumeId>` 零模型调用打印一份简历的记忆、先验与说法历史。
+
+输出是结构化对象 `{ say, notebook, closing }`：`say` 逐段流回房间（从 partialOutputStream 的 say 字段取增量），`notebook` 整份替换，`closing` 只在这句是告别时为 true。工具只有三个只读的：`lookup_skill`（技能包正文）、`lookup_resume`（简历段落）、`lookup_memory`（上几场的说法、短板、问过的题，按字符 n-gram 相似度）。一回合最多 3 步，最后一步不许再查材料（否则连查三步用完步数就没有话；`prepareStep` 设 toolChoice none）。
 
 ## 4. 代码守的底线（`turn.ts`）
 

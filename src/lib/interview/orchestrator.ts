@@ -15,6 +15,7 @@ import { estimate, observationsFromEvents } from "./estimator";
 import { appendEvents, parseEventRow, transcriptOf, type InterviewEvent } from "./events";
 import { sessionFlags } from "./flags";
 import { coveredMaterials } from "./labeler";
+import { memoryOf, priorsFrom } from "./memory";
 import { runTurn, type CandidateInput, type TurnResult, type TurnState } from "./turn";
 import { policyVariant } from "./variants";
 import type { ConversationMessage, TurnPayload } from "./views";
@@ -50,7 +51,7 @@ function turnState(loaded: Loaded): TurnState {
     totalMinutes: loaded.durationMinutes,
     phase: loaded.status !== "in_progress" ? "ended" : transcript.length === 0 ? "opening" : "running",
     covered: coveredMaterials(events),
-    estimates: estimate(competenciesOf(loaded.contextSnapshotJson), observationsFromEvents(events)),
+    estimates: estimate(competenciesOf(loaded.contextSnapshotJson), observationsFromEvents(events), priorsFrom(memoryOf(loaded.contextSnapshotJson))),
     critic: sessionFlags(loaded.flagsJson).critic ? latestCriticNote(events, transcript) : null,
     variant: policyVariant(sessionFlags(loaded.flagsJson).policy),
   };
@@ -87,6 +88,7 @@ export async function startTurn(input: { sessionId: string; candidate: Candidate
     resumeText: loaded.resumeTextSnapshot,
     totalMinutes: loaded.durationMinutes,
     skillPacks: packsForInterview(state.brief.skillPacks, packs),
+    memory: memoryOf(loaded.contextSnapshotJson),
   };
   const run = runTurn({ runId: `turn:${input.sessionId}:${turnIndex}`, config, state, candidate: input.candidate, context });
   const shadow = sessionFlags(loaded.flagsJson).shadow;

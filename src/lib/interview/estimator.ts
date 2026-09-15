@@ -24,9 +24,9 @@ export type Estimate = {
   name: string;
   /** 岗位权重：core 1、secondary 0.6。 */
   weight: number;
-  /** 0–1 的能力估计（Beta 后验均值；没有测量时 0.5）。 */
+  /** 0–1 的能力估计（Beta 后验均值；没有测量也没有先验时 0.5）。 */
   mean: number;
-  /** 0–1：n / (n + 2)，n 是置信加权的测量数。 */
+  /** 0–1：n / (n + 2)，n 是置信加权的测量数（含跨场先验的伪计数）。 */
   confidence: number;
   samples: number;
 };
@@ -45,11 +45,15 @@ export function evidenceOf(observation: Observation): number {
   return (level - 1 + clamp(observation.score, 0, 100) / 100) / DIFFICULTY_LEVELS;
 }
 
-export function estimate(competencies: Competency[], observations: Observation[]): Estimate[] {
+/** 跨场先验（memory.priorsFrom）：上几场折成的伪计数，加在 Beta(1, 1) 上。 */
+export type Prior = { competencyId: string; alpha: number; beta: number };
+
+export function estimate(competencies: Competency[], observations: Observation[], priors: Prior[] = []): Estimate[] {
   return competencies.map((competency) => {
-    let alpha = PRIOR.alpha;
-    let beta = PRIOR.beta;
-    let weight = 0;
+    const prior = priors.find((item) => item.competencyId === competency.id);
+    let alpha = PRIOR.alpha + (prior?.alpha ?? 0);
+    let beta = PRIOR.beta + (prior?.beta ?? 0);
+    let weight = (prior?.alpha ?? 0) + (prior?.beta ?? 0);
     let samples = 0;
     for (const observation of observations) {
       if (observation.competencyId !== competency.id) continue;

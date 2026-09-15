@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { testBrief } from "@/lib/test-support/interview-brief";
 
-import { renderCoverage, renderTurnMessage } from "./policy";
+import { buildSystem, renderCoverage, renderTurnMessage } from "./policy";
 
 /** 现场卡的覆盖账与建议：按种类数聊过的材料，按已用时间比例提醒该转；放在候选人的话之前的最后一行。 */
 
@@ -52,3 +52,15 @@ test("现场卡：开场没有覆盖账；之后覆盖账是最后一行，紧�
   assert.equal(lines[coverageIndex + 2], "候选人说：");
   assert.equal(lines.at(-1), "我负责参数校验。");
 });
+
+test("系统提示词：有上几场的记忆才有记忆段与说法历史；没有就不出现", () => {
+  const brief = testBrief({ hypotheses: [{ id: "h1", text: "验证压测", evidence: "压测 QPS 提升 3 倍", projectId: "proj-1" }] });
+  const context = { jobTitle: "后端", jobDescription: "JD", resumeText: "简历", totalMinutes: 20, skillPacks: [] };
+  assert.doesNotMatch(buildSystem(brief, context), /上几场的记忆/);
+  const memory = { sessions: 1, claims: [{ text: "验证压测", evidence: "压测 QPS 提升 3 倍", status: "refuted" as const, note: "没有讲清楚", at: "2026-09-01T00:00:00Z" }], competencies: [], weaknesses: [{ point: "只说了名词", quote: null, areaName: "缓存", at: "2026-09-01T00:00:00Z" }], askedQuestions: [] };
+  const system = buildSystem(brief, { ...context, memory });
+  assert.match(system, /上几场的记忆（同一位候选人，最近 1 场/);
+  assert.match(system, /「压测 QPS 提升 3 倍」：上次没讲清：没有讲清楚/);
+  assert.match(system, /缓存：只说了名词/);
+});
+
