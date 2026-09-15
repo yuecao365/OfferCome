@@ -27,7 +27,15 @@ export function turnResponse(run: { replay: true; messages: TurnPayload["newMess
         return;
       }
       await writeSay(writer, run.say);
-      const data: TurnData = { replay: false, payload: await run.finalize() };
+      let payload: TurnPayload;
+      try {
+        payload = await run.finalize();
+      } catch (error) {
+        // 落库或裁决失败：记下来再抛，否则只有客户端看得到"没有 data-turn"。
+        console.error("[interview] 回合收尾失败：", error instanceof Error ? error.stack ?? error.message : error);
+        throw error;
+      }
+      const data: TurnData = { replay: false, payload };
       writer.write({ type: "data-turn", data });
     },
     onError: (error) => (isAgentRunError(error) ? describeAgentError(error) : error instanceof Error ? error.message : "回合失败。"),

@@ -56,7 +56,7 @@ async function fetchWithRetry(url: string, init: RequestInit): Promise<Response>
   }
 }
 
-async function postTurn(base: string, sessionId: string, body: Record<string, unknown>): Promise<{ said: { kind: string; content: string }[]; phase: string | null }> {
+async function postTurn(base: string, sessionId: string, body: Record<string, unknown>, attempt = 1): Promise<{ said: { kind: string; content: string }[]; phase: string | null }> {
   const response = await fetchWithRetry(`${base}/api/interviews/mock/${sessionId}/turn`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -73,6 +73,11 @@ async function postTurn(base: string, sessionId: string, body: Record<string, un
       if (chunk.data.replay) return { said: (chunk.data.messages ?? []).filter((message) => message.role === "interviewer"), phase: null };
       return { said: (chunk.data.payload?.newMessages ?? []).filter((message) => message.role === "interviewer"), phase: chunk.data.payload?.phase ?? null };
     } catch {}
+  }
+  // 流中途断了（没有 data-turn 也没有错误块）：重发一次，落库过的回合会按 clientId 回放。
+  if (attempt === 1) {
+    console.warn(`  回合没有返回 data-turn，重试一次`);
+    return postTurn(base, sessionId, body, 2);
   }
   throw new Error(`回合没有返回 data-turn：${raw.slice(-300)}`);
 }
