@@ -227,8 +227,8 @@ export async function completeTrialMockSession(id: string): Promise<void> {
   try {
     // 先切段（幂等）：没有分段的会话让整理员从逐字稿切一次。
     if (interview.questions.length === 0 && interview.brief) {
-      const segments = await requestSegments({ brief: interview.brief, messages: interview.messages, round: interview.round });
-      mutateTrialInterview(id, (current) => ({ ...current, questions: segments }));
+      const { segments, hypotheses } = await requestSegments({ brief: interview.brief, messages: interview.messages, round: interview.round });
+      mutateTrialInterview(id, (current) => ({ ...current, questions: segments, hypotheses }));
     }
     // 在途的评分等它跑完；失败与还没开始的当场补跑。
     while (requireInterview(id).questions.some((segment) => segment.evaluationStatus === "running")) {
@@ -242,8 +242,16 @@ export async function completeTrialMockSession(id: string): Promise<void> {
       jobTitle: current.job.jobTitle,
       brief,
       notebook: current.notebook,
-      // 分段投影（线程）由整理员产出（重建阶段 C）；之前报告只有汇总。
-      threads: [],
+      hypotheses: current.hypotheses,
+      threads: current.questions.map((segment) => ({
+        areaId: typeof segment.metadata.areaId === "string" ? segment.metadata.areaId : null,
+        kind: segment.sourceKind,
+        label: typeof segment.metadata.areaName === "string" ? segment.metadata.areaName : segment.question.split("\n")[0],
+        status: "closed",
+        depth: typeof segment.metadata.depth === "number" ? segment.metadata.depth : 0,
+        note: typeof segment.metadata.note === "string" ? segment.metadata.note : null,
+        questionId: segment.id,
+      })),
       questions: current.questions.map((segment) => ({
         id: segment.id,
         skipped: segment.skipped,

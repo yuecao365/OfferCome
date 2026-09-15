@@ -6,7 +6,7 @@ import { scheduleMockInterviewQuestionEvaluation } from "@/lib/mock-interviews/q
 import { getAiTaskConfig } from "@/lib/settings/ai";
 
 import { parseEventRow, transcriptOf, type InterviewEvent } from "../events";
-import { segmentTranscript, type Segment } from "./segmenter";
+import { segmentTranscript, type HypothesisJudgement, type Segment } from "./segmenter";
 import { segmentRecord } from "./segments";
 
 /**
@@ -31,8 +31,8 @@ export async function ensureSegments(sessionId: string): Promise<number> {
   const { session, brief, transcript } = await loadForSegmenting(sessionId);
   if (session.threads.length > 0) return session.threads.length;
   if (transcript.length === 0) return 0;
-  const segments = await segmentTranscript({ runId: `segment:${sessionId}`, config: await getAiTaskConfig("text"), transcript, brief });
-  const questionIds = await persistSegments(sessionId, session.interview.id, brief, transcript, segments);
+  const { segments, hypotheses } = await segmentTranscript({ runId: `segment:${sessionId}`, config: await getAiTaskConfig("text"), transcript, brief });
+  const questionIds = await persistSegments(sessionId, session.interview.id, brief, transcript, segments, hypotheses);
   for (const id of questionIds) scheduleMockInterviewQuestionEvaluation(id);
   return segments.length;
 }
@@ -44,12 +44,12 @@ export async function resegment(sessionId: string): Promise<number> {
   await prisma.$transaction([
     prisma.interviewThread.deleteMany({ where: { sessionId } }),
     prisma.interviewQuestion.deleteMany({ where: { id: { in: threads.flatMap((thread) => (thread.questionId ? [thread.questionId] : [])) } } }),
-    prisma.mockInterviewSession.update({ where: { id: session.id }, data: { questionCount: 0 } }),
+    prisma.mockInterviewSession.update({ where: { id: session.id }, data: { questionCount: 0, hypothesesJson: null } }),
   ]);
   return ensureSegments(sessionId);
 }
 
-async function persistSegments(sessionId: string, interviewId: string, brief: Awaited<ReturnType<typeof loadForSegmenting>>["brief"], transcript: ReturnType<typeof transcriptOf>, segments: Segment[]): Promise<string[]> {
+async function persistSegments(sessionId: string, interviewId: string, brief: Awaited<ReturnType<typeof loadForSegmenting>>["brief"], transcript: ReturnType<typeof transcriptOf>, segments: Segment[], hypotheses: HypothesisJudgement[]): Promise<string[]> {
   const areas = new Map(brief.areas.map((area) => [area.id, area]));
   const toEvaluate: string[] = [];
   await prisma.$transaction(
@@ -94,7 +94,7 @@ async function persistSegments(sessionId: string, interviewId: string, brief: Aw
         });
         if (!record.skipped) toEvaluate.push(question.id);
       }
-      await tx.mockInterviewSession.update({ where: { id: sessionId }, data: { questionCount: segments.length } });
+      await tx.mockInterviewSession.update({ where: { id: sessionId }, data: { questionCount: segments.length, hypothesesJson: JSON.stringify(hypotheses) } });
     },
     { maxWait: 20_000, timeout: 60_000 },
   );

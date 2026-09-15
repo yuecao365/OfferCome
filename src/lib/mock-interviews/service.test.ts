@@ -206,7 +206,7 @@ test("preparation persists the brief with an empty notebook and a time box, and 
   assert.equal(session.generationPhase, null);
   assert.equal(JSON.parse(session.briefJson!).areas.length, 7);
   assert.equal(session.notebook, "");
-  assert.equal(session.durationMinutes, 35);
+  assert.equal(session.durationMinutes, 20);
   const interview = await prisma.interview.findUniqueOrThrow({ where: { id: interviewId } });
   assert.equal(interview.status, "in_progress");
 });
@@ -306,8 +306,8 @@ test("the interviewer's closing flag is ignored early and honoured once the time
   await runTurn(sessionId, null);
   const early = await runTurn(sessionId, { clientId: "c1", content: "我叫小明。" });
   assert.equal(early.replay === false && early.payload.phase, "running");
-  // 一段很长的回答把时钟推过一半（35 分钟 × 50% ≈ 2100 字）。
-  const late = await runTurn(sessionId, { clientId: "c2", content: "一".repeat(2_400) });
+  // 一段很长的回答把时钟推过一半（20 分钟 × 50% ≈ 1600 字）。
+  const late = await runTurn(sessionId, { clientId: "c2", content: "一".repeat(2_000) });
   assert.equal(late.replay === false && late.payload.phase, "ended");
   assert.equal(late.replay === false && late.payload.endedBy, "interviewer");
   assert.equal((await readSession(sessionId)).status, "ready_to_evaluate");

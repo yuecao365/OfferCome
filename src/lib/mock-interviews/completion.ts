@@ -146,6 +146,7 @@ export async function completeMockInterview(
               brief,
               areas,
               notebook: session.notebook,
+              hypotheses: parseJsonArray(session.hypothesesJson) as { id: string; status: "open" | "confirmed" | "refuted"; note: string | null }[],
             }),
           )
         : ALL_SKIPPED_SUMMARY;

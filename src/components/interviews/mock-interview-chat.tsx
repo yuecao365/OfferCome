@@ -134,14 +134,14 @@ function subscribeNoop(): () => void {
 
 /** 时间盒：已用约几分钟 / 共几分钟；快到时间变色。 */
 function ClockBar({ clock, ended }: { clock: Clock; ended: boolean }) {
-  const used = Math.min(clock.usedMinutes, clock.totalMinutes);
+  const percent = Math.min(100, Math.round((clock.usedMinutes / clock.totalMinutes) * 100));
   return (
     <p
-      aria-label="面试时间盒"
-      className={cn("shrink-0 font-mono text-xs tabular-nums", !ended && clock.phase !== "open" ? "text-warning-strong" : "text-muted-foreground")}
-      title="按双方说话的字数折算的面试进度"
+      aria-label="面试进度"
+      className={cn("shrink-0 font-mono text-xs tabular-nums", !ended && (clock.phase === "wrap_up" || clock.phase === "over") ? "text-warning-strong" : "text-muted-foreground")}
+      title="按双方说话的字数折算，不是墙上时间"
     >
-      {Math.round(used)}/{clock.totalMinutes} 分钟
+      进度 {ended ? 100 : percent}% · 约 {clock.totalMinutes} 分钟
     </p>
   );
 }

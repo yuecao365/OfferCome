@@ -58,15 +58,20 @@ export function summaryInput(input: {
   brief: InterviewBrief;
   areas: AreaOutcome[];
   notebook: string;
+  /** 整理员对简历假设的判断；没有（旧会话）按 open。 */
+  hypotheses: { id: string; status: "open" | "confirmed" | "refuted"; note: string | null }[];
 }): SummaryInput {
+  const judged = new Map(input.hypotheses.map((item) => [item.id, item]));
   return {
     jobTitle: input.jobTitle,
     round: input.brief.round,
     pace: input.brief.pace,
     areas: input.areas.map((area) => area.summary),
     notebook: input.notebook,
-    // 假设的验证状态由汇总 agent 按各段判断（重建后面试中不再记账）。
-    hypotheses: input.brief.hypotheses.map((hypothesis) => ({ text: hypothesis.text, status: "open" as const, note: null })),
+    hypotheses: input.brief.hypotheses.map((hypothesis) => {
+      const item = judged.get(hypothesis.id);
+      return { text: hypothesis.text, status: item?.status ?? "open", note: item?.note ?? null };
+    }),
   };
 }
 

@@ -10,6 +10,7 @@ type Body = {
   jobTitle: string;
   brief: InterviewBrief;
   notebook: string;
+  hypotheses: { id: string; status: "open" | "confirmed" | "refuted"; note: string | null }[];
   threads: OutcomeThread[];
   questions: OutcomeQuestion[];
 };
@@ -19,7 +20,7 @@ export const POST = withTrialAi<Body>(async (body) => {
   const areas = areaOutcomes(body.brief, body.threads, body.questions);
   const answered = body.questions.some((question) => !question.skipped && question.evaluation);
   const summary = answered
-    ? await summarizeMockInterview(summaryInput({ jobTitle: body.jobTitle, brief: body.brief, areas, notebook: body.notebook }))
+    ? await summarizeMockInterview(summaryInput({ jobTitle: body.jobTitle, brief: body.brief, areas, notebook: body.notebook, hypotheses: Array.isArray(body.hypotheses) ? body.hypotheses : [] }))
     : ALL_SKIPPED_SUMMARY;
   return { report: buildReport(areas, summary) };
 });

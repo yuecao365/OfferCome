@@ -8,7 +8,7 @@ import type { MockInterviewReport } from "@/lib/mock-interviews/report";
 import type { MockInterviewJobBlueprint } from "@/lib/mock-interviews/types";
 
 import { readAiToken } from "./browser-store";
-import type { TrialEvaluation, TrialJobInput, TrialResumeInput, TrialSegment } from "./interview";
+import type { TrialEvaluation, TrialInterview, TrialJobInput, TrialResumeInput, TrialSegment } from "./interview";
 import { TRIAL_AI_HEADER } from "./protocol";
 import { readTrialResponse, TrialRequestError, isTrialRequestError } from "./response";
 import type { TrialResumeParseResult } from "./resume";
@@ -174,15 +174,15 @@ export async function evaluateSegment(input: {
 }
 
 /** 面试结束后让整理员把逐字稿切段（体验版的阶段 C）。 */
-export async function requestSegments(input: { brief: InterviewBrief; messages: ConversationMessage[]; round: string | null }): Promise<TrialSegment[]> {
-  const { segments } = await postWithAi<{ segments: TrialSegment[] }>("/api/trial/segment", input);
-  return segments;
+export async function requestSegments(input: { brief: InterviewBrief; messages: ConversationMessage[]; round: string | null }): Promise<{ segments: TrialSegment[]; hypotheses: TrialInterview["hypotheses"] }> {
+  return postWithAi<{ segments: TrialSegment[]; hypotheses: TrialInterview["hypotheses"] }>("/api/trial/segment", input);
 }
 
 export async function requestReport(input: {
   jobTitle: string;
   brief: InterviewBrief;
   notebook: string;
+  hypotheses: TrialInterview["hypotheses"];
   threads: OutcomeThread[];
   questions: OutcomeQuestion[];
 }): Promise<MockInterviewReport> {

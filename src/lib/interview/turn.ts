@@ -20,7 +20,7 @@ export type TurnState = {
   transcript: TranscriptLine[];
   totalMinutes: number;
   phase: TurnPhase;
-  /** 标注器回填的"聊过什么"（材料名，按第一次出现的顺序）；体验版没有标注器，为空。 */
+  /** 标注器回填的"聊过什么"（材料 id，按第一次出现的顺序）；体验版没有标注器，为空。 */
   covered: string[];
 };
 

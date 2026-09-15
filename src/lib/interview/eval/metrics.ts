@@ -46,6 +46,10 @@ export type SessionMetrics = {
   /** 求助 / 澄清之后面试官没有换题（仍在同一段）的比例；没求助为 null。 */
   helpHandledRate: number | null;
   fallbacks: number;
+  /** 面试官提问里两个以上问号的比例（"一句一个要点"的反面）。 */
+  multiQuestionRate: number;
+  /** 按种类的时间占比（从分段内的字数估）：项目 / 基础题 / 场景题。 */
+  timeShare: { project: number; quick: number; scenario: number };
   tokens: { input: number; cached: number; output: number; cacheRate: number };
   latencyMs: { p50: number; p95: number };
 };
@@ -118,6 +122,13 @@ export function sessionMetrics(facts: SessionFacts): SessionMetrics {
   const projectSegments = facts.segments.filter((segment) => segment.kind === "project");
   const scenario = facts.segments.filter((segment) => segment.kind === "scenario");
   const help = helpHandling(transcript, facts.segments);
+  const questions = interviewerLines.filter((line) => line.kind !== "closing" && line.kind !== "aside");
+  const multi = questions.filter((line) => (line.content.match(/[？?]/g) ?? []).length >= 2).length;
+  const chars = { project: 0, quick: 0, scenario: 0 };
+  for (const segment of facts.segments) {
+    chars[segment.kind] += transcript.filter((line) => line.seq >= segment.startSeq && line.seq <= segment.endSeq).reduce((sum, line) => sum + line.content.length, 0);
+  }
+  const totalChars = chars.project + chars.quick + chars.scenario;
   const input = facts.runs.reduce((sum, run) => sum + run.inputTokens, 0);
   const cached = facts.runs.reduce((sum, run) => sum + run.cachedTokens, 0);
   const output = facts.runs.reduce((sum, run) => sum + run.outputTokens, 0);
@@ -139,6 +150,8 @@ export function sessionMetrics(facts: SessionFacts): SessionMetrics {
     helpRequests: help.requests,
     helpHandledRate: help.requests === 0 ? null : help.handled / help.requests,
     fallbacks: facts.events.filter((item) => item.type === "fallback_used").length,
+    multiQuestionRate: questions.length === 0 ? 0 : multi / questions.length,
+    timeShare: totalChars === 0 ? { project: 0, quick: 0, scenario: 0 } : { project: chars.project / totalChars, quick: chars.quick / totalChars, scenario: chars.scenario / totalChars },
     tokens: { input, cached, output, cacheRate: input === 0 ? 0 : cached / input },
     latencyMs: { p50: percentile(latencies, 0.5), p95: percentile(latencies, 0.95) },
   };
@@ -161,6 +174,7 @@ const SUMMARY_KEYS = [
   "helpRequests",
   "helpHandledRate",
   "fallbacks",
+  "multiQuestionRate",
 ] as const;
 
 export function summarize(list: SessionMetrics[]): MetricSummary {
@@ -169,6 +183,7 @@ export function summarize(list: SessionMetrics[]): MetricSummary {
     const values = list.map((item) => item[key]).filter((value): value is number | boolean => value !== null).map((value) => (typeof value === "boolean" ? Number(value) : value));
     summary[key] = values.length === 0 ? null : values.reduce((sum, value) => sum + value, 0) / values.length;
   }
+  for (const kind of ["project", "quick", "scenario"] as const) summary[`timeShare_${kind}`] = list.length === 0 ? null : list.reduce((sum, item) => sum + item.timeShare[kind], 0) / list.length;
   const input = list.reduce((sum, item) => sum + item.tokens.input, 0);
   summary.inputTokensPerSession = list.length === 0 ? null : input / list.length;
   summary.outputTokensPerSession = list.length === 0 ? null : list.reduce((sum, item) => sum + item.tokens.output, 0) / list.length;
@@ -192,6 +207,10 @@ const LABELS: Record<string, string> = {
   helpRequests: "求助次数",
   helpHandledRate: "求助后不换题的比例",
   fallbacks: "代码接话次数",
+  multiQuestionRate: "一句多问的比例",
+  timeShare_project: "时间占比：项目",
+  timeShare_quick: "时间占比：基础题",
+  timeShare_scenario: "时间占比：场景题",
   inputTokensPerSession: "每场输入 token",
   outputTokensPerSession: "每场输出 token",
   cacheRate: "缓存命中率",

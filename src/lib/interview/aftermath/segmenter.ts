@@ -15,7 +15,7 @@ import type { TranscriptLine } from "../events";
  * 幂等、可重跑：输入完整（逐字稿 + 材料清单），错了重跑一次就好，面试本身不受影响。
  */
 
-export const SEGMENTER_PROMPT_VERSION = "segmenter-v1";
+export const SEGMENTER_PROMPT_VERSION = "segmenter-v2";
 const MAX_SEGMENTS = 30;
 const LINE_MAX_CHARS = 700;
 
@@ -35,8 +35,29 @@ export const segmenterOutputSchema = z.object({
       }),
     )
     .max(MAX_SEGMENTS),
+  /** 简历假设的验证结果：这场碰到了就 confirmed / refuted，没碰到 open。 */
+  hypotheses: z
+    .array(
+      z.object({
+        id: z.string().min(1).max(40),
+        status: z.enum(["open", "confirmed", "refuted"]),
+        /** 一句结论：confirmed 说哪段话证实了它；refuted 说差在哪；open 为 null。 */
+        note: z.string().max(200).nullable(),
+      }),
+    )
+    .max(10),
 });
 export type SegmenterOutput = z.infer<typeof segmenterOutputSchema>;
+export type HypothesisJudgement = SegmenterOutput["hypotheses"][number];
+
+/** 只认简报里有的假设；没提到的按 open 补齐。 */
+export function repairHypotheses(output: SegmenterOutput, brief: InterviewBrief): HypothesisJudgement[] {
+  const judged = new Map(output.hypotheses.map((item) => [item.id, item]));
+  return brief.hypotheses.map((hypothesis) => {
+    const item = judged.get(hypothesis.id);
+    return item && item.status !== "open" ? { id: hypothesis.id, status: item.status, note: item.note?.trim() || null } : { id: hypothesis.id, status: "open" as const, note: null };
+  });
+}
 
 export type Segment = {
   startSeq: number;
@@ -101,11 +122,12 @@ function renderMaterials(brief: InterviewBrief): { id: string; kind: AreaKind; n
 const SYSTEM = `你是面试整理员。输入是一场模拟面试的逐字稿（每句带编号）和面试官手边的材料清单（每道材料有 id、种类、名称、建议问法）。把逐字稿切成话题段：
 - 一段从面试官进入一个话题的那句提问开始，到下一个话题开始之前结束；同一道材料的连续追问属于同一段；候选人的澄清、求助、跑题都不开新段；面试官换到另一道材料、另一个项目的面或临场话题时才开新段。
 - 开场问候与候选人的自我介绍不算段；收尾告别不算段。
+- hypotheses：材料清单里附了备课时从简历提出的假设（id、要验证什么、简历原句）。逐条判断这场有没有碰到：碰到并且候选人讲清了 → confirmed，note 写哪段话证实了；碰到但没讲清或与简历不符 → refuted，note 用"没有讲清楚""还需要更多证据"这类措辞说差在哪；没碰到 → open。
 - 每段：startSeq 是这段第一问（面试官那句）的编号；areaId 是对应材料的 id（顺着材料的建议问法或名称对上就填，临场话题填 null）；kind 是种类（project 项目 / quick 基础题 / scenario 场景题）；label 一句标签；verdict 是候选人这段答得怎么样：answered 有实质内容、thin 只有关键词没机制、failed 没答上或答错关键点、skipped 候选人要求跳过或没答；note 一句判断：答到哪一层、哪里好、哪里失守，写给评分与报告看。
 - 只输出 JSON。`;
 
 /** 一次调用：逐字稿 + 材料 → 分段。 */
-export async function segmentTranscript(input: { runId: string; config: AiTaskConfig; transcript: TranscriptLine[]; brief: InterviewBrief }): Promise<Segment[]> {
+export async function segmentTranscript(input: { runId: string; config: AiTaskConfig; transcript: TranscriptLine[]; brief: InterviewBrief }): Promise<{ segments: Segment[]; hypotheses: HypothesisJudgement[] }> {
   const { output } = await runAgent({
     agent: "segmenter",
     runId: input.runId,
@@ -114,10 +136,14 @@ export async function segmentTranscript(input: { runId: string; config: AiTaskCo
     promptVersion: SEGMENTER_PROMPT_VERSION,
     system: SYSTEM,
     untrustedInputs: "逐字稿",
-    payload: { transcript: renderTranscript(input.transcript), materials: renderMaterials(input.brief) },
+    payload: {
+      transcript: renderTranscript(input.transcript),
+      materials: renderMaterials(input.brief),
+      hypotheses: input.brief.hypotheses.map((item) => ({ id: item.id, text: item.text, evidence: item.evidence })),
+    },
     schema: segmenterOutputSchema,
-    maxOutputTokens: 3_000,
+    maxOutputTokens: 3_500,
     timeoutMs: 60_000,
   });
-  return repairSegments(output, input.transcript, input.brief);
+  return { segments: repairSegments(output, input.transcript, input.brief), hypotheses: repairHypotheses(output, input.brief) };
 }

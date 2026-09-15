@@ -4,8 +4,17 @@ import test from "node:test";
 import { testBrief } from "@/lib/test-support/interview-brief";
 
 import type { TranscriptLine } from "../events";
-import { repairSegments } from "./segmenter";
+import { repairHypotheses, repairSegments } from "./segmenter";
 import { categoryForKind, segmentRecord } from "./segments";
+
+test("简历假设的判断只认简报里有的；没提到的按 open 补齐", () => {
+  const brief = testBrief({ hypotheses: [{ id: "h1", text: "验证压测", evidence: "压测", projectId: "proj-1" }, { id: "h2", text: "验证数字", evidence: "50%", projectId: "proj-1" }] });
+  const judged = repairHypotheses({ segments: [], hypotheses: [{ id: "h2", status: "refuted", note: "  没有讲清楚 " }, { id: "h9", status: "confirmed", note: "不认识" }, { id: "h1", status: "open", note: "会被清掉" }] }, brief);
+  assert.deepEqual(judged, [
+    { id: "h1", status: "open", note: null },
+    { id: "h2", status: "refuted", note: "没有讲清楚" },
+  ]);
+});
 
 /** 整理员的纯逻辑：模型产出的分段起点 → 可用的段（起止、深度、回答、材料校验）。 */
 
@@ -40,6 +49,7 @@ test("只认面试官说话的编号、开场不算、去重排序、结束编�
         { startSeq: 10, areaId: "nope", kind: "scenario", label: "场景", verdict: "answered", note: "材料 id 不认识" },
         { startSeq: 12, areaId: null, kind: "quick", label: "收尾", verdict: "answered", note: "没有回答" },
       ],
+      hypotheses: [],
     },
     transcript,
     brief,
@@ -60,7 +70,7 @@ test("只认面试官说话的编号、开场不算、去重排序、结束编�
 test("一段 → 兼容题目：第一问加追问、回答拼接、评分表取材料的、元数据带过程信号", () => {
   const brief = testBrief();
   const area = brief.areas.find((item) => item.id === "p1-module")!;
-  const segment = repairSegments({ segments: [{ startSeq: 2, areaId: "p1-module", kind: "project", label: "主循环", verdict: "answered", note: "机制清楚" }] }, transcript.slice(0, 8), brief)[0];
+  const segment = repairSegments({ segments: [{ startSeq: 2, areaId: "p1-module", kind: "project", label: "主循环", verdict: "answered", note: "机制清楚" }], hypotheses: [] }, transcript.slice(0, 8), brief)[0];
   const record = segmentRecord(area, segment, ["校验不过怎么办？", "就说 schema 不过时回给模型什么。"], "first_interview");
   assert.equal(record.question, "先讲主循环里你负责哪一段？\n追问 1：校验不过怎么办？\n追问 2：就说 schema 不过时回给模型什么。");
   assert.equal(record.answer, "参数校验和重试。\n\n能具体一点吗？\n\n错误字段和原因。");

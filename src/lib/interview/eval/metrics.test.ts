@@ -85,6 +85,8 @@ test("一场的指标：覆盖、预算、求助、开销都从事件与分段�
   assert.equal(metrics.helpRequests, 1);
   assert.equal(metrics.helpHandledRate, 1);
   assert.equal(metrics.fallbacks, 1);
+  assert.equal(metrics.multiQuestionRate, 0);
+  assert.ok(metrics.timeShare.project > metrics.timeShare.scenario);
   assert.equal(metrics.tokens.cacheRate.toFixed(2), "0.82");
   assert.equal(metrics.latencyMs.p95, 3000);
   const summary = summarize([metrics, { ...metrics, scenarioAsked: false, helpRequests: 0, helpHandledRate: null }]);

@@ -208,6 +208,8 @@ model MockInterviewSession {
   durationMinutes      Int       @default(35)
   /// 最近一次时钟估计（Clock），纯展示；真相从事件日志重算。
   clockJson            String?
+  /// 整理员对简历假设的判断（[{ id, status, note }]），交卷时喂给汇总。
+  hypothesesJson       String?
   /// 已切出的段数；仅作展示，真相在 InterviewThread。
   questionCount        Int       @default(0)
   provider             String

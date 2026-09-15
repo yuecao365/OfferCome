@@ -81,6 +81,8 @@ export type TrialInterview = {
   notebook: string;
   messages: ConversationMessage[];
   questions: TrialSegment[];
+  /** 整理员对简历假设的判断（交卷时切段一并给出）。 */
+  hypotheses: { id: string; status: "open" | "confirmed" | "refuted"; note: string | null }[];
   report: MockInterviewReport | null;
 };
 
@@ -104,6 +106,7 @@ export function createTrialInterview(input: { job: TrialJobInput; resume: TrialR
     notebook: "",
     messages: [],
     questions: [],
+    hypotheses: [],
     report: null,
   };
 }
