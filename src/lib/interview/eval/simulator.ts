@@ -14,7 +14,7 @@ import type { CandidateControl, TranscriptLine } from "../events";
  * 它是被测系统的另一个客户端：走真实 HTTP 接口，不碰内部状态。
  */
 
-export const SIMULATOR_PROMPT_VERSION = "sim-v2";
+export const SIMULATOR_PROMPT_VERSION = "sim-v3";
 
 export const ARCHETYPES = ["solid", "shaky", "rambling", "needy", "adversarial"] as const;
 export type Archetype = (typeof ARCHETYPES)[number];
@@ -70,7 +70,7 @@ export function sampleAbilities(competencies: { id: string; name: string; descri
 const LEVEL_RULES: Record<AbilityLevel, string> = {
   0.8: "精通：答得具体，有机制、有数字、有取舍；被追问能继续往深讲。",
   0.5: "半懂：只说得出术语和大体思路；被问机制、数字、为什么时用'应该是''大概''记不太清'含糊带过，说不出可验证的细节；被追到第二层就绕回术语。",
-  0.2: "不会：先说'这块我没怎么做过'或'不太了解'，最多说一两个名词就说不下去；追问时承认不知道，或答错一个关键点；简历上写了相关内容也要说那部分是同事做的、自己只调过接口。不要编造细节。",
+  0.2: "不会：开口先说'这块我没怎么做过'或'这个我不太了解'；整段不许出现任何字段名、步骤、机制、数字或工具名，只能说'是同事做的''我只知道有这么个东西''具体怎么做的我说不上来'；被追问就直接答'这个我答不上来'；简历上写了相关内容也说那部分不是自己做的。回答不超过 80 字。",
 };
 
 const STYLE_RULES: Record<Archetype, string> = {
@@ -93,7 +93,7 @@ ${abilities || "- （没有能力清单：按简历正常发挥）"}
 怎么用这份水平表：
 - 每次先判断面试官这一问主要考上面哪一项能力（按括号里的描述对，不看简历写没写），再按那一项的水平答。
 - 简历不能抬高你的水平：简历上写了、但水平表说不会或半懂的，答的时候就说那部分是同事做的、自己只调过接口、细节记不清。
-- 写完自查一遍：这段有没有超出对应能力的水平——超出了就把具体机制和数字删掉，换成含糊的说法。
+- 写完自查一遍：这段有没有超出对应能力的水平——半懂的把具体机制和数字删掉换成含糊的说法；不会的只要出现了字段名、步骤或机制，整段重写成"没做过 / 说不上来"。
 规则：
 - 面试官请你自我介绍时，按简历做一到两分钟的口头介绍。
 - 只回答面试官最后一句话；面试官只是解释题目或给提示时，顺着提示接着答。
