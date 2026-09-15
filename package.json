@@ -19,7 +19,8 @@
     "replay": "tsx --conditions=react-server scripts/replay.ts",
     "resegment": "tsx --conditions=react-server scripts/resegment.ts",
     "rejudge": "tsx --conditions=react-server scripts/rejudge.ts",
-    "recall": "tsx --conditions=react-server scripts/recall.ts"
+    "recall": "tsx --conditions=react-server scripts/recall.ts",
+    "postmortem": "tsx --conditions=react-server scripts/postmortem.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.60",

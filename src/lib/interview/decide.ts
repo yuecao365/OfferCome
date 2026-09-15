@@ -9,7 +9,8 @@ import { classifyReply, type TranscriptLine } from "./events";
  */
 
 export type Move = "continue" | "switch" | "close";
-export type Decision = { move: Move; reason: string };
+/** next：换题时决策指的第一份材料（模型没报新材料或还报着上一份时，这句就记到它名下；底线替换时问它的切入问法）。 */
+export type Decision = { move: Move; reason: string; next?: string };
 
 export const MOVE_LABELS: Record<Move, string> = { continue: "继续", switch: "换题", close: "收尾" };
 
@@ -36,8 +37,20 @@ export function coveredIds(transcript: Pick<TranscriptLine, "role" | "topic">[])
   return seen;
 }
 
-/** 收尾处这一话题追了几轮、候选人答不上了几次。 */
-export function topicRun(transcript: TranscriptLine[]): { topic: string | null; probes: number; dontKnows: number } {
+/** 候选人最近连续答不上了几次（隔着面试官的话不算断；不按话题分，模型自报的材料换了也照数——F2 冒烟里一次误报就让"两次答不上换题"没触发）。 */
+export function trailingDontKnows(transcript: TranscriptLine[]): number {
+  let count = 0;
+  for (let index = transcript.length - 1; index >= 0; index -= 1) {
+    const line = transcript[index];
+    if (line.role !== "candidate") continue;
+    if (classifyReply(line) !== "dont_know") break;
+    count += 1;
+  }
+  return count;
+}
+
+/** 收尾处这一话题追了几轮。 */
+export function topicRun(transcript: TranscriptLine[]): { topic: string | null; probes: number } {
   const topic = currentTopic(transcript);
   let start = transcript.length;
   for (let index = transcript.length - 1; index >= 0; index -= 1) {
@@ -47,11 +60,17 @@ export function topicRun(transcript: TranscriptLine[]): { topic: string | null; 
   }
   const run = transcript.slice(start);
   const asked = run.filter((line) => line.role === "interviewer").length;
-  return { topic, probes: Math.max(0, asked - 1), dontKnows: run.filter((line) => line.role === "candidate" && classifyReply(line) === "dont_know").length };
+  return { topic, probes: Math.max(0, asked - 1) };
 }
 
 function unasked(brief: InterviewBrief, covered: string[], kind: AreaKind, except: string | null): InterviewArea[] {
   return brief.areas.filter((area) => area.kind === kind && !covered.includes(area.id) && area.id !== except);
+}
+
+/** 底线替换这句话时改问的材料：决策指的那份，否则按材料顺序第一份还没聊的。 */
+export function areaToAsk(brief: InterviewBrief, transcript: Pick<TranscriptLine, "role" | "topic">[], decision: Decision): InterviewArea | null {
+  const covered = coveredIds(transcript);
+  return brief.areas.find((area) => area.id === decision.next) ?? brief.areas.find((area) => !covered.includes(area.id) && area.id !== currentTopic(transcript)) ?? null;
 }
 
 function describe(areas: InterviewArea[]): string {
@@ -77,12 +96,12 @@ export function decideMove(input: { brief: InterviewBrief; clock: Clock; transcr
   const switchTo = (why: string, kind?: AreaKind): Decision => {
     const kinds: AreaKind[] = kind ? [kind] : [current?.kind ?? "project", "quick", "scenario"];
     const areas = kinds.flatMap((item) => unasked(brief, covered, item, run.topic));
-    return { move: "switch", reason: `${why}：换到${describe(areas)}` };
+    return { move: "switch", reason: `${why}：换到${describe(areas)}`, ...(areas[0] ? { next: areas[0].id } : {}) };
   };
 
   if (clock.phase === "wrap_up") return { move: "continue", reason: "快到时间了：最多再问一两句就告别，不开新话题" };
   if (reply === "skip") return switchTo("候选人要求跳过");
-  if (reply === "dont_know" && run.dontKnows >= 2) return switchTo("候选人两次答不上，不纠缠");
+  if (reply === "dont_know" && trailingDontKnows(transcript) >= 2) return switchTo("候选人连续两次答不上，不纠缠");
   if (reply === "help") return { move: "continue", reason: "候选人要求具体或没听懂：换个说法把题说具体，不换题" };
   if (reply === "dont_know") return { move: "continue", reason: "候选人答不上：把题说具体或降一层再问一次；再答不上就换题" };
   if (count("scenario") === 0 && ratio >= SCENARIO_DUE_RATIO) return switchTo(`还剩约 ${minutesLeft(clock)} 分钟，场景题还没问`, "scenario");

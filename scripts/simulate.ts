@@ -8,7 +8,7 @@ import { EVAL_DIR, loadJdFixture, loadResumeText } from "../src/lib/evals/fixtur
 import { ensureFixtureResume } from "../src/lib/evals/resume-row";
 import { loadSessionFacts } from "../src/lib/interview/eval/facts";
 import { renderSummaryTable, sessionMetrics, summarize, type SessionMetrics } from "../src/lib/interview/eval/metrics";
-import { ARCHETYPE_LABELS, ARCHETYPES, sampleAbilities, simulateReply, type Archetype, type SyntheticCandidate } from "../src/lib/interview/eval/simulator";
+import { ARCHETYPE_LABELS, ARCHETYPES, PERTURBATIONS, sampleAbilities, simulateReply, type Archetype, type Perturbation, type SyntheticCandidate } from "../src/lib/interview/eval/simulator";
 import type { TranscriptLine } from "../src/lib/interview/events";
 import { competenciesOf } from "../src/lib/mock-interviews/context";
 import { getAiTaskConfig } from "../src/lib/settings/ai";
@@ -18,7 +18,7 @@ import { getAiTaskConfig } from "../src/lib/settings/ai";
  * 结果从事件日志算指标，写到 eval/runs/sim-<tag>.json。
  *
  * 用法：npm run simulate -- --tag baseline --jd tencent-hunyuan-agent-harness-engineer --resume synthetic-ai-llm \
- *        --archetypes solid,shaky,rambling,needy,adversarial --seeds 3 --pace standard --concurrency 1 --lab on --policy v2|v2-terse --shadow v2-terse
+ *        --archetypes solid,shaky,rambling,needy,adversarial --seeds 3 --pace standard --concurrency 1 --lab on --policy v2|v2-terse --shadow v2-terse --perturb long_answers,dont_know,hollow_resume
  *      npm run simulate -- --tag baseline --recompute     # 只按标签重算已有会话的指标
  */
 
@@ -41,7 +41,7 @@ function parseArgs(argv: string[]): Args {
 
 const text = (args: Args, key: string, fallback: string): string => (typeof args[key] === "string" ? (args[key] as string) : fallback);
 
-type Case = { id: string; archetype: Archetype; seed: number };
+type Case = { id: string; archetype: Archetype; seed: number; perturbations: Perturbation[] };
 type CaseResult = Case & { sessionId: string; abilities: SyntheticCandidate["abilities"]; turns: number; error: string | null; metrics: SessionMetrics | null };
 
 type WireTurn = { replay: boolean; messages?: { role: string; kind: string; content: string }[]; payload?: { phase: string; newMessages: { role: string; kind: string; content: string }[] } };
@@ -140,7 +140,7 @@ async function runCase(base: string, item: Case, config: { jd: string; resume: s
   const result: CaseResult = { ...item, sessionId, abilities: [], turns: 0, error: null, metrics: null };
   try {
     await waitReady(base, sessionId);
-    const candidate: SyntheticCandidate = { archetype: item.archetype, seed: item.seed, abilities: sampleAbilities(await loadCompetencies(sessionId), item.archetype, item.seed) };
+    const candidate: SyntheticCandidate = { archetype: item.archetype, seed: item.seed, abilities: sampleAbilities(await loadCompetencies(sessionId), item.archetype, item.seed), perturbations: item.perturbations };
     result.abilities = candidate.abilities;
     const model = await getAiTaskConfig("text");
     const transcript: TranscriptLine[] = [];
@@ -196,7 +196,7 @@ async function recompute(tag: string): Promise<CaseResult[]> {
     const seed = Number(match?.[2] ?? 0);
     // 真值按 seed 重采（采样是确定的），重算时也能对照估计器。
     const abilities = match ? sampleAbilities(competenciesOf(session.contextSnapshotJson), archetype, seed) : [];
-    results.push({ id: match ? `${match[1]}-${match[2]}` : session.id, archetype, seed, sessionId: session.id, abilities, turns: 0, error: null, metrics: sessionMetrics(await loadSessionFacts(session.id, truthOf(abilities))) });
+    results.push({ id: match ? `${match[1]}-${match[2]}` : session.id, archetype, seed, perturbations: [], sessionId: session.id, abilities, turns: 0, error: null, metrics: sessionMetrics(await loadSessionFacts(session.id, truthOf(abilities))) });
   }
   return results;
 }
@@ -241,7 +241,8 @@ async function main() {
       resumeDbId: "",
     };
     config.resumeDbId = await ensureFixtureResume(config.resume);
-    const cases: Case[] = archetypes.flatMap((archetype) => Array.from({ length: seedTo - seedFrom + 1 }, (_, index) => ({ id: `${archetype}-${seedFrom + index}`, archetype, seed: seedFrom + index })));
+    const perturbations = text(args, "perturb", "").split(",").map((item) => item.trim()).filter((item): item is Perturbation => (PERTURBATIONS as readonly string[]).includes(item));
+    const cases: Case[] = archetypes.flatMap((archetype) => Array.from({ length: seedTo - seedFrom + 1 }, (_, index) => ({ id: `${archetype}-${seedFrom + index}`, archetype, seed: seedFrom + index, perturbations })));
     console.log(`${tag}：${cases.length} 场（${archetypes.map((item) => ARCHETYPE_LABELS[item]).join(" / ")} × 种子 ${seedFrom}–${seedTo}），JD ${config.jd}，简历 ${config.resume}，节奏 ${config.pace}`);
     // SQLite 单写者：并发 2 以上会让另一场的落库等锁超时，默认串行。
     results = await pool(cases, Number(text(args, "concurrency", "1")), (item) => runCase(base, item, config));

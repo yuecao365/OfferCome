@@ -1,0 +1,48 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import { testBrief } from "@/lib/test-support/interview-brief";
+
+import type { InterviewEvent } from "../events";
+import { postmortem } from "./postmortem";
+
+let seq = 0;
+const at = new Date();
+const said = (role: "interviewer" | "candidate", content: string, extra: { topic?: string | null; kind?: string; control?: "hint" | "skip" | "repeat" | "end" | null } = {}): InterviewEvent =>
+  role === "interviewer"
+    ? { seq: seq++, type: "interviewer_said", payload: { content, kind: extra.kind ?? "say", topic: extra.topic ?? null }, runId: null, at }
+    : { seq: seq++, type: "candidate_said", payload: { content, clientId: null, control: extra.control ?? null, composeMs: null }, runId: null, at };
+const tick = (usedMinutes: number, totalMinutes = 20): InterviewEvent => ({ seq: seq++, type: "clock_tick", payload: { usedMinutes, totalMinutes }, runId: null, at });
+const guard = (): InterviewEvent => ({ seq: seq++, type: "fallback_used", payload: { reason: "重复提问", original: "原话" }, runId: null, at });
+
+test("复盘：回答分类与超长、面试官的四种违规、底线次数、归因句", () => {
+  const events: InterviewEvent[] = [
+    said("interviewer", "你好，先介绍一下。"),
+    tick(0.5),
+    said("candidate", "一".repeat(600)),
+    said("interviewer", "退出标志位控制线程退出，偶发不退出，为什么？", { topic: "q1" }),
+    tick(3),
+    said("candidate", "我不会"),
+    said("interviewer", "换个说法：退出标志位控制线程退出，偶发不退出，为什么？", { topic: "q1" }),
+    tick(4),
+    said("candidate", "我不知道"),
+    said("interviewer", "那从可见性说说？", { topic: "q1" }),
+    tick(5),
+    said("candidate", "能具体一点吗？", { control: "hint" }),
+    said("interviewer", "第一，你怎么看？第二，为什么？", { topic: "q2" }),
+    tick(21),
+    said("candidate", "答"),
+    said("interviewer", "再问一个：你会先看什么？", { topic: "q2" }),
+    guard(),
+    tick(22),
+  ];
+  const result = postmortem({ events, brief: testBrief(), ready: false });
+  assert.deepEqual(result.replies, { normal: 2, help: 1, dont_know: 2, skip: 0, long: 1 });
+  assert.deepEqual(result.violations.map((item) => item.rule), ["repeat", "stuck_after_dont_know", "multi_ask", "asked_after_time"]);
+  assert.deepEqual(result.guards, [{ seq: 16, reason: "重复提问", original: "原话" }]);
+  assert.equal(result.ready, false);
+  assert.match(result.summary[0], /备课没备好/);
+  assert.ok(result.summary.some((line) => /同一题重复问 1 次/.test(line)));
+  assert.ok(result.summary.some((line) => /两次答不上还没换题 1 次/.test(line)));
+  assert.deepEqual(postmortem({ events: [said("interviewer", "你好。"), tick(0.5), said("candidate", "答")], brief: testBrief(), ready: true }).summary, ["没有发现准则违反或异常行为"]);
+});

@@ -518,7 +518,7 @@ export function fallbackBrief(input: {
  * 备课备好了没（设计修订 v3 §1.3）：蓝图是占位（模型服务不可用时的兜底）或简报走了兜底，就是没备好。
  * 没备好先自动再备一次；仍没备好就不开房，让用户看到原因后决定重新备课还是就这样开始。
  */
-export function briefReady(blueprint: Pick<MockInterviewJobBlueprint, "competencies">, brief: Pick<InterviewBrief, "source">): boolean {
+export function briefReady(blueprint: { competencies: { id: string }[] }, brief: Pick<InterviewBrief, "source">): boolean {
   const placeholderBlueprint = blueprint.competencies.length === 0 || blueprint.competencies.every((item) => item.id.startsWith("fallback-"));
   return !placeholderBlueprint && brief.source === "model";
 }

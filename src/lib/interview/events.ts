@@ -63,7 +63,7 @@ export const eventPayloadSchemas = {
   /** 面试官说了一句；kind 是这句在流程里的角色（开场 / 提问 / 追问 / 答疑 / 收尾），旧系统的记账口径。 */
   interviewer_said: said.extend({ kind: z.string(), /** 面试官自报这句在聊哪份材料（材料 id）；开场、告别、临场话题为 null；旧事件没有。 */ topic: z.string().nullable().optional() }),
   /** 代码给这回合的建议：继续 / 换题 / 收尾，附一句理由（decide.ts）。 */
-  move_decided: z.object({ move: z.enum(["continue", "switch", "close"]), reason: z.string() }),
+  move_decided: z.object({ move: z.enum(["continue", "switch", "close"]), reason: z.string(), next: z.string().optional() }),
   /** 面试官的笔记（新系统：每回合整份重写）。 */
   notebook_written: z.object({ text: z.string() }),
   /** 面试官查了资料（技能包 / 简历段落）。 */
@@ -79,7 +79,7 @@ export const eventPayloadSchemas = {
   /** 在线评委给一段（按标注器的分段）打的分：考的哪项能力、答到阶梯第几层、分数与把握。 */
   segment_scored: z.object({ startSeq: z.number().int(), endSeq: z.number().int(), competencyId: z.string(), difficulty: z.number().int(), score: z.number(), confidence: z.number(), note: z.string() }),
   /** 模型没说出话，代码接了一句。 */
-  fallback_used: z.object({ reason: z.string() }),
+  fallback_used: z.object({ reason: z.string(), original: z.string().nullable().optional() }),
   /** 模型调用出错但回合继续（不可恢复的错误不落事件，回合本身失败）。 */
   model_error: z.object({ kind: z.string(), message: z.string() }),
   /** 面试结束：谁定的。 */

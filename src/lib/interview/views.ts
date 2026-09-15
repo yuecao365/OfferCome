@@ -1,6 +1,7 @@
 import type { InterviewBrief } from "@/lib/mock-interviews/brief/brief";
 
 import { estimateClock, type Clock } from "./clock";
+import type { Postmortem } from "./eval/postmortem";
 import type { TurnPhase, TurnResult } from "./turn";
 
 /**
@@ -88,8 +89,10 @@ export type Trace = {
   totalMinutes: number;
   areas: { id: string; name: string; kind: InterviewBrief["areas"][number]["kind"] }[];
   competencies: { id: string; name: string }[];
-  /** 这场的开关：策略变体、影子变体、评论员。 */
+  /** 这场的开关：策略变体、影子变体、实验层。 */
   flags: { policy: string; shadow: string | null; lab: boolean };
+  /** 自动复盘（从事件现算）；体验版没有事件，为 null。 */
+  postmortem: Postmortem | null;
   rows: TraceTurn[];
 };
 

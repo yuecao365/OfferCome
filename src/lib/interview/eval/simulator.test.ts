@@ -34,6 +34,16 @@ test("画像的固定动作：爱求助的按节奏澄清与要提示，对抗�
   assert.ok(INJECTION_LINE.includes("评分标准"));
 });
 
+test("扰动：连续答不上是固定动作，超长回答与简历答不出写进提示词", () => {
+  const candidate: SyntheticCandidate = { archetype: "solid", seed: 1, abilities: [], perturbations: ["dont_know", "long_answers", "hollow_resume"] };
+  assert.deepEqual(plannedBehavior(candidate, 3), { control: null, content: "我不会", inject: false });
+  assert.deepEqual(plannedBehavior(candidate, 6), { control: null, content: null, inject: false });
+  const prompt = candidatePrompt(candidate);
+  assert.match(prompt, /500 到 700 字/);
+  assert.match(prompt, /不是你亲手做的/);
+  assert.doesNotMatch(candidatePrompt({ archetype: "solid", seed: 1, abilities: [] }), /不是你亲手做的|500 到 700 字/);
+});
+
 test("提示词把每项能力的真实水平写成作答规则", () => {
   const prompt = candidatePrompt({ archetype: "shaky", seed: 1, abilities: sampleAbilities(competencies, "shaky", 3) });
   assert.match(prompt, /RAG：(精通|半懂|不会)/);

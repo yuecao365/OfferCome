@@ -4,6 +4,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { CRITIC_RULES, type CriticRule } from "@/lib/interview/critic";
 import { levelLabel } from "@/lib/interview/estimator";
+import { VIOLATION_LABELS } from "@/lib/interview/eval/postmortem";
 import { AREA_KIND_LABELS, AREA_KINDS, INTERVIEW_PACE_LABELS } from "@/lib/mock-interviews/brief/brief";
 import { traceDashboard } from "@/lib/interview/views";
 import type { MockInterviewTrace } from "@/lib/mock-interviews/types";
@@ -69,6 +70,25 @@ export function MockInterviewTraceView({ trace }: { trace: MockInterviewTrace })
         title={`决策记录 · ${trace.companyName} · ${trace.jobTitle}`}
       />
       <Dashboard trace={trace} />
+      {trace.postmortem ? (
+        <Card className="grid gap-2 p-4 text-sm">
+          <p className="text-xs font-semibold text-muted-foreground">复盘（从事件现算）</p>
+          <p className="text-muted-foreground">{trace.postmortem.summary.join("；")}</p>
+          <p className="text-xs text-muted-foreground">
+            备课{trace.postmortem.ready ? "备好了" : "没备好"} · 回答：正常 {trace.postmortem.replies.normal}、求助 {trace.postmortem.replies.help}、答不上 {trace.postmortem.replies.dont_know}、跳过 {trace.postmortem.replies.skip}、超长 {trace.postmortem.replies.long} · 底线 / 接话 {trace.postmortem.guards.length} 次
+          </p>
+          {trace.postmortem.violations.map((item) => (
+            <p className="text-xs text-warning-strong" key={`${item.seq}-${item.rule}`}>
+              [{item.seq}] {VIOLATION_LABELS[item.rule]}：{item.text.slice(0, 80)}
+            </p>
+          ))}
+          {trace.postmortem.guards.map((item) => (
+            <p className="text-xs text-muted-foreground" key={`guard-${item.seq}`}>
+              [{item.seq}] 底线「{item.reason}」{item.original ? `，原话：${item.original.slice(0, 80)}` : ""}
+            </p>
+          ))}
+        </Card>
+      ) : null}
       <ol className="grid gap-3">
         {trace.rows.map((turn) => (
           <Card className="grid gap-3 p-4" key={turn.turnIndex}>

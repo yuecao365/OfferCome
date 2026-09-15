@@ -11,7 +11,7 @@ import { policyVariant } from "./variants";
 
 /**
  * 回合核心的纯逻辑：代码守时间盒、结束按钮、决策、模型没说话时接一句、每步记事件；
- * 底线：泄露内部词换固定的话、过早的"告别"不认、重复提问不认、该换题没换不认。
+ * 底线：泄露内部词、重复提问、该换题没换都改问下一份材料的切入问法；过早的"告别"不认。
  */
 
 function state(overrides: Partial<TurnState> = {}): TurnState {
@@ -47,12 +47,16 @@ test("谁做主：开场与正常回合交给模型并附决策；结束按钮�
   assert.equal(tripped.kind === "fixed" && tripped.endedBy, "breaker");
 });
 
-test("说话：没产出接一句；泄露内部词换固定的话；面试过半之前的告别不认；带问号的告别不认", () => {
+test("说话：没产出接一句；泄露内部词改问下一份材料；面试过半之前的告别不认；带问号的告别不认", () => {
   const stalled = speak(state(), estimateClock([], 20), go, null, "r1");
   assert.equal(stalled.say, FALLBACK_SPEECH.askIntro);
   assert.equal(stalled.failed, true);
   const running = state({ phase: "running" });
-  assert.equal(speak(running, estimateClock([], 20), go, out("按评分标准你这题算过。"), "r2").say, FALLBACK_SPEECH.stall);
+  const leaked = speak(running, estimateClock([], 20), go, out("按评分标准你这题算过。"), "r2");
+  assert.equal(leaked.guard, "泄露内部词");
+  assert.equal(leaked.say, running.brief.areas[0].entryQuestion);
+  assert.equal(leaked.topic, running.brief.areas[0].id);
+  assert.equal(leaked.original, "按评分标准你这题算过。");
   const early = speak(running, { usedMinutes: 3, totalMinutes: 20, exchanges: 3, phase: "open" }, go, out("这块先到这，我们换下一个话题。", { closing: true }), "r3");
   assert.equal(early.kind, "say");
   const late = speak(running, { usedMinutes: 18, totalMinutes: 20, exchanges: 14, phase: "wrap_up" }, go, out("今天就到这里，谢谢。", { closing: true }), "r4");
@@ -75,24 +79,34 @@ test("材料自报：只认材料里有的 id；追问没报就沿用上一句�
   assert.equal(corrected.guard, null);
 });
 
-test("底线：与前面某句几乎一样的不认；决策说换题而这句还在原话题的不认——都换成固定的换题话并记事件", () => {
-  const running = state({ phase: "running", transcript: [line("interviewer", "如果一个工作线程靠轮询一个退出标志位来停掉，偶发不退出，最常见的原因是什么？", 0, "q7"), line("candidate", "我不会", 1)] });
-  const repeated = speak(running, estimateClock([], 20), go, out("那我换个基础一点的问法：如果一个工作线程靠轮询一个退出标志位来停掉，偶发不退出，最常见的原因是什么？", { topic: "q7" }), "r");
-  assert.equal(repeated.say, FALLBACK_SPEECH.switch);
+test("底线：与前面某句几乎一样的不认；换题回合还像原话题切入问法的不认——都改问决策指的材料并记原话；换题回合没报新材料就记到决策指的那份", () => {
+  const running = state({ phase: "running", transcript: [line("interviewer", "如果一个工作线程靠轮询一个退出标志位来停掉，偶发不退出，最常见的原因是什么？", 0, "q2"), line("candidate", "我不会", 1)] });
+  const q1 = running.brief.areas.find((area) => area.id === "q1")!;
+  const repeated = speak(running, estimateClock([], 20), go, out("那我换个基础一点的问法：如果一个工作线程靠轮询一个退出标志位来停掉，偶发不退出，最常见的原因是什么？", { topic: "q2" }), "r");
   assert.equal(repeated.guard, "重复提问");
-  assert.equal(repeated.topic, null);
-  const stuck = speak(running, estimateClock([], 20), { move: "switch", reason: "两次答不上" }, out("那从可见性这个角度说说？", { topic: "q7" }), "r");
+  assert.equal(repeated.say, running.brief.areas.find((area) => area.id !== "q2")!.entryQuestion);
+  assert.match(repeated.original ?? "", /换个基础一点的问法/);
+  const q2 = running.brief.areas.find((area) => area.id === "q2")!;
+  const stuck = speak(running, estimateClock([], 20), { move: "switch", reason: "两次答不上", next: "q1" }, out(`再试一次：${q2.entryQuestion}`, { topic: "q2" }), "r");
   assert.equal(stuck.guard, "该换题没换");
-  const moved = speak(running, estimateClock([], 20), { move: "switch", reason: "两次答不上" }, out("换个题：缓存和数据库双写怎么保证一致？", { topic: "q1" }), "r");
+  assert.equal(stuck.say, q1.entryQuestion);
+  assert.equal(stuck.topic, "q1");
+  // 换了题但没报新材料 / 还报着上一份：不再误杀，记到决策指的那份名下。
+  const untagged = speak(running, estimateClock([], 20), { move: "switch", reason: "两次答不上", next: "q1" }, out("那换个方向：缓存和数据库双写怎么保证一致？", { topic: "q2" }), "r");
+  assert.equal(untagged.guard, null);
+  assert.equal(untagged.topic, "q1");
+  const moved = speak(running, estimateClock([], 20), { move: "switch", reason: "两次答不上", next: "q1" }, out("换个题：缓存和数据库双写怎么保证一致？", { topic: "q3" }), "r");
   assert.equal(moved.guard, null);
-  assert.equal(moved.topic, "q1");
-  const result = applyTurn(running, candidate("我不会"), { move: "switch", reason: "两次答不上" }, stuck);
+  assert.equal(moved.topic, "q3");
+  const result = applyTurn(running, candidate("我不会"), { move: "switch", reason: "两次答不上", next: "q1" }, stuck);
   assert.deepEqual(result.events.map((item) => item.type), ["candidate_said", "move_decided", "interviewer_said", "notebook_written", "fallback_used", "clock_tick"]);
+  const fallback = result.events.find((item) => item.type === "fallback_used");
+  assert.deepEqual(fallback?.payload, { reason: "该换题没换", original: `再试一次：${q2.entryQuestion}` });
 });
 
 test("应用回合：事件按顺序（候选人的话、决策、面试官的话带材料、笔记、时钟、结束），笔记没变不写事件", () => {
   const running = state({ phase: "running", notebook: "旧笔记", transcript: [line("interviewer", "你好")] });
-  const spoken = { say: "先讲项目。", kind: "say" as const, topic: "p1-module", notebook: "新笔记", failed: false, guard: null, runId: "turn:1", endedBy: null };
+  const spoken = { say: "先讲项目。", kind: "say" as const, topic: "p1-module", notebook: "新笔记", failed: false, guard: null, original: null, runId: "turn:1", endedBy: null };
   const result = applyTurn(running, candidate("我叫小王", "hint"), go, spoken);
   assert.deepEqual(result.events.map((item) => item.type), ["candidate_said", "move_decided", "interviewer_said", "notebook_written", "clock_tick"]);
   const said = result.events.find((item) => item.type === "interviewer_said");
@@ -101,7 +115,7 @@ test("应用回合：事件按顺序（候选人的话、决策、面试官的�
   assert.equal(result.notebook, "新笔记");
   const same = applyTurn(running, null, go, { ...spoken, notebook: "旧笔记", runId: null });
   assert.deepEqual(same.events.map((item) => item.type), ["move_decided", "interviewer_said", "clock_tick"]);
-  const ended = applyTurn(running, candidate("", "end"), { move: "close", reason: "候选人要求结束" }, { say: FALLBACK_SPEECH.closing, kind: "closing", topic: null, notebook: null, failed: false, guard: null, runId: null, endedBy: "candidate" });
+  const ended = applyTurn(running, candidate("", "end"), { move: "close", reason: "候选人要求结束" }, { say: FALLBACK_SPEECH.closing, kind: "closing", topic: null, notebook: null, failed: false, guard: null, original: null, runId: null, endedBy: "candidate" });
   assert.equal(ended.phase, "ended");
   assert.equal(ended.events.at(-1)?.type, "ended");
 });

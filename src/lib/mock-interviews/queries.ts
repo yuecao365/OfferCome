@@ -6,10 +6,12 @@ import { parseJsonArray, parseJsonObject, parseJsonValue } from "@/lib/json";
 
 import type { Clock } from "@/lib/interview/clock";
 import { estimate, type Estimate, type Observation } from "@/lib/interview/estimator";
+import { parseEventRow, type InterviewEvent } from "@/lib/interview/events";
+import { postmortem } from "@/lib/interview/eval/postmortem";
 import { sessionFlags } from "@/lib/interview/flags";
 import { conversationView, traceTurns, type TraceRun } from "@/lib/interview/views";
 
-import { parseStoredBrief } from "./brief/brief";
+import { briefReady, parseStoredBrief } from "./brief/brief";
 import { competenciesOf } from "./context";
 import {
   parseStoredEvaluationList,
@@ -209,6 +211,7 @@ export async function getMockInterviewTrace(id: string): Promise<MockInterviewTr
     areas: brief.areas.map((area) => ({ id: area.id, name: area.name, kind: area.kind })),
     competencies: competenciesOf(session.contextSnapshotJson).map((item) => ({ id: item.id, name: item.name })),
     flags: { policy: sessionFlags(session.flagsJson).policy ?? "v2", shadow: sessionFlags(session.flagsJson).shadow, lab: sessionFlags(session.flagsJson).lab },
+    postmortem: postmortem({ events: session.events.map(parseEventRow).filter((item): item is InterviewEvent => item !== null), brief, ready: briefReady({ competencies: competenciesOf(session.contextSnapshotJson) }, brief) }),
     rows: traceTurns(
       session.events.map((row) => ({ type: row.type, payload: parseJsonObject(row.payloadJson), runId: row.runId })),
       runById,

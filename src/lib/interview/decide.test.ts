@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { testBrief } from "@/lib/test-support/interview-brief";
 
-import { coveredIds, currentTopic, decideMove, topicRun } from "./decide";
+import { coveredIds, currentTopic, decideMove, topicRun, trailingDontKnows } from "./decide";
 import type { TranscriptLine } from "./events";
 
 const clock = (usedMinutes: number, phase: "open" | "late" | "wrap_up" | "over" = "open") => ({ usedMinutes, totalMinutes: 20, exchanges: 5, phase });
@@ -11,13 +11,16 @@ let seq = 0;
 const ask = (topic: string | null, content = "问一句？"): TranscriptLine => ({ seq: seq++, role: "interviewer", content, kind: "say", control: null, topic });
 const say = (content: string, control: TranscriptLine["control"] = null): TranscriptLine => ({ seq: seq++, role: "candidate", content, kind: null, control });
 
-test("话题：当前话题往回找第一个非空的；一段里追了几轮、答不上几次", () => {
+test("话题：当前话题往回找第一个非空的；一段里追了几轮；最近连续答不上几次不按话题分", () => {
   const transcript = [ask("p1-module"), say("答"), ask(null), say("我不会"), ask("p1-module"), say("不知道")];
   assert.equal(currentTopic(transcript), "p1-module");
-  assert.deepEqual(topicRun(transcript), { topic: "p1-module", probes: 2, dontKnows: 2 });
+  assert.deepEqual(topicRun(transcript), { topic: "p1-module", probes: 2 });
+  assert.equal(trailingDontKnows(transcript), 2);
+  assert.equal(trailingDontKnows([ask("p1-module"), say("我不会"), ask("q1"), say("不知道")]), 2);
+  assert.equal(trailingDontKnows([ask("p1-module"), say("我不会"), ask("q1"), say("答"), ask("q1"), say("不知道")]), 1);
   assert.deepEqual(coveredIds([ask("p1-module"), say("a"), ask("q1"), say("b"), ask("p1-module")]), ["p1-module", "q1"]);
-  assert.deepEqual(topicRun([ask("p1-module"), say("a"), ask("q1"), say("我不会")]), { topic: "q1", probes: 0, dontKnows: 1 });
-  assert.deepEqual(topicRun([ask("q1"), say("我不太清楚，就是AI自己总结的")]), { topic: "q1", probes: 0, dontKnows: 1 });
+  assert.deepEqual(topicRun([ask("p1-module"), say("a"), ask("q1"), say("我不会")]), { topic: "q1", probes: 0 });
+  assert.equal(trailingDontKnows([ask("q1"), say("我不太清楚，就是AI自己总结的")]), 1);
 });
 
 test("决策优先级：开场 → 时间到 → 快到时间 → 跳过 → 两次答不上 → 求助 / 答不上一次 → 场景题该进 → 基础题该转 → 追太多轮 → 继续", () => {
@@ -33,6 +36,9 @@ test("决策优先级：开场 → 时间到 → 快到时间 → 跳过 → 两
   assert.equal(twice.move, "switch");
   assert.match(twice.reason, /两次答不上/);
   assert.doesNotMatch(twice.reason, /（q1）/);
+  // 自报材料换了（常是误报）也照数：连续两次答不上就换。
+  const misreported = decideMove({ ...base, transcript: [ask("q1"), say("我不会"), ask("q2", "说具体一点？"), say("不知道")], opening: false });
+  assert.equal(misreported.move, "switch");
   const once = decideMove({ ...base, transcript: [ask("q1"), say("我不会")], opening: false });
   assert.equal(once.move, "continue");
   assert.match(once.reason, /降一层再问一次/);
