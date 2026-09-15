@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { InterviewArea, InterviewBrief } from "@/lib/mock-interviews/interviewer/brief";
+import type { InterviewArea, InterviewBrief } from "@/lib/mock-interviews/brief/brief";
 import { testBrief } from "@/lib/test-support/interview-brief";
 
 import {

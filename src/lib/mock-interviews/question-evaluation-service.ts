@@ -4,8 +4,8 @@ import { prisma } from "@/lib/db";
 import { parseJsonObject, parseJsonValue } from "@/lib/json";
 
 import { generateAnswerExemplar } from "./answer-exemplar-agent";
-import { parseThreadVerdict } from "./interviewer/actions";
-import { isAreaKind, parseStoredBrief } from "./interviewer/brief";
+import { parseThreadVerdict } from "./verdicts";
+import { isAreaKind, parseStoredBrief } from "./brief/brief";
 import { evaluateMockInterviewQuestion } from "./question-evaluation-agent";
 import type { EvaluationThreadContext, EvaluationWeakness } from "./question-evaluation";
 import { loadSkillPacks } from "./skills/loader";

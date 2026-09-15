@@ -8,7 +8,7 @@ import { TrialMockPage } from "@/components/trial/pages/trial-mock-page";
 import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { prisma } from "@/lib/db";
-import { isInterviewPace } from "@/lib/mock-interviews/interviewer/brief";
+import { isInterviewPace } from "@/lib/mock-interviews/brief/brief";
 import { getRecentMockInterviews } from "@/lib/mock-interviews/queries";
 import { resolveMockInterviewSeed } from "@/lib/mock-interviews/seeds";
 import { getResumes } from "@/lib/resumes/queries";
@@ -86,7 +86,6 @@ export default async function MockInterviewsPage({
           id: session.id,
           interviewId: session.interviewId,
           status: session.status,
-          currentQuestionIndex: session.currentQuestionIndex,
           questionCount: session.questionCount,
           pace: session.briefJson && isInterviewPace(session.pace) ? session.pace : null,
           totalScore: session.totalScore,

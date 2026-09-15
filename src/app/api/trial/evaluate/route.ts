@@ -1,7 +1,7 @@
 import { generateAnswerExemplar } from "@/lib/mock-interviews/answer-exemplar-agent";
-import { parseThreadVerdict } from "@/lib/mock-interviews/interviewer/actions";
-import { isAreaKind } from "@/lib/mock-interviews/interviewer/brief";
-import type { SegmentRecord } from "@/lib/mock-interviews/interviewer/segments";
+import { parseThreadVerdict } from "@/lib/mock-interviews/verdicts";
+import { isAreaKind } from "@/lib/mock-interviews/brief/brief";
+import type { TrialSegment } from "@/lib/trial/interview";
 import { evaluateMockInterviewQuestion } from "@/lib/mock-interviews/question-evaluation-agent";
 import { loadSkillPacks } from "@/lib/mock-interviews/skills/loader";
 import { packsForInterview } from "@/lib/mock-interviews/skills/selector";
@@ -13,7 +13,7 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 type Body = {
-  segment: SegmentRecord;
+  segment: TrialSegment;
   round: string | null;
   jobTitle: string;
   jobDescription: string;
@@ -27,6 +27,7 @@ type Body = {
  * 评分 v3 全量 + 有短板时生成示范；示范失败不影响评分。
  */
 export const POST = withTrialAi<Body>(async (body) => {
+  const metadata = body.segment.metadata;
   const answer = body.segment.answer?.trim();
   if (!answer || body.segment.skipped) throw new Error("题目没有可评分的回答。");
   const { evaluation, score } = await evaluateMockInterviewQuestion({
@@ -36,13 +37,13 @@ export const POST = withTrialAi<Body>(async (body) => {
     expectedSignals: body.segment.expectedSignals,
     jobTitle: body.jobTitle,
     jobDescription: body.jobDescription,
-    thread: isAreaKind(body.segment.metadata.areaKind)
+    thread: isAreaKind(metadata.areaKind)
       ? {
-          kind: body.segment.metadata.areaKind,
-          depth: body.segment.metadata.depth,
-          probeCount: body.segment.metadata.probeCount,
-          verdict: parseThreadVerdict(body.segment.metadata.verdict),
-          note: body.segment.metadata.note,
+          kind: metadata.areaKind,
+          depth: typeof metadata.depth === "number" ? metadata.depth : 0,
+          probeCount: typeof metadata.probeCount === "number" ? metadata.probeCount : 0,
+          verdict: parseThreadVerdict(metadata.verdict),
+          note: typeof metadata.note === "string" ? metadata.note : null,
         }
       : null,
     round: body.round,

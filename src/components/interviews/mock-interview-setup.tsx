@@ -20,7 +20,7 @@ import {
   DEFAULT_INTERVIEW_PACE,
   INTERVIEW_PACE_LABELS,
   INTERVIEW_PACES,
-} from "@/lib/mock-interviews/interviewer/brief";
+} from "@/lib/mock-interviews/brief/brief";
 import {
   MOCK_INTERVIEW_MODES,
   MOCK_INTERVIEW_MODE_LABELS,

@@ -2,11 +2,10 @@ import { z } from "zod";
 
 import type { InterviewStatus } from "@/lib/interviews/types";
 
-import type { ThreadVerdict } from "./interviewer/actions";
-import type { AreaKind, InterviewHypothesis, InterviewPace } from "./interviewer/brief";
-import type { PlanItemStatus } from "./interviewer/state";
+import type { Conversation, Trace } from "@/lib/interview/views";
+
+import type { AreaKind, InterviewPace } from "./brief/brief";
 import type { InterviewMaterials } from "./materials";
-import type { InterviewMemory } from "./interviewer/memory";
 import type { AnswerExemplar, EvaluationStrength, EvaluationWeakness } from "./question-evaluation";
 import type { MockInterviewReport } from "./report";
 
@@ -94,48 +93,7 @@ export type MockInterviewQuestionTeaching = {
   sourceKind: string;
 };
 
-/** 房间顶栏：面试官的计划各项走到哪了、用了几回合。 */
-export type InterviewStage = {
-  turnsUsed: number;
-  turnsTotal: number;
-  items: { id: string; label: string; kind: AreaKind; status: PlanItemStatus }[];
-};
-
-
-export type MockInterviewConversationMessage = {
-  id: string;
-  turnIndex: number;
-  role: "interviewer" | "candidate";
-  kind: string;
-  content: string;
-  threadId: string | null;
-};
-
-/** 对话式面试的房间视图。 */
-export type MockInterviewConversation = {
-  phase: "opening" | "running" | "ended";
-  pace: InterviewPace;
-  /** 第一回合落库的时间；房间顶栏据此显示已用时。 */
-  startedAt: string | null;
-  stage: InterviewStage;
-  threads: {
-    id: string;
-    areaId: string | null;
-    kind: AreaKind;
-    label: string;
-    status: "active" | "closed";
-    depth: number;
-    /** 面试官离开话题时对这段的判断；没交代就换了话题的为 null。 */
-    verdict: ThreadVerdict | null;
-    /** 面试官离开这段时的一句判断；切段后对应的兼容题目。 */
-    note: string | null;
-    questionId: string | null;
-  }[];
-  messages: MockInterviewConversationMessage[];
-  /** 仅已完成的会话带：面试官的工作记忆与简历假设，报告页展示。 */
-  memory: InterviewMemory | null;
-  hypotheses: InterviewHypothesis[];
-};
+export type MockInterviewConversation = Conversation;
 
 export type MockInterviewView = {
   id: string;
@@ -148,7 +106,6 @@ export type MockInterviewView = {
   generationError: string | null;
   generationErrorContext?: MockInterviewGenerationErrorContext | null;
   interactionMode: MockInterviewMode;
-  currentQuestionIndex: number;
   questionCount: number;
   totalScore: number | null;
   report: MockInterviewReport | null;
@@ -187,33 +144,4 @@ export type MockInterviewGenerationErrorContext = {
   questionCount?: number;
 };
 
-/** trace 页面的一回合：候选人的话、面试官的话、模型提案与代码裁决、信息量变化、模型开销。 */
-export type MockInterviewTraceTurn = {
-  turnIndex: number;
-  candidate: { kind: string; content: string; composeMs: number | null } | null;
-  interviewer: { kind: string; content: string; toolName: string | null }[];
-  decision: {
-    planChanged: boolean;
-    entered: string | null;
-    left: ThreadVerdict | null;
-    endedBy: "interviewer" | "candidate" | "budget" | null;
-    failed: boolean;
-    memoryPatch: unknown;
-    turnsUsed: number;
-    skillsLoaded: number;
-    effects: string[];
-  } | null;
-  run: { status: string; durationMs: number; totalTokens: number | null; cachedTokens: number | null; errorKind: string | null } | null;
-};
-
-export type MockInterviewTrace = {
-  id: string;
-  companyName: string;
-  jobTitle: string;
-  status: string;
-  pace: InterviewPace;
-  /** 一场的总回合数。 */
-  turns: number;
-  areas: { id: string; name: string; kind: AreaKind }[];
-  rows: MockInterviewTraceTurn[];
-};
+export type MockInterviewTrace = Trace;

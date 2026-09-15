@@ -1,16 +1,14 @@
 import { DefaultChatTransport, type UIMessage } from "ai";
 
 import type { RecentWeakness } from "@/lib/mock-interviews/context";
-import type { InterviewBrief, InterviewPace } from "@/lib/mock-interviews/interviewer/brief";
-import type { InterviewMemory } from "@/lib/mock-interviews/interviewer/memory";
-import type { SegmentRecord } from "@/lib/mock-interviews/interviewer/segments";
-import type { InterviewPlan, MessageState, ThreadState } from "@/lib/mock-interviews/interviewer/state";
+import type { ConversationMessage } from "@/lib/interview/views";
+import type { InterviewBrief, InterviewPace } from "@/lib/mock-interviews/brief/brief";
 import type { OutcomeQuestion, OutcomeThread } from "@/lib/mock-interviews/outcome";
 import type { MockInterviewReport } from "@/lib/mock-interviews/report";
 import type { MockInterviewJobBlueprint } from "@/lib/mock-interviews/types";
 
 import { readAiToken } from "./browser-store";
-import type { TrialEvaluation, TrialJobInput, TrialResumeInput } from "./interview";
+import type { TrialEvaluation, TrialJobInput, TrialResumeInput, TrialSegment } from "./interview";
 import { TRIAL_AI_HEADER } from "./protocol";
 import { readTrialResponse, TrialRequestError, isTrialRequestError } from "./response";
 import type { TrialResumeParseResult } from "./resume";
@@ -130,11 +128,11 @@ export async function requestBrief(input: {
   recentWeaknesses: RecentWeakness[];
   recentTopics: string[];
   recentQuestions: string[];
-}): Promise<{ brief: InterviewBrief; memory: InterviewMemory }> {
+}): Promise<{ brief: InterviewBrief }> {
   return postWithAi("/api/trial/brief", input);
 }
 
-export type TurnRequestState = { brief: InterviewBrief; memory: InterviewMemory; plan: InterviewPlan | null; threads: ThreadState[]; messages: MessageState[] };
+export type TurnRequestState = { brief: InterviewBrief; notebook: string; totalMinutes: number; messages: ConversationMessage[] };
 
 /**
  * 回合走 AI SDK 的聊天传输（流式）。状态从浏览器文档现取，随每个请求带上；
@@ -164,7 +162,7 @@ export function createTrialTurnTransport(input: {
 }
 
 export async function evaluateSegment(input: {
-  segment: SegmentRecord;
+  segment: TrialSegment;
   round: string | null;
   jobTitle: string;
   jobDescription: string;
@@ -178,7 +176,7 @@ export async function evaluateSegment(input: {
 export async function requestReport(input: {
   jobTitle: string;
   brief: InterviewBrief;
-  memory: InterviewMemory;
+  notebook: string;
   threads: OutcomeThread[];
   questions: OutcomeQuestion[];
 }): Promise<MockInterviewReport> {

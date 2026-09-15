@@ -3,16 +3,14 @@ import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { MetaText } from "@/components/ui/data-table";
 import { cn } from "@/lib/cn";
-import { THREAD_VERDICT_LABELS } from "@/lib/mock-interviews/interviewer/actions";
-import { AREA_KIND_LABELS, AREA_KINDS, KIND_WEIGHT, type AreaKind } from "@/lib/mock-interviews/interviewer/brief";
+import { AREA_KIND_LABELS, type AreaKind } from "@/lib/mock-interviews/brief/brief";
 import type { MockInterviewReport as ReportData } from "@/lib/mock-interviews/report";
 import type { MockInterviewView } from "@/lib/mock-interviews/types";
 
 import { QuestionDimensionScores } from "./mock-interview-report-visuals";
 
 /**
- * 报告页：骨架是面试官的现场判断（按话题种类分节：每个话题问了几轮、离开时的判断、简历假设验证），
- * 分数与短板由评分 agent 校准；负面反馈都带候选人的原话。
+ * 报告页：汇总（优点、短板、练什么、简历假设验证）、逐题评分与示范、面试官的笔记；负面反馈都带候选人的原话。
  */
 
 type Question = MockInterviewView["questions"][number];
@@ -51,55 +49,6 @@ function Quote({ text }: { text: string | null }) {
   return <span className="ml-1 text-xs text-muted-foreground">「{text}」</span>;
 }
 
-/** 按话题种类分节：每个聊过的话题问了几轮、面试官的判断、得分。 */
-function StageOverview({ session }: { session: MockInterviewView }) {
-  const conversation = session.conversation;
-  if (!conversation) return null;
-  const scoreById = new Map(session.questions.map((question) => [question.id, question.evaluation?.score ?? null]));
-  const rows = conversation.threads
-    .filter((thread) => thread.status !== "active")
-    .map((thread) => ({
-      thread,
-      note: thread.note,
-      verdict: thread.verdict,
-      depth: thread.depth,
-      score: thread.questionId ? (scoreById.get(thread.questionId) ?? null) : null,
-      skipped: thread.verdict === "skipped",
-    }));
-  if (rows.length === 0) return null;
-  const sections = AREA_KINDS.map((kind) => ({ kind, rows: rows.filter((row) => row.thread.kind === kind) })).filter((section) => section.rows.length > 0);
-  return (
-    <Card className="p-4">
-      <h3 className="text-sm font-semibold text-foreground">这场问了什么</h3>
-      <p className="mt-1 text-xs text-muted-foreground">
-        总分按话题种类加权（{AREA_KINDS.map((kind) => `${AREA_KIND_LABELS[kind]} ${KIND_WEIGHT[kind]}`).join(" : ")}）；跳过的计 0 分，没聊到的不计。
-      </p>
-      <div className="mt-3 grid gap-4">
-        {sections.map((section) => (
-          <div className="grid gap-2" key={section.kind}>
-            <p className="text-xs font-medium text-muted-foreground">
-              {AREA_KIND_LABELS[section.kind]} · {section.rows.length} 个话题
-            </p>
-            {section.rows.map(({ thread, note, verdict, depth, score, skipped }) => (
-              <div className="grid gap-1 border-t border-border pt-2" key={thread.id}>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-medium text-foreground">{thread.label}</span>
-                    {depth > 0 ? <MetaText>追问 {depth} 轮</MetaText> : null}
-                    {verdict && verdict !== "answered" ? <Badge tone="warning">{THREAD_VERDICT_LABELS[verdict]}</Badge> : null}
-                  </div>
-                  {skipped ? <Badge tone="warning">已跳过</Badge> : score !== null ? <Score value={score} /> : null}
-                </div>
-                {note ? <p className="text-sm leading-6 text-muted-foreground">面试官：{note}</p> : null}
-              </div>
-            ))}
-          </div>
-        ))}
-      </div>
-    </Card>
-  );
-}
-
 function Hypotheses({ items }: { items: ReportData["hypotheses"] }) {
   if (items.length === 0) return null;
   return (
@@ -123,30 +72,14 @@ function Hypotheses({ items }: { items: ReportData["hypotheses"] }) {
   );
 }
 
-function Memory({ session }: { session: MockInterviewView }) {
-  const memory = session.conversation?.memory;
-  if (!memory) return null;
-  const groups = [
-    { title: "已确认", entries: memory.established },
-    { title: "存疑", entries: memory.doubtful },
-    { title: "失守", entries: memory.failed },
-  ].filter((group) => group.entries.length > 0);
-  if (groups.length === 0) return null;
+/** 面试官最后一份笔记：他对候选人的现场判断，只在报告页展示。 */
+function Notebook({ session }: { session: MockInterviewView }) {
+  const notebook = session.conversation?.notebook?.trim();
+  if (!notebook) return null;
   return (
     <details className="rounded-control border border-border p-4">
-      <summary className="cursor-pointer text-sm font-semibold text-foreground">面试官的工作记忆</summary>
-      <div className="mt-3 grid gap-3 sm:grid-cols-3">
-        {groups.map((group) => (
-          <div key={group.title}>
-            <p className="text-xs font-medium text-muted-foreground">{group.title}</p>
-            <ul className="mt-1 grid gap-1 text-sm leading-6 text-foreground">
-              {group.entries.map((entry) => (
-                <li key={`${entry.turn}-${entry.text}`}>· {entry.text}</li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </div>
+      <summary className="cursor-pointer text-sm font-semibold text-foreground">面试官的笔记</summary>
+      <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{notebook}</p>
     </details>
   );
 }
@@ -273,8 +206,6 @@ export function MockInterviewReport({ session }: { session: MockInterviewView })
           </ButtonLink>
         </div>
       </section>
-
-      <StageOverview session={session} />
       <Hypotheses items={report.hypotheses} />
 
       <section className="grid gap-4 md:grid-cols-3">
@@ -341,7 +272,7 @@ export function MockInterviewReport({ session }: { session: MockInterviewView })
           ))}
       </section>
 
-      <Memory session={session} />
+      <Notebook session={session} />
     </div>
   );
 }

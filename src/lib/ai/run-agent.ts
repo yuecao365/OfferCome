@@ -1,19 +1,4 @@
-import {
-  APICallError,
-  RetryError,
-  asSchema,
-  generateText,
-  NoObjectGeneratedError,
-  NoOutputGeneratedError,
-  Output,
-  streamText,
-  type LanguageModel,
-  type LanguageModelUsage,
-  type ModelMessage,
-  type FlexibleSchema,
-  type StopCondition,
-  type ToolSet,
-} from "ai";
+import { APICallError, RetryError, asSchema, generateText, NoObjectGeneratedError, NoOutputGeneratedError, Output, streamText, type LanguageModel, type LanguageModelUsage, type ModelMessage, type FlexibleSchema, type StopCondition, type ToolSet } from "ai";
 
 import { randomUUID } from "node:crypto";
 
@@ -321,6 +306,8 @@ export type AgentStreamOptions = {
   /** required = 这一步必须调工具（只做决定）；none = 不许调工具（只说话）。 */
   toolChoice?: "auto" | "none" | "required";
   stopWhen?: StopCondition<ToolSet>;
+  /** 结构化输出（AI SDK 的 Output.object(...)）：文本流是 JSON，调用方从 stream.partialOutputStream / stream.output 取字段。 */
+  output?: ReturnType<typeof Output.object>;
   timeoutMs: number;
   maxOutputTokens?: number;
   model?: LanguageModel;
@@ -390,6 +377,7 @@ export function streamAgent(options: AgentStreamOptions): {
     tools: options.tools,
     ...(options.toolChoice ? { toolChoice: options.toolChoice } : {}),
     ...(options.stopWhen ? { stopWhen: options.stopWhen } : {}),
+    ...(options.output ? { output: options.output as Parameters<typeof streamText>[0]["output"] } : {}),
     ...(options.maxOutputTokens ? { maxOutputTokens: options.maxOutputTokens } : {}),
     abortSignal: AbortSignal.timeout(options.timeoutMs),
     system: buildSystemPrompt(options.system, options.untrustedInputs),

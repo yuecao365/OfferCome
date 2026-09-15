@@ -1,8 +1,9 @@
 "use client";
 
 import type { RecentWeakness } from "@/lib/mock-interviews/context";
-import { isInterviewPace, type InterviewBrief } from "@/lib/mock-interviews/interviewer/brief";
-import type { TurnPayload } from "@/lib/mock-interviews/interviewer/turn-payload";
+import { isInterviewPace, type InterviewBrief } from "@/lib/mock-interviews/brief/brief";
+import { DURATION_MINUTES } from "@/lib/interview/clock";
+import type { TurnPayload } from "@/lib/interview/views";
 
 import {
   listTrialInterviews,
@@ -100,7 +101,7 @@ function recentHistory(jobTitle: string, seedQuestionId: string | null): { recen
   const sameJobSegments = completed.filter((interview) => sameJob(interview.job.jobTitle)).flatMap((interview) => interview.questions);
   return {
     recentWeaknesses,
-    recentTopics: [...new Set(recent.flatMap((segment) => (segment.metadata.areaKind === "quick" && segment.metadata.areaName ? [segment.metadata.areaName] : [])))],
+    recentTopics: [...new Set(recent.flatMap((segment) => (segment.metadata.areaKind === "quick" && typeof segment.metadata.areaName === "string" ? [segment.metadata.areaName] : [])))],
     recentQuestions: sameJobSegments.map((segment) => segment.question.split("\n")[0].trim()).filter(Boolean).slice(0, RECENT_QUESTION_LIMIT),
   };
 }
@@ -119,6 +120,7 @@ export async function createTrialMockSession(formData: FormData, resume: TrialRe
     resume,
     round: field(formData, "round") || null,
     pace: isInterviewPace(pace) ? pace : "standard",
+    totalMinutes: DURATION_MINUTES[isInterviewPace(pace) ? pace : "standard"],
   });
   writeTrialInterview(interview);
   void runGeneration(interview.id, field(formData, "seedQuestionId") || null);
@@ -138,7 +140,7 @@ export async function runGeneration(id: string, seedQuestionId: string | null = 
       const blueprint = await requestBlueprint({ jobTitle: interview.job.jobTitle, jobDescription: interview.job.jobDescription });
       interview = mutateTrialInterview(id, (current) => withBlueprint(current, blueprint)) ?? interview;
     }
-    const { brief, memory } = await requestBrief({
+    const { brief } = await requestBrief({
       job: interview.job,
       resume: interview.resume,
       blueprint: interview.blueprint!,
@@ -146,7 +148,7 @@ export async function runGeneration(id: string, seedQuestionId: string | null = 
       round: interview.round,
       ...recentHistory(interview.job.jobTitle, seedQuestionId),
     });
-    mutateTrialInterview(id, (current) => withBrief(current, brief, memory));
+    mutateTrialInterview(id, (current) => withBrief(current, brief));
   } catch (caught) {
     const message = isMissingAiConfig(caught)
       ? "模型连接已失效，请到设置页重新连接后重试。"
@@ -172,7 +174,7 @@ export function createTrialChatTransport(id: string) {
     readState: () => {
       const current = requireInterview(id);
       if (!current.brief) throw new Error("这场面试还没有准备好。");
-      return { brief: current.brief, memory: current.memory, plan: current.plan, threads: current.threads, messages: current.messages };
+      return { brief: current.brief, notebook: current.notebook, totalMinutes: current.totalMinutes, messages: current.messages };
     },
     context: {
       jobTitle: interview.job.jobTitle,
@@ -182,15 +184,9 @@ export function createTrialChatTransport(id: string) {
   });
 }
 
-/** 流结束后把回合结果写进文档，并像本地版的 after() 一样立刻去评分刚关闭的段落。 */
-export function applyTrialTurn(id: string, payload: TurnPayload): void {
-  const before = requireInterview(id);
-  const next = applyTurnPayload(before, payload);
-  writeTrialInterview(next);
-  const newSegments = next.questions.slice(before.questions.length);
-  for (const segment of newSegments) {
-    if (!segment.skipped) void evaluateTrialSegment(id, segment.id);
-  }
+/** 流结束后把回合结果写进文档。切段与评分在面试结束后由整理员做（重建阶段 C）。 */
+export function applyTrialTurn(id: string, payload: TurnPayload & { notebook?: string }): void {
+  writeTrialInterview(applyTurnPayload(requireInterview(id), payload));
 }
 
 const evaluating = new Set<string>();
@@ -241,16 +237,9 @@ export async function completeTrialMockSession(id: string): Promise<void> {
     const report = await requestReport({
       jobTitle: current.job.jobTitle,
       brief,
-      memory: current.memory,
-      threads: current.threads.map((thread) => ({
-        areaId: thread.areaId,
-        kind: thread.kind,
-        label: thread.label,
-        status: thread.status,
-        depth: thread.depth,
-        note: thread.note,
-        questionId: current.questions.find((segment) => segment.threadId === thread.id)?.id ?? null,
-      })),
+      notebook: current.notebook,
+      // 分段投影（线程）由整理员产出（重建阶段 C）；之前报告只有汇总。
+      threads: [],
       questions: current.questions.map((segment) => ({
         id: segment.id,
         skipped: segment.skipped,

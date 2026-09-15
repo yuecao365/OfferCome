@@ -1,14 +1,11 @@
-import { createUIMessageStream, createUIMessageStreamResponse } from "ai";
-
 import { describeAgentError, isAgentRunError } from "@/lib/ai/run-agent";
-import { CANDIDATE_INTENT_PLACEHOLDERS, detectCandidateIntent, type ButtonIntent } from "@/lib/mock-interviews/interviewer/actions";
-import { startInterviewerTurn } from "@/lib/mock-interviews/interviewer/session";
-import { turnPayload, type TurnData } from "@/lib/mock-interviews/interviewer/turn-payload";
+import { CANDIDATE_CONTROLS, CONTROL_PLACEHOLDERS, type CandidateControl } from "@/lib/interview/events";
+import { startTurn } from "@/lib/interview/orchestrator";
+import { turnResponse } from "@/lib/interview/stream";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const INTENTS = Object.keys(CANDIDATE_INTENT_PLACEHOLDERS) as ButtonIntent[];
 const MAX_CONTENT_LENGTH = 20_000;
 
 type Body = {
@@ -16,6 +13,7 @@ type Body = {
   content?: unknown;
   intent?: unknown;
   voiceMetricsJson?: unknown;
+  composeMs?: unknown;
   /** start：开场回合，没有候选人消息。 */
   kind?: unknown;
 };
@@ -24,29 +22,23 @@ function parseBody(body: Body) {
   if (body.kind === "start") return { candidate: null };
   const clientId = typeof body.clientId === "string" ? body.clientId.trim() : "";
   const content = typeof body.content === "string" ? body.content.trim() : "";
-  const explicit = INTENTS.find((intent) => intent === body.intent) ?? null;
+  const control = (CANDIDATE_CONTROLS as readonly string[]).includes(body.intent as string) ? (body.intent as CandidateControl) : null;
   if (!clientId) throw new Error("缺少消息标识。");
-  if (!content && !explicit) throw new Error("消息不能为空。");
+  if (!content && !control) throw new Error("消息不能为空。");
   if (content.length > MAX_CONTENT_LENGTH) throw new Error("消息不能超过 2 万字符。");
   return {
     candidate: {
       clientId,
-      content: content || (explicit ? CANDIDATE_INTENT_PLACEHOLDERS[explicit] : ""),
-      intent: explicit === "end" ? "end" : detectCandidateIntent(content),
-      control: explicit,
+      content: content || (control ? CONTROL_PLACEHOLDERS[control] : ""),
+      control,
+      composeMs: typeof body.composeMs === "number" ? body.composeMs : null,
       voiceMetricsJson: typeof body.voiceMetricsJson === "string" ? body.voiceMetricsJson : null,
     },
   };
 }
 
-/**
- * 一个面试官回合：流式返回面试官的话；流结束前把 reducer 的结果落库，
- * 并以 data-turn 数据块把最终落库的消息交给前端替换流中的临时内容。
- */
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+/** 一个面试官回合：流式返回面试官的话；流结束前落库，并以 data-turn 把回合结果交给前端。 */
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   let parsed: ReturnType<typeof parseBody>;
   try {
@@ -54,31 +46,10 @@ export async function POST(
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "请求无效。" }, { status: 400 });
   }
-
-  let turn: Awaited<ReturnType<typeof startInterviewerTurn>>;
   try {
-    turn = await startInterviewerTurn({ sessionId: id, candidate: parsed.candidate });
+    return turnResponse(await startTurn({ sessionId: id, candidate: parsed.candidate }));
   } catch (error) {
     const message = isAgentRunError(error) ? describeAgentError(error) : error instanceof Error ? error.message : "无法开始回合。";
     return Response.json({ error: message }, { status: isAgentRunError(error) ? 503 : 409 });
   }
-
-  const started = turn;
-  const stream = createUIMessageStream({
-    execute: async ({ writer }) => {
-      // 重复提交：不调模型，直接把当时落库的面试官消息作为数据块回放。
-      if (started.replay) {
-        const data: TurnData = { replay: true, messages: started.messages };
-        writer.write({ type: "data-turn", data });
-        return;
-      }
-      writer.merge(started.stream.toUIMessageStream());
-      const { result, decision } = await started.finalize();
-      // 与体验版的回合接口同一形状：前端用落库的消息替换流中的临时内容。
-      const data: TurnData = { replay: false, payload: turnPayload(result, decision) };
-      writer.write({ type: "data-turn", data });
-    },
-    onError: (error) => (isAgentRunError(error) ? describeAgentError(error) : error instanceof Error ? error.message : "回合失败。"),
-  });
-  return createUIMessageStreamResponse({ stream });
 }

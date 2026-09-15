@@ -1,5 +1,4 @@
-import type { InterviewBrief } from "@/lib/mock-interviews/interviewer/brief";
-import type { InterviewMemory } from "@/lib/mock-interviews/interviewer/memory";
+import type { InterviewBrief } from "@/lib/mock-interviews/brief/brief";
 import { ALL_SKIPPED_SUMMARY, areaOutcomes, buildReport, summaryInput, type OutcomeQuestion, type OutcomeThread } from "@/lib/mock-interviews/outcome";
 import { summarizeMockInterview } from "@/lib/mock-interviews/summary-agent";
 import { withTrialAi } from "@/lib/trial/route-handler";
@@ -10,7 +9,7 @@ export const maxDuration = 60;
 type Body = {
   jobTitle: string;
   brief: InterviewBrief;
-  memory: InterviewMemory;
+  notebook: string;
   threads: OutcomeThread[];
   questions: OutcomeQuestion[];
 };
@@ -20,7 +19,7 @@ export const POST = withTrialAi<Body>(async (body) => {
   const areas = areaOutcomes(body.brief, body.threads, body.questions);
   const answered = body.questions.some((question) => !question.skipped && question.evaluation);
   const summary = answered
-    ? await summarizeMockInterview(summaryInput({ jobTitle: body.jobTitle, brief: body.brief, areas, memory: body.memory }))
+    ? await summarizeMockInterview(summaryInput({ jobTitle: body.jobTitle, brief: body.brief, areas, notebook: body.notebook }))
     : ALL_SKIPPED_SUMMARY;
   return { report: buildReport(areas, summary) };
 });

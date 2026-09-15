@@ -24,7 +24,6 @@ export async function POST(
       select: {
         status: true,
         interviewId: true,
-        currentQuestionIndex: true,
       },
     });
     if (!session) {
@@ -49,9 +48,6 @@ export async function POST(
     if (!question) {
       return Response.json({ error: "面试题目不存在。" }, { status: 404 });
     }
-    if (question.sortOrder !== session.currentQuestionIndex) {
-      return Response.json({ error: "只能转写当前题目的录音。" }, { status: 409 });
-    }
     const audio = formData.get("audio");
     if (!(audio instanceof File) || audio.size === 0) {
       return Response.json({ error: "请选择有效的回答录音。" }, { status: 400 });
@@ -74,11 +70,10 @@ export async function POST(
       await prisma.$transaction(async (tx) => {
         const currentSession = await tx.mockInterviewSession.findUnique({
           where: { id },
-          select: { status: true, currentQuestionIndex: true },
+          select: { status: true },
         });
         if (
-          currentSession?.status !== "in_progress" ||
-          currentSession.currentQuestionIndex !== question.sortOrder
+          currentSession?.status !== "in_progress"
         ) {
           throw new Error("当前题目已变化，请刷新后重试。");
         }

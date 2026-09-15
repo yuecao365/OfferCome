@@ -1,9 +1,8 @@
 import { randomUUID } from "node:crypto";
 
 import type { RecentWeakness } from "@/lib/mock-interviews/context";
-import { INTERVIEW_PACES, type InterviewPace } from "@/lib/mock-interviews/interviewer/brief";
-import { generateInterviewBrief } from "@/lib/mock-interviews/interviewer/brief-agent";
-import { emptyMemory } from "@/lib/mock-interviews/interviewer/memory";
+import { INTERVIEW_PACES, type InterviewPace } from "@/lib/mock-interviews/brief/brief";
+import { generateInterviewBrief } from "@/lib/mock-interviews/brief/brief-agent";
 import type { MockInterviewJobBlueprint } from "@/lib/mock-interviews/types";
 import type { TrialJobInput, TrialResumeInput } from "@/lib/trial/interview";
 import { withTrialAi } from "@/lib/trial/route-handler";
@@ -26,7 +25,7 @@ type Body = {
 
 const strings = (value: unknown): string[] => (Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : []);
 
-/** 备课第二步：蓝图 + 简历 + 技能包 → 简报，连同空的工作记忆一起交给浏览器保管。 */
+/** 备课第二步：蓝图 + 简历 + 技能包 → 简报，交给浏览器保管。 */
 export const POST = withTrialAi<Body>(async (body) => {
   const pace = INTERVIEW_PACES.includes(body.pace) ? body.pace : "standard";
   const brief = await generateInterviewBrief({
@@ -44,5 +43,5 @@ export const POST = withTrialAi<Body>(async (body) => {
     pace,
     round: body.round,
   });
-  return { brief, memory: emptyMemory(brief) };
+  return { brief };
 });

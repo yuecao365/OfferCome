@@ -1,16 +1,15 @@
+import { conversationView, traceTurns } from "@/lib/interview/views";
 import { buildQuestionTeaching } from "@/lib/mock-interviews/teaching";
 import type { MockInterviewTrace, MockInterviewView } from "@/lib/mock-interviews/types";
-import { conversationView, traceTurns } from "@/lib/mock-interviews/views";
 
 import type { TrialInterview } from "./interview";
 
 /**
  * 把体验版的会话文档适配成本地版房间 / 报告 / trace 组件吃的视图。
- * 拼装函数与本地版 queries.ts 用的是同一批（views.ts、teaching.ts），组件层感知不到数据来自浏览器还是数据库。
+ * 拼装函数与本地版 queries.ts 用的是同一批（interview/views.ts、teaching.ts），组件层感知不到数据来自浏览器还是数据库。
  */
 
 export function trialInterviewToView(interview: TrialInterview): MockInterviewView {
-  const closed = interview.questions.length;
   const completed = interview.status === "completed";
   return {
     id: interview.id,
@@ -22,24 +21,12 @@ export function trialInterviewToView(interview: TrialInterview): MockInterviewVi
     generationErrorCode: null,
     generationError: interview.generationError,
     interactionMode: "text",
-    currentQuestionIndex: closed,
-    questionCount: closed,
+    questionCount: interview.questions.length,
     totalScore: interview.report?.totalScore ?? null,
     report: interview.report,
     materials: { resumeText: interview.resume.text, jobDescription: interview.job.jobDescription },
     conversation: interview.brief
-      ? conversationView({
-          brief: interview.brief,
-          status: interview.status,
-          startedAt: interview.startedAt,
-          plan: interview.plan,
-          threads: interview.threads.map((thread) => ({
-            ...thread,
-            questionId: interview.questions.find((segment) => segment.threadId === thread.id)?.id ?? null,
-          })),
-          messages: interview.messages,
-          memory: interview.memory,
-        })
+      ? conversationView({ brief: interview.brief, status: interview.status, startedAt: interview.startedAt, totalMinutes: interview.totalMinutes, notebook: interview.notebook, messages: interview.messages })
       : null,
     questions: interview.questions.map((segment, index) => ({
       id: segment.id,
@@ -49,19 +36,13 @@ export function trialInterviewToView(interview: TrialInterview): MockInterviewVi
       sortOrder: index,
       skipped: segment.skipped,
       ...(completed && segment.evaluation
-        ? {
-            teaching: buildQuestionTeaching({
-              metadata: segment.metadata,
-              expectedSignals: segment.expectedSignals,
-              sourceKind: segment.sourceKind,
-            }),
-            evaluation: segment.evaluation,
-          }
+        ? { teaching: buildQuestionTeaching({ metadata: segment.metadata, expectedSignals: segment.expectedSignals, sourceKind: segment.sourceKind }), evaluation: segment.evaluation }
         : { evaluation: null }),
     })),
   };
 }
 
+/** 体验版没有事件日志：trace 从消息投影拼，没有笔记与开销。 */
 export function trialInterviewToTrace(interview: TrialInterview): MockInterviewTrace | null {
   if (!interview.brief) return null;
   return {
@@ -70,11 +51,14 @@ export function trialInterviewToTrace(interview: TrialInterview): MockInterviewT
     jobTitle: interview.job.jobTitle,
     status: interview.status,
     pace: interview.brief.pace,
-    turns: interview.brief.turns,
+    totalMinutes: interview.totalMinutes,
     areas: interview.brief.areas.map((area) => ({ id: area.id, name: area.name, kind: area.kind })),
-    rows: traceTurns({
-      messages: interview.messages.map((message) => ({ ...message, composeMs: message.metrics?.composeMs ?? null })),
-      decisions: interview.decisions,
-    }),
+    rows: traceTurns(
+      interview.messages.map((message) => ({
+        type: message.role === "candidate" ? "candidate_said" : "interviewer_said",
+        payload: { content: message.content, kind: message.kind, control: message.kind === "control" ? "hint" : null, composeMs: null },
+        runId: null,
+      })),
+    ),
   };
 }

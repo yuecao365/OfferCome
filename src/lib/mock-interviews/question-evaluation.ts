@@ -2,8 +2,8 @@ import { z } from "zod";
 
 import { normalizedText } from "@/lib/text/similarity";
 
-import type { ThreadVerdict } from "./interviewer/actions";
-import type { AreaKind } from "./interviewer/brief";
+import type { ThreadVerdict } from "./verdicts";
+import type { AreaKind } from "./brief/brief";
 
 /**
  * 逐题评分的纯逻辑：输入解析、输出校验、引用硬门。

@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
-import { INTERVIEW_PACE_LABELS, type InterviewPace } from "@/lib/mock-interviews/interviewer/brief";
+import { INTERVIEW_PACE_LABELS, type InterviewPace } from "@/lib/mock-interviews/brief/brief";
 import { mockInterviewDeleteConfirmMessage } from "@/lib/mock-interviews/types";
 
 export type MockInterviewListItem = {
@@ -15,7 +15,6 @@ export type MockInterviewListItem = {
   /** 删除目标（本地版是面试记录 id；体验版与会话 id 相同）。 */
   interviewId: string;
   status: string;
-  currentQuestionIndex: number;
   questionCount: number;
   totalScore: number | null;
   companyName: string;
@@ -28,7 +27,7 @@ function progressLabel(session: MockInterviewListItem): string {
   if (session.pace) {
     return `已考察 ${session.questionCount} 个话题 · ${INTERVIEW_PACE_LABELS[session.pace]}`;
   }
-  return `已回答 ${Math.min(session.currentQuestionIndex, session.questionCount)}/${session.questionCount} 题`;
+  return `${session.questionCount} 个话题`;
 }
 
 function statusLabel(status: string): string {

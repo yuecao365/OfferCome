@@ -11,15 +11,11 @@ import { ThemeButton } from "@/components/theme-button";
 import { Alert } from "@/components/ui/alert";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
-import { CANDIDATE_INTENT_PLACEHOLDERS } from "@/lib/mock-interviews/interviewer/actions";
-
-import type { TurnData, TurnPayload } from "@/lib/mock-interviews/interviewer/turn-payload";
-import type {
-  InterviewStage,
-  MockInterviewConversation,
-  MockInterviewConversationMessage,
-  MockInterviewView,
-} from "@/lib/mock-interviews/types";
+import type { Clock } from "@/lib/interview/clock";
+import { CONTROL_PLACEHOLDERS } from "@/lib/interview/events";
+import type { TurnData } from "@/lib/interview/stream";
+import type { ConversationMessage, TurnPayload } from "@/lib/interview/views";
+import type { MockInterviewConversation, MockInterviewView } from "@/lib/mock-interviews/types";
 
 /**
  * 对话式面试房间：独占整个视口，没有应用导航——像真的坐进面试间。
@@ -27,7 +23,7 @@ import type {
  * 前端用它替换流中的临时内容。本地版真相在数据库，体验版真相在浏览器的会话文档，
  * 差别全部收在注入的 driver 里。
  *
- * 候选人看不到具体的题和面试官的笔记，看得到面试官的计划走到哪了（哪些话题聊过、现在在哪个）、已用时和"资料"抽屉
+ * 候选人看不到具体的题和面试官的笔记，看得到时间盒（已用 / 总时长）、已用时和"资料"抽屉
  * （简历原文与岗位描述，面试官对质时引用的简历原句在里面高亮）。
  */
 
@@ -94,7 +90,7 @@ export function createLocalChatDriver(sessionId: string): MockInterviewChatDrive
   };
 }
 
-export function MockInterviewBubble({ message }: { message: MockInterviewConversationMessage }) {
+export function MockInterviewBubble({ message }: { message: ConversationMessage }) {
   const interviewer = message.role === "interviewer";
   return (
     <div className={interviewer ? "flex justify-start" : "flex justify-end"}>
@@ -136,32 +132,17 @@ function subscribeNoop(): () => void {
   return () => {};
 }
 
-/** 面试官的计划：聊过的划掉、正在聊的高亮、还没聊的灰色；末尾是回合进度。 */
-function PlanBar({ stage, ended }: { stage: InterviewStage; ended: boolean }) {
+/** 时间盒：已用约几分钟 / 共几分钟；快到时间变色。 */
+function ClockBar({ clock, ended }: { clock: Clock; ended: boolean }) {
+  const used = Math.min(clock.usedMinutes, clock.totalMinutes);
   return (
-    <ol aria-label="面试计划" className="hidden min-w-0 items-center gap-1 overflow-hidden text-xs sm:flex">
-      {stage.items.map((item, index) => {
-        const current = !ended && item.status === "active";
-        const done = ended || item.status === "done";
-        return (
-          <li className="flex shrink-0 items-center gap-1" key={item.id}>
-            {index > 0 ? <span aria-hidden="true" className="text-muted-foreground/60">›</span> : null}
-            <span
-              aria-current={current ? "step" : undefined}
-              className={cn(
-                "rounded-full px-2 py-0.5",
-                current ? "bg-accent font-medium text-accent-foreground" : done ? "text-muted-foreground line-through decoration-border" : "text-muted-foreground",
-              )}
-            >
-              {item.label}
-            </span>
-          </li>
-        );
-      })}
-      <li className="shrink-0 font-mono tabular-nums text-muted-foreground">
-        {stage.turnsUsed}/{stage.turnsTotal}
-      </li>
-    </ol>
+    <p
+      aria-label="面试时间盒"
+      className={cn("shrink-0 font-mono text-xs tabular-nums", !ended && clock.phase !== "open" ? "text-warning-strong" : "text-muted-foreground")}
+      title="按双方说话的字数折算的面试进度"
+    >
+      {Math.round(used)}/{clock.totalMinutes} 分钟
+    </p>
   );
 }
 
@@ -180,7 +161,7 @@ export function MockInterviewChat({
   const conversation = session.conversation;
   const [transcript, setTranscript] = useState(conversation.messages);
   const [phase, setPhase] = useState(conversation.phase);
-  const [stage, setStage] = useState(conversation.stage);
+  const [clock, setClock] = useState(conversation.clock);
   const [input, setInput] = useState("");
   const [turnError, setTurnError] = useState("");
   const [completing, setCompleting] = useState(false);
@@ -211,7 +192,7 @@ export function MockInterviewChat({
         });
         if (!data.replay) {
           setPhase(data.payload.phase);
-          setStage(data.payload.stage);
+          setClock(data.payload.clock);
           driver.onTurn?.(data.payload);
         }
       }
@@ -242,13 +223,13 @@ export function MockInterviewChat({
       const trimmed = content.trim();
       if (!trimmed && !intent) return;
       const clientId = crypto.randomUUID();
-      const text = trimmed || (intent ? CANDIDATE_INTENT_PLACEHOLDERS[intent] : "");
+      const text = trimmed || (intent ? CONTROL_PLACEHOLDERS[intent] : "");
       const composeMs = lastInterviewerAtRef.current ? Math.max(0, Date.now() - lastInterviewerAtRef.current) : null;
       const body: TurnBody = { kind: "message", clientId, content: trimmed, intent, composeMs };
       setTurnError("");
       setTranscript((current) => [
         ...current,
-        { id: `local-${clientId}`, turnIndex: turnsUsed, role: "candidate", kind: "answer", content: text, threadId: null },
+        { id: `local-${clientId}`, turnIndex: turnsUsed, role: "candidate", kind: intent ? "control" : "answer", content: text },
       ]);
       setInput("");
       lastRequestRef.current = { text, body };
@@ -315,7 +296,7 @@ export function MockInterviewChat({
         <p className="min-w-0 flex-1 truncate text-sm font-medium">
           {session.companyName} · {session.jobTitle}
         </p>
-        <PlanBar ended={ended} stage={stage} />
+        <ClockBar clock={clock} ended={ended} />
         <ElapsedClock startedAt={conversation.startedAt ?? openedAt} running={!ended} />
         <Button aria-pressed={materialsOpen} onClick={() => setMaterialsOpen((open) => !open)} size="sm" type="button" variant="ghost">
           <FileText aria-hidden="true" className="size-3.5" strokeWidth={1.5} />

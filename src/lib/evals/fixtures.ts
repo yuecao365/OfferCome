@@ -3,8 +3,8 @@ import path from "node:path";
 
 import { z } from "zod";
 
-import { THREAD_VERDICTS } from "@/lib/mock-interviews/interviewer/actions";
-import { AREA_KINDS } from "@/lib/mock-interviews/interviewer/brief";
+import { THREAD_VERDICTS } from "@/lib/mock-interviews/verdicts";
+import { AREA_KINDS } from "@/lib/mock-interviews/brief/brief";
 
 /**
  * 评测数据（`eval/`）的 schema 与加载：JD、合成简历、人设、静态脚本、评分器蜕变用例。

@@ -1,4 +1,4 @@
-import { PACE_PLAN, rubricForArea, type InterviewArea, type InterviewBrief, type InterviewPace } from "@/lib/mock-interviews/interviewer/brief";
+import { PACE_PLAN, rubricForArea, type InterviewArea, type InterviewBrief, type InterviewPace } from "@/lib/mock-interviews/brief/brief";
 
 /**
  * 测试用的 v8 简报（材料）：一个项目的两个面、四道基础题、一道场景题，标准节奏。

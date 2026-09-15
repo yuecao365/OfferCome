@@ -4,11 +4,9 @@ import { prisma } from "@/lib/db";
 import { REAL_USAGE_INTERVIEW_WHERE } from "@/lib/interviews/types";
 import { parseJsonArray, parseJsonObject, parseJsonValue } from "@/lib/json";
 
-import { parseThreadVerdict } from "./interviewer/actions";
-import { parseStoredBrief } from "./interviewer/brief";
-import { parseStoredMemory, type MemoryPatch } from "./interviewer/memory";
-import { toThreadState } from "./interviewer/session";
-import { parseStoredPlan, type MessageKind, type MessageRole, type MessageState } from "./interviewer/state";
+import { conversationView, traceTurns, type TraceRun } from "@/lib/interview/views";
+
+import { parseStoredBrief } from "./brief/brief";
 import {
   parseStoredEvaluationList,
   type AnswerExemplar,
@@ -23,7 +21,6 @@ import {
   type MockInterviewView,
   type MockInterviewGenerationErrorContext,
 } from "./types";
-import { conversationView, traceTurns, type TraceRun } from "./views";
 
 function parseArray<T>(value: string | null): T[] {
   return parseJsonArray(value) as T[];
@@ -64,7 +61,6 @@ function loadSessionForView(id: string) {
         },
       },
       messages: { orderBy: [{ turnIndex: "asc" }, { createdAt: "asc" }] },
-      threads: { orderBy: { createdAt: "asc" } },
     },
   });
 }
@@ -77,10 +73,9 @@ function buildConversation(session: SessionWithConversation) {
     brief,
     status: session.status,
     startedAt: session.startedAt?.toISOString() ?? null,
-    plan: parseStoredPlan(session.planJson ? JSON.parse(session.planJson) : null),
-    threads: session.threads.map((thread) => ({ ...toThreadState(thread), questionId: thread.questionId })),
-    messages: session.messages.map((message): MessageState => ({ ...message, role: message.role as MessageRole, kind: message.kind as MessageKind })),
-    memory: parseStoredMemory(session.memoryJson, brief),
+    totalMinutes: session.durationMinutes,
+    notebook: session.notebook,
+    messages: session.messages.map((message) => ({ id: message.id, turnIndex: message.turnIndex, role: message.role === "candidate" ? "candidate" : "interviewer", kind: message.kind, content: message.content })),
   });
 }
 
@@ -106,7 +101,6 @@ export async function getMockInterviewView(id: string): Promise<MockInterviewVie
     interactionMode: isMockInterviewMode(session.interactionMode)
       ? session.interactionMode
       : "text",
-    currentQuestionIndex: session.currentQuestionIndex,
     questionCount: session.questionCount,
     totalScore: session.totalScore,
     report: parseStoredReport(session.reportJson),
@@ -158,15 +152,11 @@ export async function getRecentMockInterviews() {
   });
 }
 
-/** trace 页面：按回合把候选人的话、面试官的话、决策记录与模型开销拼在一起。 */
+/** trace 页面：从事件日志拼每回合的候选人的话、面试官的话、笔记、时钟与模型开销。 */
 export async function getMockInterviewTrace(id: string): Promise<MockInterviewTrace | null> {
   const session = await prisma.mockInterviewSession.findUnique({
     where: { id },
-    include: {
-      interview: { select: { companyName: true, jobTitle: true } },
-      messages: { orderBy: [{ turnIndex: "asc" }, { createdAt: "asc" }] },
-      decisions: { orderBy: { turnIndex: "asc" } },
-    },
+    include: { interview: { select: { companyName: true, jobTitle: true } }, events: { orderBy: { seq: "asc" } } },
   });
   if (!session) return null;
   const brief = parseStoredBrief(session.briefJson);
@@ -175,13 +165,12 @@ export async function getMockInterviewTrace(id: string): Promise<MockInterviewTr
     where: { runId: { startsWith: `turn:${id}:` }, event: "model_call" },
     select: { runId: true, status: true, durationMs: true, totalTokens: true, cachedTokens: true, errorKind: true },
   });
-  // 一回合一次模型调用（多步共用一个 runId）：按回合合并开销，状态取最差的那次。
-  const runByTurn = new Map<number, TraceRun>();
+  // 一回合一次调用（多步共用一个 runId）：按 runId 合并开销，状态取最差的那次。
+  const runById = new Map<string, TraceRun>();
   const sum = (previous: number | null | undefined, current: number | null) => (current === null && previous == null ? null : (previous ?? 0) + (current ?? 0));
   for (const run of runs) {
-    const turnIndex = Number(run.runId.split(":").pop());
-    const previous = runByTurn.get(turnIndex);
-    runByTurn.set(turnIndex, {
+    const previous = runById.get(run.runId);
+    runById.set(run.runId, {
       status: previous && previous.status !== "success" ? previous.status : run.status,
       durationMs: (previous?.durationMs ?? 0) + run.durationMs,
       totalTokens: sum(previous?.totalTokens, run.totalTokens),
@@ -189,38 +178,17 @@ export async function getMockInterviewTrace(id: string): Promise<MockInterviewTr
       errorKind: previous?.errorKind ?? run.errorKind,
     });
   }
-
   return {
     id: session.id,
     companyName: session.interview.companyName,
     jobTitle: session.interview.jobTitle,
     status: session.status,
     pace: brief.pace,
-    turns: brief.turns,
+    totalMinutes: session.durationMinutes,
     areas: brief.areas.map((area) => ({ id: area.id, name: area.name, kind: area.kind })),
-    rows: traceTurns({
-      messages: session.messages.map((message) => ({
-        turnIndex: message.turnIndex,
-        role: message.role as MessageRole,
-        kind: message.kind as MessageKind,
-        content: message.content,
-        toolName: message.toolName,
-        composeMs: (parseJsonObject(message.metricsJson ?? "{}").composeMs as number | undefined) ?? null,
-      })),
-      decisions: session.decisions.map((decision) => ({
-        turnIndex: decision.turnIndex,
-        planChanged: decision.planChanged,
-        entered: decision.entered,
-        left: parseThreadVerdict(decision.leftVerdict),
-        ended: decision.endedBy !== null,
-        endedBy: decision.endedBy === "interviewer" || decision.endedBy === "candidate" || decision.endedBy === "budget" ? decision.endedBy : null,
-        failed: decision.failed,
-        memoryPatch: (parseJsonValue(decision.memoryPatchJson) as MemoryPatch | null) ?? null,
-        turnsUsed: decision.turnsUsed,
-        skillsLoaded: decision.skillsLoaded,
-        effects: (parseJsonValue(decision.effectsJson) as string[] | null) ?? [],
-      })),
-      runs: runByTurn,
-    }),
+    rows: traceTurns(
+      session.events.map((row) => ({ type: row.type, payload: parseJsonObject(row.payloadJson), runId: row.runId })),
+      runById,
+    ),
   };
 }

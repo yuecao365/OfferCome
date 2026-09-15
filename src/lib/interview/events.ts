@@ -11,6 +11,14 @@ import { z } from "zod";
 export const CANDIDATE_CONTROLS = ["hint", "skip", "repeat", "end"] as const;
 export type CandidateControl = (typeof CANDIDATE_CONTROLS)[number];
 
+/** 房间按钮只点按钮没打字时替候选人说的话。 */
+export const CONTROL_PLACEHOLDERS: Record<CandidateControl, string> = {
+  skip: "这题我想跳过。",
+  repeat: "能再说一遍吗？",
+  end: "我们结束吧。",
+  hint: "这题我不太会，能给个方向吗？",
+};
+
 const said = z.object({ content: z.string() });
 
 export const eventPayloadSchemas = {

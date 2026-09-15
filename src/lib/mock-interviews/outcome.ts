@@ -1,6 +1,4 @@
-import { isAreaKind, KIND_WEIGHT, type InterviewBrief } from "./interviewer/brief";
-import type { InterviewMemory } from "./interviewer/memory";
-import { interviewerNote } from "./interviewer/reducer";
+import { isAreaKind, KIND_WEIGHT, type InterviewBrief } from "./brief/brief";
 import type { EvaluationWeakness } from "./question-evaluation";
 import { REPORT_VERSION, type MockInterviewReport } from "./report";
 import { computeInterviewTotalScore } from "./scoring";
@@ -45,7 +43,7 @@ export function areaOutcomes(_brief: InterviewBrief, threads: OutcomeThread[], q
           kind,
           weight: KIND_WEIGHT[kind],
           depthReached: thread.depth,
-          threadNote: interviewerNote(thread.note),
+          threadNote: thread.note,
           skipped: !answered,
           score: answered ? (question.evaluation?.score ?? null) : null,
           weaknesses: question?.evaluation?.weaknesses ?? [],
@@ -59,22 +57,16 @@ export function summaryInput(input: {
   jobTitle: string;
   brief: InterviewBrief;
   areas: AreaOutcome[];
-  memory: InterviewMemory;
+  notebook: string;
 }): SummaryInput {
   return {
     jobTitle: input.jobTitle,
     round: input.brief.round,
     pace: input.brief.pace,
     areas: input.areas.map((area) => area.summary),
-    memory: {
-      established: input.memory.established,
-      doubtful: input.memory.doubtful,
-      failed: input.memory.failed,
-    },
-    hypotheses: input.brief.hypotheses.map((hypothesis) => {
-      const state = input.memory.hypotheses.find((item) => item.id === hypothesis.id);
-      return { text: hypothesis.text, status: state?.status ?? "open", note: state?.note ?? null };
-    }),
+    notebook: input.notebook,
+    // 假设的验证状态由汇总 agent 按各段判断（重建后面试中不再记账）。
+    hypotheses: input.brief.hypotheses.map((hypothesis) => ({ text: hypothesis.text, status: "open" as const, note: null })),
   };
 }
 

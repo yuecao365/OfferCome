@@ -4,8 +4,7 @@ import { enqueueCandidateProfileRefresh } from "@/lib/candidate-profile/backgrou
 import { prisma } from "@/lib/db";
 import { parseJsonArray } from "@/lib/json";
 
-import { parseStoredBrief } from "./interviewer/brief";
-import { parseStoredMemory } from "./interviewer/memory";
+import { parseStoredBrief } from "./brief/brief";
 import { ALL_SKIPPED_SUMMARY, areaOutcomes, buildReport, summaryInput } from "./outcome";
 import {
   evaluatePersistedMockInterviewQuestion,
@@ -142,7 +141,7 @@ export async function completeMockInterview(
               jobTitle: session.interview.jobTitle,
               brief,
               areas,
-              memory: parseStoredMemory(session.memoryJson, brief),
+              notebook: session.notebook,
             }),
           )
         : ALL_SKIPPED_SUMMARY;

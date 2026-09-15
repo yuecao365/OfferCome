@@ -3,6 +3,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 
 import { prisma } from "@/lib/db";
+import { DURATION_MINUTES } from "@/lib/interview/clock";
 
 import {
   buildMockInterviewContext,
@@ -10,9 +11,8 @@ import {
   type MockInterviewContext,
 } from "./context";
 import { isMockInterviewGenerationError } from "./errors";
-import { isInterviewPace } from "./interviewer/brief";
-import { generateInterviewBrief } from "./interviewer/brief-agent";
-import { emptyMemory } from "./interviewer/memory";
+import { isInterviewPace } from "./brief/brief";
+import { generateInterviewBrief } from "./brief/brief-agent";
 import { analyzeMockInterviewJob } from "./job-analysis-agent";
 import {
   claimSession,
@@ -116,13 +116,13 @@ async function persistBrief(
           generationRequest: snapshot.generationRequest,
         }),
         briefJson: JSON.stringify(brief),
-        memoryJson: JSON.stringify(emptyMemory(brief)),
+        notebook: "",
+        durationMinutes: DURATION_MINUTES[session.pace],
         status: "in_progress",
         generationPhase: null,
         generationErrorCode: null,
         generationError: null,
         questionCount: 0,
-        currentQuestionIndex: 0,
       },
     });
     if (!claimed) {

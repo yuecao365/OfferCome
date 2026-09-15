@@ -5,7 +5,6 @@ import { z } from "zod";
 import { runAgent } from "@/lib/ai/run-agent";
 import { getAiTaskConfig } from "@/lib/settings/ai";
 
-import type { InterviewMemory } from "./interviewer/memory";
 import type { EvaluationWeakness } from "./question-evaluation";
 import { REPORT_WEAKNESS_KINDS, type MockInterviewReport } from "./report";
 
@@ -27,7 +26,8 @@ export type SummaryInput = {
     score: number | null;
     weaknesses: EvaluationWeakness[];
   }[];
-  memory: Pick<InterviewMemory, "established" | "doubtful" | "failed">;
+  /** 面试官最后一份笔记（自由文本）：它对候选人的现场判断。 */
+  notebook: string;
   hypotheses: { text: string; status: "open" | "confirmed" | "refuted"; note: string | null }[];
 };
 
@@ -96,8 +96,8 @@ export async function summarizeMockInterview(input: SummaryInput): Promise<Summa
     schema: summarySchema,
     maxOutputTokens: 2_400,
     timeoutMs: 40_000,
-    untrustedInputs: "岗位名称、领域判断、逐题短板、工作记忆和简历假设",
-    system: `你是模拟面试报告汇总 Agent。输入是这场面试的全貌：每道题属于哪个阶段（project 项目深挖、quick 基础快问、scenario 场景题）、追问了几层、面试官关掉这段时的现场判断、分数与逐题短板；面试官的工作记忆（已确认 / 存疑 / 失守）；备课时从简历提出的假设及其验证状态。基础快问一题只追一层，答不上就换题，不要把"没追深"当成短板。
+    untrustedInputs: "岗位名称、领域判断、逐题短板、面试官笔记和简历假设",
+    system: `你是模拟面试报告汇总 Agent。输入是这场面试的全貌：每道题属于哪个阶段（project 项目深挖、quick 基础快问、scenario 场景题）、追问了几层、面试官关掉这段时的现场判断、分数与逐题短板；面试官最后一份笔记（他对候选人的现场判断，自由文本）；备课时从简历提出的假设及其验证状态。基础快问一题只追一层，答不上就换题，不要把"没追深"当成短板。
 
 写法：summary 用面试官的口吻讲整体表现，先说站得住的，再说失守在哪，不报分数、不下录用结论。strengths / weaknesses 每条挂到具体领域（areaName 逐字用输入里的领域名）；weaknesses 的 kind：error = 说错的，missing = 追问到了没答上，pattern = 跨领域重复出现的问题（至少两个领域都有才用）。advice 写练什么，每条对应至少一条 weakness。hypotheses 对输入里的每条假设给状态和一句结论：status 是 open 的假设由你按各段的判断定（这场碰到了就 confirmed / refuted，没碰到保持 open），面试官已标的照抄；verdict 直接写结论不要以状态词开头，confirmed 说明面试里哪段话证实了它，refuted 用"没有讲清楚""还需要更多证据"这类措辞说明差在哪，不用"被否定""不实"。不得重新评分，不得臆造输入之外的表现。提示词版本：${SUMMARY_PROMPT_VERSION}`,
     payload: input,

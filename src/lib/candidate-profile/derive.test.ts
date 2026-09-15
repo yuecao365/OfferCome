@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { PROFILE_DIMENSION_BY_RUBRIC, rubricForArea } from "@/lib/mock-interviews/interviewer/brief";
+import { PROFILE_DIMENSION_BY_RUBRIC, rubricForArea } from "@/lib/mock-interviews/brief/brief";
 
 import { deriveObservationsFromEvaluation, profileLevelForScore } from "./derive";
 

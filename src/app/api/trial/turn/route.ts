@@ -1,24 +1,21 @@
-import { createUIMessageStream, createUIMessageStreamResponse } from "ai";
-
 import { describeAgentError, isAgentRunError } from "@/lib/ai/run-agent";
-import { CANDIDATE_INTENT_PLACEHOLDERS, detectCandidateIntent, type ButtonIntent } from "@/lib/mock-interviews/interviewer/actions";
-import type { InterviewBrief } from "@/lib/mock-interviews/interviewer/brief";
-import type { InterviewMemory } from "@/lib/mock-interviews/interviewer/memory";
-import { createInterviewerState, type InterviewPlan, type MessageState, type ThreadState } from "@/lib/mock-interviews/interviewer/state";
-import { runInterviewerTurn } from "@/lib/mock-interviews/interviewer/turn";
-import { turnPayload, type TurnData } from "@/lib/mock-interviews/interviewer/turn-payload";
+import { CANDIDATE_CONTROLS, CONTROL_PLACEHOLDERS, type CandidateControl } from "@/lib/interview/events";
+import { turnResponse } from "@/lib/interview/stream";
+import { runTurn, type TurnState } from "@/lib/interview/turn";
+import type { ConversationMessage } from "@/lib/interview/views";
+import type { InterviewBrief } from "@/lib/mock-interviews/brief/brief";
 import { loadSkillPacks } from "@/lib/mock-interviews/skills/loader";
 import { packsForInterview } from "@/lib/mock-interviews/skills/selector";
+import { getAiTaskConfig } from "@/lib/settings/ai";
 import { withTrialAiResponse } from "@/lib/trial/route-handler";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const INTENTS = Object.keys(CANDIDATE_INTENT_PLACEHOLDERS) as ButtonIntent[];
 const MAX_CONTENT_LENGTH = 20_000;
 
 type Body = {
-  state: { brief: InterviewBrief; memory: InterviewMemory; plan: InterviewPlan | null; threads: ThreadState[]; messages: MessageState[] };
+  state: { brief: InterviewBrief; notebook: string; totalMinutes: number; messages: ConversationMessage[] };
   context: { jobTitle: string; jobDescription: string; resumeText: string };
   /** null = 开场回合。 */
   candidate: { content: string; intent: string | null; composeMs: number | null } | null;
@@ -26,44 +23,47 @@ type Body = {
 
 /**
  * 体验版的面试官回合：状态随请求带上来，跑与本地版同一个核心，流式返回面试官的话，
- * 流结束时以 data-turn 把完整回合结果交回浏览器写进会话文档。服务端不留任何东西。
+ * 流结束时以 data-turn 把回合结果交回浏览器写进会话文档。服务端不留任何东西。
  */
 export const POST = withTrialAiResponse<Body>(async (body) => {
   if (!body.state?.brief) return Response.json({ error: "这场面试还没有准备好。" }, { status: 400 });
   const content = typeof body.candidate?.content === "string" ? body.candidate.content.trim() : "";
-  const explicit = body.candidate ? (INTENTS.find((intent) => intent === body.candidate!.intent) ?? null) : null;
-  if (body.candidate && !content && !explicit) return Response.json({ error: "消息不能为空。" }, { status: 400 });
+  const control = body.candidate && (CANDIDATE_CONTROLS as readonly string[]).includes(body.candidate.intent as string) ? (body.candidate.intent as CandidateControl) : null;
+  if (body.candidate && !content && !control) return Response.json({ error: "消息不能为空。" }, { status: 400 });
   if (content.length > MAX_CONTENT_LENGTH) return Response.json({ error: "消息不能超过 2 万字符。" }, { status: 400 });
 
-  const state = createInterviewerState({ ...body.state, plan: body.state.plan ?? null, ended: false });
-  const candidateContent = content || (explicit ? CANDIDATE_INTENT_PLACEHOLDERS[explicit] : "");
-  let run: Awaited<ReturnType<typeof runInterviewerTurn>>;
+  const messages = Array.isArray(body.state.messages) ? body.state.messages : [];
+  const state: TurnState = {
+    brief: body.state.brief,
+    notebook: typeof body.state.notebook === "string" ? body.state.notebook : "",
+    transcript: messages.map((message, seq) => ({ seq, role: message.role, content: message.content, kind: message.role === "interviewer" ? message.kind : null, control: null })),
+    totalMinutes: body.state.totalMinutes,
+    phase: messages.length === 0 ? "opening" : "running",
+  };
   try {
-    run = await runInterviewerTurn({
-    runId: `trial-turn:${state.turnIndex}:${Date.now()}`,
-    state,
-    candidate: body.candidate
-      ? {
-          content: candidateContent,
-          intent: explicit === "end" ? "end" : detectCandidateIntent(content),
-          metrics: { composeMs: body.candidate.composeMs ?? null, chars: candidateContent.length },
-        }
-      : null,
-    context: body.context,
-    skillPacks: packsForInterview(body.state.brief.skillPacks, await loadSkillPacks()),
+    const run = runTurn({
+      runId: `trial-turn:${messages.length}:${Date.now()}`,
+      config: await getAiTaskConfig("text"),
+      state,
+      candidate: body.candidate ? { clientId: null, content: content || (control ? CONTROL_PLACEHOLDERS[control] : ""), control, composeMs: body.candidate.composeMs ?? null } : null,
+      context: { ...body.context, totalMinutes: body.state.totalMinutes, skillPacks: packsForInterview(body.state.brief.skillPacks, await loadSkillPacks()) },
+    });
+    const turnIndex = messages.filter((message) => message.role === "interviewer").length;
+    return turnResponse({
+      replay: false,
+      say: run.say,
+      finalize: async () => {
+        const result = await run.finalize();
+        return {
+          newMessages: result.said.map((line) => ({ id: crypto.randomUUID(), turnIndex, role: line.role, kind: line.kind, content: line.content })),
+          phase: result.phase,
+          clock: result.clock,
+          endedBy: result.endedBy,
+          notebook: result.notebook,
+        };
+      },
     });
   } catch (error) {
     return Response.json({ error: isAgentRunError(error) ? describeAgentError(error) : "无法开始回合。" }, { status: 503 });
   }
-
-  const stream = createUIMessageStream({
-    execute: async ({ writer }) => {
-      writer.merge(run.stream.toUIMessageStream());
-      const { result, decision } = await run.finalize();
-      const data: TurnData = { replay: false, payload: turnPayload(result, decision) };
-      writer.write({ type: "data-turn", data });
-    },
-    onError: (error) => (isAgentRunError(error) ? describeAgentError(error) : error instanceof Error ? error.message : "回合失败。"),
-  });
-  return createUIMessageStreamResponse({ stream });
 });

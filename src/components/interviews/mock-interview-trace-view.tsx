@@ -2,55 +2,24 @@ import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { THREAD_VERDICT_LABELS } from "@/lib/mock-interviews/interviewer/actions";
-import { AREA_KIND_LABELS, AREA_KINDS, INTERVIEW_PACE_LABELS } from "@/lib/mock-interviews/interviewer/brief";
-import type { MockInterviewTrace, MockInterviewTraceTurn } from "@/lib/mock-interviews/types";
+import { AREA_KIND_LABELS, AREA_KINDS, INTERVIEW_PACE_LABELS } from "@/lib/mock-interviews/brief/brief";
+import type { MockInterviewTrace } from "@/lib/mock-interviews/types";
 
 /**
- * 决策记录：按回合展示候选人的话、面试官的话、面试官这回合的记账（改计划、进入 / 离开话题、收尾）、
- * 记忆增量与模型开销。只读，给开发者与评测看，不给候选人看。
+ * trace 页：按回合展示候选人的话、面试官的话、面试官这回合重写的笔记、时钟估计与模型开销。
+ * 全部从事件日志推导。只读，给开发者与评测看，不给候选人看。
  */
 
 const KIND_LABELS: Record<string, string> = {
-  intro_request: "开场",
-  question: "进入话题",
-  probe: "追问",
+  say: "说话",
   closing: "收尾",
-  aside: "插话",
+  fallback: "代码接话",
   answer: "回答",
+  control: "按钮",
 };
-
-const ENDED_BY_LABELS: Record<string, string> = { interviewer: "面试官收尾", candidate: "候选人结束", budget: "预算用完" };
 
 /** 面试官一条话超过这个字数在 trace 页标出来：说话收短靠提示词，代码不截断。 */
 const LONG_MESSAGE_CHARS = 150;
-
-function DecisionLine({ decision }: { decision: NonNullable<MockInterviewTraceTurn["decision"]> }) {
-  return (
-    <div className="grid gap-1 text-xs text-muted-foreground">
-      <p className="flex flex-wrap items-center gap-2">
-        {decision.planChanged ? <Badge>改了计划</Badge> : null}
-        {decision.left ? <Badge tone={decision.left === "answered" ? "success" : "warning"}>离开：{THREAD_VERDICT_LABELS[decision.left]}</Badge> : null}
-        {decision.entered ? <Badge>进入：{decision.entered}</Badge> : null}
-        {decision.endedBy ? <Badge tone="neutral">{ENDED_BY_LABELS[decision.endedBy] ?? decision.endedBy}</Badge> : null}
-        {decision.failed ? <Badge tone="warning">模型没说出话，代码接了一句</Badge> : null}
-        <span>
-          已说 {decision.turnsUsed} 回合
-          {decision.skillsLoaded > 0 ? ` · 查了 ${decision.skillsLoaded} 个技能包` : ""}
-          {decision.effects.length > 0 ? ` · 副作用：${decision.effects.join(", ")}` : ""}
-        </span>
-      </p>
-      {decision.memoryPatch ? (
-        <details>
-          <summary className="cursor-pointer">记忆增量</summary>
-          <pre className="mt-1 overflow-x-auto rounded-control bg-surface-subtle p-2 font-mono text-[11px] leading-4">
-            {JSON.stringify(decision.memoryPatch, null, 2)}
-          </pre>
-        </details>
-      ) : null}
-    </div>
-  );
-}
 
 export function MockInterviewTraceView({ trace }: { trace: MockInterviewTrace }) {
   return (
@@ -61,14 +30,17 @@ export function MockInterviewTraceView({ trace }: { trace: MockInterviewTrace })
             返回这场面试
           </ButtonLink>
         }
-        description={`${INTERVIEW_PACE_LABELS[trace.pace]}节奏 · 共 ${trace.turns} 回合 · 材料：${AREA_KINDS.map((kind) => `${AREA_KIND_LABELS[kind]} ${trace.areas.filter((area) => area.kind === kind).length} 道`).join(" / ")}`}
+        description={`${INTERVIEW_PACE_LABELS[trace.pace]}节奏 · ${trace.totalMinutes} 分钟 · 材料：${AREA_KINDS.map((kind) => `${AREA_KIND_LABELS[kind]} ${trace.areas.filter((area) => area.kind === kind).length} 道`).join(" / ")}`}
         title={`决策记录 · ${trace.companyName} · ${trace.jobTitle}`}
       />
       <ol className="grid gap-3">
         {trace.rows.map((turn) => (
           <Card className="grid gap-3 p-4" key={turn.turnIndex}>
             <div className="flex items-center justify-between gap-3">
-              <p className="text-xs font-semibold text-muted-foreground">第 {turn.turnIndex + 1} 回合</p>
+              <p className="text-xs font-semibold text-muted-foreground">
+                第 {turn.turnIndex + 1} 回合
+                {turn.clock ? ` · 已用约 ${turn.clock.usedMinutes} / ${turn.clock.totalMinutes} 分钟` : ""}
+              </p>
               {turn.run ? (
                 <p className="font-mono text-xs text-muted-foreground">
                   {turn.run.status}
@@ -92,13 +64,23 @@ export function MockInterviewTraceView({ trace }: { trace: MockInterviewTrace })
             {turn.interviewer.map((message, index) => (
               <div className="rounded-control border border-border bg-surface px-3 py-2 text-sm leading-6" key={index}>
                 <span className="mr-2 text-xs text-muted-foreground">
-                  面试官 · {message.kind === "aside" ? "答疑（不算回合）" : (KIND_LABELS[message.kind] ?? message.kind)}
+                  面试官 · {KIND_LABELS[message.kind] ?? message.kind}
                   {message.content.length > LONG_MESSAGE_CHARS ? ` · 较长 ${message.content.length} 字` : ""}
                 </span>
                 <span className="whitespace-pre-wrap">{message.content}</span>
               </div>
             ))}
-            {turn.decision ? <DecisionLine decision={turn.decision} /> : <p className="text-xs text-muted-foreground">（这回合没有决策记录）</p>}
+            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              {turn.fallback ? <Badge tone="warning">模型没说出话，代码接了一句</Badge> : null}
+              {turn.notebook !== null ? (
+                <details className="w-full">
+                  <summary className="cursor-pointer">这回合的笔记</summary>
+                  <p className="mt-1 whitespace-pre-wrap rounded-control bg-surface-subtle p-2 text-[12px] leading-5">{turn.notebook || "（空）"}</p>
+                </details>
+              ) : (
+                <span>笔记没变</span>
+              )}
+            </div>
           </Card>
         ))}
       </ol>

@@ -3,7 +3,7 @@ import path from "node:path";
 
 import { z } from "zod";
 
-import type { InterviewBrief } from "@/lib/mock-interviews/interviewer/brief";
+import type { InterviewBrief } from "@/lib/mock-interviews/brief/brief";
 
 import { EVAL_DIR } from "./fixtures";
 import { ratio, type MetricRow, type MetricValue, type Ratio } from "./report";

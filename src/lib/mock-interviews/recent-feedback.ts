@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { REAL_USAGE_INTERVIEW_WHERE } from "@/lib/interviews/types";
 import { parseJsonObject, parseJsonValue } from "@/lib/json";
 
-import { isAreaKind, type AreaKind } from "./interviewer/brief";
+import { isAreaKind, type AreaKind } from "./brief/brief";
 import { parseStoredEvaluationList, type EvaluationWeakness } from "./question-evaluation";
 
 /**

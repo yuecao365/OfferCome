@@ -1,4 +1,4 @@
-import { PROFILE_DIMENSION_BY_RUBRIC } from "@/lib/mock-interviews/interviewer/brief";
+import { PROFILE_DIMENSION_BY_RUBRIC } from "@/lib/mock-interviews/brief/brief";
 import { quoteInAnswer } from "@/lib/mock-interviews/question-evaluation";
 
 import type { ProfileDimension } from "./types";
