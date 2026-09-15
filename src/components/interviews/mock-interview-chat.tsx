@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 import { MockInterviewMaterialsDrawer } from "@/components/interviews/mock-interview-materials";
+import { MockInterviewVoiceControls } from "@/components/interviews/mock-interview-voice-controls";
 import { ThemeButton } from "@/components/theme-button";
 import { Alert } from "@/components/ui/alert";
 import { Button, ButtonLink } from "@/components/ui/button";
@@ -35,7 +36,7 @@ const REPORT_POLL_MS = 3_000;
 
 export type TurnBody =
   | { kind: "start" }
-  | { kind: "message"; clientId: string; content: string; intent: Intent | null; composeMs: number | null };
+  | { kind: "message"; clientId: string; content: string; intent: Intent | null; composeMs: number | null; voiceMetricsJson: string | null };
 
 /** 房间的数据通道：本地版打服务端接口，体验版打无状态接口并把结果写进浏览器文档。 */
 export type MockInterviewChatDriver = {
@@ -133,13 +134,21 @@ function subscribeNoop(): () => void {
 }
 
 /** 时间盒：已用约几分钟 / 共几分钟；快到时间变色。 */
-function ClockBar({ clock, ended }: { clock: Clock; ended: boolean }) {
-  const percent = Math.min(100, Math.round((clock.usedMinutes / clock.totalMinutes) * 100));
+/** 进度：文字模式按双方说话的字数折算（服务端每回合给）；语音模式按墙上时间从开场时刻起走，每 15 秒刷新。 */
+function ClockBar({ clock, ended, startedAt }: { clock: Clock; ended: boolean; startedAt: string | null }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!startedAt || ended) return;
+    const timer = setInterval(() => setNow(Date.now()), 15_000);
+    return () => clearInterval(timer);
+  }, [startedAt, ended]);
+  const used = startedAt ? Math.max(clock.usedMinutes, (now - new Date(startedAt).getTime()) / 60_000) : clock.usedMinutes;
+  const percent = Math.min(100, Math.round((used / clock.totalMinutes) * 100));
   return (
     <p
       aria-label="面试进度"
-      className={cn("shrink-0 font-mono text-xs tabular-nums", !ended && (clock.phase === "wrap_up" || clock.phase === "over") ? "text-warning-strong" : "text-muted-foreground")}
-      title="按双方说话的字数折算，不是墙上时间"
+      className={cn("shrink-0 font-mono text-xs tabular-nums", !ended && (clock.phase === "wrap_up" || clock.phase === "over" || percent >= 90) ? "text-warning-strong" : "text-muted-foreground")}
+      title={startedAt ? "语音模式按真实时间计" : "按双方说话的字数折算，不是墙上时间"}
     >
       进度 {ended ? 100 : percent}% · 约 {clock.totalMinutes} 分钟
     </p>
@@ -175,6 +184,11 @@ export function MockInterviewChat({
   const scrollRef = useRef<HTMLDivElement>(null);
   // 开场回合落下前还没有开始时间，先按进入房间的时刻计时。
   const [openedAt] = useState(() => new Date().toISOString());
+
+  const voice = session.interactionMode === "voice";
+  const [voiceBusy, setVoiceBusy] = useState(false);
+  /** 朗读进度：当前这条流已经读到第几个字符（按句读，"先说前半句"）。 */
+  const spokenRef = useRef({ text: "", upTo: 0 });
 
   const driver = useMemo(() => injectedDriver ?? createLocalChatDriver(session.id), [injectedDriver, session.id]);
   const refresh = useCallback(() => (onCompleted ? onCompleted() : router.refresh()), [onCompleted, router]);
@@ -218,14 +232,36 @@ export function MockInterviewChat({
     return text;
   }, [messages]);
 
+  // 语音模式：面试官的话边流边读，流到一整句就读一句；流结束把剩下的读完。候选人开始录音时停（见录音控件）。
+  useEffect(() => {
+    if (!voice || typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    const full = busy ? streamingText : (transcript.at(-1)?.role === "interviewer" ? transcript.at(-1)!.content : "");
+    if (!full) return;
+    if (!full.startsWith(spokenRef.current.text.slice(0, spokenRef.current.upTo))) spokenRef.current = { text: full, upTo: 0 };
+    spokenRef.current.text = full;
+    const pending = full.slice(spokenRef.current.upTo);
+    const boundary = busy ? pending.search(/[。！？；\n](?=[^。！？；\n]*$)/u) : pending.length - 1;
+    if (boundary < 0) return;
+    const sentence = pending.slice(0, boundary + 1).trim();
+    spokenRef.current.upTo += boundary + 1;
+    if (!sentence) return;
+    const utterance = new SpeechSynthesisUtterance(sentence);
+    utterance.lang = "zh-CN";
+    utterance.rate = 1;
+    const zh = window.speechSynthesis.getVoices().find((item) => item.lang.toLowerCase().startsWith("zh"));
+    if (zh) utterance.voice = zh;
+    window.speechSynthesis.speak(utterance);
+  }, [voice, busy, streamingText, transcript]);
+  useEffect(() => () => window.speechSynthesis?.cancel(), []);
+
   const send = useCallback(
-    (content: string, intent: Intent | null) => {
+    (content: string, intent: Intent | null, voiceMetricsJson: string | null = null) => {
       const trimmed = content.trim();
       if (!trimmed && !intent) return;
       const clientId = crypto.randomUUID();
       const text = trimmed || (intent ? CONTROL_PLACEHOLDERS[intent] : "");
       const composeMs = lastInterviewerAtRef.current ? Math.max(0, Date.now() - lastInterviewerAtRef.current) : null;
-      const body: TurnBody = { kind: "message", clientId, content: trimmed, intent, composeMs };
+      const body: TurnBody = { kind: "message", clientId, content: trimmed, intent, composeMs, voiceMetricsJson };
       setTurnError("");
       setTranscript((current) => [
         ...current,
@@ -296,7 +332,7 @@ export function MockInterviewChat({
         <p className="min-w-0 flex-1 truncate text-sm font-medium">
           {session.companyName} · {session.jobTitle}
         </p>
-        <ClockBar clock={clock} ended={ended} />
+        <ClockBar clock={clock} ended={ended} startedAt={voice ? conversation.startedAt : null} />
         <ElapsedClock startedAt={conversation.startedAt ?? openedAt} running={!ended} />
         <Button aria-pressed={materialsOpen} onClick={() => setMaterialsOpen((open) => !open)} size="sm" type="button" variant="ghost">
           <FileText aria-hidden="true" className="size-3.5" strokeWidth={1.5} />
@@ -362,10 +398,13 @@ export function MockInterviewChat({
               send(input, null);
             }}
           >
+            {voice ? (
+              <MockInterviewVoiceControls disabled={busy} onBusyChange={setVoiceBusy} onError={setTurnError} onTranscript={(result) => send(result.transcript, null, result.voiceMetricsJson)} sessionId={session.id} />
+            ) : null}
             <textarea
               aria-label="你的回答"
               className="min-h-20 w-full resize-y rounded-lg border border-border-strong bg-surface px-3 py-2 text-sm leading-6 text-foreground outline-none focus:border-brand focus:ring-2 focus:ring-ring/20"
-              disabled={busy}
+              disabled={busy || voiceBusy}
               onChange={(event) => setInput(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {

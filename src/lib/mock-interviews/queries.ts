@@ -94,6 +94,7 @@ function buildConversation(session: SessionWithConversation) {
     totalMinutes: session.durationMinutes,
     notebook: session.notebook,
     messages: session.messages.map((message) => ({ id: message.id, turnIndex: message.turnIndex, role: message.role === "candidate" ? "candidate" : "interviewer", kind: message.kind, content: message.content })),
+    realTime: session.interactionMode === "voice",
   });
 }
 

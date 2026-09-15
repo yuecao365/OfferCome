@@ -36,21 +36,30 @@ export function hardCap(totalMinutes: number): number {
   return Math.ceil((totalMinutes / MINUTES_PER_EXCHANGE) * HARD_CAP_FACTOR);
 }
 
-export function estimateClock(transcript: Pick<TranscriptLine, "role" | "content">[], totalMinutes: number): Clock {
-  let minutes = 0;
-  let exchanges = 0;
-  for (const line of transcript) {
-    const chars = line.content.replace(/\s+/g, "").length;
-    if (line.role === "candidate") minutes += chars / CLOCK_RATES.candidateCharsPerMinute;
-    else {
-      minutes += chars / CLOCK_RATES.interviewerCharsPerMinute + CLOCK_RATES.exchangeOverheadMinutes;
-      exchanges += 1;
-    }
-  }
+function clockOf(minutes: number, exchanges: number, totalMinutes: number): Clock {
   const usedMinutes = Math.round(minutes * 10) / 10;
   const ratio = usedMinutes / totalMinutes;
   const phase: ClockPhase = ratio >= 1 || exchanges >= hardCap(totalMinutes) ? "over" : ratio >= WRAP_UP_RATIO ? "wrap_up" : ratio >= LATE_RATIO ? "late" : "open";
   return { usedMinutes, totalMinutes, exchanges, phase };
+}
+
+const countExchanges = (transcript: Pick<TranscriptLine, "role">[]) => transcript.filter((line) => line.role === "interviewer").length;
+
+/** 文字版：按双方字数与每次交换的固定开销折算。 */
+export function estimateClock(transcript: Pick<TranscriptLine, "role" | "content">[], totalMinutes: number): Clock {
+  let minutes = 0;
+  for (const line of transcript) {
+    const chars = line.content.replace(/\s+/g, "").length;
+    if (line.role === "candidate") minutes += chars / CLOCK_RATES.candidateCharsPerMinute;
+    else minutes += chars / CLOCK_RATES.interviewerCharsPerMinute + CLOCK_RATES.exchangeOverheadMinutes;
+  }
+  return clockOf(minutes, countExchanges(transcript), totalMinutes);
+}
+
+/** 语音版：真实时间——已用 = 现在 − 开场时刻；阶段与硬顶同文字版。开场前（还没有 startedAt）算 0。 */
+export function realTimeClock(transcript: Pick<TranscriptLine, "role">[], totalMinutes: number, startedAt: string | Date | null, now: Date = new Date()): Clock {
+  const minutes = startedAt ? Math.max(0, (now.getTime() - new Date(startedAt).getTime()) / 60_000) : 0;
+  return clockOf(minutes, countExchanges(transcript), totalMinutes);
 }
 
 export function minutesLeft(clock: Clock): number {

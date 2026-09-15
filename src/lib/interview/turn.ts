@@ -1,7 +1,7 @@
 import type { AiTaskConfig } from "@/lib/ai/config";
 import type { InterviewBrief } from "@/lib/mock-interviews/brief/brief";
 
-import { estimateClock, type Clock } from "./clock";
+import { estimateClock, realTimeClock, type Clock } from "./clock";
 import { estimateLine, type Estimate } from "./estimator";
 import { event, isHelpRequest, type CandidateControl, type NewEvent, type TranscriptLine } from "./events";
 import { FALLBACK_SPEECH, runPolicy, type PolicyContext, type PolicyOutput, type StateCard } from "./policy";
@@ -30,7 +30,14 @@ export type TurnState = {
   critic: string | null;
   /** 这场面试官用的策略变体（灰度分到的）；体验版用默认。 */
   variant: PolicyVariant;
+  /** 语音模式：时钟用真实时间（开场时刻）；文字模式为 null，按字数折算。 */
+  realTime: { startedAt: string | null } | null;
 };
+
+/** 这场的时钟：语音按真实时间，文字按字数折算。 */
+export function clockFor(state: Pick<TurnState, "totalMinutes" | "realTime">, transcript: TranscriptLine[]): Clock {
+  return state.realTime ? realTimeClock(transcript, state.totalMinutes, state.realTime.startedAt) : estimateClock(transcript, state.totalMinutes);
+}
 
 export type CandidateInput = {
   clientId: string | null;
@@ -87,7 +94,7 @@ export function breakerTripped(transcript: TranscriptLine[]): boolean {
 
 /** 这一回合谁做主：候选人要结束、时间盒到头、或熔断了，代码直接收尾不调模型；其余交给模型。 */
 export function planTurn(state: TurnState, candidate: CandidateInput | null): TurnPlan {
-  const clock = estimateClock(withCandidate(state, candidate), state.totalMinutes);
+  const clock = clockFor(state, withCandidate(state, candidate));
   if (candidateWantsToEnd(candidate)) return { kind: "fixed", endedBy: "candidate", clock };
   if (state.phase !== "opening" && clock.phase === "over") return { kind: "fixed", endedBy: "budget", clock };
   if (breakerTripped(state.transcript)) return { kind: "fixed", endedBy: "breaker", clock };
@@ -115,7 +122,7 @@ export function applyTurn(state: TurnState, candidate: CandidateInput | null, sp
   if (spoken.notebook !== null && spoken.notebook !== state.notebook) events.push(event("notebook_written", { text: spoken.notebook }, spoken.runId));
   if (spoken.failed) events.push(event("fallback_used", { reason: "模型没说出话" }, spoken.runId));
   const transcript = [...withCandidate(state, candidate), { seq: 0, role: "interviewer" as const, content: spoken.say, kind: spoken.kind, control: null }];
-  const clock = estimateClock(transcript, state.totalMinutes);
+  const clock = clockFor(state, transcript);
   events.push(event("clock_tick", { usedMinutes: clock.usedMinutes, totalMinutes: clock.totalMinutes }));
   if (spoken.endedBy) events.push(event("ended", { by: spoken.endedBy }));
   return { events, said, notebook, clock, phase: spoken.endedBy ? "ended" : "running", endedBy: spoken.endedBy, failed: spoken.failed, runId: spoken.runId, skillsLoaded: spoken.skillsLoaded };

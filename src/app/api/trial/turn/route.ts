@@ -44,6 +44,7 @@ export const POST = withTrialAiResponse<Body>(async (body) => {
     estimates: [],
     critic: null,
     variant: policyVariant(null),
+    realTime: null,
   };
   try {
     const run = runTurn({

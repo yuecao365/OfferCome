@@ -1,6 +1,6 @@
 import type { InterviewBrief } from "@/lib/mock-interviews/brief/brief";
 
-import { estimateClock, type Clock } from "./clock";
+import { estimateClock, realTimeClock, type Clock } from "./clock";
 import type { TurnPhase, TurnResult } from "./turn";
 
 /**
@@ -29,13 +29,14 @@ export type Conversation = {
   coveredCount: number;
 };
 
-export function conversationView(input: { brief: InterviewBrief; status: string; startedAt: string | null; totalMinutes: number; notebook: string; messages: ConversationMessage[]; coveredCount?: number }): Conversation {
+/** realTime：语音模式，时钟按墙上时间（开场时刻起）。 */
+export function conversationView(input: { brief: InterviewBrief; status: string; startedAt: string | null; totalMinutes: number; notebook: string; messages: ConversationMessage[]; coveredCount?: number; realTime?: boolean }): Conversation {
   const ended = input.status !== "in_progress";
   return {
     phase: ended ? "ended" : input.messages.length === 0 ? "opening" : "running",
     pace: input.brief.pace,
     startedAt: input.startedAt,
-    clock: estimateClock(input.messages, input.totalMinutes),
+    clock: input.realTime ? realTimeClock(input.messages, input.totalMinutes, ended ? null : input.startedAt) : estimateClock(input.messages, input.totalMinutes),
     messages: input.messages,
     notebook: input.status === "completed" ? input.notebook : null,
     coveredCount: input.coveredCount ?? 0,
