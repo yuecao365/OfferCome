@@ -5,6 +5,7 @@ import { REAL_USAGE_INTERVIEW_WHERE } from "@/lib/interviews/types";
 import { parseJsonArray, parseJsonObject, parseJsonValue } from "@/lib/json";
 
 import { estimate, type Estimate, type Observation } from "@/lib/interview/estimator";
+import { sessionFlags } from "@/lib/interview/flags";
 import { conversationView, traceTurns, type TraceRun } from "@/lib/interview/views";
 
 import { parseStoredBrief } from "./brief/brief";
@@ -205,6 +206,7 @@ export async function getMockInterviewTrace(id: string): Promise<MockInterviewTr
     totalMinutes: session.durationMinutes,
     areas: brief.areas.map((area) => ({ id: area.id, name: area.name, kind: area.kind })),
     competencies: competenciesOf(session.contextSnapshotJson).map((item) => ({ id: item.id, name: item.name })),
+    flags: { policy: sessionFlags(session.flagsJson).policy ?? "v2", shadow: sessionFlags(session.flagsJson).shadow, critic: sessionFlags(session.flagsJson).critic },
     rows: traceTurns(
       session.events.map((row) => ({ type: row.type, payload: parseJsonObject(row.payloadJson), runId: row.runId })),
       runById,

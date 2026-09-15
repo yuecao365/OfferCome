@@ -1,16 +1,33 @@
 /**
- * 一场面试的开关（会话的 flagsJson）：评论员开 / 关；之后的影子运行、灰度也放这里，不再加列。null = 全默认。
+ * 一场面试的开关（会话的 flagsJson）：评论员开 / 关、策略变体（灰度分到的）、影子变体。null = 全默认。
+ * 备课完成时按放量配置填变体；模拟器可以先写好，备课不覆盖已写的。
  */
 
-export type SessionFlags = { critic: boolean };
+export type SessionFlags = {
+  critic: boolean;
+  /** 这场面试官用的策略变体 id；没分到按默认变体。 */
+  policy: string | null;
+  /** 影子变体 id；null 不跑影子。 */
+  shadow: string | null;
+};
 
-export const DEFAULT_FLAGS: SessionFlags = { critic: true };
+export const DEFAULT_FLAGS: SessionFlags = { critic: true, policy: null, shadow: null };
 
 export function sessionFlags(flagsJson: string | null | undefined): SessionFlags {
   try {
     const parsed = JSON.parse(flagsJson ?? "{}") as Partial<Record<keyof SessionFlags, unknown>>;
-    return { critic: typeof parsed.critic === "boolean" ? parsed.critic : DEFAULT_FLAGS.critic };
+    return {
+      critic: typeof parsed.critic === "boolean" ? parsed.critic : DEFAULT_FLAGS.critic,
+      policy: typeof parsed.policy === "string" ? parsed.policy : null,
+      shadow: typeof parsed.shadow === "string" ? parsed.shadow : null,
+    };
   } catch {
     return { ...DEFAULT_FLAGS };
   }
+}
+
+/** 只填还没定的项（模拟器先写的不覆盖）；返回要存的 JSON。 */
+export function fillFlags(flagsJson: string | null | undefined, defaults: { policy: string; shadow: string | null }): string {
+  const current = sessionFlags(flagsJson);
+  return JSON.stringify({ ...current, policy: current.policy ?? defaults.policy, shadow: current.shadow ?? defaults.shadow });
 }

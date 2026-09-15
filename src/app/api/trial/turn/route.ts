@@ -1,3 +1,4 @@
+import { policyVariant } from "@/lib/interview/variants";
 import { describeAgentError, isAgentRunError } from "@/lib/ai/run-agent";
 import { CANDIDATE_CONTROLS, CONTROL_PLACEHOLDERS, type CandidateControl } from "@/lib/interview/events";
 import { turnResponse } from "@/lib/interview/stream";
@@ -42,6 +43,7 @@ export const POST = withTrialAiResponse<Body>(async (body) => {
     covered: [],
     estimates: [],
     critic: null,
+    variant: policyVariant(null),
   };
   try {
     const run = runTurn({

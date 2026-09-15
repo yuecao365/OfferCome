@@ -61,7 +61,9 @@ export const eventPayloadSchemas = {
   /** 模型调用出错但回合继续（不可恢复的错误不落事件，回合本身失败）。 */
   model_error: z.object({ kind: z.string(), message: z.string() }),
   /** 面试结束：谁定的。 */
-  ended: z.object({ by: z.enum(["interviewer", "candidate", "budget"]) }),
+  ended: z.object({ by: z.enum(["interviewer", "candidate", "budget", "breaker"]) }),
+  /** 影子变体在同一现场卡上说的话（不给候选人看）；rule 是评论员对影子那句的判断。 */
+  shadow_said: z.object({ turnIndex: z.number().int(), variant: z.string(), say: z.string(), notebook: z.string(), rule: z.string().nullable() }),
 } as const;
 
 export type EventType = keyof typeof eventPayloadSchemas;

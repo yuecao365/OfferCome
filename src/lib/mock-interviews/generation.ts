@@ -4,6 +4,8 @@ import { randomUUID } from "node:crypto";
 
 import { prisma } from "@/lib/db";
 import { DURATION_MINUTES } from "@/lib/interview/clock";
+import { fillFlags } from "@/lib/interview/flags";
+import { assignVariant, rolloutConfig } from "@/lib/interview/variants";
 
 import {
   buildMockInterviewContext,
@@ -108,6 +110,8 @@ async function persistBrief(
   brief: Awaited<ReturnType<typeof generateInterviewBrief>>,
 ): Promise<void> {
   await prisma.$transaction(async (tx) => {
+    // 开关要读事务里的现值：备课期间模拟器可能已经写了策略 / 影子变体，入口时的快照是旧的。
+    const current = await tx.mockInterviewSession.findUnique({ where: { id: session.id }, select: { flagsJson: true } });
     const claimed = await claimSession(tx, {
       where: { id: session.id, status: "generating", generationPhase: "brief" },
       data: {
@@ -118,6 +122,8 @@ async function persistBrief(
         briefJson: JSON.stringify(brief),
         notebook: "",
         durationMinutes: DURATION_MINUTES[session.pace],
+        // 灰度：按会话 id 分桶定这场的策略变体与影子；模拟器先写好的不覆盖。
+        flagsJson: fillFlags(current?.flagsJson, { policy: assignVariant(rolloutConfig(), session.id), shadow: rolloutConfig().shadow }),
         status: "in_progress",
         generationPhase: null,
         generationErrorCode: null,

@@ -5,7 +5,6 @@ import type { InterviewStatus } from "@/lib/interviews/types";
 
 import type { Conversation, Trace } from "@/lib/interview/views";
 
-import type { AreaKind, InterviewPace } from "./brief/brief";
 import type { InterviewMaterials } from "./materials";
 import type { AnswerExemplar, EvaluationStrength, EvaluationWeakness } from "./question-evaluation";
 import type { MockInterviewReport } from "./report";

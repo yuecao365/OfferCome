@@ -5,7 +5,8 @@ import { testBrief } from "@/lib/test-support/interview-brief";
 
 import { estimateClock } from "./clock";
 import { FALLBACK_SPEECH } from "./policy";
-import { applyTurn, candidateWantsToEnd, planTurn, speak, type CandidateInput, type TurnState } from "./turn";
+import { applyTurn, breakerTripped, candidateWantsToEnd, planTurn, speak, type CandidateInput, type TurnState } from "./turn";
+import { policyVariant } from "./variants";
 
 /**
  * 回合核心的纯逻辑：代码只守时间盒、结束按钮、模型没说话时接一句、每步记事件；
@@ -13,7 +14,7 @@ import { applyTurn, candidateWantsToEnd, planTurn, speak, type CandidateInput, t
  */
 
 function state(overrides: Partial<TurnState> = {}): TurnState {
-  return { brief: testBrief(), notebook: "", transcript: [], totalMinutes: 20, phase: "opening", covered: [], estimates: [], critic: null, ...overrides };
+  return { brief: testBrief(), notebook: "", transcript: [], totalMinutes: 20, phase: "opening", covered: [], estimates: [], critic: null, variant: policyVariant(null), ...overrides };
 }
 
 const candidate = (content: string, control: CandidateInput["control"] = null): CandidateInput => ({ clientId: "c1", content, control, composeMs: null });
@@ -34,6 +35,12 @@ test("谁做主：开场与正常回合交给模型；结束按钮与时间到�
   const plan = planTurn(state({ phase: "running", transcript: long }), candidate("再答一句"));
   assert.equal(plan.kind, "fixed");
   assert.equal(plan.kind === "fixed" && plan.endedBy, "budget");
+  // 熔断：连续三句都是代码接的话就不再调模型。
+  const fallback = (seq: number) => ({ seq, role: "interviewer" as const, content: "稍等。", kind: "fallback", control: null });
+  assert.equal(breakerTripped([fallback(0), fallback(2), fallback(4)]), true);
+  assert.equal(breakerTripped([fallback(0), line("interviewer", "问。", 2), fallback(4)]), false);
+  const tripped = planTurn(state({ phase: "running", transcript: [fallback(0), fallback(2), fallback(4)] }), candidate("再答"));
+  assert.equal(tripped.kind === "fixed" && tripped.endedBy, "breaker");
 });
 
 test("说话：没产出接一句；泄露内部词换固定的话；面试过半之前的告别不认", () => {

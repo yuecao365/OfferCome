@@ -9,13 +9,14 @@ import { loadSkillPacks } from "@/lib/mock-interviews/skills/loader";
 import { packsForInterview } from "@/lib/mock-interviews/skills/selector";
 import { getAiTaskConfig } from "@/lib/settings/ai";
 
-import { scheduleLabeling } from "./background";
+import { scheduleLabeling, scheduleShadow } from "./background";
 import { latestCriticNote } from "./critic";
 import { estimate, observationsFromEvents } from "./estimator";
 import { appendEvents, parseEventRow, transcriptOf, type InterviewEvent } from "./events";
 import { sessionFlags } from "./flags";
 import { coveredMaterials } from "./labeler";
 import { runTurn, type CandidateInput, type TurnResult, type TurnState } from "./turn";
+import { policyVariant } from "./variants";
 import type { ConversationMessage, TurnPayload } from "./views";
 
 /**
@@ -51,6 +52,7 @@ function turnState(loaded: Loaded): TurnState {
     covered: coveredMaterials(events),
     estimates: estimate(competenciesOf(loaded.contextSnapshotJson), observationsFromEvents(events)),
     critic: sessionFlags(loaded.flagsJson).critic ? latestCriticNote(events, transcript) : null,
+    variant: policyVariant(sessionFlags(loaded.flagsJson).policy),
   };
 }
 
@@ -79,26 +81,25 @@ export async function startTurn(input: { sessionId: string; candidate: Candidate
   const state = turnState(loaded);
   const turnIndex = loaded.messages.filter((message) => message.role === "interviewer").length;
   const [config, packs] = await Promise.all([getAiTaskConfig("text"), loadSkillPacks()]);
-  const run = runTurn({
-    runId: `turn:${input.sessionId}:${turnIndex}`,
-    config,
-    state,
-    candidate: input.candidate,
-    context: {
-      jobTitle: loaded.interview.jobTitle,
-      jobDescription: loaded.jdTextSnapshot,
-      resumeText: loaded.resumeTextSnapshot,
-      totalMinutes: loaded.durationMinutes,
-      skillPacks: packsForInterview(state.brief.skillPacks, packs),
-    },
-  });
+  const context = {
+    jobTitle: loaded.interview.jobTitle,
+    jobDescription: loaded.jdTextSnapshot,
+    resumeText: loaded.resumeTextSnapshot,
+    totalMinutes: loaded.durationMinutes,
+    skillPacks: packsForInterview(state.brief.skillPacks, packs),
+  };
+  const run = runTurn({ runId: `turn:${input.sessionId}:${turnIndex}`, config, state, candidate: input.candidate, context });
+  const shadow = sessionFlags(loaded.flagsJson).shadow;
   return {
     replay: false,
     say: run.say,
     finalize: async () => {
       const result = await run.finalize();
       const newMessages = await persistTurn(loaded, turnIndex, input.candidate, result);
-      if (result.phase !== "ended") scheduleLabeling(input.sessionId);
+      if (result.phase !== "ended") {
+        scheduleLabeling(input.sessionId);
+        if (shadow && shadow !== state.variant.id) scheduleShadow({ sessionId: input.sessionId, turnIndex, config, state, candidate: input.candidate, context, variant: policyVariant(shadow) });
+      }
       return { newMessages, phase: result.phase, clock: result.clock, endedBy: result.endedBy, coveredCount: state.covered.length };
     },
   };

@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { CRITIC_RULES, type CriticRule } from "@/lib/interview/critic";
 import { levelLabel } from "@/lib/interview/estimator";
 import { AREA_KIND_LABELS, AREA_KINDS, INTERVIEW_PACE_LABELS } from "@/lib/mock-interviews/brief/brief";
+import { traceDashboard } from "@/lib/interview/views";
 import type { MockInterviewTrace } from "@/lib/mock-interviews/types";
 
 /**
@@ -27,6 +28,34 @@ function competencyName(trace: MockInterviewTrace, id: string): string {
   return trace.competencies.find((item) => item.id === id)?.name ?? id;
 }
 
+function Dashboard({ trace }: { trace: MockInterviewTrace }) {
+  const board = traceDashboard(trace.rows);
+  const cell = (label: string, value: string) => (
+    <div key={label}>
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="text-sm font-medium tabular-nums text-foreground">{value}</p>
+    </div>
+  );
+  return (
+    <Card className="grid gap-3 p-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        {cell("策略变体", `${trace.flags.policy}${trace.flags.shadow ? ` · 影子 ${trace.flags.shadow}` : ""}${trace.flags.critic ? "" : " · 评论员关"}`)}
+        {cell("token（缓存）", `${board.totalTokens}（${Math.round(board.cacheRate * 100)}%）`)}
+        {cell("回合 p95", `${(board.p95Ms / 1000).toFixed(1)}s`)}
+        {cell("兜底 / 评论员提醒", `${board.fallbacks} / ${board.criticNotes}`)}
+      </div>
+      {board.shadow ? (
+        <div className="grid grid-cols-2 gap-3 border-t border-border pt-3 md:grid-cols-4">
+          {cell("真身：一句多问", `${Math.round(board.live.multiQuestionRate * 100)}% · 平均 ${board.live.avgChars} 字`)}
+          {cell(`影子 ${board.shadow.variant}：一句多问`, `${Math.round(board.shadow.multiQuestionRate * 100)}% · 平均 ${board.shadow.avgChars} 字`)}
+          {cell("真身：被评论员提醒", `${Math.round((board.criticNotes / Math.max(1, board.turns)) * 100)}%`)}
+          {cell("影子：被评论员判违反", `${Math.round(board.shadow.criticRate * 100)}%（${board.shadow.turns} 句）`)}
+        </div>
+      ) : null}
+    </Card>
+  );
+}
+
 export function MockInterviewTraceView({ trace }: { trace: MockInterviewTrace }) {
   return (
     <>
@@ -39,6 +68,7 @@ export function MockInterviewTraceView({ trace }: { trace: MockInterviewTrace })
         description={`${INTERVIEW_PACE_LABELS[trace.pace]}节奏 · ${trace.totalMinutes} 分钟 · 材料：${AREA_KINDS.map((kind) => `${AREA_KIND_LABELS[kind]} ${trace.areas.filter((area) => area.kind === kind).length} 道`).join(" / ")}`}
         title={`决策记录 · ${trace.companyName} · ${trace.jobTitle}`}
       />
+      <Dashboard trace={trace} />
       <ol className="grid gap-3">
         {trace.rows.map((turn) => (
           <Card className="grid gap-3 p-4" key={turn.turnIndex}>
@@ -76,6 +106,12 @@ export function MockInterviewTraceView({ trace }: { trace: MockInterviewTrace })
                 <span className="whitespace-pre-wrap">{message.content}</span>
               </div>
             ))}
+            {turn.shadow ? (
+              <div className="rounded-control border border-dashed border-border px-3 py-2 text-sm leading-6 text-muted-foreground">
+                <span className="mr-2 text-xs">影子 {turn.shadow.variant}{turn.shadow.rule ? ` · 评论员：${turn.shadow.rule}` : ""}</span>
+                <span className="whitespace-pre-wrap">{turn.shadow.say}</span>
+              </div>
+            ) : null}
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               {turn.fallback ? <Badge tone="warning">模型没说出话，代码接了一句</Badge> : null}
               {turn.critic ? <Badge tone="warning">评论员 · {CRITIC_RULES[turn.critic.rule as CriticRule] ? turn.critic.rule : "准则"}：{turn.critic.text}</Badge> : null}

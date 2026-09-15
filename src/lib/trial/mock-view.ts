@@ -55,6 +55,7 @@ export function trialInterviewToTrace(interview: TrialInterview): MockInterviewT
     totalMinutes: interview.totalMinutes,
     areas: interview.brief.areas.map((area) => ({ id: area.id, name: area.name, kind: area.kind })),
     competencies: [],
+    flags: { policy: "v2", shadow: null, critic: false },
     rows: traceTurns(
       interview.messages.map((message) => ({
         type: message.role === "candidate" ? "candidate_said" : "interviewer_said",

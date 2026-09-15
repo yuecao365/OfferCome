@@ -4,7 +4,8 @@ import type { InterviewBrief } from "@/lib/mock-interviews/brief/brief";
 import { estimateClock, type Clock } from "./clock";
 import { estimateLine, type Estimate } from "./estimator";
 import { event, isHelpRequest, type CandidateControl, type NewEvent, type TranscriptLine } from "./events";
-import { FALLBACK_SPEECH, runPolicy, type PolicyContext, type PolicyOutput } from "./policy";
+import { FALLBACK_SPEECH, runPolicy, type PolicyContext, type PolicyOutput, type StateCard } from "./policy";
+import type { PolicyVariant } from "./variants";
 
 /**
  * 一个回合的核心（纯逻辑 + 一次策略调用）。本地版由编排器装状态、落库；体验版由无状态接口装状态、
@@ -27,6 +28,8 @@ export type TurnState = {
   estimates: Estimate[];
   /** 评论员对面试官上一句的提醒；没有（或关了）为 null。 */
   critic: string | null;
+  /** 这场面试官用的策略变体（灰度分到的）；体验版用默认。 */
+  variant: PolicyVariant;
 };
 
 export type CandidateInput = {
@@ -36,7 +39,7 @@ export type CandidateInput = {
   composeMs: number | null;
 };
 
-export type EndedBy = "interviewer" | "candidate" | "budget";
+export type EndedBy = "interviewer" | "candidate" | "budget" | "breaker";
 
 /** 回合的结果：要写的事件、逐字稿新增的几句、新笔记、时钟、阶段。 */
 export type TurnResult = {
@@ -58,6 +61,8 @@ const CLOSING_ALLOWED_RATIO = 0.5;
 /** 说给候选人的话里出现这些词，说明模型把内部说法带出来了：换成固定的话。 */
 const LEAK_PATTERN = /(评分标准|期望信号|现场卡|材料里|系统提示|我的笔记)/;
 const UNRECOVERABLE = new Set(["not_configured", "unavailable", "network"]);
+/** 熔断：连续这么多回合模型没说出话，就不再调模型，用固定的话收尾。 */
+const BREAKER_FALLBACKS = 3;
 
 /** 候选人这句是不是"结束"：按钮，或 40 字内的插话里含结束意图。 */
 export function candidateWantsToEnd(candidate: CandidateInput | null): boolean {
@@ -72,14 +77,26 @@ function withCandidate(state: TurnState, candidate: CandidateInput | null): Tran
   return [...state.transcript, { seq: state.transcript.length, role: "candidate", content: candidate.content, kind: null, control: candidate.control }];
 }
 
-export type TurnPlan = { kind: "model"; clock: Clock } | { kind: "fixed"; endedBy: "candidate" | "budget"; clock: Clock };
+export type TurnPlan = { kind: "model"; clock: Clock } | { kind: "fixed"; endedBy: "candidate" | "budget" | "breaker"; clock: Clock };
 
-/** 这一回合谁做主：候选人要结束、或时间盒到头，代码直接收尾不调模型；其余交给模型。 */
+/** 连续几句都是代码接的话：模型一直没说出话，熔断。 */
+export function breakerTripped(transcript: TranscriptLine[]): boolean {
+  const recent = transcript.filter((line) => line.role === "interviewer").slice(-BREAKER_FALLBACKS);
+  return recent.length === BREAKER_FALLBACKS && recent.every((line) => line.kind === "fallback");
+}
+
+/** 这一回合谁做主：候选人要结束、时间盒到头、或熔断了，代码直接收尾不调模型；其余交给模型。 */
 export function planTurn(state: TurnState, candidate: CandidateInput | null): TurnPlan {
   const clock = estimateClock(withCandidate(state, candidate), state.totalMinutes);
   if (candidateWantsToEnd(candidate)) return { kind: "fixed", endedBy: "candidate", clock };
   if (state.phase !== "opening" && clock.phase === "over") return { kind: "fixed", endedBy: "budget", clock };
+  if (breakerTripped(state.transcript)) return { kind: "fixed", endedBy: "breaker", clock };
   return { kind: "model", clock };
+}
+
+/** 现场卡：影子运行也用同一张。 */
+export function buildCard(state: TurnState, candidate: CandidateInput | null, clock: Clock): StateCard {
+  return { clock, notebook: state.notebook, opening: state.phase === "opening", covered: state.covered, helping: candidate ? isHelpRequest({ role: "candidate", ...candidate }) : false, estimate: estimateLine(state.estimates), critic: state.critic };
 }
 
 type Spoken = { say: string; kind: "say" | "closing" | "fallback"; notebook: string | null; failed: boolean; runId: string | null; skillsLoaded: number; endedBy: EndedBy | null };
@@ -132,7 +149,7 @@ export function runTurn(input: { runId: string; config: AiTaskConfig; state: Tur
   const { state, candidate } = input;
   const plan = planTurn(state, candidate);
   if (plan.kind === "fixed") {
-    const spoken: Spoken = { say: FALLBACK_SPEECH.closing, kind: "closing", notebook: null, failed: false, runId: null, skillsLoaded: 0, endedBy: plan.endedBy };
+    const spoken: Spoken = { say: plan.endedBy === "breaker" ? FALLBACK_SPEECH.breaker : FALLBACK_SPEECH.closing, kind: "closing", notebook: null, failed: false, runId: null, skillsLoaded: 0, endedBy: plan.endedBy };
     const result = applyTurn(state, candidate, spoken);
     return { say: once(spoken.say), finalize: async () => result };
   }
@@ -142,8 +159,9 @@ export function runTurn(input: { runId: string; config: AiTaskConfig; state: Tur
     brief: state.brief,
     context: input.context,
     transcript: state.transcript,
-    card: { clock: plan.clock, notebook: state.notebook, opening: state.phase === "opening", covered: state.covered, helping: candidate ? isHelpRequest({ role: "candidate", ...candidate }) : false, estimate: estimateLine(state.estimates), critic: state.critic },
+    card: buildCard(state, candidate, plan.clock),
     candidateContent: candidate?.content ?? null,
+    variant: state.variant,
   });
   return {
     say: policy.say,

@@ -18,7 +18,7 @@ import { getAiTaskConfig } from "../src/lib/settings/ai";
  * 结果从事件日志算指标，写到 eval/runs/sim-<tag>.json。
  *
  * 用法：npm run simulate -- --tag baseline --jd tencent-hunyuan-agent-harness-engineer --resume synthetic-ai-llm \
- *        --archetypes solid,shaky,rambling,needy,adversarial --seeds 3 --pace standard --concurrency 1 --critic on|off
+ *        --archetypes solid,shaky,rambling,needy,adversarial --seeds 3 --pace standard --concurrency 1 --critic on|off --policy v2|v2-terse --shadow v2-terse
  *      npm run simulate -- --tag baseline --recompute     # 只按标签重算已有会话的指标
  */
 
@@ -106,7 +106,7 @@ async function waitCompleted(base: string, sessionId: string, timeoutMs: number)
   return status;
 }
 
-async function createSession(base: string, input: { jd: string; resumeDbId: string; pace: string; label: string; tag: string; critic: boolean }): Promise<string> {
+async function createSession(base: string, input: { jd: string; resumeDbId: string; pace: string; label: string; tag: string; critic: boolean; policy: string | null; shadow: string | null }): Promise<string> {
   const jd = loadJdFixture(input.jd);
   const form = new FormData();
   form.set("companyName", input.label);
@@ -119,8 +119,9 @@ async function createSession(base: string, input: { jd: string; resumeDbId: stri
   const json = (await response.json()) as { id?: string; interviewId?: string; error?: string };
   if (!response.ok || !json.id || !json.interviewId) throw new Error(`创建会话失败：${json.error ?? response.status}`);
   await prisma.interview.update({ where: { id: json.interviewId }, data: { evalTag: input.tag } });
-  // 开 / 关对比：评论员关掉的场次写会话开关（默认开，不写）。
-  if (!input.critic) await prisma.mockInterviewSession.update({ where: { id: json.id }, data: { flagsJson: JSON.stringify({ critic: false }) } });
+  // 会话开关：评论员关、指定策略变体、影子变体；备课完成时只补没写的项。
+  const flags = { ...(input.critic ? {} : { critic: false }), ...(input.policy ? { policy: input.policy } : {}), ...(input.shadow ? { shadow: input.shadow } : {}) };
+  if (Object.keys(flags).length > 0) await prisma.mockInterviewSession.update({ where: { id: json.id }, data: { flagsJson: JSON.stringify(flags) } });
   return json.id;
 }
 
@@ -132,10 +133,10 @@ async function loadCompetencies(sessionId: string): Promise<{ id: string; name: 
 
 const truthOf = (abilities: { competencyId: string; level: number }[]) => abilities.map((item) => ({ competencyId: item.competencyId, level: item.level }));
 
-async function runCase(base: string, item: Case, config: { jd: string; resume: string; resumeDbId: string; pace: string; tag: string; maxTurns: number; critic: boolean }): Promise<CaseResult> {
+async function runCase(base: string, item: Case, config: { jd: string; resume: string; resumeDbId: string; pace: string; tag: string; maxTurns: number; critic: boolean; policy: string | null; shadow: string | null }): Promise<CaseResult> {
   const jd = loadJdFixture(config.jd);
   const resumeText = loadResumeText(config.resume);
-  const sessionId = await createSession(base, { jd: config.jd, resumeDbId: config.resumeDbId, pace: config.pace, label: `模拟 ${item.id}`, tag: config.tag, critic: config.critic });
+  const sessionId = await createSession(base, { jd: config.jd, resumeDbId: config.resumeDbId, pace: config.pace, label: `模拟 ${item.id}`, tag: config.tag, critic: config.critic, policy: config.policy, shadow: config.shadow });
   const result: CaseResult = { ...item, sessionId, abilities: [], turns: 0, error: null, metrics: null };
   try {
     await waitReady(base, sessionId);
@@ -235,6 +236,8 @@ async function main() {
       tag,
       maxTurns: Number(text(args, "max-turns", "45")),
       critic: text(args, "critic", "on") !== "off",
+      policy: typeof args.policy === "string" ? args.policy : null,
+      shadow: typeof args.shadow === "string" ? args.shadow : null,
       resumeDbId: "",
     };
     config.resumeDbId = await ensureFixtureResume(config.resume);

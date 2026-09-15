@@ -3,6 +3,7 @@ import { parseStoredBrief } from "@/lib/mock-interviews/brief/brief";
 import { competenciesOf } from "@/lib/mock-interviews/context";
 
 import { parseEventRow, type InterviewEvent } from "../events";
+import { sessionFlags } from "../flags";
 import type { RunFact, SegmentFact, SessionFacts } from "./metrics";
 
 /**
@@ -46,7 +47,8 @@ export async function loadSessionFacts(sessionId: string, truth?: { competencyId
     })
   ).map((run) => ({ runId: run.runId, durationMs: run.durationMs, inputTokens: run.inputTokens ?? 0, cachedTokens: run.cachedTokens ?? 0, outputTokens: run.outputTokens ?? 0 }));
   // 重建后预算是时间盒而不是回合数：回合预算指标不再适用（守住预算恒为真），时间盒由 clock_tick / ended 事件体现。
-  return { sessionId, turnsTotal: null, events, segments, runs, competencies: competenciesOf(session.contextSnapshotJson), ...(truth ? { truth } : {}) };
+  const flags = sessionFlags(session.flagsJson);
+  return { sessionId, turnsTotal: null, events, segments, runs, competencies: competenciesOf(session.contextSnapshotJson), variant: flags.policy ?? "v2", shadowVariant: flags.shadow, ...(truth ? { truth } : {}) };
 }
 
 /** 逐字稿投影与消息表对账：事件日志是否完整地记下了双方说的话。 */

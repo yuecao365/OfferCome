@@ -14,6 +14,10 @@ import { appendEvents, event, parseEventRow, transcriptOf, type InterviewEvent, 
 import { sessionFlags } from "./flags";
 import { closedSegments, judgeSegment } from "./judge";
 import { labelingDue, labelRecent } from "./labeler";
+import { runPolicy, type PolicyContext } from "./policy";
+import { buildCard, planTurn, type CandidateInput, type TurnState } from "./turn";
+import type { PolicyVariant } from "./variants";
+import type { AiTaskConfig } from "@/lib/ai/config";
 
 /**
  * 面试中的后台任务（响应返回后顺序跑）：评论员每回合看面试官刚说的那句（critic_noted，开关可关）；标注器每两次交换标一次
@@ -74,6 +78,29 @@ async function judgeClosedSegments(sessionId: string): Promise<void> {
     await appendEvents(prisma, sessionId, batch);
     events = next;
   }
+}
+
+/**
+ * 影子运行：影子变体在真身刚用过的那张现场卡上再说一句（不流给房间、不改状态），评论员按同一套准则判一下，写 shadow_said。
+ * 每回合多一次 actor 调用 + 一次评论员调用，所以只在会话开关里指定了影子时跑。
+ */
+export function scheduleShadow(input: { sessionId: string; turnIndex: number; config: AiTaskConfig; state: TurnState; candidate: CandidateInput | null; context: PolicyContext; variant: PolicyVariant }): void {
+  after(async () => {
+    try {
+      const plan = planTurn(input.state, input.candidate);
+      if (plan.kind !== "model") return;
+      const policy = runPolicy({ runId: `shadow:${input.sessionId}:${input.turnIndex}`, config: input.config, brief: input.state.brief, context: input.context, transcript: input.state.transcript, card: buildCard(input.state, input.candidate, plan.clock), candidateContent: input.candidate?.content ?? null, variant: input.variant });
+      for await (const _delta of policy.say) void _delta;
+      const { output } = await policy.settled;
+      if (!output) return;
+      const withCandidate = input.candidate ? [...input.state.transcript, { seq: input.state.transcript.length, role: "candidate" as const, content: input.candidate.content, kind: null, control: input.candidate.control }] : input.state.transcript;
+      const transcript = [...withCandidate, { seq: withCandidate.length, role: "interviewer" as const, content: output.say, kind: "say", control: null }];
+      const noted = await critique({ runId: `shadow-critic:${input.sessionId}:${input.turnIndex}`, config: input.config, transcript, clock: plan.clock }).catch(() => null);
+      await appendEvents(prisma, input.sessionId, [event("shadow_said", { turnIndex: input.turnIndex, variant: input.variant.id, say: output.say, notebook: output.notebook, rule: noted?.payload.rule ?? null }, `shadow:${input.sessionId}:${input.turnIndex}`)]);
+    } catch (error) {
+      console.warn("[interview] 影子这回合没跑成。", error instanceof Error ? error.message : error);
+    }
+  });
 }
 
 /** 评论员看面试官刚说的那句；已经评过（同一编号有 critic_noted）就不再评。 */

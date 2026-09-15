@@ -39,6 +39,9 @@ export type SessionFacts = {
   competencies?: Competency[];
   /** 模拟候选人的能力真值（只有模拟器有）。 */
   truth?: { competencyId: string; level: number }[];
+  /** 这场的策略变体与影子变体（会话开关）。 */
+  variant?: string;
+  shadowVariant?: string | null;
 };
 
 export type SessionMetrics = {
@@ -46,7 +49,7 @@ export type SessionMetrics = {
   interviewerTurns: number;
   candidateTurns: number;
   asides: number;
-  endedBy: "interviewer" | "candidate" | "budget" | null;
+  endedBy: "interviewer" | "candidate" | "budget" | "breaker" | null;
   /** 面试官说的回合数（不含答疑）没超预算。 */
   budgetKept: boolean;
   projectsCovered: number;
@@ -82,7 +85,18 @@ export type SessionMetrics = {
   criticNotes: number;
   criticNoteRate: number;
   criticByRule: Record<string, number>;
+  variant: string;
+  /** 影子运行的对照：影子说了几句、一句多问比例、被评论员判违反的比例；没开影子为 null。 */
+  shadow: { variant: string; turns: number; multiQuestionRate: number; criticRate: number } | null;
 };
+
+const isMultiQuestion = (text: string) => (text.match(/[？?]/g) ?? []).length >= 2;
+
+export function shadowMetrics(events: InterviewEvent[], shadowVariant: string | null | undefined): SessionMetrics["shadow"] {
+  const said = events.flatMap((item) => (item.type === "shadow_said" ? [item.payload] : []));
+  if (!shadowVariant || said.length === 0) return null;
+  return { variant: shadowVariant, turns: said.length, multiQuestionRate: said.filter((item) => isMultiQuestion(item.say)).length / said.length, criticRate: said.filter((item) => item.rule !== null).length / said.length };
+}
 
 function criticMetrics(events: InterviewEvent[], interviewerTurns: number): Pick<SessionMetrics, "criticNotes" | "criticNoteRate" | "criticByRule"> {
   const byRule: Record<string, number> = {};
@@ -170,7 +184,7 @@ export function sessionMetrics(facts: SessionFacts): SessionMetrics {
   const scenario = facts.segments.filter((segment) => segment.kind === "scenario");
   const help = helpHandling(transcript, facts.segments);
   const questions = interviewerLines.filter((line) => line.kind !== "closing" && line.kind !== "aside");
-  const multi = questions.filter((line) => (line.content.match(/[？?]/g) ?? []).length >= 2).length;
+  const multi = questions.filter((line) => isMultiQuestion(line.content)).length;
   const chars = { project: 0, quick: 0, scenario: 0 };
   for (const segment of facts.segments) {
     chars[segment.kind] += transcript.filter((line) => line.seq >= segment.startSeq && line.seq <= segment.endSeq).reduce((sum, line) => sum + line.content.length, 0);
@@ -203,6 +217,8 @@ export function sessionMetrics(facts: SessionFacts): SessionMetrics {
     latencyMs: { p50: percentile(latencies, 0.5), p95: percentile(latencies, 0.95) },
     ...estimatorMetrics(facts),
     ...criticMetrics(facts.events, counted),
+    variant: facts.variant ?? "v2",
+    shadow: shadowMetrics(facts.events, facts.shadowVariant),
   };
 }
 
@@ -244,6 +260,9 @@ export function summarize(list: SessionMetrics[]): MetricSummary {
   summary.outputTokensPerSession = list.length === 0 ? null : list.reduce((sum, item) => sum + item.tokens.output, 0) / list.length;
   summary.cacheRate = input === 0 ? null : list.reduce((sum, item) => sum + item.tokens.cached, 0) / input;
   summary.latencyP95Ms = list.length === 0 ? null : percentile(list.map((item) => item.latencyMs.p95), 0.5);
+  const shadows = list.flatMap((item) => (item.shadow ? [item.shadow] : []));
+  summary.shadowMultiQuestionRate = shadows.length === 0 ? null : shadows.reduce((sum, item) => sum + item.multiQuestionRate, 0) / shadows.length;
+  summary.shadowCriticRate = shadows.length === 0 ? null : shadows.reduce((sum, item) => sum + item.criticRate, 0) / shadows.length;
   summary.onlineCorrelation = pearson(list.flatMap((item) => item.estimatePairs.online));
   summary.offlineCorrelation = pearson(list.flatMap((item) => item.estimatePairs.offline));
   return summary;
@@ -271,6 +290,8 @@ const LABELS: Record<string, string> = {
   coreSettledAfter: "核心能力定下来用了几段",
   criticNotes: "评论员提醒条数",
   criticNoteRate: "被评论员提醒的回合比例",
+  shadowMultiQuestionRate: "影子：一句多问的比例",
+  shadowCriticRate: "影子：被评论员判违反的比例",
   onlineCorrelation: "面试中估计与真值的相关（跨场合并）",
   offlineCorrelation: "事后估计与真值的相关（跨场合并）",
   timeShare_project: "时间占比：项目",
