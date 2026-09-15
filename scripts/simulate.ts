@@ -17,7 +17,7 @@ import { getAiTaskConfig } from "../src/lib/settings/ai";
  * 结果从事件日志算指标，写到 eval/runs/sim-<tag>.json。
  *
  * 用法：npm run simulate -- --tag baseline --jd tencent-hunyuan-agent-harness-engineer --resume synthetic-ai-llm \
- *        --archetypes solid,shaky,rambling,needy,adversarial --seeds 3 --pace standard --concurrency 2
+ *        --archetypes solid,shaky,rambling,needy,adversarial --seeds 3 --pace standard --concurrency 1
  *      npm run simulate -- --tag baseline --recompute     # 只按标签重算已有会话的指标
  */
 
@@ -199,7 +199,9 @@ async function main() {
     setAgentRunTag(tag);
     const base = text(args, "base", "http://localhost:3000");
     const archetypes = text(args, "archetypes", ARCHETYPES.join(",")).split(",").filter((item): item is Archetype => (ARCHETYPES as readonly string[]).includes(item));
-    const seeds = Number(text(args, "seeds", "3"));
+    // --seeds 3 = 种子 1..3；--seeds 2-3 = 只跑种子 2 与 3（补跑单场用）。
+    const seedSpec = text(args, "seeds", "3");
+    const [seedFrom, seedTo] = seedSpec.includes("-") ? seedSpec.split("-").map(Number) : [1, Number(seedSpec)];
     const config = {
       jd: text(args, "jd", "tencent-hunyuan-agent-harness-engineer"),
       resume: text(args, "resume", "synthetic-ai-llm"),
@@ -209,9 +211,10 @@ async function main() {
       resumeDbId: "",
     };
     config.resumeDbId = await ensureFixtureResume(config.resume);
-    const cases: Case[] = archetypes.flatMap((archetype) => Array.from({ length: seeds }, (_, index) => ({ id: `${archetype}-${index + 1}`, archetype, seed: index + 1 })));
-    console.log(`${tag}：${cases.length} 场（${archetypes.map((item) => ARCHETYPE_LABELS[item]).join(" / ")} × ${seeds} 种子），JD ${config.jd}，简历 ${config.resume}，节奏 ${config.pace}`);
-    results = await pool(cases, Number(text(args, "concurrency", "2")), (item) => runCase(base, item, config));
+    const cases: Case[] = archetypes.flatMap((archetype) => Array.from({ length: seedTo - seedFrom + 1 }, (_, index) => ({ id: `${archetype}-${seedFrom + index}`, archetype, seed: seedFrom + index })));
+    console.log(`${tag}：${cases.length} 场（${archetypes.map((item) => ARCHETYPE_LABELS[item]).join(" / ")} × 种子 ${seedFrom}–${seedTo}），JD ${config.jd}，简历 ${config.resume}，节奏 ${config.pace}`);
+    // SQLite 单写者：并发 2 以上会让另一场的落库等锁超时，默认串行。
+    results = await pool(cases, Number(text(args, "concurrency", "1")), (item) => runCase(base, item, config));
     await flushAgentRunPersistence();
   }
 

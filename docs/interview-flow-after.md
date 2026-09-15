@@ -1,5 +1,7 @@
 # 面试后：从线程切段到报告与画像（报告 v2）
 
+> **重建中（2026-09-15）**：面试中已不再实时切段（见 [interview-flow-during.md](interview-flow-during.md)）。这篇描述的是线程切段之后的评分、汇总与画像链路，输入形状不变；切段本身改由事后整理员从逐字稿产出（[interview-refactor-plan.md](interview-refactor-plan.md) 阶段 C），做完后重写 §1。阶段 B 到 C 之间的会话没有分段，报告只有汇总与面试官笔记。
+
 > 上一篇：[面试中](interview-flow-during.md) · 首篇：[整体流程](interview-flow-overview.md)
 > 代码：`interviewer/segments.ts`（切段）→ `interviewer/session.ts`（写兼容题目、安排评分与交卷）→ `question-evaluation-background.ts` / `question-evaluation-service.ts` / `question-evaluation-agent.ts` / `question-evaluation.ts`（逐段评分）→ `answer-exemplar-agent.ts`（示范回答）→ `completion.ts` + `summary-agent.ts` + `scoring.ts` + `report.ts`（交卷与报告）→ `candidate-profile/`（画像）。
 

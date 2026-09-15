@@ -12,14 +12,14 @@ flowchart TD
   BG --> CTX[装配上下文<br/>简历文本 / 项目 / 历史面试 / 画像]
   CTX --> BP[岗位蓝图 agent<br/>只看 JD，三级降级]
   BP --> BRIEF[简报 agent<br/>代码抽样题池主题 + 模型写题<br/>严格 schema + 抢救 → 代码兜底]
-  BRIEF --> SAVE[落库：briefJson / memoryJson<br/>status=in_progress]
+  BRIEF --> SAVE[落库：briefJson / notebook 空 / durationMinutes<br/>status=in_progress]
   SAVE --> ROOM[进入面试间]
 ```
 
 三条原则：
 
 1. **JD 必填，是岗位特异性的来源。** 场景题从 JD 里团队做的系统或职责里挑，绑定蓝图能力并逐字引 JD 原句；基础题的主题按岗位名与 JD 加权抽。
-2. **备课产出的是面试官手边的材料，不是流程也不是题目清单**：每个项目的五个面（各带建议问法与要验证的线索）、基础题池（代码从技能包主题里按角色配额抽样，模型只写题）、场景题（带引导阶梯）、简历假设、一场的总回合数。怎么用这些材料由面试官临场写在自己的计划里（见面试中篇）。随机与历史（最近几场问过的主题）在代码里，同一个 JD 每场问的不一样。
+2. **备课产出的是面试官手边的材料，不是流程也不是题目清单**：每个项目的五个面（各带建议问法与要验证的线索）、基础题池（代码从技能包主题里按角色配额抽样，模型只写题）、场景题（带引导阶梯）、简历假设。怎么用这些材料由面试官临场写在自己的笔记里（见面试中篇）；一场的长短是时间盒（分钟），不是回合数。随机与历史（最近几场问过的主题）在代码里，同一个 JD 每场问的不一样。
 3. **不联网。** 岗位知识来自仓库内版本化的技能包。
 
 每次状态推进都是乐观锁写入（`claimSession`），写不中就安静放弃，说明用户已经重试或删除了会话。除了"模型完全不可用"，每一步都降级继续。
@@ -91,9 +91,9 @@ flowchart TD
 
 ## 5. 简报（`interviewer/brief-agent.ts` + `brief.ts`）
 
-### 5.1 节奏 → 总回合数
+### 5.1 节奏 → 时间盒
 
-节奏只决定一场的**总回合数**（`PACE_PLAN[pace].turns`，面试官说话的次数，含开场与收尾）与场景题数：quick 12 / 1 道，standard 20 / 1 道，deep 32 / 2 道。这是整场唯一的硬数字；项目聊多久、几道基础题、追多深，由面试官的计划定（面试中篇 §1.2）。没有阶段预算、没有追问上限。
+节奏决定一场的**时间盒**（`DURATION_MINUTES`：quick 20 / standard 35 / deep 50 分钟，面试中按字数折算）与场景题数（quick 与 standard 1 道，deep 2 道）。简报里的 `turns`（PACE_PLAN）只用来定题池大小与给备课模型一个规模感，面试中不再按回合数守；项目聊多久、几道基础题、追多深，由面试官临场定（面试中篇）。
 
 **项目的五个面**：每个项目（最多 3 个，模型先写与岗位最相关的）都给五个面的材料，每个面一道建议问法和要验证的线索，面试官顺着候选人的话挑着问、不必问全：
 
@@ -171,7 +171,7 @@ hypotheses[0..6]: { id, text≤300, evidence≤300（简历原文逐字）, proj
 
 ## 6. 落库与开房（`persistBrief`）
 
-一个事务内：`briefJson`（`version: 8`、`turns`、`level`、`areas`、`hypotheses`、`skillPacks` = 抽题用的包 + project-deep-dive）、`memoryJson` = 空记忆（假设全部 open）、`planJson` 为空（面试官开场后才写）、`status=in_progress`。只认 v8：更早的简报（领域清单、切入点、阶段预算）视为无简报，那些会话只剩题目与评分可看。
+一个事务内：`briefJson`（`version: 8`、`turns`、`level`、`areas`、`hypotheses`、`skillPacks` = 抽题用的包 + project-deep-dive）、`notebook` 为空（面试官开场后才写）、`durationMinutes` 按节奏、`status=in_progress`。只认 v8：更早的简报（领域清单、切入点、阶段预算）视为无简报，那些会话只剩题目与评分可看。
 
 ## 7. 失败与重试
 
@@ -185,7 +185,7 @@ hypotheses[0..6]: { id, text≤300, evidence≤300（简历原文逐字）, proj
 
 ## 9. 体验版（网页版）怎么走这一段
 
-状态归属不同，流程相同。会话文档 `TrialInterview`（`src/lib/trial/interview.ts`）与 `MockInterviewSession` + 线程 + 消息 + 兼容题目同形，整份存在访客浏览器的 localStorage（`offercome.trial.interviews`，按 id 一张表，可多场并行）；服务端无状态，访客的模型 Key 随请求头带上。
+状态归属不同，流程相同。会话文档 `TrialInterview`（`src/lib/trial/interview.ts`）与 `MockInterviewSession` + 消息 + 兼容题目同形（v8：笔记 + 时长 + 消息），整份存在访客浏览器的 localStorage（`offercome.trial.interviews`，按 id 一张表，可多场并行）；服务端无状态，访客的模型 Key 随请求头带上。
 
 | 本地版 | 体验版 |
 |---|---|

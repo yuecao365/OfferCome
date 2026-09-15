@@ -102,6 +102,7 @@ function toConversationMessage(row: { id: string; turnIndex: number; role: strin
 async function persistTurn(loaded: Loaded, turnIndex: number, candidate: CandidateMessageInput | null, result: TurnResult): Promise<ConversationMessage[]> {
   const sessionId = loaded.id;
   const created: ConversationMessage[] = [];
+  // SQLite 单写者：并发的另一场正在落库时这里要等锁；默认 5 秒的事务超时在评测并发跑时不够。
   await prisma.$transaction(async (tx) => {
     const clash = await tx.mockInterviewMessage.count({ where: { sessionId, turnIndex } });
     if (clash > 0) throw new Error("另一回合正在进行，请稍后重试。");
@@ -128,7 +129,7 @@ async function persistTurn(loaded: Loaded, turnIndex: number, candidate: Candida
     if (result.phase === "ended") {
       await claimSession(tx, { where: { id: sessionId, status: "in_progress" }, data: { status: "ready_to_evaluate" } });
     }
-  });
+  }, { maxWait: 20_000, timeout: 30_000 });
   if (result.phase === "ended") scheduleMockInterviewCompletion(sessionId);
   return created;
 }

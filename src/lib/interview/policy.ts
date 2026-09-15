@@ -238,14 +238,24 @@ export function runPolicy(input: {
     timeoutMs: TIMEOUT_MS,
   });
 
+  // 逐段取 say。模型调用超时或出错时 partialOutputStream 可能不会自己结束：outcome 一落定就停，不让响应挂住。
   const say = (async function* () {
     let sent = "";
-    for await (const partial of stream.partialOutputStream) {
-      const current = typeof (partial as { say?: unknown })?.say === "string" ? ((partial as { say: string }).say ?? "") : "";
-      if (current.length > sent.length && current.startsWith(sent)) {
-        yield current.slice(sent.length);
-        sent = current;
+    const iterator = stream.partialOutputStream[Symbol.asyncIterator]();
+    const done = outcome.then(() => ({ done: true as const, value: undefined }));
+    try {
+      while (true) {
+        const next = await Promise.race([iterator.next(), done]);
+        if (next.done) break;
+        const partial = next.value as { say?: unknown } | undefined;
+        const current = typeof partial?.say === "string" ? partial.say : "";
+        if (current.length > sent.length && current.startsWith(sent)) {
+          yield current.slice(sent.length);
+          sent = current;
+        }
       }
+    } finally {
+      void iterator.return?.();
     }
   })();
 
