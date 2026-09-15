@@ -45,8 +45,19 @@ type CaseResult = Case & { sessionId: string; abilities: SyntheticCandidate["abi
 
 type WireTurn = { replay: boolean; messages?: { role: string; kind: string; content: string }[]; payload?: { phase: string; newMessages: { role: string; kind: string; content: string }[] } };
 
+/** 瞬时网络错误（fetch failed / 超时）重试一次：回合接口按 clientId 幂等，重发不会多出一个回合。 */
+async function fetchWithRetry(url: string, init: RequestInit): Promise<Response> {
+  try {
+    return await fetch(url, init);
+  } catch (error) {
+    console.warn(`  请求失败，3 秒后重试：${error instanceof Error ? error.message : String(error)}`);
+    await new Promise((resolve) => setTimeout(resolve, 3_000));
+    return fetch(url, init);
+  }
+}
+
 async function postTurn(base: string, sessionId: string, body: Record<string, unknown>): Promise<{ said: { kind: string; content: string }[]; phase: string | null }> {
-  const response = await fetch(`${base}/api/interviews/mock/${sessionId}/turn`, {
+  const response = await fetchWithRetry(`${base}/api/interviews/mock/${sessionId}/turn`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
