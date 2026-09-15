@@ -38,9 +38,11 @@ export type MockInterviewContext = {
 /** 会话快照里的岗位能力清单（备课时的蓝图）；没有蓝图为空。估计器、评委、整理员、报告、模拟器共用这一处解析。 */
 export function competenciesOf(contextSnapshotJson: string | null | undefined): Competency[] {
   try {
-    const parsed = JSON.parse(contextSnapshotJson ?? "{}") as { jobBlueprint?: { competencies?: { id?: unknown; name?: unknown; priority?: unknown }[] } | null };
+    const parsed = JSON.parse(contextSnapshotJson ?? "{}") as { jobBlueprint?: { competencies?: { id?: unknown; name?: unknown; priority?: unknown; description?: unknown }[] } | null };
     return (parsed.jobBlueprint?.competencies ?? []).flatMap((item) =>
-      typeof item.id === "string" && typeof item.name === "string" ? [{ id: item.id, name: item.name, priority: item.priority === "secondary" ? ("secondary" as const) : ("core" as const) }] : [],
+      typeof item.id === "string" && typeof item.name === "string"
+        ? [{ id: item.id, name: item.name, priority: item.priority === "secondary" ? ("secondary" as const) : ("core" as const), ...(typeof item.description === "string" ? { description: item.description } : {}) }]
+        : [],
     );
   } catch {
     return [];

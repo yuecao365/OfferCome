@@ -17,7 +17,8 @@
     "eval": "tsx --conditions=react-server scripts/eval.ts",
     "simulate": "tsx --conditions=react-server scripts/simulate.ts",
     "replay": "tsx --conditions=react-server scripts/replay.ts",
-    "resegment": "tsx --conditions=react-server scripts/resegment.ts"
+    "resegment": "tsx --conditions=react-server scripts/resegment.ts",
+    "rejudge": "tsx --conditions=react-server scripts/rejudge.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.60",

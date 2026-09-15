@@ -7,7 +7,7 @@ import type { InterviewEvent } from "./events";
  * 事后用整理员的分段与双采样评分再算一遍。
  */
 
-export type Competency = { id: string; name: string; priority: "core" | "secondary" };
+export type Competency = { id: string; name: string; priority: "core" | "secondary"; /** 蓝图里的一句描述（模拟器按它对题）。 */ description?: string };
 
 export type Observation = {
   competencyId: string;
