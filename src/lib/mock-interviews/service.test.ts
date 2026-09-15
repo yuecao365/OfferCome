@@ -303,12 +303,13 @@ test("a failed model turn still produces a deterministic interviewer message and
 
 test("the interviewer's closing flag is ignored early and honoured once the time box is past half", async () => {
   const { sessionId } = await seedReadySession();
-  stubs.outputs = [say("你好。"), say("这块先到这，我们换下一个话题。", { closing: true }), say("今天先到这里，谢谢。", { closing: true })];
+  stubs.outputs = [say("你好。"), say("这块先到这，我们换下一个话题。", { closing: true }), say("再问一句。"), say("再问一句。"), say("再问一句。"), say("今天先到这里，谢谢。", { closing: true })];
   await runTurn(sessionId, null);
   const early = await runTurn(sessionId, { clientId: "c1", content: "我叫小明。" });
   assert.equal(early.replay === false && early.payload.phase, "running");
-  // 一段很长的回答把时钟推过一半（20 分钟 × 50% ≈ 1600 字）。
-  const late = await runTurn(sessionId, { clientId: "c2", content: "一".repeat(2_000) });
+  // 每条回答最多记 2.5 分钟：四条长回答把 20 分钟的时钟推过一半。
+  for (const clientId of ["c2", "c3", "c4"]) await runTurn(sessionId, { clientId, content: "一".repeat(700) });
+  const late = await runTurn(sessionId, { clientId: "c5", content: "一".repeat(700) });
   assert.equal(late.replay === false && late.payload.phase, "ended");
   assert.equal(late.replay === false && late.payload.endedBy, "interviewer");
   assert.equal((await readSession(sessionId)).status, "ready_to_evaluate");

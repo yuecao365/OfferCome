@@ -12,8 +12,14 @@ import type { TranscriptLine } from "./events";
 
 export const DURATION_MINUTES: Record<InterviewPace, number> = { quick: 10, standard: 20, deep: 35 };
 
-/** 折算参数：候选人边想边写每分钟约 160 字；面试官读题 / 说话每分钟约 300 字；每次交换另加 20 秒读题与思考。 */
-export const CLOCK_RATES = { candidateCharsPerMinute: 160, interviewerCharsPerMinute: 300, exchangeOverheadMinutes: 1 / 3 } as const;
+/**
+ * 折算参数：候选人的回答按"说出来要多久"算——每分钟约 240 字，一条回答最多记 2.5 分钟（打字慢是用户自己的时间，
+ * 不该吃掉面试的时间盒；2026-09-15 一位用户三条 600 字的回答就把 10 分钟的快速档用完了）；
+ * 面试官读题 / 说话每分钟约 300 字；每次交换另加 20 秒读题与思考。
+ */
+export const CLOCK_RATES = { candidateCharsPerMinute: 240, maxAnswerMinutes: 2.5, interviewerCharsPerMinute: 300, exchangeOverheadMinutes: 1 / 3 } as const;
+/** 每档至少问到的问答数（每次交换约 2 分钟）：时间到了但没问够就再问，硬顶仍在。快速 5、标准 10、深入 17。 */
+export const MIN_EXCHANGE_MINUTES = 2;
 
 /** 到这个比例提醒"还没问的场景题该进了"；到 WRAP_UP_RATIO 提醒收尾；到 1 由代码收尾。 */
 export const LATE_RATIO = 0.75;
@@ -36,10 +42,15 @@ export function hardCap(totalMinutes: number): number {
   return Math.ceil((totalMinutes / MINUTES_PER_EXCHANGE) * HARD_CAP_FACTOR);
 }
 
+export function minExchanges(totalMinutes: number): number {
+  return Math.floor(totalMinutes / MIN_EXCHANGE_MINUTES);
+}
+
 function clockOf(minutes: number, exchanges: number, totalMinutes: number): Clock {
   const usedMinutes = Math.round(minutes * 10) / 10;
   const ratio = usedMinutes / totalMinutes;
-  const phase: ClockPhase = ratio >= 1 || exchanges >= hardCap(totalMinutes) ? "over" : ratio >= WRAP_UP_RATIO ? "wrap_up" : ratio >= LATE_RATIO ? "late" : "open";
+  const timeUp = ratio >= 1 && exchanges >= minExchanges(totalMinutes);
+  const phase: ClockPhase = timeUp || exchanges >= hardCap(totalMinutes) ? "over" : ratio >= WRAP_UP_RATIO ? "wrap_up" : ratio >= LATE_RATIO ? "late" : "open";
   return { usedMinutes, totalMinutes, exchanges, phase };
 }
 
@@ -50,7 +61,7 @@ export function estimateClock(transcript: Pick<TranscriptLine, "role" | "content
   let minutes = 0;
   for (const line of transcript) {
     const chars = line.content.replace(/\s+/g, "").length;
-    if (line.role === "candidate") minutes += chars / CLOCK_RATES.candidateCharsPerMinute;
+    if (line.role === "candidate") minutes += Math.min(CLOCK_RATES.maxAnswerMinutes, chars / CLOCK_RATES.candidateCharsPerMinute);
     else minutes += chars / CLOCK_RATES.interviewerCharsPerMinute + CLOCK_RATES.exchangeOverheadMinutes;
   }
   return clockOf(minutes, countExchanges(transcript), totalMinutes);

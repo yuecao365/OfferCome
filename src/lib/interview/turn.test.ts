@@ -30,8 +30,8 @@ test("候选人要结束：按钮，或 40 字内含结束意图的插话；长�
 test("谁做主：开场与正常回合交给模型；结束按钮与时间到了由代码收尾", () => {
   assert.equal(planTurn(state(), null).kind, "model");
   assert.equal(planTurn(state({ phase: "running", transcript: [line("interviewer", "你好")] }), candidate("", "end")).kind, "fixed");
-  // 6 段 600 字的回答 ≈ 22 分钟，过了 20 分钟的时间盒。
-  const long = Array.from({ length: 12 }, (_, index) => line(index % 2 ? "candidate" : "interviewer", index % 2 ? "一".repeat(600) : "问一句。", index));
+  // 11 次交换、每次 600 字的回答 ≈ 31 分钟，过了 20 分钟的时间盒，也问够了标准档的 10 问。
+  const long = Array.from({ length: 22 }, (_, index) => line(index % 2 ? "candidate" : "interviewer", index % 2 ? "一".repeat(600) : "问一句。", index));
   const plan = planTurn(state({ phase: "running", transcript: long }), candidate("再答一句"));
   assert.equal(plan.kind, "fixed");
   assert.equal(plan.kind === "fixed" && plan.endedBy, "budget");
