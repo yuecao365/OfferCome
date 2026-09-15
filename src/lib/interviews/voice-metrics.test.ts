@@ -6,7 +6,6 @@ import {
   deriveDeliveryObservation,
   deriveVoiceMetrics,
   inferCandidateSpeaker,
-  type VoiceMetrics,
 } from "./voice-metrics";
 
 test("derives metrics only for the selected speaker", () => {
