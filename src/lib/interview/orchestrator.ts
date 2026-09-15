@@ -2,20 +2,13 @@ import "server-only";
 
 import { prisma } from "@/lib/db";
 import { parseStoredBrief } from "@/lib/mock-interviews/brief/brief";
-import { competenciesOf } from "@/lib/mock-interviews/context";
 import { scheduleMockInterviewCompletion } from "@/lib/mock-interviews/question-evaluation-background";
 import { claimSession } from "@/lib/mock-interviews/session-state";
-import { loadSkillPacks } from "@/lib/mock-interviews/skills/loader";
-import { packsForInterview } from "@/lib/mock-interviews/skills/selector";
 import { getAiTaskConfig } from "@/lib/settings/ai";
 
-import { scheduleLabeling, scheduleShadow } from "./background";
-import { latestCriticNote } from "./critic";
-import { estimate, observationsFromEvents } from "./estimator";
-import { appendEvents, parseEventRow, transcriptOf, type InterviewEvent } from "./events";
+import { scheduleLab, scheduleShadow } from "./background";
+import { appendEvents, coveredMaterials, parseEventRow, transcriptOf, type InterviewEvent } from "./events";
 import { sessionFlags } from "./flags";
-import { coveredMaterials } from "./labeler";
-import { memoryOf, priorsFrom } from "./memory";
 import { runTurn, type CandidateInput, type TurnResult, type TurnState } from "./turn";
 import { policyVariant } from "./variants";
 import type { ConversationMessage, TurnPayload } from "./views";
@@ -50,9 +43,6 @@ function turnState(loaded: Loaded): TurnState {
     transcript,
     totalMinutes: loaded.durationMinutes,
     phase: loaded.status !== "in_progress" ? "ended" : transcript.length === 0 ? "opening" : "running",
-    covered: coveredMaterials(events),
-    estimates: estimate(competenciesOf(loaded.contextSnapshotJson), observationsFromEvents(events), priorsFrom(memoryOf(loaded.contextSnapshotJson))),
-    critic: sessionFlags(loaded.flagsJson).critic ? latestCriticNote(events, transcript) : null,
     variant: policyVariant(sessionFlags(loaded.flagsJson).policy),
     realTime: loaded.interactionMode === "voice",
   };
@@ -82,15 +72,8 @@ export async function startTurn(input: { sessionId: string; candidate: Candidate
 
   const state = turnState(loaded);
   const turnIndex = loaded.messages.filter((message) => message.role === "interviewer").length;
-  const [config, packs] = await Promise.all([getAiTaskConfig("text"), loadSkillPacks()]);
-  const context = {
-    jobTitle: loaded.interview.jobTitle,
-    jobDescription: loaded.jdTextSnapshot,
-    resumeText: loaded.resumeTextSnapshot,
-    totalMinutes: loaded.durationMinutes,
-    skillPacks: packsForInterview(state.brief.skillPacks, packs),
-    memory: memoryOf(loaded.contextSnapshotJson),
-  };
+  const config = await getAiTaskConfig("text");
+  const context = { jobTitle: loaded.interview.jobTitle, jobDescription: loaded.jdTextSnapshot, resumeText: loaded.resumeTextSnapshot, totalMinutes: loaded.durationMinutes };
   const run = runTurn({ runId: `turn:${input.sessionId}:${turnIndex}`, config, state, candidate: input.candidate, context });
   const shadow = sessionFlags(loaded.flagsJson).shadow;
   return {
@@ -100,10 +83,10 @@ export async function startTurn(input: { sessionId: string; candidate: Candidate
       const result = await run.finalize();
       const newMessages = await persistTurn(loaded, turnIndex, input.candidate, result);
       if (result.phase !== "ended") {
-        scheduleLabeling(input.sessionId);
+        scheduleLab(input.sessionId);
         if (shadow && shadow !== state.variant.id) scheduleShadow({ sessionId: input.sessionId, turnIndex, config, state, candidate: input.candidate, context, variant: policyVariant(shadow) });
       }
-      return { newMessages, phase: result.phase, clock: result.clock, endedBy: result.endedBy, coveredCount: state.covered.length };
+      return { newMessages, phase: result.phase, clock: result.clock, endedBy: result.endedBy, coveredCount: coveredMaterials(loaded.events.map(parseEventRow).filter((item): item is InterviewEvent => item !== null)).length };
     },
   };
 }

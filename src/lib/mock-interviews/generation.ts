@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { DURATION_MINUTES } from "@/lib/interview/clock";
 import { fillFlags } from "@/lib/interview/flags";
+import type { InterviewMemory } from "@/lib/interview/memory";
 import { recallCandidateMemory } from "@/lib/interview/memory-recall";
 import { assignVariant, rolloutConfig } from "@/lib/interview/variants";
 
@@ -14,7 +15,7 @@ import {
   type MockInterviewContext,
 } from "./context";
 import { isMockInterviewGenerationError } from "./errors";
-import { isInterviewPace } from "./brief/brief";
+import { briefReady, isInterviewPace } from "./brief/brief";
 import { generateInterviewBrief } from "./brief/brief-agent";
 import { analyzeMockInterviewJob } from "./job-analysis-agent";
 import {
@@ -102,16 +103,19 @@ async function ensureBlueprint(
   return saved ? blueprint : null;
 }
 
-/** 阶段二：简报连同空的工作记忆一起落库，并把房间打开。 */
+const DEGRADED_ERROR_CODE = "degraded";
+const DEGRADED_MESSAGE = "岗位描述没能分析或备课没成（多半是模型服务暂时不可用），这场只能按通用要求出题：可以重新备课，也可以就这样开始。";
+
+/** 阶段二：简报连同空的工作记忆一起落库；备好了就把房间打开，没备好就停在"待确认"（状态 generation_failed，错误码 degraded）。 */
 async function persistBrief(
   session: GenerationSessionRow,
   snapshot: GenerationSnapshot,
   context: MockInterviewContext,
   blueprint: MockInterviewJobBlueprint,
   brief: Awaited<ReturnType<typeof generateInterviewBrief>>,
+  memory: InterviewMemory | null,
+  ready: boolean,
 ): Promise<void> {
-  // 语义记忆：同一份简历上几场的说法、能力估计、短板、问过的题，作为这场的快照（可重放）。
-  const memory = session.resumeId ? await recallCandidateMemory({ resumeId: session.resumeId, excludeSessionId: session.id }) : null;
   await prisma.$transaction(async (tx) => {
     // 开关要读事务里的现值：备课期间模拟器可能已经写了策略 / 影子变体，入口时的快照是旧的。
     const current = await tx.mockInterviewSession.findUnique({ where: { id: session.id }, select: { flagsJson: true } });
@@ -128,10 +132,10 @@ async function persistBrief(
         durationMinutes: DURATION_MINUTES[session.pace],
         // 灰度：按会话 id 分桶定这场的策略变体与影子；模拟器先写好的不覆盖。
         flagsJson: fillFlags(current?.flagsJson, { policy: assignVariant(rolloutConfig(), session.id), shadow: rolloutConfig().shadow }),
-        status: "in_progress",
+        status: ready ? "in_progress" : "generation_failed",
         generationPhase: null,
-        generationErrorCode: null,
-        generationError: null,
+        generationErrorCode: ready ? null : DEGRADED_ERROR_CODE,
+        generationError: ready ? null : DEGRADED_MESSAGE,
         questionCount: 0,
       },
     });
@@ -189,26 +193,22 @@ export async function prepareMockInterview(sessionId: string): Promise<void> {
       seedQuestionId: request.seedQuestionId,
     });
 
-    const blueprint = await ensureBlueprint(session, snapshot, generationId);
-    if (!blueprint) return;
-
-    const advanced = await claimSession(prisma, {
-      where: { id: sessionId, status: "generating" },
-      data: { generationPhase: "brief" },
-    });
-    if (!advanced) return;
-
-    // generateInterviewBrief 自带兜底简报，不会抛出"没有简报"这种终态。
-    const brief = await generateInterviewBrief({
-      generationId,
-      jobTitle: session.interview.jobTitle,
-      blueprint,
-      context,
-      pace: session.pace,
-      round: request.round,
-    });
-
-    await persistBrief(session, snapshot, context, blueprint, brief);
+    // 语义记忆：同一份简历上几场的说法、能力估计、短板、问过的题——备课时用（没讲清的说法优先再验），并存进快照（可重放）。
+    const memory = session.resumeId ? await recallCandidateMemory({ resumeId: session.resumeId, excludeSessionId: session.id }) : null;
+    let blueprint: MockInterviewJobBlueprint | null = null;
+    let brief: Awaited<ReturnType<typeof generateInterviewBrief>> | null = null;
+    // 没备好（蓝图占位或简报兜底）就再备一次：这类失败多半是模型服务瞬时不可用。
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      if (attempt > 0) snapshot.jobBlueprint = null;
+      blueprint = await ensureBlueprint(session, snapshot, generationId);
+      if (!blueprint) return;
+      const advanced = await claimSession(prisma, { where: { id: sessionId, status: "generating" }, data: { generationPhase: "brief" } });
+      if (!advanced) return;
+      // generateInterviewBrief 自带兜底简报，不会抛出"没有简报"这种终态。
+      brief = await generateInterviewBrief({ generationId, jobTitle: session.interview.jobTitle, blueprint, context, pace: session.pace, round: request.round, memory: memory ?? undefined });
+      if (briefReady(blueprint, brief)) break;
+    }
+    await persistBrief(session, snapshot, context, blueprint!, brief!, memory, briefReady(blueprint!, brief!));
   } catch (error) {
     await recordGenerationFailure(sessionId, snapshot, error);
   }
@@ -223,6 +223,9 @@ export async function claimMockInterviewGenerationRetry(sessionId: string): Prom
 
   const snapshot = parseGenerationSnapshot(session.contextSnapshotJson);
   snapshot.generationErrorContext = null;
+  // 上次的蓝图是占位的就丢掉，让这次重新分析岗位描述。
+  const stored = storedJobBlueprintSchema.safeParse(snapshot.jobBlueprint);
+  if (stored.success && stored.data.competencies.every((item) => item.id.startsWith("fallback-"))) snapshot.jobBlueprint = null;
 
   return claimSession(prisma, {
     where: { id: sessionId, status: "generation_failed" },
@@ -233,5 +236,15 @@ export async function claimMockInterviewGenerationRetry(sessionId: string): Prom
       generationError: null,
       contextSnapshotJson: JSON.stringify(snapshot),
     },
+  });
+}
+
+/** 用户看过"没备好"的说明后选择就这样开始：简报已经在库里，直接开房。 */
+export async function acceptDegradedMockInterview(sessionId: string): Promise<boolean> {
+  const session = await prisma.mockInterviewSession.findUnique({ where: { id: sessionId }, select: { status: true, generationErrorCode: true, briefJson: true } });
+  if (!session || session.status !== "generation_failed" || session.generationErrorCode !== DEGRADED_ERROR_CODE || !session.briefJson) return false;
+  return claimSession(prisma, {
+    where: { id: sessionId, status: "generation_failed" },
+    data: { status: "in_progress", generationErrorCode: null, generationError: null },
   });
 }

@@ -59,6 +59,7 @@ export function MockInterviewSessionView({
             status: session.status,
             generationPhase: session.generationPhase,
             error: session.generationError,
+            errorCode: session.generationErrorCode,
           }}
           onReady={onReady}
           sessionId={session.id}

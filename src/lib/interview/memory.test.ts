@@ -4,7 +4,7 @@ import test from "node:test";
 import { testBrief } from "@/lib/test-support/interview-brief";
 
 import { estimate } from "./estimator";
-import { claimHistory, decay, memoryOf, priorsFrom, renderMemory, searchMemory, type InterviewMemory } from "./memory";
+import { claimHistory, decay, memoryOf, priorsFrom, type InterviewMemory } from "./memory";
 
 const now = new Date("2026-09-15T00:00:00Z");
 const daysAgo = (days: number) => new Date(now.getTime() - days * 86_400_000).toISOString();
@@ -46,20 +46,6 @@ test("说法的历史：按简历原句对上；前后场结论相反算冲突�
   const brief = testBrief({ hypotheses: [{ id: "h1", text: "验证压测", evidence: "压测", projectId: "proj-1" }, { id: "h2", text: "验证数字", evidence: "50%", projectId: "proj-1" }, { id: "h3", text: "验证部署", evidence: "k8s 部署", projectId: "proj-1" }] });
   const histories = claimHistory(brief.hypotheses, memory);
   assert.deepEqual(histories.map((item) => [item.hypothesisId, item.status]), [["h1", "conflict"], ["h2", "confirmed"]]);
-  const rendered = renderMemory(brief, memory)!;
-  assert.match(rendered, /「压测」：上次说法不同：没有讲清楚/);
-  assert.match(rendered, /「50%」：上次已验证/);
-  assert.match(rendered, /缓存一致性只说了名词/);
-  assert.doesNotMatch(rendered, /没说双写顺序/);
-  assert.match(rendered, /工具调用：没讲清重试上限/);
-  assert.equal(renderMemory(brief, { ...memory, sessions: 0 }), null);
-});
-
-test("检索：按相似度在说法、短板、问过的题里找", () => {
-  const hits = searchMemory(memory, "缓存一致性怎么保证");
-  assert.equal(hits[0].kind, "weakness");
-  assert.equal(searchMemory(memory, "主循环负责哪一段")[0].kind, "question");
-  assert.deepEqual(searchMemory(memory, "完全无关的词语"), []);
 });
 
 test("快照里的记忆：没有或坏的按空", () => {

@@ -68,7 +68,7 @@ mock.module("./context", {
 mock.module("@/lib/interview/policy", {
   namedExports: {
     POLICY_PROMPT_VERSION: "policy-test",
-    FALLBACK_SPEECH: { askIntro: "你好，我们开始吧。请先做个自我介绍。", stall: "稍等，你接着说。", closing: "好的，今天的面试就到这里。" },
+    FALLBACK_SPEECH: { askIntro: "你好，我们开始吧。请先做个自我介绍。", stall: "稍等，你接着说。", switch: "这个先放一放，换个话题。", closing: "好的，今天的面试就到这里。", breaker: "抱歉，今天的面试先到这里。" },
     runPolicy: (input: { runId: string }) => {
       stubs.policyCalls += 1;
       const output = stubs.outputs.shift() ?? null;
@@ -76,13 +76,13 @@ mock.module("@/lib/interview/policy", {
         say: (async function* () {
           if (output) yield output.say;
         })(),
-        settled: Promise.resolve({ runId: input.runId, output, skillsLoaded: 0, failed: output === null, raw: { runId: input.runId, text: "", stepTexts: [], toolCalls: [], durationMs: 0, error: null } }),
+        settled: Promise.resolve({ runId: input.runId, output, failed: output === null, raw: { runId: input.runId, text: "", stepTexts: [], toolCalls: [], durationMs: 0, error: null } }),
       };
     },
   },
 });
 
-mock.module("@/lib/interview/background", { namedExports: { scheduleLabeling: () => {} } });
+mock.module("@/lib/interview/background", { namedExports: { scheduleLab: () => {}, scheduleShadow: () => {} } });
 
 mock.module("./question-evaluation-background", {
   namedExports: {
@@ -97,7 +97,7 @@ mock.module("@/lib/candidate-profile/background", { namedExports: { enqueueCandi
 
 mock.module("@/lib/settings/ai", { namedExports: { getAiTaskConfig: async () => ({ task: "text", provider: "openai", model: "gpt-test", baseURL: null, apiKey: "k", requiresApiKey: true }) } });
 
-const say = (text: string, extras: Partial<PolicyOutput> = {}): PolicyOutput => ({ say: text, notebook: "", closing: false, ...extras });
+const say = (text: string, extras: Partial<PolicyOutput> = {}): PolicyOutput => ({ say: text, notebook: "", topic: null, closing: false, ...extras });
 
 type Service = typeof import("./service");
 type Orchestrator = typeof import("@/lib/interview/orchestrator");
@@ -247,7 +247,7 @@ test("the opening turn streams the interviewer's words, writes events and the no
   const messages = await prisma.mockInterviewMessage.findMany({ where: { sessionId } });
   assert.equal(messages.length, 1);
   assert.equal(messages[0].kind, "say");
-  assert.deepEqual(await eventTypes(sessionId), ["interviewer_said", "notebook_written", "clock_tick"]);
+  assert.deepEqual(await eventTypes(sessionId), ["move_decided", "interviewer_said", "notebook_written", "clock_tick"]);
   const session = await readSession(sessionId);
   assert.equal(session.notebook, "先听自我介绍，再挑最贴岗位的项目。");
   assert.ok(session.startedAt);
@@ -271,7 +271,7 @@ test("a candidate message and the reply land together; a duplicate clientId repl
       ["interviewer", "say"],
     ],
   );
-  assert.deepEqual(await eventTypes(sessionId), ["interviewer_said", "clock_tick", "candidate_said", "interviewer_said", "notebook_written", "clock_tick"]);
+  assert.deepEqual(await eventTypes(sessionId), ["move_decided", "interviewer_said", "clock_tick", "candidate_said", "move_decided", "interviewer_said", "notebook_written", "clock_tick"]);
   const again = await runTurn(sessionId, { clientId: "c1", content: "我叫小明。" });
   assert.equal(again.replay, true);
   assert.equal(again.replay && again.messages[0]?.content, "主循环里你负责哪一段？");
@@ -303,7 +303,7 @@ test("a failed model turn still produces a deterministic interviewer message and
 
 test("the interviewer's closing flag is ignored early and honoured once the time box is past half", async () => {
   const { sessionId } = await seedReadySession();
-  stubs.outputs = [say("你好。"), say("这块先到这，我们换下一个话题。", { closing: true }), say("再问一句。"), say("再问一句。"), say("再问一句。"), say("今天先到这里，谢谢。", { closing: true })];
+  stubs.outputs = [say("你好。"), say("这块先到这，我们换下一个话题。", { closing: true }), say("再问一句：怎么做的？"), say("再问一句：为什么？"), say("再问一句：结果呢？"), say("今天先到这里，谢谢。", { closing: true })];
   await runTurn(sessionId, null);
   const early = await runTurn(sessionId, { clientId: "c1", content: "我叫小明。" });
   assert.equal(early.replay === false && early.payload.phase, "running");

@@ -15,6 +15,8 @@ export type ConversationMessage = {
   /** 面试官：say / closing / fallback；候选人：answer / control。 */
   kind: string;
   content: string;
+  /** 面试官自报的材料 id（体验版靠它算覆盖；本地版读事件）。 */
+  topic?: string | null;
 };
 
 /** 房间视图。候选人看得到时钟与对话，看不到笔记与材料。 */
@@ -64,7 +66,11 @@ export type TraceTurn = {
   /** 这回合之后评委给已结束的段打的分与估计器的更新。 */
   scored: { competencyId: string; difficulty: number; score: number; confidence: number; note: string }[];
   estimates: { competencyId: string; mean: number; confidence: number; samples: number }[];
-  /** 评论员对这回合面试官那句的提醒。 */
+  /** 代码给这回合的建议。 */
+  move: { move: string; reason: string } | null;
+  /** 面试官自报的材料 id。 */
+  topic: string | null;
+  /** 评论员对这回合面试官那句的判断（实验层）。 */
   critic: { rule: string; text: string } | null;
   /** 影子变体在同一张现场卡上说的话与评论员的判断。 */
   shadow: { variant: string; say: string; rule: string | null } | null;
@@ -83,7 +89,7 @@ export type Trace = {
   areas: { id: string; name: string; kind: InterviewBrief["areas"][number]["kind"] }[];
   competencies: { id: string; name: string }[];
   /** 这场的开关：策略变体、影子变体、评论员。 */
-  flags: { policy: string; shadow: string | null; critic: boolean };
+  flags: { policy: string; shadow: string | null; lab: boolean };
   rows: TraceTurn[];
 };
 
@@ -138,14 +144,20 @@ type TraceSource = { type: string; payload: Record<string, unknown>; runId: stri
 export function traceTurns(events: TraceSource[], runs?: Map<string, TraceRun>): TraceTurn[] {
   const rows: TraceTurn[] = [];
   let pendingCandidate: TraceTurn["candidate"] = null;
+  let pendingMove: TraceTurn["move"] = null;
   for (const item of events) {
     if (item.type === "candidate_said") {
       pendingCandidate = { kind: item.payload.control ? "control" : "answer", content: String(item.payload.content ?? ""), composeMs: typeof item.payload.composeMs === "number" ? item.payload.composeMs : null };
       continue;
     }
+    if (item.type === "move_decided") {
+      pendingMove = { move: String(item.payload.move ?? ""), reason: String(item.payload.reason ?? "") };
+      continue;
+    }
     if (item.type === "interviewer_said") {
-      rows.push({ turnIndex: rows.length, candidate: pendingCandidate, interviewer: [{ kind: String(item.payload.kind ?? "say"), content: String(item.payload.content ?? "") }], notebook: null, clock: null, fallback: false, scored: [], estimates: [], critic: null, shadow: null, run: item.runId ? (runs?.get(item.runId) ?? null) : null });
+      rows.push({ turnIndex: rows.length, candidate: pendingCandidate, interviewer: [{ kind: String(item.payload.kind ?? "say"), content: String(item.payload.content ?? "") }], notebook: null, clock: null, fallback: false, move: pendingMove, topic: typeof item.payload.topic === "string" ? item.payload.topic : null, scored: [], estimates: [], critic: null, shadow: null, run: item.runId ? (runs?.get(item.runId) ?? null) : null });
       pendingCandidate = null;
+      pendingMove = null;
       continue;
     }
     if (item.type === "shadow_said") {

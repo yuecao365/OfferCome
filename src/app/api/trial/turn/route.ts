@@ -5,8 +5,6 @@ import { turnResponse } from "@/lib/interview/stream";
 import { runTurn, type TurnState } from "@/lib/interview/turn";
 import type { ConversationMessage } from "@/lib/interview/views";
 import type { InterviewBrief } from "@/lib/mock-interviews/brief/brief";
-import { loadSkillPacks } from "@/lib/mock-interviews/skills/loader";
-import { packsForInterview } from "@/lib/mock-interviews/skills/selector";
 import { getAiTaskConfig } from "@/lib/settings/ai";
 import { withTrialAiResponse } from "@/lib/trial/route-handler";
 
@@ -37,12 +35,9 @@ export const POST = withTrialAiResponse<Body>(async (body) => {
   const state: TurnState = {
     brief: body.state.brief,
     notebook: typeof body.state.notebook === "string" ? body.state.notebook : "",
-    transcript: messages.map((message, seq) => ({ seq, role: message.role, content: message.content, kind: message.role === "interviewer" ? message.kind : null, control: null })),
+    transcript: messages.map((message, seq) => ({ seq, role: message.role, content: message.content, kind: message.role === "interviewer" ? message.kind : null, control: null, topic: message.role === "interviewer" ? (message.topic ?? null) : null })),
     totalMinutes: body.state.totalMinutes,
     phase: messages.length === 0 ? "opening" : "running",
-    covered: [],
-    estimates: [],
-    critic: null,
     variant: policyVariant(null),
     realTime: false,
   };
@@ -52,7 +47,7 @@ export const POST = withTrialAiResponse<Body>(async (body) => {
       config: await getAiTaskConfig("text"),
       state,
       candidate: body.candidate ? { clientId: null, content: content || (control ? CONTROL_PLACEHOLDERS[control] : ""), control, composeMs: body.candidate.composeMs ?? null } : null,
-      context: { ...body.context, totalMinutes: body.state.totalMinutes, skillPacks: packsForInterview(body.state.brief.skillPacks, await loadSkillPacks()) },
+      context: { ...body.context, totalMinutes: body.state.totalMinutes },
     });
     const turnIndex = messages.filter((message) => message.role === "interviewer").length;
     return turnResponse({
@@ -61,7 +56,7 @@ export const POST = withTrialAiResponse<Body>(async (body) => {
       finalize: async () => {
         const result = await run.finalize();
         return {
-          newMessages: result.said.map((line) => ({ id: crypto.randomUUID(), turnIndex, role: line.role, kind: line.kind, content: line.content })),
+          newMessages: result.said.map((line) => ({ id: crypto.randomUUID(), turnIndex, role: line.role, kind: line.kind, content: line.content, topic: line.topic ?? null })),
           phase: result.phase,
           clock: result.clock,
           endedBy: result.endedBy,

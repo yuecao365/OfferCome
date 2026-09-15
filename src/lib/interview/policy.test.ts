@@ -3,64 +3,55 @@ import test from "node:test";
 
 import { testBrief } from "@/lib/test-support/interview-brief";
 
-import { buildSystem, renderCoverage, renderTurnMessage } from "./policy";
+import { buildSystem, MAX_RESUME_CHARS, renderMaterials, renderTurnMessage, salvage } from "./policy";
 
-/** 现场卡的覆盖账与建议：按种类数聊过的材料，按已用时间比例提醒该转；放在候选人的话之前的最后一行。 */
+/** 核心层的提示词：材料每条带 id、说法挂在项目上；现场卡只有时间、笔记、这回合的建议三块。 */
 
 const clock = (usedMinutes: number, phase: "open" | "late" | "wrap_up" | "over" = "open") => ({ usedMinutes, totalMinutes: 20, exchanges: 5, phase });
+const context = { jobTitle: "后端", jobDescription: "JD", resumeText: "简历", totalMinutes: 20 };
 
-test("覆盖账：按种类数聊过的材料，没聊过就给默认分配", () => {
-  const brief = testBrief();
-  assert.match(renderCoverage(brief, [], clock(2)), /^已聊：项目 0 个 0 面、基础题 0 道、场景题 0 道。这场默认分配：项目约 12 分钟、基础题约 4 分钟、场景题约 4 分钟/);
-  const line = renderCoverage(brief, ["p1-overview", "p1-module", "q1"], clock(5));
-  assert.match(line, /已聊：项目 1 个 2 面（背景与架构、模块深挖）、基础题 1 道、场景题 0 道；聊过的不要再问。/);
-  assert.match(renderCoverage(brief, ["nope"], clock(5)), /已聊：项目 0 个 0 面/);
-});
-
-test("建议随时间与覆盖变：项目吃掉一半以上时间还没问基础题就催转，75% 后场景题没问就催进，时间到了只告别", () => {
-  const brief = testBrief();
-  assert.match(renderCoverage(brief, ["p1-overview"], clock(11)), /基础题还一道没问：该转基础题了/);
-  assert.match(renderCoverage(brief, ["p1-overview"], clock(13)), /基础题一道没问、场景题也没问：该转了/);
-  assert.match(renderCoverage(brief, ["p1-overview", "q1"], clock(16, "late")), /场景题还没问：这句就进场景题/);
-  assert.match(renderCoverage(brief, ["p1-overview", "q1", "s1"], clock(16, "late")), /这场默认分配/);
-  assert.match(renderCoverage(brief, ["p1-overview"], clock(21, "over")), /时间到了：只告别/);
-  // 候选人在求助：再该转也先把这一问说清；时间到了仍只告别。
-  assert.match(renderCoverage(brief, ["p1-overview"], clock(13), true), /候选人在求助：先就这一问/);
-  assert.match(renderCoverage(brief, ["p1-overview"], clock(21, "over"), true), /时间到了：只告别/);
-});
-
-test("现场卡：开场没有覆盖账；之后覆盖账是最后一行，紧贴候选人的话", () => {
-  const brief = testBrief();
-  const opening = renderTurnMessage({ clock: clock(0), notebook: "", opening: true, covered: [], helping: false, estimate: null, critic: null }, null, brief);
-  assert.doesNotMatch(opening, /已聊：/);
-  assert.match(opening, /还没开场/);
-  const running = renderTurnMessage({ clock: clock(6), notebook: "先问主循环。", opening: false, covered: ["p1-module"], helping: false, estimate: null, critic: null }, "我负责参数校验。", brief);
-  const lines = running.split("\n");
-  const coverageIndex = lines.findIndex((line) => line.startsWith("已聊："));
-  assert.ok(coverageIndex > 0);
-  // 估计器的一行放在覆盖账之前；没有能力清单时不出现。
-  assert.doesNotMatch(running, /能力估计：/);
-  const estimated = renderTurnMessage({ clock: clock(6), notebook: "n", opening: false, covered: [], helping: false, estimate: "能力估计：最值得追：系统可靠性（估计 中，置信 低，岗位权重 高）。", critic: null }, "答。", brief).split("\n");
-  const estimateIndex = estimated.findIndex((line) => line.startsWith("能力估计："));
-  assert.ok(estimateIndex > 0 && estimateIndex < estimated.findIndex((line) => line.startsWith("已聊：")));
-  // 评论员的提醒在能力估计之后、覆盖账之前；没有就不出现。
-  const criticized = renderTurnMessage({ clock: clock(6), notebook: "n", opening: false, covered: [], helping: false, estimate: null, critic: "上一句问了两个要点，这句只问一个" }, "答。", brief);
-  assert.match(criticized, /评论员对你上一句的提醒：上一句问了两个要点/);
-  assert.ok(criticized.indexOf("评论员") < criticized.indexOf("已聊："));
-  assert.doesNotMatch(running, /评论员/);
-  assert.equal(lines[coverageIndex + 1], "");
-  assert.equal(lines[coverageIndex + 2], "候选人说：");
-  assert.equal(lines.at(-1), "我负责参数校验。");
-});
-
-test("系统提示词：有上几场的记忆才有记忆段与说法历史；没有就不出现", () => {
+test("材料：项目带材料 id、要验证的说法与追问角度；基础题与场景题带 id", () => {
   const brief = testBrief({ hypotheses: [{ id: "h1", text: "验证压测", evidence: "压测 QPS 提升 3 倍", projectId: "proj-1" }] });
-  const context = { jobTitle: "后端", jobDescription: "JD", resumeText: "简历", totalMinutes: 20, skillPacks: [] };
-  assert.doesNotMatch(buildSystem(brief, context), /上几场的记忆/);
-  const memory = { sessions: 1, claims: [{ text: "验证压测", evidence: "压测 QPS 提升 3 倍", status: "refuted" as const, note: "没有讲清楚", at: "2026-09-01T00:00:00Z" }], competencies: [], weaknesses: [{ point: "只说了名词", quote: null, areaName: "缓存", at: "2026-09-01T00:00:00Z" }], askedQuestions: [] };
-  const system = buildSystem(brief, { ...context, memory });
-  assert.match(system, /上几场的记忆（同一位候选人，最近 1 场/);
-  assert.match(system, /「压测 QPS 提升 3 倍」：上次没讲清：没有讲清楚/);
-  assert.match(system, /缓存：只说了名词/);
+  const text = renderMaterials(brief);
+  assert.match(text, /材料 id p1-module/);
+  assert.match(text, /要验证的说法：「压测 QPS 提升 3 倍」——验证压测/);
+  assert.match(text, /追问角度：/);
+  assert.match(text, /- q1 /);
+  assert.match(text, /- s1 /);
 });
 
+test("现场卡：时间、笔记、这回合的建议三块，然后是候选人的话；开场有开场的建议", () => {
+  const running = renderTurnMessage({ clock: clock(6), notebook: "先问主循环。", opening: false, decision: { move: "switch", reason: "候选人两次答不上：换到「缓存一致性」（q1）" } }, "我不会");
+  const lines = running.split("\n");
+  assert.equal(lines[0], "[现场卡]");
+  assert.match(lines[1], /^时间：/);
+  assert.equal(lines[2], "你上一回合的笔记：");
+  assert.equal(lines[3], "先问主循环。");
+  assert.equal(lines[4], "这回合的建议：换题——候选人两次答不上：换到「缓存一致性」（q1）");
+  assert.equal(lines[5], "");
+  assert.equal(lines[6], "候选人说：");
+  assert.equal(lines.at(-1), "我不会");
+  assert.doesNotMatch(running, /已聊：|能力估计|评论员/);
+  const opening = renderTurnMessage({ clock: clock(0), notebook: "", opening: true, decision: { move: "continue", reason: "开场：先问候" } }, null);
+  assert.match(opening, /还没有笔记/);
+  assert.match(opening, /候选人已就座/);
+});
+
+test("系统提示词：没有工具说明与记忆段；简历超过节选上限才提示查全文；变体规则追加在流程段末尾", () => {
+  const brief = testBrief();
+  const system = buildSystem(brief, context);
+  assert.match(system, /这回合的建议/);
+  assert.doesNotMatch(system, /lookup_skill|上几场的记忆|技能包索引/);
+  assert.doesNotMatch(system, /lookup_resume/);
+  assert.match(buildSystem(brief, { ...context, resumeText: "字".repeat(MAX_RESUME_CHARS + 1) }), /lookup_resume/);
+  assert.ok(system.length < 4_000, `提示词 ${system.length} 字`);
+  const terse = buildSystem(brief, context, { id: "t", label: "t", promptVersion: "policy-t", extraRules: ["问句不超过 60 字"] });
+  assert.ok(terse.indexOf("问句不超过 60 字") < terse.indexOf("笔记："));
+});
+
+test("抢救：残缺 JSON 取 say；整段是话就当 say；空的不认", () => {
+  assert.deepEqual(salvage('{"say": "你负责哪一段？", "notebook": "n'), { say: "你负责哪一段？", notebook: "", topic: null, closing: false });
+  assert.deepEqual(salvage("你负责哪一段？"), { say: "你负责哪一段？", notebook: "", topic: null, closing: false });
+  assert.equal(salvage("{"), null);
+  assert.equal(salvage("  "), null);
+});

@@ -6,7 +6,7 @@ import type { Prior } from "./estimator";
 /**
  * 语义记忆（interview-system-design.md §8 第三层）：候选人的说法 ↔ 证据 ↔ 能力，跨场。
  * 记忆本身是对已有产物（假设验证、事后能力估计、评分短板、问过的题）的读时物化，见 memory-recall.ts；
- * 这里是纯函数：时间衰减、跨场先验、说法的历史（含冲突）、检索、写给面试官的一段。
+ * 这里是纯函数：时间衰减、跨场先验（实验层的估计器用）、说法的历史（备课时没讲清的说法优先再验）。
  */
 
 export type MemoryClaim = { text: string; evidence: string; status: "confirmed" | "refuted"; note: string | null; at: string };
@@ -30,7 +30,6 @@ export const HALF_LIFE_DAYS = 30;
 const MAX_PRIOR_PER_SESSION = 3;
 /** 说法对上上几场说法的相似度门槛（简历原句几乎一样）。 */
 const CLAIM_MATCH = 0.6;
-const SEARCH_MIN = 0.15;
 
 /** 会话快照里的记忆；没有为空。 */
 export function memoryOf(contextSnapshotJson: string | null | undefined): InterviewMemory {
@@ -85,43 +84,8 @@ export function claimHistory(hypotheses: InterviewBrief["hypotheses"], memory: I
   });
 }
 
-export type MemoryHit = { kind: "claim" | "weakness" | "question"; text: string; status: string | null; at: string; score: number };
-
-/** 按相似度在说法、短板、问过的题里找（字符 n-gram；材料小，不上向量）。 */
-export function searchMemory(memory: InterviewMemory, query: string, limit = 6): MemoryHit[] {
-  const candidates: MemoryHit[] = [
-    ...memory.claims.map((claim) => ({ kind: "claim" as const, text: `${claim.text}（简历：「${claim.evidence}」${claim.note ? `；${claim.note}` : ""}）`, status: claim.status, at: claim.at, score: Math.max(questionSimilarity(query, claim.text), questionSimilarity(query, claim.evidence)) })),
-    ...memory.weaknesses.map((item) => ({ kind: "weakness" as const, text: `${item.areaName ? `${item.areaName}：` : ""}${item.point}${item.quote ? `（他说：「${item.quote}」）` : ""}`, status: null, at: item.at, score: questionSimilarity(query, `${item.areaName ?? ""} ${item.point}`) })),
-    ...memory.askedQuestions.map((item) => ({ kind: "question" as const, text: item.text, status: null, at: item.at, score: questionSimilarity(query, item.text) })),
-  ];
-  return candidates
-    .filter((item) => item.score >= SEARCH_MIN)
-    .sort((left, right) => right.score - left.score)
-    .slice(0, limit);
-}
-
 const HISTORY_LABELS: Record<ClaimHistory["status"], string> = { confirmed: "上次已验证", refuted: "上次没讲清", conflict: "上次说法不同" };
 
 export function historyLabel(history: ClaimHistory): string {
   return `${HISTORY_LABELS[history.status]}${history.note ? `：${history.note}` : ""}`;
-}
-
-/** 写进系统提示词的一段；没有记忆为 null。 */
-export function renderMemory(brief: InterviewBrief, memory: InterviewMemory): string | null {
-  if (memory.sessions === 0) return null;
-  const histories = claimHistory(brief.hypotheses, memory);
-  const claimLines = histories.map((history) => {
-    const hypothesis = brief.hypotheses.find((item) => item.id === history.hypothesisId)!;
-    return `- 「${hypothesis.evidence.replace(/\s+/g, " ")}」：${historyLabel(history)}`;
-  });
-  // 上次失守的点：最近的在前，每个话题只留一条，最多四条——不然一个话题的三条短板会把别的话题挤掉。
-  const seenAreas = new Set<string>();
-  const weaknessLines = memory.weaknesses
-    .filter((item) => (seenAreas.has(item.areaName ?? item.point) ? false : (seenAreas.add(item.areaName ?? item.point), true)))
-    .slice(0, 4)
-    .map((item) => `- ${item.areaName ? `${item.areaName}：` : ""}${item.point}`);
-  return `上几场的记忆（同一位候选人，最近 ${memory.sessions} 场；可信）：
-${claimLines.length > 0 ? `简历上的说法上次验过的：\n${claimLines.join("\n")}` : "简历上的说法上几场没验过。"}
-${weaknessLines.length > 0 ? `上次失守的点（优先再验一次，看有没有补上）：\n${weaknessLines.join("\n")}` : ""}
-用 lookup_memory 可以按关键词查上几场的说法、短板和问过的题。上次没讲清的优先再验；上次说法不同的当面问；问过的题换个角度。`;
 }

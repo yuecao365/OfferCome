@@ -32,10 +32,10 @@ test("到 75% 进入 late，90% 提醒收尾；100% 且问够了才结束；交�
   assert.equal(minExchanges(20), 10);
   assert.equal(estimateClock(exchanges(8), 20).phase, "wrap_up");
   assert.equal(estimateClock(exchanges(10), 20).phase, "over");
-  assert.equal(hardCap(20), 16);
-  const chatter = Array.from({ length: 16 }, () => say("嗯？"));
+  assert.equal(hardCap(20), 22);
+  const chatter = Array.from({ length: 22 }, () => say("嗯？"));
   assert.equal(estimateClock(chatter, 20).phase, "over");
-  assert.equal(estimateClock(chatter.slice(0, 15), 20).phase, "open");
+  assert.equal(estimateClock(chatter.slice(0, 21), 20).phase, "open");
 });
 
 test("给面试官的一行随阶段变", () => {

@@ -2,7 +2,7 @@ import process from "node:process";
 
 import { prisma } from "../src/lib/db";
 import { estimate } from "../src/lib/interview/estimator";
-import { claimHistory, historyLabel, priorsFrom, renderMemory } from "../src/lib/interview/memory";
+import { claimHistory, historyLabel, priorsFrom } from "../src/lib/interview/memory";
 import { recallCandidateMemory } from "../src/lib/interview/memory-recall";
 import { parseStoredBrief } from "../src/lib/mock-interviews/brief/brief";
 import { competenciesOf } from "../src/lib/mock-interviews/context";
@@ -34,7 +34,6 @@ async function main() {
     for (const item of estimate(competenciesOf(latest!.contextSnapshotJson), [], priorsFrom(memory))) {
       if (item.confidence > 0) console.log(`  ${item.name}：估计 ${item.mean.toFixed(2)}，置信 ${item.confidence.toFixed(2)}`);
     }
-    console.log(`\n写进系统提示词的一段：\n${renderMemory(brief, memory) ?? "（没有）"}`);
   }
 }
 

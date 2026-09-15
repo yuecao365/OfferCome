@@ -26,8 +26,8 @@ export const MIN_EXCHANGE_MINUTES = 2;
 /** 到这个比例提醒"还没问的场景题该进了"；到 WRAP_UP_RATIO 提醒收尾；到 1 由代码收尾。 */
 export const LATE_RATIO = 0.75;
 export const WRAP_UP_RATIO = 0.9;
-/** 交换次数的硬顶：估计失真时也得结束——期望交换数（每次约 1.9 分钟）的 1.5 倍。 */
-export const HARD_CAP_FACTOR = 1.5;
+/** 交换次数的硬顶：估计失真时也得结束——期望交换数（每次约 1.9 分钟）的 2 倍（爱求助的候选人交换多而短，1.5 倍会在 14 分钟切掉 20 分钟的场）。 */
+export const HARD_CAP_FACTOR = 2;
 const MINUTES_PER_EXCHANGE = 1.9;
 
 export type ClockPhase = "open" | "late" | "wrap_up" | "over";

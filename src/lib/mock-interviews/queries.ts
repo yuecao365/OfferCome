@@ -208,7 +208,7 @@ export async function getMockInterviewTrace(id: string): Promise<MockInterviewTr
     totalMinutes: session.durationMinutes,
     areas: brief.areas.map((area) => ({ id: area.id, name: area.name, kind: area.kind })),
     competencies: competenciesOf(session.contextSnapshotJson).map((item) => ({ id: item.id, name: item.name })),
-    flags: { policy: sessionFlags(session.flagsJson).policy ?? "v2", shadow: sessionFlags(session.flagsJson).shadow, critic: sessionFlags(session.flagsJson).critic },
+    flags: { policy: sessionFlags(session.flagsJson).policy ?? "v2", shadow: sessionFlags(session.flagsJson).shadow, lab: sessionFlags(session.flagsJson).lab },
     rows: traceTurns(
       session.events.map((row) => ({ type: row.type, payload: parseJsonObject(row.payloadJson), runId: row.runId })),
       runById,

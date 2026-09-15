@@ -12,15 +12,35 @@ export const CANDIDATE_CONTROLS = ["hint", "skip", "repeat", "end"] as const;
 export type CandidateControl = (typeof CANDIDATE_CONTROLS)[number];
 
 /** 房间按钮只点按钮没打字时替候选人说的话。 */
-/** 候选人短句里的求助 / 澄清；房间的提示、重复按钮也算。 */
+/**
+ * 候选人这句的类型（代码判定，决策与指标共用）：求助 / 澄清（房间的提示、重复按钮也算）、答不上（我不会、没做过……）、
+ * 跳过（按钮）、正常。只看 40 字以内的短句；长回答一律算正常。
+ */
+export type ReplyKind = "help" | "dont_know" | "skip" | "normal";
 const HELP_PATTERN = /(具体一点|具体点|什么意思|没听懂|没太懂|是什么|能再说|再说一遍|给个方向|提示|不太明白|哪个方向)/;
-const HELP_MAX_CHARS = 40;
+const DONT_KNOW_PATTERN = /(不会|不知道|不清楚|不太清楚|不了解|不太了解|没做过|没有做过|没具体做|不记得|忘了|答不上|不熟|说不上来)/;
+const SHORT_REPLY_CHARS = 40;
 
-export function isHelpRequest(line: Pick<TranscriptLine, "role" | "content" | "control">): boolean {
-  if (line.role !== "candidate") return false;
-  if (line.control === "hint" || line.control === "repeat") return true;
+export function classifyReply(line: Pick<TranscriptLine, "role" | "content" | "control">): ReplyKind {
+  if (line.role !== "candidate") return "normal";
+  if (line.control === "skip") return "skip";
+  if (line.control === "hint" || line.control === "repeat") return "help";
   const text = line.content.trim();
-  return text.length > 0 && text.length <= HELP_MAX_CHARS && HELP_PATTERN.test(text);
+  if (text.length === 0 || text.length > SHORT_REPLY_CHARS) return "normal";
+  if (HELP_PATTERN.test(text)) return "help";
+  if (DONT_KNOW_PATTERN.test(text)) return "dont_know";
+  return "normal";
+}
+
+export const isHelpRequest = (line: Pick<TranscriptLine, "role" | "content" | "control">): boolean => classifyReply(line) === "help";
+
+/** 聊过的材料 id（面试官自报的，按第一次出现的顺序）。 */
+export function coveredMaterials(events: InterviewEvent[]): string[] {
+  const seen: string[] = [];
+  for (const item of events) {
+    if (item.type === "interviewer_said" && item.payload.topic && !seen.includes(item.payload.topic)) seen.push(item.payload.topic);
+  }
+  return seen;
 }
 
 export const CONTROL_PLACEHOLDERS: Record<CandidateControl, string> = {
@@ -41,7 +61,9 @@ export const eventPayloadSchemas = {
     composeMs: z.number().int().nonnegative().nullable(),
   }),
   /** 面试官说了一句；kind 是这句在流程里的角色（开场 / 提问 / 追问 / 答疑 / 收尾），旧系统的记账口径。 */
-  interviewer_said: said.extend({ kind: z.string() }),
+  interviewer_said: said.extend({ kind: z.string(), /** 面试官自报这句在聊哪份材料（材料 id）；开场、告别、临场话题为 null；旧事件没有。 */ topic: z.string().nullable().optional() }),
+  /** 代码给这回合的建议：继续 / 换题 / 收尾，附一句理由（decide.ts）。 */
+  move_decided: z.object({ move: z.enum(["continue", "switch", "close"]), reason: z.string() }),
   /** 面试官的笔记（新系统：每回合整份重写）。 */
   notebook_written: z.object({ text: z.string() }),
   /** 面试官查了资料（技能包 / 简历段落）。 */
@@ -116,14 +138,14 @@ export async function appendEvents(sink: EventSink, sessionId: string, events: N
 }
 
 /** at：这句落下的时刻（事件的 createdAt）；语音版的真实时间时钟按它算，纯逻辑测试可以不带。 */
-export type TranscriptLine = { seq: number; role: "interviewer" | "candidate"; content: string; kind: string | null; control: CandidateControl | null; at?: Date };
+export type TranscriptLine = { seq: number; role: "interviewer" | "candidate"; content: string; kind: string | null; control: CandidateControl | null; at?: Date; /** 面试官自报的材料 id。 */ topic?: string | null };
 
 /** 逐字稿投影：双方说过的话，按 seq。 */
 export function transcriptOf(events: InterviewEvent[]): TranscriptLine[] {
   const lines: TranscriptLine[] = [];
   for (const item of events) {
     if (item.type === "candidate_said") lines.push({ seq: item.seq, role: "candidate", content: item.payload.content, kind: null, control: item.payload.control, at: item.at });
-    if (item.type === "interviewer_said") lines.push({ seq: item.seq, role: "interviewer", content: item.payload.content, kind: item.payload.kind, control: null, at: item.at });
+    if (item.type === "interviewer_said") lines.push({ seq: item.seq, role: "interviewer", content: item.payload.content, kind: item.payload.kind, control: null, at: item.at, topic: item.payload.topic ?? null });
   }
   return lines;
 }

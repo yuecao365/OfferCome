@@ -55,9 +55,9 @@ test("the pool is filled by role: the domain pack takes most slots, stack and ba
   const bySkill = new Map<string, number>();
   for (const topic of pool) bySkill.set(topic.skill, (bySkill.get(topic.skill) ?? 0) + 1);
   assert.equal(pool.length, 12);
-  assert.equal(bySkill.get("ai-llm"), 8);
-  assert.equal(bySkill.get("backend-python"), 2);
-  assert.equal(bySkill.get("cs-fundamentals"), 2);
+  assert.equal(bySkill.get("ai-llm"), 10);
+  assert.equal(bySkill.get("backend-python"), 1);
+  assert.equal(bySkill.get("cs-fundamentals"), 1);
   assert.ok(pool.some((topic) => topic.fromResume && topic.skill === "ai-llm"), "简历碰过的主题标了 fromResume");
 });
 

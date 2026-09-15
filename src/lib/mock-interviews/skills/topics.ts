@@ -120,19 +120,20 @@ export function sampleTopics(topics: SkillTopic[], count: number, context: Topic
     .map((item) => item.topic);
 }
 
-/** 语言栈与计算机基础各占题池的这个比例（至少 1 道），其余全给岗位领域包。 */
-const SIDE_ROLE_SHARE = 1 / 6;
+/** 语言栈包最多 1 道；计算机基础包只有题池不小于这个数时才占 1 道；其余全给岗位领域包。 */
 const SIDE_ROLES: TopicPackRole[] = ["stack", "basics"];
+const BASICS_MIN_POOL = 6;
 
 /**
- * 按角色分名额抽题池：领域包占大头，栈包与基础包各 1/6（有就抽，没有名额顺延给领域包）。
- * 抽到的主题标上是否在简历里出现过，备课据此把题写成"从他项目出发"。
+ * 按角色分名额抽题池：领域包占大头（岗位是什么方向就问什么），栈包最多 1 道，基础包只有大题池才 1 道
+ * （没有名额顺延给领域包）。抽到的主题标上是否在简历里出现过，备课据此把题写成"从他项目出发"。
  */
 export function sampleTopicPool(packs: TopicPack[], size: number, context: TopicContext, random: () => number = Math.random): SkillTopic[] {
   const byRole = (role: TopicPackRole) => packs.filter((item) => item.role === role).flatMap((item) => parseSkillTopics(item.pack));
   const side = SIDE_ROLES.flatMap((role) => {
     const topics = byRole(role);
-    return topics.length > 0 ? sampleTopics(topics, Math.max(1, Math.round(size * SIDE_ROLE_SHARE)), context, random) : [];
+    if (topics.length === 0 || (role === "basics" && size < BASICS_MIN_POOL)) return [];
+    return sampleTopics(topics, 1, context, random);
   });
   const domain = sampleTopics(byRole("domain"), Math.max(0, size - side.length), context, random);
   return [...domain, ...side].map((topic) => ({ ...topic, fromResume: topicFromResume(topic, context.resumeText) }));

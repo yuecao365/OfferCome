@@ -39,7 +39,7 @@ function Dashboard({ trace }: { trace: MockInterviewTrace }) {
   return (
     <Card className="grid gap-3 p-4">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        {cell("策略变体", `${trace.flags.policy}${trace.flags.shadow ? ` · 影子 ${trace.flags.shadow}` : ""}${trace.flags.critic ? "" : " · 评论员关"}`)}
+        {cell("策略变体", `${trace.flags.policy}${trace.flags.shadow ? ` · 影子 ${trace.flags.shadow}` : ""}${trace.flags.lab ? " · 实验层开" : ""}`)}
         {cell("token（缓存）", `${board.totalTokens}（${Math.round(board.cacheRate * 100)}%）`)}
         {cell("回合 p95", `${(board.p95Ms / 1000).toFixed(1)}s`)}
         {cell("兜底 / 评论员提醒", `${board.fallbacks} / ${board.criticNotes}`)}
@@ -114,6 +114,8 @@ export function MockInterviewTraceView({ trace }: { trace: MockInterviewTrace })
             ) : null}
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               {turn.fallback ? <Badge tone="warning">模型没说出话，代码接了一句</Badge> : null}
+              {turn.move ? <span className="rounded-control bg-surface-subtle px-2 py-1">建议：{turn.move.move} · {turn.move.reason}</span> : null}
+              {turn.topic ? <span className="rounded-control bg-surface-subtle px-2 py-1">材料：{trace.areas.find((area) => area.id === turn.topic)?.name ?? turn.topic}</span> : null}
               {turn.critic ? <Badge tone="warning">评论员 · {CRITIC_RULES[turn.critic.rule as CriticRule] ? turn.critic.rule : "准则"}：{turn.critic.text}</Badge> : null}
               {turn.scored.map((item) => (
                 <span className="rounded-control bg-surface-subtle px-2 py-1" key={`${item.competencyId}-${item.score}`} title={item.note}>

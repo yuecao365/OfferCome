@@ -6,6 +6,7 @@ import type { InterviewBrief } from "@/lib/mock-interviews/brief/brief";
 
 import { DIFFICULTY_LEVELS, type Competency } from "./estimator";
 import { event, type InterviewEvent, type NewEvent, type TranscriptLine } from "./events";
+import { currentTopic } from "./decide";
 
 /**
  * 在线评委（interview-system-design.md §6.1 / §6.4）：面试中每段问答结束时打一次分——考的哪项能力、
@@ -17,7 +18,6 @@ import { event, type InterviewEvent, type NewEvent, type TranscriptLine } from "
 
 export const JUDGE_PROMPT_VERSION = "judge-v2";
 const LINE_MAX_CHARS = 600;
-const BOUNDARY_ACTS = new Set(["open", "switch", "close"]);
 /** 每层的分数段：分数与层次一致，不让第 1 层的回答拿 80 分。 */
 export const SCORE_BANDS: Record<number, [number, number]> = { 1: [0, 45], 2: [45, 70], 3: [70, 85], 4: [85, 100] };
 /** 含糊话：出现在引用里说明候选人没把机制说实，最多算第 2 层。 */
@@ -41,24 +41,21 @@ export type JudgeOutput = z.infer<typeof judgeOutputSchema>;
 export type OnlineSegment = { startSeq: number; endSeq: number; materialId: string | null };
 
 /**
- * 已结束、还没评分的段（从 label_added 推）：open / switch / close 是边界，碰到的材料换了也是边界
- * （标注器常把换材料标成 probe）；开场那句起的段（自我介绍）不算测量。
+ * 已结束、还没评分的段：按面试官自报的材料切——材料换了就是新段的开始；最后一段还没结束不评；
+ * 开场（第一句）起、还没报材料的那段（自我介绍）不算测量。
  */
-export function closedSegments(events: InterviewEvent[], openingSeq: number | null = null): OnlineSegment[] {
-  const labels = events.flatMap((item) => (item.type === "label_added" ? [item.payload] : [])).sort((left, right) => left.seq - right.seq);
+export function closedSegments(events: InterviewEvent[], transcript: TranscriptLine[]): OnlineSegment[] {
   const scored = new Set(events.flatMap((item) => (item.type === "segment_scored" ? [item.payload.startSeq] : [])));
-  let material: string | null = null;
-  const boundaries = labels.filter((label) => {
-    const changed = label.materialId !== null && material !== null && label.materialId !== material;
-    if (label.materialId) material = label.materialId;
-    return BOUNDARY_ACTS.has(label.act) || changed;
-  });
+  const starts: { seq: number; topic: string }[] = [];
+  for (const line of transcript) {
+    if (line.role !== "interviewer" || !line.topic) continue;
+    if (line.topic !== currentTopic(transcript.filter((item) => item.seq < line.seq))) starts.push({ seq: line.seq, topic: line.topic });
+  }
   const segments: OnlineSegment[] = [];
-  for (let index = 0; index + 1 < boundaries.length; index += 1) {
-    const start = boundaries[index];
-    if (start.act === "close" || start.seq === openingSeq || scored.has(start.seq)) continue;
-    const inside = labels.filter((label) => label.seq >= start.seq && label.seq < boundaries[index + 1].seq);
-    segments.push({ startSeq: start.seq, endSeq: boundaries[index + 1].seq - 1, materialId: inside.find((label) => label.materialId)?.materialId ?? null });
+  for (let index = 0; index + 1 < starts.length; index += 1) {
+    const start = starts[index];
+    if (scored.has(start.seq)) continue;
+    segments.push({ startSeq: start.seq, endSeq: starts[index + 1].seq - 1, materialId: start.topic });
   }
   return segments;
 }

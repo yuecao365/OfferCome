@@ -11,8 +11,8 @@ import {
   guessLevel,
   PACE_PLAN,
   parseStoredBrief,
-  poolSizeFor,
-  PROJECT_ANGLE_ORDER,
+  briefReady,
+  QUICK_POOL_SIZE,
   type BriefOutput,
 } from "./brief";
 
@@ -43,7 +43,7 @@ const resumeText = "项目经历\nStudy Assistant ——基于 LLM Agent 的本�
 const topic = (name: string, fromResume = false): SkillTopic => ({ skill: "backend", name, ladder: `${name}是什么 → 为什么 → 出问题怎么查`, example: `${name}里最容易出错的一步是什么？为什么？`, redFlags: "只会背", signals: "说得出边界", optional: false, fromResume });
 const topics = [topic("缓存一致性", true), topic("MySQL 索引"), topic("消息队列可靠投递")];
 
-const projectOut = (projectId: string, angle: BriefOutput["projects"][number]["angle"], question = "你负责哪一段？"): BriefOutput["projects"][number] => ({ projectId, angle, question, leads: ["边界"], expectedSignals: ["职责"] });
+const projectOut = (projectId: string, question = "你负责哪一段？"): BriefOutput["projects"][number] => ({ projectId, question, leads: ["边界"], expectedSignals: ["职责"] });
 const quickOut = (name: string): BriefOutput["quick"][number] => ({ topic: name, question: `${name}怎么保证？`, followUp: "边界条件", expectedSignals: ["机制"] });
 const scenarioOut = (overrides: Partial<BriefOutput["scenarios"][number]> = {}): BriefOutput["scenarios"][number] => ({
   name: "场景：接口限流",
@@ -72,24 +72,20 @@ function build(output: Partial<BriefOutput>, extra: { pace?: "quick" | "standard
 
 const projectAreas = (brief: ReturnType<typeof build>) => brief.areas.filter((area) => area.kind === "project");
 
-test("项目 × 角度：模型先写到的项目排前面，每个项目五个面，没写的面用兜底问法补齐，不存在的项目丢弃", () => {
-  const brief = build({ projects: [projectOut("p2", "overview", "先讲讲二手平台？"), projectOut("p9", "module"), projectOut("p1", "module", "主循环怎么做的？")] });
+test("项目：模型先写到的排前面，每个项目一份材料，没写的用兜底问法与通用线索，不存在的项目丢弃", () => {
+  const brief = build({ projects: [projectOut("p2", "先讲讲二手平台？"), projectOut("p9"), projectOut("p1", "主循环怎么做的？")] });
   const kept = projectAreas(brief);
-  assert.deepEqual(
-    kept.map((area) => [area.id, area.projectId, area.angle]),
-    [...PROJECT_ANGLE_ORDER.map((angle) => [`p1-${angle}`, "p2", angle]), ...PROJECT_ANGLE_ORDER.map((angle) => [`p2-${angle}`, "p1", angle])],
-  );
+  assert.deepEqual(kept.map((area) => [area.id, area.projectId, area.angle]), [["p1", "p2", null], ["p2", "p1", null]]);
   assert.equal(kept[0].entryQuestion, "先讲讲二手平台？");
   assert.deepEqual(kept[0].guides, ["边界"]);
-  assert.match(kept[1].entryQuestion, /校园二手平台.*模块/);
-  assert.ok(kept[1].guides.length > 0, "兜底角度带通用线索");
-  assert.equal(kept[6].entryQuestion, "主循环怎么做的？");
-  assert.equal(kept[0].name, "校园二手平台：背景与架构");
+  assert.equal(kept[1].entryQuestion, "主循环怎么做的？");
+  assert.equal(kept[0].name, "校园二手平台");
   assert.deepEqual(kept[0].rubric.map((item) => item.name), ["事实与细节", "岗位关联", "复盘与表达"]);
-  // 模型一个都没给：按简历顺序，每个项目五段。
-  assert.equal(projectAreas(build({})).length, 10);
-  // 简历只有一个项目：五段；没有项目：无。
-  assert.equal(projectAreas(build({}, { projects: [projects[0]] })).length, 5);
+  // 模型一个都没给：按简历顺序，每个项目一份，兜底问法与通用线索。
+  const fallback = projectAreas(build({}));
+  assert.equal(fallback.length, 2);
+  assert.match(fallback[0].entryQuestion, /Study Assistant/);
+  assert.equal(fallback[0].guides.length, 3);
   assert.equal(projectAreas(build({}, { projects: [] })).length, 0);
 });
 
@@ -127,7 +123,7 @@ test("场景题按节奏取数，JD 原句必须逐字、能力 id 必须在蓝�
 
 test("简历假设：证据逐字、按 projectId 或简历段落挂到项目；没有假设的项目从简历里兜底一条", () => {
   const brief = build({
-    projects: [projectOut("p1", "overview"), projectOut("p2", "overview")],
+    projects: [projectOut("p1"), projectOut("p2")],
     hypotheses: [
       { id: "H1", text: "验证 50% 怎么量的", evidence: "平均 prompt 长度降低约 50%", projectId: null },
       { id: "H2", text: "改写过的证据", evidence: "prompt 长度降低了一半", projectId: "p1" },
@@ -139,16 +135,14 @@ test("简历假设：证据逐字、按 projectId 或简历段落挂到项目；
   assert.equal(fallbackHypothesis("Study Assistant 2026年4月–现在", projects[0]), null);
 });
 
-test("兜底简报、档位与总回合数：总回合按节奏，题池 8–16 道", () => {
+test("兜底简报、档位与总回合数：总回合按节奏，题池固定 4 道", () => {
   const brief = fallbackBrief({ blueprint, jobDescription, resumeText, projects, topics, skillPacks: ["backend"], pace: "quick", round: null, askIntro: true });
   assert.equal(brief.source, "fallback");
   assert.equal(brief.turns, PACE_PLAN.quick.turns);
   assert.equal(brief.level, "campus", "JD 写了届别按校招");
-  assert.equal(projectAreas(brief).length, 10);
+  assert.equal(projectAreas(brief).length, 2);
   assert.equal(brief.areas.filter((area) => area.kind === "scenario").length, 1);
-  assert.equal(poolSizeFor("quick"), 8);
-  assert.equal(poolSizeFor("standard"), 10);
-  assert.equal(poolSizeFor("deep"), 16);
+  assert.equal(QUICK_POOL_SIZE, 4);
   assert.equal(guessLevel("负责后端开发，3 年以上经验", "五年 Java 开发经验"), "experienced");
   assert.equal(build({ level: "experienced" }).level, "experienced", "模型判断的档位直接用");
 });
@@ -160,3 +154,12 @@ test("只读 v8 简报：旧的按阶段预算、切入点或领域清单组织�
   assert.equal(parseStoredBrief(JSON.stringify({ version: 5, pace: "standard", areas: [{ id: "a1", kind: "technical", depth: 2 }] })), null);
   assert.equal(parseStoredBrief("not json"), null);
 });
+
+test("备好了没：蓝图占位或简报兜底都算没备好", () => {
+  const modelBrief = build({});
+  assert.equal(briefReady(blueprint, modelBrief), true);
+  assert.equal(briefReady({ competencies: [{ ...blueprint.competencies[0], id: "fallback-core" }] }, modelBrief), false);
+  assert.equal(briefReady({ competencies: [] }, modelBrief), false);
+  assert.equal(briefReady(blueprint, { source: "fallback" }), false);
+});
+

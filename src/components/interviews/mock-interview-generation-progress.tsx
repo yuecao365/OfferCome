@@ -12,12 +12,16 @@ export type GenerationState = {
   status: string;
   generationPhase: string | null;
   error: string | null;
+  /** "degraded"：备课没成但简报已兜底，用户可以就这样开始。 */
+  errorCode?: string | null;
 };
 
 /** 进度的来源：本地版轮询服务端状态，体验版读浏览器里的会话文档。 */
 export type GenerationProgressDriver = {
   poll(): Promise<GenerationState>;
   retry(): Promise<void>;
+  /** 没备好也开始（只在 errorCode 为 degraded 时出现）；体验版没有。 */
+  accept?(): Promise<void>;
 };
 
 async function readJson<T>(response: Response, fallback: string): Promise<T> {
@@ -33,6 +37,9 @@ export function createLocalGenerationDriver(sessionId: string): GenerationProgre
     retry: async () => {
       await readJson(await fetch(`/api/interviews/mock/${sessionId}/retry-generation`, { method: "POST" }), "重试生成失败。");
     },
+    accept: async () => {
+      await readJson(await fetch(`/api/interviews/mock/${sessionId}/retry-generation`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ mode: "accept" }) }), "开始失败。");
+    },
   };
 }
 
@@ -43,7 +50,7 @@ function phaseLabel(phase: string | null): string {
   return "正在分析岗位能力";
 }
 
-/** 备课进度卡：轮询状态；失败时只有一个动作——从失败的那一步重新备课。 */
+/** 备课进度卡：轮询状态；失败时重新备课；备课没成但有兜底简报时（degraded）可以看过说明后就这样开始。 */
 export function MockInterviewGenerationProgress({
   sessionId,
   initial,
@@ -94,20 +101,39 @@ export function MockInterviewGenerationProgress({
     }
   };
 
+  const degraded = state.status === "generation_failed" && state.errorCode === "degraded" && Boolean(driver.accept);
+  const accept = async () => {
+    setRetrying(true);
+    try {
+      await driver.accept?.();
+      if (onReady) onReady();
+      else router.refresh();
+    } catch (error) {
+      setState((current) => ({ ...current, error: error instanceof Error ? error.message : "开始失败。" }));
+    } finally {
+      setRetrying(false);
+    }
+  };
+
   return (
     <Card className="p-6">
       {state.status === "generation_failed" ? (
         <div className="grid gap-4">
-          <Alert tone="danger">
+          <Alert tone={degraded ? "warning" : "danger"}>
             <div>
               <p className="font-semibold">{state.error ?? "面试准备没有完成。"}</p>
-              <p className="mt-1">可以直接重试，不需要重新提交内容。</p>
+              <p className="mt-1">{degraded ? "按通用要求出题的面试，报告里没有按岗位能力的估计。" : "可以直接重试，不需要重新提交内容。"}</p>
             </div>
           </Alert>
           <div className="flex flex-wrap gap-3">
             <Button disabled={retrying} onClick={retry} type="button">
               {retrying ? "正在重新备课…" : "重新备课"}
             </Button>
+            {degraded ? (
+              <Button disabled={retrying} onClick={accept} type="button" variant="outline">
+                就这样开始
+              </Button>
+            ) : null}
             <Button
               disabled={retrying}
               onClick={() => router.push("/interviews/mock")}

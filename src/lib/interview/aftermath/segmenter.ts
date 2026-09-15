@@ -16,7 +16,7 @@ import type { TranscriptLine } from "../events";
  * 幂等、可重跑：输入完整（逐字稿 + 材料清单），错了重跑一次就好，面试本身不受影响。
  */
 
-export const SEGMENTER_PROMPT_VERSION = "segmenter-v4";
+export const SEGMENTER_PROMPT_VERSION = "segmenter-v5";
 const MAX_SEGMENTS = 30;
 const LINE_MAX_CHARS = 700;
 
@@ -132,8 +132,9 @@ export function repairSegments(output: SegmenterOutput, transcript: TranscriptLi
   });
 }
 
+/** 面试官的句子带它自报的材料 id（核心层 F1 起）：整理员切段以它为准，编号错位与归属漂移会少。 */
 function renderTranscript(transcript: TranscriptLine[]): string[] {
-  return transcript.map((line) => `[${line.seq}] ${line.role === "interviewer" ? "面试官" : "候选人"}：${line.content.replace(/\s+/g, " ").slice(0, LINE_MAX_CHARS)}`);
+  return transcript.map((line) => `[${line.seq}] ${line.role === "interviewer" ? `面试官${line.topic ? `（材料 ${line.topic}）` : ""}` : "候选人"}：${line.content.replace(/\s+/g, " ").slice(0, LINE_MAX_CHARS)}`);
 }
 
 function renderMaterials(brief: InterviewBrief): { id: string; kind: AreaKind; name: string; question: string }[] {
@@ -141,7 +142,7 @@ function renderMaterials(brief: InterviewBrief): { id: string; kind: AreaKind; n
 }
 
 const SYSTEM = `你是面试整理员。输入是一场模拟面试的逐字稿（每句带编号）、面试官手边的材料清单（每道材料有 id、种类、名称、建议问法）和岗位的能力清单。把逐字稿切成话题段：
-- 一段从面试官进入一个话题的那句提问开始，到下一个话题开始之前结束；同一道材料的连续追问属于同一段；候选人的澄清、求助、跑题都不开新段；面试官换到另一道材料、另一个项目的面或临场话题时才开新段。
+- 一段从面试官进入一个话题的那句提问开始，到下一个话题开始之前结束；同一道材料的连续追问属于同一段；候选人的澄清、求助、跑题都不开新段；面试官换到另一道材料或临场话题时才开新段。面试官的句子后面括号里是它自报的材料 id：切段与 areaId 以它为准，除非明显不对。
 - 开场问候与候选人的自我介绍不算段；收尾告别不算段。
 - hypotheses：材料清单里附了备课时从简历提出的假设（id、要验证什么、简历原句）。逐条判断这场有没有碰到：碰到并且候选人讲清了 → confirmed，note 写哪段话证实了；碰到但没讲清或与简历不符 → refuted，note 用"没有讲清楚""还需要更多证据"这类措辞说差在哪；没碰到 → open。
 - 每段：startSeq 是这段第一问（面试官那句）的编号；areaId 是对应材料的 id（只填材料清单里的 id，不是假设的 id；顺着材料的建议问法或名称对上就填，临场话题填 null）；kind 是种类（project 项目 / quick 基础题 / scenario 场景题）；label 一句标签；verdict 是候选人这段答得怎么样：answered 有实质内容、thin 只有关键词没机制、failed 没答上或答错关键点、skipped 候选人要求跳过或没答；note 一句判断：答到哪一层、哪里好、哪里失守，写给评分与报告看；competencyId 是这段主要考的能力（只填能力清单里的 id，对不上填 null）；difficulty 是候选人实际答到阶梯第几层（1 只到概念或名词，2 说清了机制，3 讲到了取舍与边界，4 有自己的判断并说得出怎么验证）。

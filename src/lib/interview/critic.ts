@@ -4,11 +4,11 @@ import type { AiTaskConfig } from "@/lib/ai/config";
 import { runAgent } from "@/lib/ai/run-agent";
 
 import type { Clock } from "./clock";
-import { event, type InterviewEvent, type NewEvent, type TranscriptLine } from "./events";
+import { event, type NewEvent, type TranscriptLine } from "./events";
 
 /**
- * 评论员（interview-system-design.md §6.2）：每回合异步看最近几次交换，按"面试官该怎么做"的准则给至多一句提醒，
- * 注入下一回合的现场卡。只提醒不重写、不给候选人看、不改分数；跑慢了就没有。产物是 critic_noted 事件。
+ * 评论员（interview-system-design.md §6.2，实验层）：每回合异步看最近几次交换，按"面试官该怎么做"的准则给至多一句判断，
+ * 只写 critic_noted 事件（trace 与指标用），不进现场卡、不给候选人看、不改分数。
  */
 
 export const CRITIC_PROMPT_VERSION = "critic-v1";
@@ -31,14 +31,6 @@ export const criticOutputSchema = z.object({
   /** 给面试官的一句提醒（对下一句怎么改）；没违反为 null。 */
   note: z.string().max(120).nullable(),
 });
-
-/** 现场卡要注入的提醒：只认针对面试官最后一句的那条；过时的不要。 */
-export function latestCriticNote(events: InterviewEvent[], transcript: TranscriptLine[]): string | null {
-  const last = [...transcript].reverse().find((line) => line.role === "interviewer");
-  if (!last) return null;
-  const note = [...events].reverse().find((item) => item.type === "critic_noted" && item.payload.seq === last.seq);
-  return note && note.type === "critic_noted" ? note.payload.text : null;
-}
 
 const SYSTEM = `你是模拟面试的评论员，盯面试官的行为准则，不评候选人。输入是最近几句逐字稿，最后一句是面试官刚说的话（带编号）。只看这一句有没有违反下面的准则：
 ${Object.entries(CRITIC_RULES)
