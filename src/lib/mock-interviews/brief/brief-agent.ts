@@ -125,7 +125,7 @@ export async function generateInterviewBrief(input: {
       promptVersion: BRIEF_PROMPT_VERSION,
       schema: briefOutputSchema,
       schemaName: "interview_brief",
-      schemaDescription: "面试官的备课简报：候选人档位、项目角度、基础题池、场景题、简历假设",
+      schemaDescription: "面试官的备课简报：项目材料、基础题池、场景题、简历假设",
       maxOutputTokens: 6_000,
       timeoutMs: BRIEF_TIMEOUT_MS,
       rescue: rescueBrief,
@@ -134,10 +134,9 @@ export async function generateInterviewBrief(input: {
 
 这场面试由面试官临场走：先聊项目（一个项目深、另一个浅）、再几道基础题、最后一道场景题；何时转题由代码按时间定。你准备的是面试官手边的材料，不是题目清单：
 
-0. level：这位候选人按校招（campus）还是社招（experienced）的标准面——看 JD 的届别 / 实习 / 经验年限和简历是否在读。校招的基础题问原理与小场景、项目不要求线上规模；社招问排查与取舍。
 1. projects：${projectRule}每个项目写一句切入的 question（一个问题，给一个抓手——从简历上他负责的模块或写了数字的那一行切入，禁止"谈谈你对 X 的理解"）和最多 3 条 leads——面试里要验证的点，各落在不同的面上（最难的问题怎么定位解决、效果与预期怎么量的、取舍与重做会改哪里），面试官顺着候选人的话拿着它们去追，不按顺序问。
-2. quick：基础题池。topics 是代码抽好的主题，每个主题写一道题：topic 逐字用主题名；question 一句话一个问题，落到具体机制或小场景，带边界条件，按 level 定难度；标了"候选人简历碰过这个主题"的，题要从他项目里用到的这个东西出发问原理、替代方案或边界（"你项目里用了 X，X 一般是怎么……"），但不要和 projects 的 module 角度问同一个实现细节——module 问他怎么做的，基础题问这东西一般怎么工作、还有什么做法；followUp 是答得实质时唯一一层追问的方向；expectedSignals 是好回答会出现的要点。每个主题都写一道，不要写 topics 之外的主题；问哪几道、跳过哪道（比如与场景题撞了）在面试中由面试官看情况定，不在这里删。
-3. scenarios：${plan.scenarios} 道场景题。从 JD 里团队做的系统或职责里挑一个具体场景（jdEvidence 逐字复制 JD 原文中最能代表它的一句，不得改写；competencyIds 绑定蓝图能力），question 先铺一句场景再问一个点；guides 是三级引导阶梯（候选人卡住或答到一层时下一步往哪引）。场景题不要与项目角度考同一件事。
+2. quick：基础题池。topics 是代码抽好的主题，每个主题写一道题：topic 逐字用主题名；question 一句话一个问题，落到具体机制或小场景，带边界条件，难度按 JD 写的经验要求定（实习 / 应届问原理与小场景，有经验的问排查与取舍）；标了"候选人简历碰过这个主题"的，题要从他项目里用到的这个东西出发问原理、替代方案或边界（"你项目里用了 X，X 一般是怎么……"），但不要和 projects 的 module 角度问同一个实现细节——module 问他怎么做的，基础题问这东西一般怎么工作、还有什么做法；followUp 是答得实质时唯一一层追问的方向；expectedSignals 是好回答会出现的要点。每个主题都写一道，不要写 topics 之外的主题；问哪几道、跳过哪道（比如与场景题撞了）在面试中由面试官看情况定，不在这里删。
+3. scenarios：${plan.scenarios} 道场景题。从 JD 里团队做的系统或职责里挑一个具体场景（jobBlueprint.business 非空时优先落在它的 systems 之一上，product 是这个团队做什么；jdEvidence 逐字复制 JD 原文中最能代表它的一句，不得改写；competencyIds 绑定蓝图能力），question 先铺一句场景再问一个点；guides 是三级引导阶梯（候选人卡住或答到一层时下一步往哪引）。场景题不要与项目角度考同一件事。
 4. hypotheses（最多 6 条）：要在项目阶段验证的具体点——写了数字的成果、只写框架名的经历、时间线的空洞。每个被问的项目至少一条，projectId 指向它；text 写成"面试里问什么才能验证"；evidence 必须逐字复制简历原文片段，不得改写；没有依据的假设不要写。previousClaims 是上几场没讲清的简历说法（同一份简历）：有的话优先写进 hypotheses，text 里注明"上次没讲清"。
 
 问法规则（候选人要一听就知道往哪个方向答）：开题可以宽，但必须给一个抓手——一个角度、一个例子或一个约束（"挑你最熟的一层记忆，讲它怎么写入和召回"，而不是"讲讲你的记忆系统"）；其余的题落到一个点——一个机制、一个数字或一个决策。一句只问一个要点：一个问号，不要"A、B、C 分别怎么"并列，不要"先说 X 再说 Y"；要问的后续要点放到 leads / followUp / guides 里。基础题的名称和问题里不要出现简历项目的名字。

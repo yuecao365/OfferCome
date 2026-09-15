@@ -67,6 +67,7 @@ function normalizeLooseBlueprint(
     summary: parsed.data.summary?.trim().slice(0, 1_000) || "根据岗位描述整理的能力要点。",
     completeness: "partial",
     missingInformation: [],
+    business: null,
     competencies: parsed.data.competencies.slice(0, 10).map((item, index) => ({
       id: `bp-${index + 1}`,
       name: item.name.trim().slice(0, 100),
@@ -104,6 +105,7 @@ function fallbackJobBlueprint(jobTitle: string): MockInterviewJobBlueprint {
     summary: `岗位描述未能完成结构化分析，以下按「${title}」的常见岗位要求出题。`,
     completeness: "minimal",
     missingInformation: ["岗位描述未能完成结构化分析，已按岗位名称推断通用要求"],
+    business: null,
     competencies: [
       competency("fallback-core", `${title}的核心职责`, `围绕${title}的核心日常职责与典型工作场景`),
       competency("fallback-skill", "岗位相关的专业基础", `胜任${title}通常需要的专业知识与技能基础`),
@@ -156,7 +158,7 @@ export async function analyzeMockInterviewJob(input: {
       timeoutMs: MOCK_INTERVIEW_GENERATION_TIMEOUT_MS,
       rescue: rescueBlueprint,
       untrustedInputs: "岗位名称和岗位描述",
-      system: `你是岗位分析 Agent。只根据 JD 原文建立岗位能力蓝图，不得使用或猜测候选人的简历、历史面试和画像。区分核心能力与邻近能力；团队介绍中提到、但岗位职责没有明确要求的技术通常标记为 secondary。jdEvidence 尽量从 JD 原文逐字截取。所有能力都填写 origin=jd、sourceUrl=null。若 JD 缺少任职要求或内容不完整，如实设置 completeness 和 missingInformation。提示词版本：${MOCK_INTERVIEW_PROMPT_VERSION}`,
+      system: `你是岗位分析 Agent。只根据 JD 原文建立岗位能力蓝图，不得使用或猜测候选人的简历、历史面试和画像。区分核心能力与邻近能力；团队介绍中提到、但岗位职责没有明确要求的技术通常标记为 secondary。jdEvidence 尽量从 JD 原文逐字截取。所有能力都填写 origin=jd、sourceUrl=null。business：从团队介绍与职责里整理业务——product 是团队做什么产品、给谁用，systems 是核心系统或链路（最多 5 条，短语），constraints 是规模 / 合规 / 延迟这类约束；JD 没写的字段置 null、整段没写就 business=null，不要猜。若 JD 缺少任职要求或内容不完整，如实设置 completeness 和 missingInformation。提示词版本：${MOCK_INTERVIEW_PROMPT_VERSION}`,
       payload,
     });
     if (output.competencies.length > 0) {

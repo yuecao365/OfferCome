@@ -16,6 +16,7 @@ export function trialInterviewToView(interview: TrialInterview): MockInterviewVi
     interviewId: interview.id,
     companyName: interview.job.companyName,
     jobTitle: interview.job.jobTitle,
+    business: interview.blueprint?.business ?? null,
     status: interview.status,
     generationPhase: interview.generationPhase,
     generationErrorCode: null,

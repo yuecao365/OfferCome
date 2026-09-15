@@ -313,6 +313,8 @@ export type AgentStreamOptions = {
   timeoutMs: number;
   maxOutputTokens?: number;
   model?: LanguageModel;
+  /** 透传给服务商的选项（如 OpenAI 的 promptCacheKey）；服务商不认的键被忽略。 */
+  providerOptions?: Parameters<typeof streamText>[0]["providerOptions"];
 };
 
 export type AgentStreamOutcome = {
@@ -382,6 +384,7 @@ export function streamAgent(options: AgentStreamOptions): {
     ...(options.prepareStep ? { prepareStep: options.prepareStep } : {}),
     ...(options.output ? { output: options.output as Parameters<typeof streamText>[0]["output"] } : {}),
     ...(options.maxOutputTokens ? { maxOutputTokens: options.maxOutputTokens } : {}),
+    ...(options.providerOptions ? { providerOptions: options.providerOptions } : {}),
     abortSignal: AbortSignal.timeout(options.timeoutMs),
     system: buildSystemPrompt(options.system, options.untrustedInputs),
     messages: options.messages,

@@ -6,7 +6,7 @@ import { ensureResumeExperiences } from "@/lib/resumes/experience-store";
 import { extractResumeTextFromFile } from "@/lib/resumes/extract";
 
 import { getRecentEvaluatedQuestions, type EvaluatedQuestion } from "./recent-feedback";
-import type { MockInterviewJobBlueprint } from "./types";
+import { jobBusinessSchema, type JobBusiness, type MockInterviewJobBlueprint } from "./types";
 
 /** 备课要复测的考点：上几场失守的短板，或用户点"针对练习"指定的题。 */
 export type RecentWeakness = {
@@ -36,6 +36,17 @@ export type MockInterviewContext = {
 };
 
 /** 会话快照里的岗位能力清单（备课时的蓝图）；没有蓝图为空。估计器、评委、整理员、报告、模拟器共用这一处解析。 */
+/** 快照里蓝图的业务（团队做什么、核心链路）；没有为 null。报告页显示用。 */
+export function businessOf(contextSnapshotJson: string | null | undefined): JobBusiness | null {
+  try {
+    const parsed = JSON.parse(contextSnapshotJson ?? "{}") as { jobBlueprint?: { business?: unknown } | null };
+    const result = jobBusinessSchema.safeParse(parsed.jobBlueprint?.business);
+    return result.success ? result.data : null;
+  } catch {
+    return null;
+  }
+}
+
 export function competenciesOf(contextSnapshotJson: string | null | undefined): Competency[] {
   try {
     const parsed = JSON.parse(contextSnapshotJson ?? "{}") as { jobBlueprint?: { competencies?: { id?: unknown; name?: unknown; priority?: unknown; description?: unknown }[] } | null };

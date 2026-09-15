@@ -230,6 +230,12 @@ export function MockInterviewReport({ session }: { session: MockInterviewView })
         <div>
           <h3 className="text-sm font-semibold text-foreground">总体评价</h3>
           <p className="mt-2 whitespace-pre-wrap text-[0.8125rem] leading-6 text-muted-foreground">{report.summary}</p>
+          {session.business?.product || session.business?.systems.length ? (
+            <p className="mt-2 text-xs text-muted-foreground">
+              按这个团队的业务出题：{session.business.product ?? "（岗位描述没写产品）"}
+              {session.business.systems.length > 0 ? `；核心链路：${session.business.systems.join("、")}` : ""}
+            </p>
+          ) : null}
           <ButtonLink className="mt-3" href="/interviews/profile" size="sm" variant="outline">
             查看能力画像
           </ButtonLink>

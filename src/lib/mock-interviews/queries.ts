@@ -12,7 +12,7 @@ import { sessionFlags } from "@/lib/interview/flags";
 import { conversationView, traceTurns, type TraceRun } from "@/lib/interview/views";
 
 import { briefReady, parseStoredBrief } from "./brief/brief";
-import { competenciesOf } from "./context";
+import { businessOf, competenciesOf } from "./context";
 import {
   parseStoredEvaluationList,
   type AnswerExemplar,
@@ -115,6 +115,7 @@ export async function getMockInterviewView(id: string): Promise<MockInterviewVie
     interviewId: session.interviewId,
     companyName: session.interview.companyName,
     jobTitle: session.interview.jobTitle,
+    business: businessOf(session.contextSnapshotJson),
     status: session.status,
     generationPhase: session.generationPhase,
     generationErrorCode: session.generationErrorCode,

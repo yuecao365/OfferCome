@@ -54,11 +54,6 @@ export const PACE_PLAN: Record<InterviewPace, { turns: number; scenarios: number
   deep: { turns: 32, scenarios: 2 },
 };
 
-/** 候选人档位：校招问原理与小场景、不要求线上规模；社招问排查与取舍。备课时由模型按 JD 与简历判断。 */
-export const INTERVIEW_LEVELS = ["campus", "experienced"] as const;
-export type InterviewLevel = (typeof INTERVIEW_LEVELS)[number];
-export const INTERVIEW_LEVEL_LABELS: Record<InterviewLevel, string> = { campus: "校招", experienced: "社招" };
-
 /** 项目追问的角度（旧简报每个面一道材料；新简报只作线索与旧数据的标签）。 */
 export const PROJECT_ANGLE_ORDER = ["overview", "module", "hardest", "outcome", "redo"] as const;
 export type ProjectAngle = (typeof PROJECT_ANGLE_ORDER)[number];
@@ -138,8 +133,6 @@ const signals = z.array(z.string().min(1).max(200)).min(1).max(5);
 
 /** 发给模型的简报 schema：严格模式，全部字段 required，可空用 nullable。 */
 export const briefOutputSchema = z.object({
-  /** 校招还是社招：按 JD（届别、实习、经验年限）与简历（在读、工作经历）判断。 */
-  level: z.enum(INTERVIEW_LEVELS),
   /** 项目 × 角度；先出现的项目是最相关的。 */
   projects: z
     .array(
@@ -225,7 +218,8 @@ export type InterviewBrief = {
   /** 一场的总回合数（面试官说话的次数）。 */
   turns: number;
   round: string | null;
-  level: InterviewLevel;
+  /** 这个团队做什么（蓝图的业务；JD 没写为 null）：面试官人设里带一句。 */
+  product: string | null;
   askIntro: boolean;
   /** 项目的各个面在前，然后是题池，最后是场景题。 */
   areas: InterviewArea[];
@@ -388,11 +382,6 @@ function attachHypothesis(resume: string, evidence: string, projects: Project[])
 }
 
 /** 校招还是社招的兜底判断（模型没产出时）：JD 或简历提到届别 / 应届 / 实习 / 在读就按校招。 */
-const CAMPUS_PATTERN = /\d{2,4}\s*届|应届|实习|在读|预计毕业|graduat|intern/i;
-export function guessLevel(jobDescription: string, resumeText: string): InterviewLevel {
-  return CAMPUS_PATTERN.test(`${jobDescription}\n${resumeText}`) ? "campus" : "experienced";
-}
-
 /**
  * 模型产出 → 冻结的简报。规则全部由代码把关：
  * - 项目：projectId 必须存在；先出现的项目排前面，最多 MAX_PROJECTS 个，每个项目一份材料，模型没写的用兜底问法；
@@ -472,7 +461,7 @@ export function buildBriefFromOutput(input: {
     pace: input.pace,
     turns: plan.turns,
     round,
-    level: output.level,
+    product: input.blueprint.business?.product ?? null,
     askIntro: input.askIntro,
     areas: [...projects, ...quick, ...scenarios],
     hypotheses: hypotheses.slice(0, MAX_HYPOTHESES),
@@ -505,7 +494,7 @@ export function fallbackBrief(input: {
     pace: input.pace,
     turns: plan.turns,
     round: input.round,
-    level: guessLevel(input.jobDescription, input.resumeText),
+    product: input.blueprint.business?.product ?? null,
     askIntro: input.askIntro,
     areas: [...projects, ...quick, ...scenarios],
     hypotheses: [],
@@ -532,7 +521,6 @@ export function parseStoredBrief(json: string | null): InterviewBrief | null {
       value.version === BRIEF_VERSION &&
       isInterviewPace(value.pace ?? "") &&
       typeof value.turns === "number" &&
-      (INTERVIEW_LEVELS as readonly string[]).includes(value.level ?? "") &&
       Array.isArray(value.areas) &&
       value.areas.every((area) => isAreaKind(area.kind));
     return usable ? (value as InterviewBrief) : null;

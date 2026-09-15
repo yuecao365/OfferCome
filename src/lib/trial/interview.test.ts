@@ -20,7 +20,7 @@ import {
 
 /** 体验版会话文档的状态迁移：与本地版落库同语义的纯函数。 */
 
-const blueprint = { summary: "岗位摘要", completeness: "complete" as const, missingInformation: [], competencies: [] };
+const blueprint = { summary: "岗位摘要", completeness: "complete" as const, missingInformation: [], business: null, competencies: [] };
 
 function fresh() {
   return createTrialInterview({

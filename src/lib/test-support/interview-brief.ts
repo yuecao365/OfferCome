@@ -73,7 +73,7 @@ export function testBrief(overrides: Partial<InterviewBrief> & { pace?: Intervie
     pace,
     turns: PACE_PLAN[pace].turns,
     round,
-    level: "campus",
+    product: null,
     askIntro: true,
     areas: TEST_AREAS,
     hypotheses: [],

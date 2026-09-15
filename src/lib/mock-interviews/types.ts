@@ -50,6 +50,13 @@ const jobCompetencySchema = z.object({
 });
 
 /** 发给模型的蓝图 schema。 */
+export const jobBusinessSchema = z.object({
+  product: z.string().min(1).max(200).nullable().describe("团队做什么产品、给谁用"),
+  systems: z.array(z.string().min(1).max(80)).max(5).describe("核心系统或链路"),
+  constraints: z.string().min(1).max(200).nullable().describe("规模、合规、延迟等约束"),
+});
+export type JobBusiness = z.infer<typeof jobBusinessSchema>;
+
 export const mockInterviewJobBlueprintSchema = z.object({
   summary: z
     .string()
@@ -59,10 +66,13 @@ export const mockInterviewJobBlueprintSchema = z.object({
   completeness: z.enum(["complete", "partial", "minimal"]),
   missingInformation: z.array(z.string().min(1).max(200)).max(6),
   competencies: z.array(jobCompetencySchema).min(0).max(10),
+  /** 业务：团队做什么、核心系统或链路、约束。JD 没写就是 null，不猜。场景题落在 systems 上，面试官人设带 product。 */
+  business: jobBusinessSchema.nullable(),
 });
 
-/** 读会话快照用：早期蓝图没有 origin / sourceUrl，解析时补缺省值。 */
+/** 读会话快照用：早期蓝图没有 origin / sourceUrl / business，解析时补缺省值。 */
 export const storedJobBlueprintSchema = mockInterviewJobBlueprintSchema.extend({
+  business: jobBusinessSchema.nullable().default(null),
   competencies: z
     .array(
       jobCompetencySchema.extend({
@@ -100,6 +110,8 @@ export type MockInterviewView = {
   interviewId: string;
   companyName: string;
   jobTitle: string;
+  /** 蓝图里的业务（团队做什么、核心链路）；JD 没写为 null。 */
+  business: JobBusiness | null;
   status: string;
   generationPhase: string | null;
   generationErrorCode: string | null;

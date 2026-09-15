@@ -55,7 +55,7 @@ flowchart TD
 
 **定义**：蓝图是"只看 JD"得到的岗位能力清单。它保证"JD 说了什么"完整进入简报，报告里据此溯源"这题为什么考"。
 
-输出：`summary`、`completeness`（complete / partial / minimal，模型自判）、`missingInformation`、`competencies[]{ id, name, description, priority: core|secondary, jdEvidence, origin: jd|inferred, sourceUrl }`。
+输出：`summary`、`completeness`（complete / partial / minimal，模型自判）、`missingInformation`、`competencies[]{ id, name, description, priority: core|secondary, jdEvidence, origin: jd|inferred, sourceUrl }`、`business{ product, systems[≤5], constraints } | null`（团队做什么、核心系统或链路、约束；JD 没写就 null，不猜。场景题优先落在 systems 上，面试官人设带 product，报告页显示；同是 agent 岗，做客服和做代码助手的题就不一样）。
 
 三级降级：严格 schema + 本地抢救 → 宽松 schema 再跑一次 → 代码按岗位名拼兜底蓝图（origin=inferred，completeness=minimal）。`jdEvidence` 不是 JD 原文子串的能力**保留但降为 secondary**。
 
@@ -107,7 +107,6 @@ flowchart TD
 
 每个面是一个 `project` 领域（id `p1-overview`…）。
 
-**档位**：模型按 JD（届别、实习、经验年限）与简历（在读、工作经历）判断 `level`（campus / experienced）：校招的基础题问原理与小场景、项目不要求线上规模；社招问排查与取舍。兜底简报用一条正则（届 / 应届 / 实习 / 在读）猜。
 
 ### 5.2 模型输入
 
@@ -116,7 +115,6 @@ flowchart TD
 ### 5.3 模型输出 schema（严格模式）
 
 ```
-level: campus | experienced
 projects[0..3]:  { projectId, question≤500（切入问法）, leads[0..3]≤200（要验证的点）, expectedSignals[1..5] }
 quick[0..4]:     { topic≤80（逐字 = 抽样主题名）, question≤400, followUp≤200（唯一一层追问的方向）, expectedSignals[1..5] }
 scenarios[0..2]: { name≤60, competencyIds≤4, jdEvidence≤240 | null（JD 原文逐字，硬门）, question≤600, guides[1..3]≤200（引导阶梯）, expectedSignals[1..5] }
@@ -129,9 +127,8 @@ hypotheses[0..6]: { id, text≤300, evidence≤300（简历原文逐字）, proj
 >
 > 这场面试由面试官按自己的计划走：总共 ${turns} 个回合，通常先聊项目（一个项目深、另一个浅）、再几道基础题、最后一道场景题，各花多少由面试官临场定。你准备的是面试官手边的材料，不是题目清单：
 >
-> 0. level：这位候选人按校招（campus）还是社招（experienced）的标准面——看 JD 的届别 / 实习 / 经验年限和简历是否在读。校招的基础题问原理与小场景、项目不要求线上规模；社招问排查与取舍。
 > 1. projects：项目 × 角度。{有项目："最多 3 个项目，先写与岗位最相关的；每个项目写全部五个角度（面试官决定聊几个、聊哪几面）。" / 没有项目："projects 留空，面试从基础题开始。"}角度固定为 overview（背景与架构） → module（模块深挖） → hardest（最难的问题） → outcome（效果与预期） → redo（取舍与重做）：overview 让候选人先整体讲（背景、架构、他负责哪块）；module 从简历上他负责的模块切入问实现（简历写了数字或机制的那几行是线索）；hardest 问最难的问题怎么定位解决；outcome 问达到预期没有、预期是什么、怎么量的；redo 问重做会改哪里。每个角度写一道该项目专属的 question（一个问题，禁止"谈谈你对 X 的理解"）和 0–4 条 leads——面试里要验证的点，面试官顺着候选人的话拿着它们去验，不按顺序问。overview 的 leads 列还没被 module 覆盖的模块或方面（工具链路、安全、评估……），hardest / outcome 也尽量落在 module 之外的部分，让五个角度各聊项目的一面。
-> 2. quick：基础题池。topics 是代码抽好的主题，每个主题写一道题：topic 逐字用主题名；question 一句话一个问题，落到具体机制或小场景，带边界条件，按 level 定难度；标了"候选人简历碰过这个主题"的，题要从他项目里用到的这个东西出发问原理、替代方案或边界（"你项目里用了 X，X 一般是怎么……"），但不要和 projects 的 module 角度问同一个实现细节——module 问他怎么做的，基础题问这东西一般怎么工作、还有什么做法；followUp 是答得实质时唯一一层追问的方向；expectedSignals 是好回答会出现的要点。每个主题都写一道，不要写 topics 之外的主题；问哪几道、跳过哪道（比如与场景题撞了）在面试中由面试官看情况定，不在这里删。
+> 2. quick：基础题池。topics 是代码抽好的主题，每个主题写一道题：topic 逐字用主题名；question 一句话一个问题，落到具体机制或小场景，带边界条件，难度按 JD 写的经验要求定；标了"候选人简历碰过这个主题"的，题要从他项目里用到的这个东西出发问原理、替代方案或边界（"你项目里用了 X，X 一般是怎么……"），但不要和 projects 的 module 角度问同一个实现细节——module 问他怎么做的，基础题问这东西一般怎么工作、还有什么做法；followUp 是答得实质时唯一一层追问的方向；expectedSignals 是好回答会出现的要点。每个主题都写一道，不要写 topics 之外的主题；问哪几道、跳过哪道（比如与场景题撞了）在面试中由面试官看情况定，不在这里删。
 > 3. scenarios：${n} 道场景题。从 JD 里团队做的系统或职责里挑一个具体场景（jdEvidence 逐字复制 JD 原文中最能代表它的一句，不得改写；competencyIds 绑定蓝图能力），question 先铺一句场景再问一个点；guides 是三级引导阶梯（候选人卡住或答到一层时下一步往哪引）。场景题不要与项目角度考同一件事。
 > 4. hypotheses（最多 6 条）：要在项目阶段验证的具体点——写了数字的成果、只写框架名的经历、时间线的空洞。每个被问的项目至少一条，projectId 指向它；text 写成"面试里问什么才能验证"；evidence 必须逐字复制简历原文片段，不得改写；没有依据的假设不要写。
 >
@@ -148,13 +145,13 @@ hypotheses[0..6]: { id, text≤300, evidence≤300（简历原文逐字）, proj
 2. **题池 = 抽样的主题，一个主题一道，固定 4 道**（`QUICK_POOL_SIZE`）：题池的构成由抽样定（岗位领域包占大头，简历技术栈的包最多 1 道，计算机基础只有大题池才 1 道），问哪道在面试中由代码决策与模型定；模型没写的用包里的好题第一问（`firstQuestion`：多个问号取第一个，一句里顿号并列的几问也只留第一问）+ 阶梯第二级；模型写的不在抽样里的丢弃。id `q1…`，`topic.fromResume` 随抽样带上
 3. **场景题**：按节奏取前 n 道（id `s1…`）；`jdEvidence` 归一化后必须逐字出现在 JD 里（`isVerbatimEvidence`），否则置 null；competencyIds 过滤到蓝图里有的；不够时按蓝图核心能力兜底一道
 4. **假设硬门**：evidence 必须是简历文本子串且 ≥4 字；挂到项目上（projectId 对不上的按证据句在简历里落在哪个项目段落归属）；每个被问的项目没有假设时从简历里取带数字或成果词的一句逐字作 evidence 补一条 `H-<projectId>`（`fallbackHypothesis`），找不到就不补；总数 ≤ 6。面试中该项目的任何角度都能验（`openHypotheses` 按项目找）
-5. `level` 直接用模型的判断；顺序：项目 → 题池 → 场景
+5. `product` 取蓝图的 `business.product`；顺序：项目 → 题池 → 场景
 
 没有装箱、没有丢弃：材料只管齐全，面试官挑着用。
 
 ### 5.6 兜底简报
 
-模型没产出时：项目用兜底问法与通用角度、题池全用包里的好题、场景题按蓝图核心能力、档位按正则猜；`source=fallback`，无假设。兜底简报算"没备好"（见 §7）。
+模型没产出时：项目用兜底问法与通用角度、题池全用包里的好题、场景题按蓝图核心能力；`source=fallback`，无假设。兜底简报算"没备好"（见 §7）。
 
 ### 5.7 评分表（按话题种类固定，`rubricForArea(kind, round)`；计划外的话题也按种类用它）
 
@@ -171,7 +168,7 @@ hypotheses[0..6]: { id, text≤300, evidence≤300（简历原文逐字）, proj
 
 ## 6. 落库与开房（`persistBrief`）
 
-一个事务内：`briefJson`（`version: 8`、`turns`、`level`、`areas`、`hypotheses`、`skillPacks` = 抽题用的包 + project-deep-dive）、`notebook` 为空（面试官开场后才写）、`durationMinutes` 按节奏、`flagsJson`（灰度分到的变体、影子）、快照里的 `memory`（上几场的说法、能力估计、短板、问过的题，备课时也拿来把"上次没讲清的说法"优先写进假设）；**备好了**才 `status=in_progress`。只认 v8：更早的简报（领域清单、切入点、阶段预算）视为无简报，那些会话只剩题目与评分可看。
+一个事务内：`briefJson`（`version: 8`、`turns`、`product`、`areas`、`hypotheses`、`skillPacks` = 抽题用的包 + project-deep-dive）、`notebook` 为空（面试官开场后才写）、`durationMinutes` 按节奏、`flagsJson`（灰度分到的变体、影子）、快照里的 `memory`（上几场的说法、能力估计、短板、问过的题，备课时也拿来把"上次没讲清的说法"优先写进假设）；**备好了**才 `status=in_progress`。只认 v8：更早的简报（领域清单、切入点、阶段预算）视为无简报，那些会话只剩题目与评分可看。
 
 ## 7. 失败与重试
 

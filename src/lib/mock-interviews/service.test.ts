@@ -33,7 +33,7 @@ function competency(id: string) {
 }
 
 function defaultBlueprint() {
-  return { summary: "岗位摘要", completeness: "complete" as const, missingInformation: [], competencies: [competency("bp-1"), competency("bp-2"), competency("bp-3"), competency("bp-4")] };
+  return { summary: "岗位摘要", completeness: "complete" as const, missingInformation: [], business: null, competencies: [competency("bp-1"), competency("bp-2"), competency("bp-3"), competency("bp-4")] };
 }
 
 function briefStub(): InterviewBrief {

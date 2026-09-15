@@ -8,7 +8,6 @@ import {
   fallbackBrief,
   fallbackHypothesis,
   firstQuestion,
-  guessLevel,
   PACE_PLAN,
   parseStoredBrief,
   briefReady,
@@ -18,7 +17,7 @@ import {
 
 /**
  * 备课的代码把关（v8，材料）：每个项目五个面补齐、题池 = 抽样主题、场景题数按节奏、JD 证据逐字、
- * 简历假设挂项目并兜底、档位、总回合数。
+ * 简历假设挂项目并兜底、总回合数、业务。
  */
 
 const jobDescription = "1、负责社交与通讯产品的后端开发；2、参与 API 设计与自动化测试；3、将智能对话能力融入产品。2027 届本科及以上。";
@@ -27,6 +26,7 @@ const blueprint: MockInterviewJobBlueprint = {
   summary: "全栈实习",
   completeness: "complete",
   missingInformation: [],
+  business: null,
   competencies: [
     { id: "api", name: "API 设计", description: "设计并维护对外接口", priority: "core", jdEvidence: "参与 API 设计与自动化测试", origin: "jd", sourceUrl: null },
     { id: "ai", name: "智能对话集成", description: "", priority: "core", jdEvidence: "将智能对话能力融入产品", origin: "jd", sourceUrl: null },
@@ -57,7 +57,7 @@ const scenarioOut = (overrides: Partial<BriefOutput["scenarios"][number]> = {}):
 
 function build(output: Partial<BriefOutput>, extra: { pace?: "quick" | "standard" | "deep"; projects?: typeof projects; topics?: SkillTopic[] } = {}) {
   return buildBriefFromOutput({
-    output: { level: "campus", projects: [], quick: [], scenarios: [], hypotheses: [], ...output },
+    output: { projects: [], quick: [], scenarios: [], hypotheses: [], ...output },
     blueprint,
     jobDescription,
     resumeText,
@@ -135,16 +135,16 @@ test("简历假设：证据逐字、按 projectId 或简历段落挂到项目；
   assert.equal(fallbackHypothesis("Study Assistant 2026年4月–现在", projects[0]), null);
 });
 
-test("兜底简报、档位与总回合数：总回合按节奏，题池固定 4 道", () => {
+test("兜底简报与总回合数：总回合按节奏，题池固定 4 道；蓝图的业务带进简报", () => {
   const brief = fallbackBrief({ blueprint, jobDescription, resumeText, projects, topics, skillPacks: ["backend"], pace: "quick", round: null, askIntro: true });
   assert.equal(brief.source, "fallback");
   assert.equal(brief.turns, PACE_PLAN.quick.turns);
-  assert.equal(brief.level, "campus", "JD 写了届别按校招");
+  assert.equal(brief.product, null);
   assert.equal(projectAreas(brief).length, 2);
   assert.equal(brief.areas.filter((area) => area.kind === "scenario").length, 1);
   assert.equal(QUICK_POOL_SIZE, 4);
-  assert.equal(guessLevel("负责后端开发，3 年以上经验", "五年 Java 开发经验"), "experienced");
-  assert.equal(build({ level: "experienced" }).level, "experienced", "模型判断的档位直接用");
+  const withBusiness = fallbackBrief({ blueprint: { ...blueprint, business: { product: "社交 App 的后端", systems: ["消息链路"], constraints: null } }, jobDescription, resumeText, projects, topics, skillPacks: ["backend"], pace: "quick", round: null, askIntro: true });
+  assert.equal(withBusiness.product, "社交 App 的后端");
 });
 
 test("只读 v8 简报：旧的按阶段预算、切入点或领域清单组织的简报视为没有简报", () => {

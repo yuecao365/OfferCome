@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { storedJobBlueprintSchema } from "./types";
 
-test("parses legacy blueprints with default competency provenance", () => {
+test("parses legacy blueprints with default competency provenance and no business", () => {
   const parsed = storedJobBlueprintSchema.parse({
     summary: "旧快照",
     completeness: "complete",
