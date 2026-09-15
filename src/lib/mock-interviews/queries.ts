@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { REAL_USAGE_INTERVIEW_WHERE } from "@/lib/interviews/types";
 import { parseJsonArray, parseJsonObject, parseJsonValue } from "@/lib/json";
 
+import type { Clock } from "@/lib/interview/clock";
 import { estimate, type Estimate, type Observation } from "@/lib/interview/estimator";
 import { sessionFlags } from "@/lib/interview/flags";
 import { conversationView, traceTurns, type TraceRun } from "@/lib/interview/views";
@@ -94,7 +95,7 @@ function buildConversation(session: SessionWithConversation) {
     totalMinutes: session.durationMinutes,
     notebook: session.notebook,
     messages: session.messages.map((message) => ({ id: message.id, turnIndex: message.turnIndex, role: message.role === "candidate" ? "candidate" : "interviewer", kind: message.kind, content: message.content })),
-    realTime: session.interactionMode === "voice",
+    clock: session.interactionMode === "voice" ? (parseJsonValue(session.clockJson) as Clock | null) : null,
   });
 }
 

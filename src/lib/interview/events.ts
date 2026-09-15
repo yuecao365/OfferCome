@@ -115,14 +115,15 @@ export async function appendEvents(sink: EventSink, sessionId: string, events: N
   return start;
 }
 
-export type TranscriptLine = { seq: number; role: "interviewer" | "candidate"; content: string; kind: string | null; control: CandidateControl | null };
+/** at：这句落下的时刻（事件的 createdAt）；语音版的真实时间时钟按它算，纯逻辑测试可以不带。 */
+export type TranscriptLine = { seq: number; role: "interviewer" | "candidate"; content: string; kind: string | null; control: CandidateControl | null; at?: Date };
 
 /** 逐字稿投影：双方说过的话，按 seq。 */
 export function transcriptOf(events: InterviewEvent[]): TranscriptLine[] {
   const lines: TranscriptLine[] = [];
   for (const item of events) {
-    if (item.type === "candidate_said") lines.push({ seq: item.seq, role: "candidate", content: item.payload.content, kind: null, control: item.payload.control });
-    if (item.type === "interviewer_said") lines.push({ seq: item.seq, role: "interviewer", content: item.payload.content, kind: item.payload.kind, control: null });
+    if (item.type === "candidate_said") lines.push({ seq: item.seq, role: "candidate", content: item.payload.content, kind: null, control: item.payload.control, at: item.at });
+    if (item.type === "interviewer_said") lines.push({ seq: item.seq, role: "interviewer", content: item.payload.content, kind: item.payload.kind, control: null, at: item.at });
   }
   return lines;
 }

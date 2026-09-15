@@ -54,7 +54,7 @@ function turnState(loaded: Loaded): TurnState {
     estimates: estimate(competenciesOf(loaded.contextSnapshotJson), observationsFromEvents(events), priorsFrom(memoryOf(loaded.contextSnapshotJson))),
     critic: sessionFlags(loaded.flagsJson).critic ? latestCriticNote(events, transcript) : null,
     variant: policyVariant(sessionFlags(loaded.flagsJson).policy),
-    realTime: loaded.interactionMode === "voice" ? { startedAt: loaded.startedAt?.toISOString() ?? null } : null,
+    realTime: loaded.interactionMode === "voice",
   };
 }
 

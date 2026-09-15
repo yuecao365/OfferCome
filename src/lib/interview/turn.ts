@@ -30,13 +30,13 @@ export type TurnState = {
   critic: string | null;
   /** 这场面试官用的策略变体（灰度分到的）；体验版用默认。 */
   variant: PolicyVariant;
-  /** 语音模式：时钟用真实时间（开场时刻）；文字模式为 null，按字数折算。 */
-  realTime: { startedAt: string | null } | null;
+  /** 语音模式：时钟按真实作答时间；文字模式按字数折算。 */
+  realTime: boolean;
 };
 
-/** 这场的时钟：语音按真实时间，文字按字数折算。 */
+/** 这场的时钟：语音按真实作答时间，文字按字数折算。 */
 export function clockFor(state: Pick<TurnState, "totalMinutes" | "realTime">, transcript: TranscriptLine[]): Clock {
-  return state.realTime ? realTimeClock(transcript, state.totalMinutes, state.realTime.startedAt) : estimateClock(transcript, state.totalMinutes);
+  return state.realTime ? realTimeClock(transcript, state.totalMinutes) : estimateClock(transcript, state.totalMinutes);
 }
 
 export type CandidateInput = {
@@ -81,7 +81,7 @@ export function candidateWantsToEnd(candidate: CandidateInput | null): boolean {
 
 function withCandidate(state: TurnState, candidate: CandidateInput | null): TranscriptLine[] {
   if (!candidate) return state.transcript;
-  return [...state.transcript, { seq: state.transcript.length, role: "candidate", content: candidate.content, kind: null, control: candidate.control }];
+  return [...state.transcript, { seq: state.transcript.length, role: "candidate", content: candidate.content, kind: null, control: candidate.control, at: new Date() }];
 }
 
 export type TurnPlan = { kind: "model"; clock: Clock } | { kind: "fixed"; endedBy: "candidate" | "budget" | "breaker"; clock: Clock };
@@ -121,7 +121,7 @@ export function applyTurn(state: TurnState, candidate: CandidateInput | null, sp
   const notebook = spoken.notebook !== null && spoken.notebook !== state.notebook ? spoken.notebook : state.notebook;
   if (spoken.notebook !== null && spoken.notebook !== state.notebook) events.push(event("notebook_written", { text: spoken.notebook }, spoken.runId));
   if (spoken.failed) events.push(event("fallback_used", { reason: "模型没说出话" }, spoken.runId));
-  const transcript = [...withCandidate(state, candidate), { seq: 0, role: "interviewer" as const, content: spoken.say, kind: spoken.kind, control: null }];
+  const transcript = [...withCandidate(state, candidate), { seq: 0, role: "interviewer" as const, content: spoken.say, kind: spoken.kind, control: null, at: new Date() }];
   const clock = clockFor(state, transcript);
   events.push(event("clock_tick", { usedMinutes: clock.usedMinutes, totalMinutes: clock.totalMinutes }));
   if (spoken.endedBy) events.push(event("ended", { by: spoken.endedBy }));

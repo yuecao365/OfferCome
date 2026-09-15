@@ -134,21 +134,14 @@ function subscribeNoop(): () => void {
 }
 
 /** 时间盒：已用约几分钟 / 共几分钟；快到时间变色。 */
-/** 进度：文字模式按双方说话的字数折算（服务端每回合给）；语音模式按墙上时间从开场时刻起走，每 15 秒刷新。 */
-function ClockBar({ clock, ended, startedAt }: { clock: Clock; ended: boolean; startedAt: string | null }) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!startedAt || ended) return;
-    const timer = setInterval(() => setNow(Date.now()), 15_000);
-    return () => clearInterval(timer);
-  }, [startedAt, ended]);
-  const used = startedAt ? Math.max(clock.usedMinutes, (now - new Date(startedAt).getTime()) / 60_000) : clock.usedMinutes;
-  const percent = Math.min(100, Math.round((used / clock.totalMinutes) * 100));
+/** 进度：文字模式按双方说话的字数折算，语音模式按真实作答时间（每题最多记 4 分钟，等待不计）；都由服务端每回合给。 */
+function ClockBar({ clock, ended, voice }: { clock: Clock; ended: boolean; voice: boolean }) {
+  const percent = Math.min(100, Math.round((clock.usedMinutes / clock.totalMinutes) * 100));
   return (
     <p
       aria-label="面试进度"
-      className={cn("shrink-0 font-mono text-xs tabular-nums", !ended && (clock.phase === "wrap_up" || clock.phase === "over" || percent >= 90) ? "text-warning-strong" : "text-muted-foreground")}
-      title={startedAt ? "语音模式按真实时间计" : "按双方说话的字数折算，不是墙上时间"}
+      className={cn("shrink-0 font-mono text-xs tabular-nums", !ended && (clock.phase === "wrap_up" || clock.phase === "over") ? "text-warning-strong" : "text-muted-foreground")}
+      title={voice ? "按真实作答时间计，每题最多记 4 分钟；开着房间不答不计时" : "按双方说话的字数折算，不是墙上时间"}
     >
       进度 {ended ? 100 : percent}% · 约 {clock.totalMinutes} 分钟
     </p>
@@ -332,7 +325,7 @@ export function MockInterviewChat({
         <p className="min-w-0 flex-1 truncate text-sm font-medium">
           {session.companyName} · {session.jobTitle}
         </p>
-        <ClockBar clock={clock} ended={ended} startedAt={voice ? conversation.startedAt : null} />
+        <ClockBar clock={clock} ended={ended} voice={voice} />
         <ElapsedClock startedAt={conversation.startedAt ?? openedAt} running={!ended} />
         <Button aria-pressed={materialsOpen} onClick={() => setMaterialsOpen((open) => !open)} size="sm" type="button" variant="ghost">
           <FileText aria-hidden="true" className="size-3.5" strokeWidth={1.5} />

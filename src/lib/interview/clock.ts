@@ -18,6 +18,8 @@ export const DURATION_MINUTES: Record<InterviewPace, number> = { quick: 10, stan
  * 面试官读题 / 说话每分钟约 300 字；每次交换另加 20 秒读题与思考。
  */
 export const CLOCK_RATES = { candidateCharsPerMinute: 240, maxAnswerMinutes: 2.5, interviewerCharsPerMinute: 300, exchangeOverheadMinutes: 1 / 3 } as const;
+/** 语音版一次作答（从面试官说完到候选人的话落下）最多记这么多分钟：打开房间挂着、想很久都不该烧掉时间盒。 */
+export const MAX_ANSWER_GAP_MINUTES = 4;
 /** 每档至少问到的问答数（每次交换约 2 分钟）：时间到了但没问够就再问，硬顶仍在。快速 5、标准 10、深入 17。 */
 export const MIN_EXCHANGE_MINUTES = 2;
 
@@ -67,9 +69,22 @@ export function estimateClock(transcript: Pick<TranscriptLine, "role" | "content
   return clockOf(minutes, countExchanges(transcript), totalMinutes);
 }
 
-/** 语音版：真实时间——已用 = 现在 − 开场时刻；阶段与硬顶同文字版。开场前（还没有 startedAt）算 0。 */
-export function realTimeClock(transcript: Pick<TranscriptLine, "role">[], totalMinutes: number, startedAt: string | Date | null, now: Date = new Date()): Clock {
-  const minutes = startedAt ? Math.max(0, (now.getTime() - new Date(startedAt).getTime()) / 60_000) : 0;
+/**
+ * 语音版：真实作答时间——每条回答记"面试官说完 → 候选人的话落下"这一段（最多 4 分钟），再加每次交换的固定开销；
+ * 还没答的那段不计（打开房间挂着不烧时间）。阶段与硬顶同文字版。没有时刻的句子按开销算。
+ */
+export function realTimeClock(transcript: Pick<TranscriptLine, "role" | "at">[], totalMinutes: number): Clock {
+  let minutes = 0;
+  let askedAt: Date | undefined;
+  for (const line of transcript) {
+    if (line.role === "interviewer") {
+      minutes += CLOCK_RATES.exchangeOverheadMinutes;
+      askedAt = line.at;
+      continue;
+    }
+    if (askedAt && line.at) minutes += Math.min(MAX_ANSWER_GAP_MINUTES, Math.max(0, (line.at.getTime() - askedAt.getTime()) / 60_000));
+    askedAt = undefined;
+  }
   return clockOf(minutes, countExchanges(transcript), totalMinutes);
 }
 
