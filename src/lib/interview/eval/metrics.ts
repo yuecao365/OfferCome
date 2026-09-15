@@ -1,6 +1,6 @@
 import { questionSimilarity } from "@/lib/text/similarity";
 
-import { endedBy, transcriptOf, type InterviewEvent, type TranscriptLine } from "../events";
+import { endedBy, isHelpRequest, transcriptOf, type InterviewEvent, type TranscriptLine } from "../events";
 
 /**
  * 一场面试的指标（interview-system-design.md §8）：全部从事件日志加两份投影算出来，
@@ -55,21 +55,11 @@ export type SessionMetrics = {
 };
 
 const REPEAT_SIMILARITY = 0.6;
-/** 候选人短句里的求助 / 澄清；房间按钮另算。 */
-const HELP_PATTERN = /(具体一点|具体点|什么意思|没听懂|没太懂|是什么|能再说|再说一遍|给个方向|提示|不太明白|哪个方向)/;
-const HELP_MAX_CHARS = 40;
 
 function percentile(values: number[], ratio: number): number {
   if (values.length === 0) return 0;
   const sorted = [...values].sort((left, right) => left - right);
   return sorted[Math.max(0, Math.ceil(ratio * sorted.length) - 1)];
-}
-
-export function isHelpRequest(line: TranscriptLine): boolean {
-  if (line.role !== "candidate") return false;
-  if (line.control === "hint" || line.control === "repeat") return true;
-  const text = line.content.trim();
-  return text.length > 0 && text.length <= HELP_MAX_CHARS && HELP_PATTERN.test(text);
 }
 
 /** 面试官的一句是不是在重复前面说过的话（问法几乎一样）。 */

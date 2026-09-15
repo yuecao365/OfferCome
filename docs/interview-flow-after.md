@@ -28,9 +28,11 @@ flowchart TD
 
 **触发**：交卷（`completeMockInterview`）第一步 `ensureSegments`，幂等——已有分段直接返回；`resegment` 删掉旧分段与兼容题目重切（调试用）。体验版在浏览器发起交卷时调 `/api/trial/segment`。
 
-**一次调用**（`segmenter.ts`，segmenter-v1）：输入带编号的逐字稿（每句 ≤ 700 字）与材料清单（id、种类、名称、建议问法）；输出每段的 `startSeq`（这段第一问的编号）、对应材料 id（临场话题 null）、种类、一句标签、verdict（answered / thin / failed / skipped）、一句判断。规则：一段从面试官进入一个话题的那句开始到下一段开始之前；同一材料的连续追问同一段；候选人的澄清、求助、跑题不开新段；开场与收尾不算段。
+**一次调用**（`segmenter.ts`，segmenter-v3）：输入带编号的逐字稿（每句 ≤ 700 字）与材料清单（id、种类、名称、建议问法）；输出每段的 `startSeq`（这段第一问的编号）、对应材料 id（临场话题 null）、种类、一句标签、verdict（answered / thin / failed / skipped）、一句判断。规则：一段从面试官进入一个话题的那句开始到下一段开始之前；同一材料的连续追问同一段；候选人的澄清、求助、跑题不开新段；开场与收尾不算段。
 
-**代码修复**（`repairSegments`，纯函数）：只认面试官说话的编号、开场那句不算、去重排序、结束编号取下一段开始之前（最后一段到逐字稿末尾）；areaId 只认材料里有的；没有候选人回答的段 verdict 强制 skipped；深度 = 段内面试官发言数 − 1。
+**代码修复**（`repairSegments`，纯函数）：编号要是面试官那句（写成候选人那句的靠到前一句面试官）、开场那句不算（从开场起的段靠到第一问，除非第一问已有段）、去重排序、结束编号取下一段开始之前（最后一段到逐字稿末尾）；areaId 只认材料里有的；没有候选人回答的段 verdict 强制 skipped；深度 = 段内面试官发言数 − 1。
+
+**重切**：`npm run resegment -- <sessionId> [...]` 用当前版本的整理员重切已结束的场次（删旧段、兼容题目与评分，评分同步跑完）；改了整理员之后对旧场次重跑用。
 
 **落库**（一个事务）：每段一行 `InterviewThread`（areaId、kind、label、entryQuestion、depth、verdict、note、startSeq、endSeq；competencyId / difficulty 阶段 D 起）+ 一行兼容 `InterviewQuestion`（题目 = 第一问 + "追问 n：…"，回答 = 段内候选人的话拼接，skipped = verdict 为 skipped 或没有回答）+ 待评分的 `InterviewQuestionEvaluation`（评分表与期望信号取材料的，没有材料按种类兜底；`generationMetadataJson` = areaId / areaName / areaKind / competencyOrigin / skillPack / note / depth / probeCount / verdict / startSeq / endSeq）。有回答的段安排后台评分。
 

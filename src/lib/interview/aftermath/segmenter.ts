@@ -15,7 +15,7 @@ import type { TranscriptLine } from "../events";
  * 幂等、可重跑：输入完整（逐字稿 + 材料清单），错了重跑一次就好，面试本身不受影响。
  */
 
-export const SEGMENTER_PROMPT_VERSION = "segmenter-v2";
+export const SEGMENTER_PROMPT_VERSION = "segmenter-v3";
 const MAX_SEGMENTS = 30;
 const LINE_MAX_CHARS = 700;
 
@@ -76,17 +76,28 @@ export type Segment = {
 };
 
 /**
- * 模型产出 → 可用的分段（纯函数）：只认面试官说话的编号、开场那句不算、去重排序、
+ * 模型产出 → 可用的分段（纯函数）：编号要是面试官那句（写成候选人那句的靠到前一句面试官）、开场那句不算（从开场起的段靠到第一问，除非第一问已有段）、去重排序、
  * 结束编号取下一段开始之前；areaId 只认材料里有的；没有候选人回答的段 verdict 强制 skipped。
  */
 export function repairSegments(output: SegmenterOutput, transcript: TranscriptLine[], brief: InterviewBrief): Segment[] {
   const bySeq = new Map(transcript.map((line) => [line.seq, line]));
   const areas = new Map(brief.areas.map((area) => [area.id, area]));
   const starts = new Map<number, SegmenterOutput["segments"][number]>();
-  for (const item of output.segments) {
+  const openingSeq = transcript[0]?.seq;
+  const firstQuestionSeq = transcript.find((line) => line.role === "interviewer" && line.seq !== openingSeq)?.seq;
+  // 模型偶尔把编号写成候选人那句的（整场都错一位，coverage-1 里一场因此一段都没剩）：靠到它前面那句面试官的话。
+  const snapped = output.segments.map((item) => {
     const line = bySeq.get(item.startSeq);
-    if (!line || line.role !== "interviewer" || item.startSeq === transcript[0]?.seq) continue;
-    if (!starts.has(item.startSeq)) starts.set(item.startSeq, item);
+    const startSeq = line?.role === "candidate" ? (transcript.findLast((prior) => prior.seq < item.startSeq && prior.role === "interviewer")?.seq ?? -1) : item.startSeq;
+    return { item, startSeq };
+  });
+  for (const { item, startSeq } of snapped) {
+    if (!bySeq.has(startSeq) || startSeq === openingSeq) continue;
+    if (!starts.has(startSeq)) starts.set(startSeq, item);
+  }
+  // 从开场那句起的段（模型把自我介绍和第一个项目话题合成了一段）：没有别的段从第一问开始时，靠到第一问；否则丢掉。
+  for (const { item, startSeq } of snapped) {
+    if (startSeq === openingSeq && firstQuestionSeq !== undefined && !starts.has(firstQuestionSeq)) starts.set(firstQuestionSeq, item);
   }
   const ordered = [...starts.keys()].sort((left, right) => left - right);
   const lastSeq = transcript.at(-1)?.seq ?? 0;
@@ -123,7 +134,7 @@ const SYSTEM = `你是面试整理员。输入是一场模拟面试的逐字稿�
 - 一段从面试官进入一个话题的那句提问开始，到下一个话题开始之前结束；同一道材料的连续追问属于同一段；候选人的澄清、求助、跑题都不开新段；面试官换到另一道材料、另一个项目的面或临场话题时才开新段。
 - 开场问候与候选人的自我介绍不算段；收尾告别不算段。
 - hypotheses：材料清单里附了备课时从简历提出的假设（id、要验证什么、简历原句）。逐条判断这场有没有碰到：碰到并且候选人讲清了 → confirmed，note 写哪段话证实了；碰到但没讲清或与简历不符 → refuted，note 用"没有讲清楚""还需要更多证据"这类措辞说差在哪；没碰到 → open。
-- 每段：startSeq 是这段第一问（面试官那句）的编号；areaId 是对应材料的 id（顺着材料的建议问法或名称对上就填，临场话题填 null）；kind 是种类（project 项目 / quick 基础题 / scenario 场景题）；label 一句标签；verdict 是候选人这段答得怎么样：answered 有实质内容、thin 只有关键词没机制、failed 没答上或答错关键点、skipped 候选人要求跳过或没答；note 一句判断：答到哪一层、哪里好、哪里失守，写给评分与报告看。
+- 每段：startSeq 是这段第一问（面试官那句）的编号；areaId 是对应材料的 id（只填材料清单里的 id，不是假设的 id；顺着材料的建议问法或名称对上就填，临场话题填 null）；kind 是种类（project 项目 / quick 基础题 / scenario 场景题）；label 一句标签；verdict 是候选人这段答得怎么样：answered 有实质内容、thin 只有关键词没机制、failed 没答上或答错关键点、skipped 候选人要求跳过或没答；note 一句判断：答到哪一层、哪里好、哪里失守，写给评分与报告看。
 - 只输出 JSON。`;
 
 /** 一次调用：逐字稿 + 材料 → 分段。 */

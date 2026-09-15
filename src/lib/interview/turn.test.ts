@@ -50,6 +50,10 @@ test("说话：没产出接一句；泄露内部词换固定的话；面试过�
   const late = speak(running, { usedMinutes: 18, totalMinutes: 20, exchanges: 14, phase: "wrap_up" }, { say: "今天就到这里，谢谢。", notebook: "n", closing: true }, "r4", 1);
   assert.equal(late.kind, "closing");
   assert.equal(late.endedBy, "interviewer");
+  // 以问号结尾的"告别"其实是最后一问：不认，候选人还要答。
+  const question = speak(running, { usedMinutes: 18, totalMinutes: 20, exchanges: 14, phase: "wrap_up" }, { say: "最后一个点：你会先抽样复核，还是先看分布？", notebook: "n", closing: true }, "r5", 0);
+  assert.equal(question.kind, "say");
+  assert.equal(question.endedBy, null);
 });
 
 test("应用回合：事件按顺序（候选人的话、面试官的话、笔记、时钟、结束），笔记没变不写事件", () => {

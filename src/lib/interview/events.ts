@@ -12,6 +12,17 @@ export const CANDIDATE_CONTROLS = ["hint", "skip", "repeat", "end"] as const;
 export type CandidateControl = (typeof CANDIDATE_CONTROLS)[number];
 
 /** 房间按钮只点按钮没打字时替候选人说的话。 */
+/** 候选人短句里的求助 / 澄清；房间的提示、重复按钮也算。 */
+const HELP_PATTERN = /(具体一点|具体点|什么意思|没听懂|没太懂|是什么|能再说|再说一遍|给个方向|提示|不太明白|哪个方向)/;
+const HELP_MAX_CHARS = 40;
+
+export function isHelpRequest(line: Pick<TranscriptLine, "role" | "content" | "control">): boolean {
+  if (line.role !== "candidate") return false;
+  if (line.control === "hint" || line.control === "repeat") return true;
+  const text = line.content.trim();
+  return text.length > 0 && text.length <= HELP_MAX_CHARS && HELP_PATTERN.test(text);
+}
+
 export const CONTROL_PLACEHOLDERS: Record<CandidateControl, string> = {
   skip: "这题我想跳过。",
   repeat: "能再说一遍吗？",

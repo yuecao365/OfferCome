@@ -144,16 +144,16 @@ ${context.resumeText.slice(0, MAX_RESUME_CHARS)}
 }
 
 /** covered 是标注器认为聊过的材料 id（按第一次出现的顺序）。 */
-export type StateCard = { clock: Clock; notebook: string; opening: boolean; covered: string[] };
+export type StateCard = { clock: Clock; notebook: string; opening: boolean; covered: string[]; /** 候选人这句是在求助 / 澄清。 */ helping: boolean };
 
 /** 时间分配的默认（占总时长的比例）：项目六成、基础题两成、场景题两成。 */
 const TIME_SHARE = { project: 0.6, quick: 0.2, scenario: 0.2 } as const;
 
 /**
  * 覆盖账 + 建议（现场卡最后一行，紧贴候选人的话——模型看这里）：按种类数聊过的材料，
- * 按已用时间比例提醒该转了。只是账和建议，怎么走模型定。
+ * 按已用时间比例提醒该转了；候选人正在求助时不催转题（求助那句被换题，是用户投诉过的体验）。只是账和建议，怎么走模型定。
  */
-export function renderCoverage(brief: InterviewBrief, coveredIds: string[], clock: Clock): string {
+export function renderCoverage(brief: InterviewBrief, coveredIds: string[], clock: Clock, helping = false): string {
   const areas = new Map(brief.areas.map((area) => [area.id, area]));
   const covered = coveredIds.map((id) => areas.get(id)).filter((area): area is InterviewArea => area !== undefined);
   const faces = covered.filter((area) => area.kind === "project").map((area) => (area.angle ? PROJECT_ANGLES[area.angle].label : area.name));
@@ -165,6 +165,7 @@ export function renderCoverage(brief: InterviewBrief, coveredIds: string[], cloc
   const left = minutesLeft(clock);
   let advice = `这场默认分配：项目约 ${Math.round(TIME_SHARE.project * clock.totalMinutes)} 分钟、基础题约 ${Math.round(TIME_SHARE.quick * clock.totalMinutes)} 分钟、场景题约 ${Math.round(TIME_SHARE.scenario * clock.totalMinutes)} 分钟（留最后几分钟，一问一答再收）。`;
   if (clock.phase === "over") advice = "时间到了：只告别。";
+  else if (helping) advice = "候选人在求助：先就这一问给个方向或换个更具体的问法，等答了再考虑转题。";
   else if (scenario === 0 && ratio >= LATE_RATIO) advice = `还剩约 ${left} 分钟，场景题还没问：这句就进场景题，一问一答再收。`;
   else if (scenario === 0 && quick === 0 && ratio >= TIME_SHARE.project) advice = `项目已经用掉约 ${Math.round(ratio * 100)}% 的时间，基础题一道没问、场景题也没问：该转了——先一两道基础题，再进场景题。`;
   else if (quick === 0 && ratio >= TIME_SHARE.project - 0.1) advice = `项目已经用掉约 ${Math.round(ratio * 100)}% 的时间，基础题还一道没问：该转基础题了。`;
@@ -175,7 +176,7 @@ export function renderCoverage(brief: InterviewBrief, coveredIds: string[], cloc
 export function renderTurnMessage(card: StateCard, candidateContent: string | null, brief: InterviewBrief): string {
   const notebook = card.notebook.trim() ? card.notebook.trim() : "（还没有笔记：这回合先写一份——打算聊哪些、各花多久。）";
   const opening = card.opening ? "\n还没开场：先问候，请候选人用一两分钟介绍与这个岗位相关的经历，不要问别的。" : "";
-  const coverage = card.opening ? "" : `\n${renderCoverage(brief, card.covered, card.clock)}`;
+  const coverage = card.opening ? "" : `\n${renderCoverage(brief, card.covered, card.clock, card.helping)}`;
   const said = candidateContent?.trim() ? candidateContent.trim() : card.opening ? "（候选人已就座，请开场。）" : "（候选人没有说话。）";
   return `[现场卡]\n${renderClock(card.clock)}\n你上一回合的笔记：\n${notebook}${opening}${coverage}\n\n候选人说：\n${said}`;
 }
@@ -261,6 +262,8 @@ export function runPolicy(input: {
     tools,
     output: Output.object({ schema: policyOutputSchema, name: "turn", description: "这回合对候选人说的话与重写后的笔记" }),
     stopWhen: stepCountIs(MAX_STEPS),
+    // 最后一步不许再查材料：否则模型连查几步用完步数，这回合没有话（coverage-1 里 15 场出了 4 次）。
+    prepareStep: ({ stepNumber }) => (stepNumber >= MAX_STEPS - 1 ? { toolChoice: "none" } : undefined),
     maxOutputTokens: 900,
     timeoutMs: TIMEOUT_MS,
   });

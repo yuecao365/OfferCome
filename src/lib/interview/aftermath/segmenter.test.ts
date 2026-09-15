@@ -36,6 +36,14 @@ const transcript: TranscriptLine[] = [
   line(12, "interviewer", "好，今天到这里。"),
 ];
 
+test("候选人编号靠到前一句面试官；从开场起的段靠到第一问，第一问已有段时丢掉", () => {
+  const brief = testBrief();
+  const snapped = repairSegments({ segments: [{ startSeq: 9, areaId: "q1", kind: "quick", label: "缓存", verdict: "thin", note: "" }, { startSeq: 1, areaId: "p1-module", kind: "project", label: "自我介绍加主循环", verdict: "answered", note: "从开场起：靠到第一问" }], hypotheses: [] }, transcript, brief);
+  assert.deepEqual(snapped.map((segment) => [segment.startSeq, segment.endSeq, segment.areaId, segment.label]), [[2, 7, "p1-module", "自我介绍加主循环"], [8, 12, "q1", "缓存"]]);
+  const explicit = repairSegments({ segments: [{ startSeq: 0, areaId: null, kind: "project", label: "开场", verdict: "answered", note: "" }, { startSeq: 2, areaId: "p1-module", kind: "project", label: "主循环", verdict: "answered", note: "" }], hypotheses: [] }, transcript, brief);
+  assert.deepEqual(explicit.map((segment) => [segment.startSeq, segment.label]), [[2, "主循环"]]);
+});
+
 test("只认面试官说话的编号、开场不算、去重排序、结束编号取下一段之前；没有回答的段记 skipped", () => {
   const brief = testBrief();
   const segments = repairSegments(
@@ -44,7 +52,7 @@ test("只认面试官说话的编号、开场不算、去重排序、结束编�
         { startSeq: 0, areaId: null, kind: "project", label: "开场", verdict: "answered", note: "不该成段" },
         { startSeq: 8, areaId: "q1", kind: "quick", label: "缓存一致性", verdict: "thin", note: "只说了名词" },
         { startSeq: 2, areaId: "p1-module", kind: "project", label: "主循环", verdict: "answered", note: "机制清楚" },
-        { startSeq: 3, areaId: null, kind: "project", label: "候选人的话", verdict: "answered", note: "不是面试官的编号" },
+        { startSeq: 9, areaId: "q1", kind: "quick", label: "候选人的编号", verdict: "answered", note: "靠到前一句面试官（8），与 8 重复则不算" },
         { startSeq: 2, areaId: "p1-module", kind: "project", label: "重复", verdict: "failed", note: "重复的起点" },
         { startSeq: 10, areaId: "nope", kind: "scenario", label: "场景", verdict: "answered", note: "材料 id 不认识" },
         { startSeq: 12, areaId: null, kind: "quick", label: "收尾", verdict: "answered", note: "没有回答" },

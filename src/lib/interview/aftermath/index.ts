@@ -3,6 +3,7 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import { parseStoredBrief } from "@/lib/mock-interviews/brief/brief";
 import { scheduleMockInterviewQuestionEvaluation } from "@/lib/mock-interviews/question-evaluation-background";
+import { evaluatePersistedMockInterviewQuestion } from "@/lib/mock-interviews/question-evaluation-service";
 import { getAiTaskConfig } from "@/lib/settings/ai";
 
 import { parseEventRow, transcriptOf, type InterviewEvent } from "../events";
@@ -26,27 +27,35 @@ async function loadForSegmenting(sessionId: string) {
   return { session, brief, transcript: transcriptOf(events) };
 }
 
-/** 有分段就不动；没有就切一次并落库。返回段数。 */
-export async function ensureSegments(sessionId: string): Promise<number> {
+/** 切一次并落库：返回段数与待评分的题目 id。 */
+async function segmentAndPersist(sessionId: string): Promise<{ count: number; questionIds: string[] }> {
   const { session, brief, transcript } = await loadForSegmenting(sessionId);
-  if (session.threads.length > 0) return session.threads.length;
-  if (transcript.length === 0) return 0;
+  if (transcript.length === 0) return { count: 0, questionIds: [] };
   const { segments, hypotheses } = await segmentTranscript({ runId: `segment:${sessionId}`, config: await getAiTaskConfig("text"), transcript, brief });
   const questionIds = await persistSegments(sessionId, session.interview.id, brief, transcript, segments, hypotheses);
-  for (const id of questionIds) scheduleMockInterviewQuestionEvaluation(id);
-  return segments.length;
+  return { count: segments.length, questionIds };
 }
 
-/** 重切：删掉旧的分段、兼容题目与评分，再切一次（trace / 调试用）。 */
-export async function resegment(sessionId: string): Promise<number> {
+/** 有分段就不动；没有就切一次并落库，评分在响应返回后跑。返回段数。 */
+export async function ensureSegments(sessionId: string): Promise<number> {
   const { session } = await loadForSegmenting(sessionId);
+  if (session.threads.length > 0) return session.threads.length;
+  const { count, questionIds } = await segmentAndPersist(sessionId);
+  for (const id of questionIds) scheduleMockInterviewQuestionEvaluation(id);
+  return count;
+}
+
+/** 重切（`npm run resegment`，请求作用域之外）：删掉旧的分段、兼容题目与评分，再切一次，评分同步跑完。 */
+export async function resegment(sessionId: string): Promise<number> {
   const threads = await prisma.interviewThread.findMany({ where: { sessionId }, select: { questionId: true } });
   await prisma.$transaction([
     prisma.interviewThread.deleteMany({ where: { sessionId } }),
     prisma.interviewQuestion.deleteMany({ where: { id: { in: threads.flatMap((thread) => (thread.questionId ? [thread.questionId] : [])) } } }),
-    prisma.mockInterviewSession.update({ where: { id: session.id }, data: { questionCount: 0, hypothesesJson: null } }),
+    prisma.mockInterviewSession.update({ where: { id: sessionId }, data: { questionCount: 0, hypothesesJson: null } }),
   ]);
-  return ensureSegments(sessionId);
+  const { count, questionIds } = await segmentAndPersist(sessionId);
+  for (const id of questionIds) await evaluatePersistedMockInterviewQuestion(id);
+  return count;
 }
 
 async function persistSegments(sessionId: string, interviewId: string, brief: Awaited<ReturnType<typeof loadForSegmenting>>["brief"], transcript: ReturnType<typeof transcriptOf>, segments: Segment[], hypotheses: HypothesisJudgement[]): Promise<string[]> {
