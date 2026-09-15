@@ -6,14 +6,14 @@ import type { RunFact, SegmentFact, SessionFacts } from "./metrics";
 
 /**
  * 从库里装一场的事实：事件日志 + 分段投影 + 面试官的模型开销。指标只看这三样。
- * 阶段 A 的分段来自旧系统的线程表；阶段 C 起换成整理员的分段，这里是唯一要改的地方。
+ * 分段来自整理员写的线程投影（阶段 C 起）。
  */
 export async function loadSessionFacts(sessionId: string): Promise<SessionFacts> {
   const session = await prisma.mockInterviewSession.findUnique({
     where: { id: sessionId },
     include: {
       events: { orderBy: { seq: "asc" } },
-      threads: { orderBy: { openedAtTurn: "asc" }, include: { messages: { select: { role: true } } } },
+      threads: { orderBy: { startSeq: "asc" } },
     },
   });
   if (!session) throw new Error(`会话 ${sessionId} 不存在`);
@@ -25,7 +25,9 @@ export async function loadSessionFacts(sessionId: string): Promise<SessionFacts>
     areaId: thread.areaId,
     projectId: thread.areaId ? (projectOf.get(thread.areaId) ?? null) : null,
     depth: thread.depth,
-    answered: thread.messages.some((message) => message.role === "candidate"),
+    answered: thread.verdict !== "skipped",
+    startSeq: thread.startSeq,
+    endSeq: thread.endSeq,
   }));
   const runs: RunFact[] = (
     await prisma.agentRun.findMany({

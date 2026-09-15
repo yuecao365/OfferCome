@@ -9,7 +9,7 @@ import { endedBy, transcriptOf, type InterviewEvent, type TranscriptLine } from 
  */
 
 /** 一段问答的事实：种类、对应材料、所属项目、追问轮数。 */
-export type SegmentFact = { kind: "project" | "quick" | "scenario"; areaId: string | null; projectId: string | null; depth: number; answered: boolean };
+export type SegmentFact = { kind: "project" | "quick" | "scenario"; areaId: string | null; projectId: string | null; depth: number; answered: boolean; startSeq: number; endSeq: number };
 
 /** 一次模型调用的开销（AgentRun）。 */
 export type RunFact = { runId: string; durationMs: number; inputTokens: number; cachedTokens: number; outputTokens: number };
@@ -81,17 +81,24 @@ export function repeatedQuestionCount(transcript: TranscriptLine[]): number {
 }
 
 /**
- * 求助之后有没有被换题：面试官的下一句还在原来的段里（旧系统：kind 不是 question；新系统：整理员的分段没有换）。
- * 阶段 A 用 kind 判断。
+ * 求助之后有没有被换题：面试官的下一句还在同一段里（按整理员的分段）。没有分段时按消息 kind 兜底（closing 算换题）。
  */
-export function helpHandling(transcript: TranscriptLine[]): { requests: number; handled: number } {
+export function helpHandling(transcript: TranscriptLine[], segments: SegmentFact[] = []): { requests: number; handled: number } {
+  const segmentOf = (seq: number) => segments.findIndex((segment) => seq >= segment.startSeq && seq <= segment.endSeq);
   let requests = 0;
   let handled = 0;
   for (let index = 0; index < transcript.length; index += 1) {
-    if (!isHelpRequest(transcript[index])) continue;
+    const line = transcript[index];
+    if (!isHelpRequest(line)) continue;
     requests += 1;
-    const next = transcript.slice(index + 1).find((line) => line.role === "interviewer");
-    if (next && next.kind !== "question" && next.kind !== "closing") handled += 1;
+    const next = transcript.slice(index + 1).find((item) => item.role === "interviewer");
+    if (!next || next.kind === "closing") continue;
+    if (segments.length === 0) {
+      if (next.kind !== "question") handled += 1;
+      continue;
+    }
+    const before = segmentOf(line.seq);
+    if (before >= 0 && segmentOf(next.seq) === before) handled += 1;
   }
   return { requests, handled };
 }
@@ -110,7 +117,7 @@ export function sessionMetrics(facts: SessionFacts): SessionMetrics {
   }
   const projectSegments = facts.segments.filter((segment) => segment.kind === "project");
   const scenario = facts.segments.filter((segment) => segment.kind === "scenario");
-  const help = helpHandling(transcript);
+  const help = helpHandling(transcript, facts.segments);
   const input = facts.runs.reduce((sum, run) => sum + run.inputTokens, 0);
   const cached = facts.runs.reduce((sum, run) => sum + run.cachedTokens, 0);
   const output = facts.runs.reduce((sum, run) => sum + run.outputTokens, 0);

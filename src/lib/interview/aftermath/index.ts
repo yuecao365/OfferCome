@@ -1,0 +1,102 @@
+import "server-only";
+
+import { prisma } from "@/lib/db";
+import { parseStoredBrief } from "@/lib/mock-interviews/brief/brief";
+import { scheduleMockInterviewQuestionEvaluation } from "@/lib/mock-interviews/question-evaluation-background";
+import { getAiTaskConfig } from "@/lib/settings/ai";
+
+import { parseEventRow, transcriptOf, type InterviewEvent } from "../events";
+import { segmentTranscript, type Segment } from "./segmenter";
+import { segmentRecord } from "./segments";
+
+/**
+ * 事后流水线的第一步（本地版）：面试结束后把逐字稿切段，写线程投影与兼容题目，安排逐题评分。
+ * 幂等：已有分段的会话直接返回；重切先删旧的（开发工具用）。
+ */
+
+async function loadForSegmenting(sessionId: string) {
+  const session = await prisma.mockInterviewSession.findUnique({
+    where: { id: sessionId },
+    include: { events: { orderBy: { seq: "asc" } }, threads: { select: { id: true } }, interview: { select: { id: true } } },
+  });
+  if (!session) throw new Error("模拟面试不存在。");
+  const brief = parseStoredBrief(session.briefJson);
+  if (!brief) throw new Error("这场面试还没有准备好。");
+  const events = session.events.map(parseEventRow).filter((item): item is InterviewEvent => item !== null);
+  return { session, brief, transcript: transcriptOf(events) };
+}
+
+/** 有分段就不动；没有就切一次并落库。返回段数。 */
+export async function ensureSegments(sessionId: string): Promise<number> {
+  const { session, brief, transcript } = await loadForSegmenting(sessionId);
+  if (session.threads.length > 0) return session.threads.length;
+  if (transcript.length === 0) return 0;
+  const segments = await segmentTranscript({ runId: `segment:${sessionId}`, config: await getAiTaskConfig("text"), transcript, brief });
+  const questionIds = await persistSegments(sessionId, session.interview.id, brief, transcript, segments);
+  for (const id of questionIds) scheduleMockInterviewQuestionEvaluation(id);
+  return segments.length;
+}
+
+/** 重切：删掉旧的分段、兼容题目与评分，再切一次（trace / 调试用）。 */
+export async function resegment(sessionId: string): Promise<number> {
+  const { session } = await loadForSegmenting(sessionId);
+  const threads = await prisma.interviewThread.findMany({ where: { sessionId }, select: { questionId: true } });
+  await prisma.$transaction([
+    prisma.interviewThread.deleteMany({ where: { sessionId } }),
+    prisma.interviewQuestion.deleteMany({ where: { id: { in: threads.flatMap((thread) => (thread.questionId ? [thread.questionId] : [])) } } }),
+    prisma.mockInterviewSession.update({ where: { id: session.id }, data: { questionCount: 0 } }),
+  ]);
+  return ensureSegments(sessionId);
+}
+
+async function persistSegments(sessionId: string, interviewId: string, brief: Awaited<ReturnType<typeof loadForSegmenting>>["brief"], transcript: ReturnType<typeof transcriptOf>, segments: Segment[]): Promise<string[]> {
+  const areas = new Map(brief.areas.map((area) => [area.id, area]));
+  const toEvaluate: string[] = [];
+  await prisma.$transaction(
+    async (tx) => {
+      for (const [index, segment] of segments.entries()) {
+        const probes = transcript.filter((line) => line.role === "interviewer" && line.seq > segment.startSeq && line.seq <= segment.endSeq).map((line) => line.content);
+        const record = segmentRecord(segment.areaId ? (areas.get(segment.areaId) ?? null) : null, segment, probes, brief.round);
+        const question = await tx.interviewQuestion.create({
+          data: {
+            interviewId,
+            question: record.question,
+            answer: record.answer,
+            skippedAt: record.skipped ? new Date() : null,
+            category: record.category,
+            sortOrder: index,
+            evaluation: {
+              create: {
+                sourceKind: record.sourceKind,
+                rubricJson: JSON.stringify(record.rubric),
+                expectedSignalsJson: JSON.stringify(record.expectedSignals),
+                generationMetadataJson: JSON.stringify(record.metadata),
+              },
+            },
+          },
+          select: { id: true },
+        });
+        await tx.interviewThread.create({
+          data: {
+            sessionId,
+            areaId: segment.areaId,
+            kind: segment.kind,
+            label: segment.label,
+            entryQuestion: segment.entryQuestion,
+            status: "closed",
+            depth: segment.depth,
+            verdict: segment.verdict,
+            note: segment.note,
+            startSeq: segment.startSeq,
+            endSeq: segment.endSeq,
+            questionId: question.id,
+          },
+        });
+        if (!record.skipped) toEvaluate.push(question.id);
+      }
+      await tx.mockInterviewSession.update({ where: { id: sessionId }, data: { questionCount: segments.length } });
+    },
+    { maxWait: 20_000, timeout: 60_000 },
+  );
+  return toEvaluate;
+}

@@ -36,6 +36,7 @@ export type TrialJobInput = {
 export type TrialEvaluation = MockInterviewQuestionEvaluation & {
   score: number;
   exemplar: AnswerExemplar | null;
+  lowConfidence?: boolean;
 };
 
 export type TrialEvaluationStatus = "pending" | "running" | "completed" | "failed";

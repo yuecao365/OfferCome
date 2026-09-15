@@ -2,6 +2,7 @@ import "server-only";
 
 import { enqueueCandidateProfileRefresh } from "@/lib/candidate-profile/background";
 import { prisma } from "@/lib/db";
+import { ensureSegments } from "@/lib/interview/aftermath";
 import { parseJsonArray } from "@/lib/json";
 
 import { parseStoredBrief } from "./brief/brief";
@@ -114,7 +115,10 @@ export async function completeMockInterview(
   }
 
   try {
-    const answered = existing.interview.questions.filter(
+    // 先切段（幂等）：逐字稿 → 话题段 → 兼容题目；再等逐题评分收齐。
+    await ensureSegments(sessionId);
+    const segmented = (await loadSession(sessionId))!;
+    const answered = segmented.interview.questions.filter(
       (question) => !question.skippedAt && question.answer?.trim(),
     );
     await collectEvaluations(answered);

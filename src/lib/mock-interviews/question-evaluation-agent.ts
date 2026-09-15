@@ -64,6 +64,9 @@ function systemPrompt(round: string | null): string {
 输出要求：dimension name 逐字使用 rubric 里的名称；evidence 是支持分数的回答原话，gap 写这个维度缺了什么。strengths 的 quote 同样逐字摘自回答。advice 每条对应至少一条 weakness，写练什么。feedback 是给候选人看的一段话，不报分数。提示词版本：${EVALUATION_PROMPT_VERSION}`;
 }
 
+/** 两次采样的总分相差超过这个值算分歧大。 */
+const LOW_CONFIDENCE_GAP = 15;
+
 export async function evaluateMockInterviewQuestion(input: {
   question: string;
   answer: string;
@@ -73,14 +76,14 @@ export async function evaluateMockInterviewQuestion(input: {
   jobDescription: string;
   thread: EvaluationThreadContext | null;
   round: string | null;
-}): Promise<{ evaluation: MockInterviewQuestionEvaluation; score: number; metrics: EvaluationMetrics }> {
+}): Promise<{ evaluation: MockInterviewQuestionEvaluation; score: number; metrics: EvaluationMetrics; secondScore: number | null; lowConfidence: boolean }> {
   const parsed = parseQuestionEvaluationInput(input);
   if (parsed.rubric.length === 0) {
     throw new Error("这道题缺少有效的评分标准。");
   }
   const config = await getAiTaskConfig("text");
   const startedAt = Date.now();
-  const { output, runId } = await runAgent({
+  const sample = () => runAgent({
     agent: "question_evaluation",
     config,
     feature: "AI 模拟面试",
@@ -100,7 +103,11 @@ export async function evaluateMockInterviewQuestion(input: {
       thread: input.thread,
     },
   });
+  // 同段两次采样：第一次的结果作数，第二次只用来看分歧；分歧大标低置信（报告里提示，不改分）。
+  const [{ output, runId }, second] = await Promise.all([sample(), sample().catch(() => null)]);
   const score = computeQuestionScore(parsed.rubric, output.dimensions);
+  const secondScore = second ? computeQuestionScore(parsed.rubric, second.output.dimensions) : null;
+  const lowConfidence = secondScore !== null && Math.abs(secondScore - score) > LOW_CONFIDENCE_GAP;
   const validated = validateQuestionEvaluation(output, parsed.rubric, input.answer, score);
   logAgentRun({
     runId,
@@ -111,7 +118,7 @@ export async function evaluateMockInterviewQuestion(input: {
     model: config.model,
     promptVersion: EVALUATION_PROMPT_VERSION,
     durationMs: Date.now() - startedAt,
-    metrics: { score, ...validated.metrics, weaknessCount: validated.evaluation.weaknesses.length },
+    metrics: { score, ...validated.metrics, weaknessCount: validated.evaluation.weaknesses.length, secondScore: secondScore ?? -1, lowConfidence: lowConfidence ? 1 : 0 },
   });
-  return { ...validated, score };
+  return { ...validated, score, secondScore, lowConfidence };
 }

@@ -20,6 +20,8 @@ export type TurnState = {
   transcript: TranscriptLine[];
   totalMinutes: number;
   phase: TurnPhase;
+  /** 标注器回填的"聊过什么"（材料名，按第一次出现的顺序）；体验版没有标注器，为空。 */
+  covered: string[];
 };
 
 export type CandidateInput = {
@@ -134,7 +136,7 @@ export function runTurn(input: { runId: string; config: AiTaskConfig; state: Tur
     brief: state.brief,
     context: input.context,
     transcript: state.transcript,
-    card: { clock: plan.clock, notebook: state.notebook, opening: state.phase === "opening" },
+    card: { clock: plan.clock, notebook: state.notebook, opening: state.phase === "opening", covered: state.covered },
     candidateContent: candidate?.content ?? null,
   });
   return {

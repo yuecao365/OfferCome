@@ -8,7 +8,9 @@ import { loadSkillPacks } from "@/lib/mock-interviews/skills/loader";
 import { packsForInterview } from "@/lib/mock-interviews/skills/selector";
 import { getAiTaskConfig } from "@/lib/settings/ai";
 
+import { scheduleLabeling } from "./background";
 import { appendEvents, parseEventRow, transcriptOf, type InterviewEvent } from "./events";
+import { coveredMaterials } from "./labeler";
 import { runTurn, type CandidateInput, type TurnResult, type TurnState } from "./turn";
 import type { ConversationMessage, TurnPayload } from "./views";
 
@@ -36,12 +38,14 @@ function turnState(loaded: Loaded): TurnState {
   if (!brief) throw new Error("这场面试还没有准备好。");
   const events = loaded.events.map(parseEventRow).filter((item): item is InterviewEvent => item !== null);
   const transcript = transcriptOf(events);
+  const names = new Map(brief.areas.map((area) => [area.id, area.name]));
   return {
     brief,
     notebook: loaded.notebook,
     transcript,
     totalMinutes: loaded.durationMinutes,
     phase: loaded.status !== "in_progress" ? "ended" : transcript.length === 0 ? "opening" : "running",
+    covered: coveredMaterials(events).map((id) => names.get(id) ?? id),
   };
 }
 
@@ -89,7 +93,8 @@ export async function startTurn(input: { sessionId: string; candidate: Candidate
     finalize: async () => {
       const result = await run.finalize();
       const newMessages = await persistTurn(loaded, turnIndex, input.candidate, result);
-      return { newMessages, phase: result.phase, clock: result.clock, endedBy: result.endedBy };
+      if (result.phase !== "ended") scheduleLabeling(input.sessionId);
+      return { newMessages, phase: result.phase, clock: result.clock, endedBy: result.endedBy, coveredCount: state.covered.length };
     },
   };
 }

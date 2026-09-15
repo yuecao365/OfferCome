@@ -128,6 +128,8 @@ export type MockInterviewView = {
       weaknesses: EvaluationWeakness[];
       advice: string[];
       feedback: string;
+      /** 同段两次采样分歧大：报告里标"评分置信度低"。 */
+      lowConfidence?: boolean;
       exemplar: AnswerExemplar | null;
     };
   }[];

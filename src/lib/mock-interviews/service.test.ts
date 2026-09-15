@@ -81,6 +81,8 @@ mock.module("@/lib/interview/policy", {
   },
 });
 
+mock.module("@/lib/interview/background", { namedExports: { scheduleLabeling: () => {} } });
+
 mock.module("./question-evaluation-background", {
   namedExports: {
     scheduleMockInterviewQuestionEvaluation: () => {},

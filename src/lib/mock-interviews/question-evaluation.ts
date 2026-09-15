@@ -79,7 +79,7 @@ export function quoteInAnswer(answer: string, quote: string | null): boolean {
 }
 
 /**
- * 维度名与评分表逐一对应（缺的补 0、多的丢）；不在回答里的引用置空并计数；
+ * 维度名与评分表逐一对应（缺的补 0、多的丢）；引用不在回答里的条目丢掉并计数；
  * 低分而无短板计数。计数进 AgentRun 指标，之后评测直接读。
  */
 export function validateQuestionEvaluation(
@@ -95,16 +95,17 @@ export function validateQuestionEvaluation(
     seen.add(dimension.name);
     return true;
   });
+  // 引用硬门：写了引用却不在回答里的条目整条丢掉（结论必须有原话依据），计数进指标。
   let quoteMissing = 0;
-  const withQuote = <T extends { quote: string | null }>(item: T): T => {
-    if (item.quote === null || quoteInAnswer(answer, item.quote)) return item;
+  const cited = <T extends { quote: string | null }>(item: T): boolean => {
+    if (item.quote === null || quoteInAnswer(answer, item.quote)) return true;
     quoteMissing += 1;
-    return { ...item, quote: null };
+    return false;
   };
   const evaluation: MockInterviewQuestionEvaluation = {
     dimensions,
-    strengths: output.strengths.map(withQuote),
-    weaknesses: output.weaknesses.map(withQuote),
+    strengths: output.strengths.filter(cited),
+    weaknesses: output.weaknesses.filter(cited),
     advice: output.advice,
     feedback: output.feedback,
   };

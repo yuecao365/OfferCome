@@ -100,6 +100,8 @@ export async function evaluatePersistedMockInterviewQuestion(interviewQuestionId
         weaknessesJson: JSON.stringify(result.evaluation.weaknesses),
         adviceJson: JSON.stringify(result.evaluation.advice),
         feedback: result.evaluation.feedback,
+        secondScore: result.secondScore,
+        lowConfidence: result.lowConfidence,
         evaluatedAt: new Date(),
       },
     });

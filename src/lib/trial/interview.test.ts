@@ -55,6 +55,7 @@ test("回合结果应用到文档：消息追加、笔记换成最新一份、�
     phase: "running",
     clock,
     endedBy: null,
+    coveredCount: 0,
     notebook: "先听自我介绍，再挑最贴岗位的项目。",
   });
   assert.ok(opened.startedAt);
@@ -68,6 +69,7 @@ test("回合结果应用到文档：消息追加、笔记换成最新一份、�
     phase: "ended",
     clock,
     endedBy: "candidate",
+    coveredCount: 0,
   });
   assert.equal(ended.status, "ready_to_evaluate");
   assert.equal(ended.notebook, opened.notebook, "没带笔记的回合不动笔记");

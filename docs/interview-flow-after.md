@@ -1,6 +1,6 @@
-# 面试后：从线程切段到报告与画像（报告 v2）
+# 面试后：从整理员切段到报告与画像（报告 v2）
 
-> **重建中（2026-09-15）**：面试中已不再实时切段（见 [interview-flow-during.md](interview-flow-during.md)）。这篇描述的是线程切段之后的评分、汇总与画像链路，输入形状不变；切段本身改由事后整理员从逐字稿产出（[interview-refactor-plan.md](interview-refactor-plan.md) 阶段 C），做完后重写 §1。阶段 B 到 C 之间的会话没有分段，报告只有汇总与面试官笔记。
+> 重建后（2026-09-15，阶段 C）：面试中不再实时切段，面试结束后由整理员从逐字稿切段；之后的评分、汇总、画像链路不变。
 
 > 上一篇：[面试中](interview-flow-during.md) · 首篇：[整体流程](interview-flow-overview.md)
 > 代码：`interviewer/segments.ts`（切段）→ `interviewer/session.ts`（写兼容题目、安排评分与交卷）→ `question-evaluation-background.ts` / `question-evaluation-service.ts` / `question-evaluation-agent.ts` / `question-evaluation.ts`（逐段评分）→ `answer-exemplar-agent.ts`（示范回答）→ `completion.ts` + `summary-agent.ts` + `scoring.ts` + `report.ts`（交卷与报告）→ `candidate-profile/`（画像）。
@@ -24,33 +24,17 @@ flowchart TD
 
 三条原则：报告的骨架是面试官的现场判断（线程 note、工作记忆、假设验证）；负面反馈必须落到候选人的原话上，"说错了什么 / 没答上什么"与"练什么"分开；面试一结束报告自动生成，用户不点按钮。
 
-## 1. 线程 → 一段（`segments.threadSegment`）
+## 1. 整理员：逐字稿 → 话题段（`src/lib/interview/aftermath/`）
 
-**定义**：兼容题目是把一条线程压成"题 + 答"的一行 `InterviewQuestion`，让原有的逐题评分、复盘、画像链路不用改就能消费对话式面试。
+**触发**：交卷（`completeMockInterview`）第一步 `ensureSegments`，幂等——已有分段直接返回；`resegment` 删掉旧分段与兼容题目重切（调试用）。体验版在浏览器发起交卷时调 `/api/trial/segment`。
 
-```
-question = 切入问题
-           + "\n追问 1：" + 第 1 条 probe / interrupt 的完整话
-           + "\n追问 2：" + …
-answer   = 该线程内候选人所有 kind=answer 的消息，用空行拼接
-skipped  = 线程状态是 skipped，或 answer 为空
-probeCount = probe + interrupt 消息数
-answerSeconds = 候选人各条回答 composeMs 之和（秒），没有记录为 null
-```
+**一次调用**（`segmenter.ts`，segmenter-v1）：输入带编号的逐字稿（每句 ≤ 700 字）与材料清单（id、种类、名称、建议问法）；输出每段的 `startSeq`（这段第一问的编号）、对应材料 id（临场话题 null）、种类、一句标签、verdict（answered / thin / failed / skipped）、一句判断。规则：一段从面试官进入一个话题的那句开始到下一段开始之前；同一材料的连续追问同一段；候选人的澄清、求助、跑题不开新段；开场与收尾不算段。
 
-写入时（`session.persistTurn`）：
+**代码修复**（`repairSegments`，纯函数）：只认面试官说话的编号、开场那句不算、去重排序、结束编号取下一段开始之前（最后一段到逐字稿末尾）；areaId 只认材料里有的；没有候选人回答的段 verdict 强制 skipped；深度 = 段内面试官发言数 − 1。
 
-| 字段 | 值 |
-|---|---|
-| InterviewQuestion.category | project→resume_project；behavioral→general；technical→technical |
-| InterviewQuestion.answer / skippedAt | 跳过则 answer=null、skippedAt=now |
-| Evaluation.sourceKind | 这个话题的种类（project / quick / scenario） |
-| Evaluation.rubricJson | 该话题的评分表（按种类固定，见面试前一篇；计划外的话题也按种类） |
-| Evaluation.expectedSignalsJson | 该题的期望信号 |
-| Evaluation.generationMetadataJson | `{ areaId, areaName, areaKind, areaStyle, competencyOrigin: jd \| baseline, skillPack, note（面试官关线程时的判断）, depth, probeCount, hinted, verdict（answered / thin / failed / null）, answerSeconds }` |
-| Evaluation.evaluationStatus | pending（跳过的段不调度评分） |
+**落库**（一个事务）：每段一行 `InterviewThread`（areaId、kind、label、entryQuestion、depth、verdict、note、startSeq、endSeq；competencyId / difficulty 阶段 D 起）+ 一行兼容 `InterviewQuestion`（题目 = 第一问 + "追问 n：…"，回答 = 段内候选人的话拼接，skipped = verdict 为 skipped 或没有回答）+ 待评分的 `InterviewQuestionEvaluation`（评分表与期望信号取材料的，没有材料按种类兜底；`generationMetadataJson` = areaId / areaName / areaKind / competencyOrigin / skillPack / note / depth / probeCount / verdict / startSeq / endSeq）。有回答的段安排后台评分。
 
-代码替模型关线程（模型没给可用动作）时 note 是固定的"（由系统推进）"，报告与汇总都不把它当判断（`interviewerNote`）；候选人跳过 / 卡住 / 否定简历时的 note 也由代码固定（"候选人要求跳过""候选人卡住""候选人否认简历所写内容"）。
+**评分的引用硬门与置信**：strengths / weaknesses 里写了引用却不在回答里的条目整条丢掉（不再只是置空）；同一段两次采样，总分相差超过 15 标 `lowConfidence`（报告里提示"仅供参考"，不改分）。
 
 ## 2. 后台逐段评分
 

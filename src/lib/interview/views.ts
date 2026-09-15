@@ -26,9 +26,10 @@ export type Conversation = {
   messages: ConversationMessage[];
   /** 仅已完成的会话带：面试官最后一份笔记，报告页展示"面试官当时的判断"。 */
   notebook: string | null;
+  coveredCount: number;
 };
 
-export function conversationView(input: { brief: InterviewBrief; status: string; startedAt: string | null; totalMinutes: number; notebook: string; messages: ConversationMessage[] }): Conversation {
+export function conversationView(input: { brief: InterviewBrief; status: string; startedAt: string | null; totalMinutes: number; notebook: string; messages: ConversationMessage[]; coveredCount?: number }): Conversation {
   const ended = input.status !== "in_progress";
   return {
     phase: ended ? "ended" : input.messages.length === 0 ? "opening" : "running",
@@ -37,6 +38,7 @@ export function conversationView(input: { brief: InterviewBrief; status: string;
     clock: estimateClock(input.messages, input.totalMinutes),
     messages: input.messages,
     notebook: input.status === "completed" ? input.notebook : null,
+    coveredCount: input.coveredCount ?? 0,
   };
 }
 
@@ -46,6 +48,8 @@ export type TurnPayload = {
   phase: TurnPhase;
   clock: Clock;
   endedBy: TurnResult["endedBy"];
+  /** 标注器认为已经聊过的材料数（房间顶栏的进度提示）。 */
+  coveredCount: number;
 };
 
 /** trace 页的一回合：候选人的话、面试官的话、这回合写的笔记、开销。 */

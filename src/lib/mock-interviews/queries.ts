@@ -42,6 +42,7 @@ function buildEvaluationView(
     })),
     advice: parseArray<string>(evaluation.adviceJson),
     feedback: evaluation.feedback ?? "",
+    lowConfidence: evaluation.lowConfidence,
     exemplar: (parseJsonValue(evaluation.exemplarJson) as AnswerExemplar | null) ?? null,
   };
 }

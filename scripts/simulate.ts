@@ -88,6 +88,18 @@ async function waitReady(base: string, sessionId: string): Promise<void> {
   throw new Error("备课超时");
 }
 
+/** 面试结束后等交卷跑完（切段 + 评分 + 汇总）：覆盖类指标要看整理员的分段。 */
+async function waitCompleted(base: string, sessionId: string, timeoutMs: number): Promise<string> {
+  const deadline = Date.now() + timeoutMs;
+  let status = "";
+  while (Date.now() < deadline) {
+    status = ((await fetch(`${base}/api/interviews/mock/${sessionId}/status`).then((response) => response.json())) as { status: string }).status;
+    if (status === "completed") return status;
+    await new Promise((resolve) => setTimeout(resolve, 4_000));
+  }
+  return status;
+}
+
 async function createSession(base: string, input: { jd: string; resumeDbId: string; pace: string; label: string; tag: string }): Promise<string> {
   const jd = loadJdFixture(input.jd);
   const form = new FormData();
@@ -140,6 +152,8 @@ async function runCase(base: string, item: Case, config: { jd: string; resume: s
       await postTurn(base, sessionId, { clientId: "sim-hardstop", content: "", intent: "end" });
       result.error = "hardstop";
     }
+    const status = await waitCompleted(base, sessionId, 4 * 60_000);
+    if (status !== "completed") console.warn(`  [${item.id}] 交卷还没完成（${status}），覆盖类指标可能不全；之后可用 --recompute 重算。`);
   } catch (error) {
     result.error = error instanceof Error ? error.message : String(error);
     console.error(`  [${item.id}] 失败：${result.error}`);

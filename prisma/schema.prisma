@@ -249,27 +249,30 @@ model MockInterviewMessage {
   @@index([sessionId, turnIndex])
 }
 
-/// 一个话题的线程：面试官进入它到离开它之间的问答。
-/// 离开时写一条 InterviewQuestion 作为兼容层，评分、复盘、画像照旧。
+/// 一段问答（整理员从逐字稿切出来的话题段）：从面试官进入一个话题的那句到下一段开始之前。
+/// 每段写一条 InterviewQuestion 作为兼容层，评分、复盘、画像照旧。
 model InterviewThread {
   id            String               @id @default(cuid())
   sessionId     String
   session       MockInterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  /// 对应计划里的哪一项；计划外的为 null。
-  planItemId    String?
-  /// 对应简报里的哪道材料；没有对应材料的为 null。
+  /// 对应简报里的哪道材料；临场话题为 null。
   areaId        String?
   kind          String               @default("quick")
   label         String               @default("")
+  /// 这段的第一问（面试官进入话题的那句）。
   entryQuestion String
-  status        String               @default("active")
-  /// 进入之后又问了几轮。
+  status        String               @default("closed")
+  /// 第一问之后又问了几轮。
   depth         Int                  @default(0)
-  /// 面试官离开话题时对这段的判断：answered / thin / failed / skipped；没交代就换了话题的为 null。
+  /// 整理员对这段的判断：answered / thin / failed / skipped。
   verdict       String?
-  openedAtTurn  Int
-  closedAtTurn  Int?
   note          String?
+  /// 逐字稿里的起止编号（事件 seq）。
+  startSeq      Int                  @default(0)
+  endSeq        Int                  @default(0)
+  /// 岗位能力与难度层（阶段 D 起由材料带上）。
+  competencyId  String?
+  difficulty    Int?
   questionId    String?              @unique
   messages      MockInterviewMessage[]
   createdAt     DateTime             @default(now())
@@ -297,6 +300,9 @@ model InterviewQuestionEvaluation {
   adviceJson               String?
   exemplarJson             String?
   feedback                 String?
+  /// 同段第二次采样的总分；两次分歧大（> 15）时 lowConfidence 为真，报告里标低置信。
+  secondScore              Int?
+  lowConfidence            Boolean              @default(false)
   evaluatedAt              DateTime?
   createdAt                DateTime             @default(now())
   updatedAt                DateTime             @updatedAt

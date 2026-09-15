@@ -61,10 +61,10 @@ test("一场的指标：覆盖、预算、求助、开销都从事件与分段�
       event("ended", { by: "budget" }),
     ]),
     segments: [
-      { kind: "project", areaId: "p1-overview", projectId: "p1", depth: 2, answered: true },
-      { kind: "project", areaId: "p1-module", projectId: "p1", depth: 0, answered: true },
-      { kind: "quick", areaId: "q1", projectId: null, depth: 1, answered: true },
-      { kind: "scenario", areaId: "s1", projectId: null, depth: 0, answered: false },
+      { kind: "project", areaId: "p1-overview", projectId: "p1", depth: 2, answered: true, startSeq: 2, endSeq: 7 },
+      { kind: "project", areaId: "p1-module", projectId: "p1", depth: 0, answered: true, startSeq: 8, endSeq: 9 },
+      { kind: "quick", areaId: "q1", projectId: null, depth: 1, answered: true, startSeq: 10, endSeq: 11 },
+      { kind: "scenario", areaId: "s1", projectId: null, depth: 0, answered: false, startSeq: 12, endSeq: 13 },
     ] satisfies SegmentFact[],
     runs: [
       { runId: "r1", durationMs: 1000, inputTokens: 10_000, cachedTokens: 8_000, outputTokens: 300 },

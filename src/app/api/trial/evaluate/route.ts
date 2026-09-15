@@ -30,7 +30,7 @@ export const POST = withTrialAi<Body>(async (body) => {
   const metadata = body.segment.metadata;
   const answer = body.segment.answer?.trim();
   if (!answer || body.segment.skipped) throw new Error("题目没有可评分的回答。");
-  const { evaluation, score } = await evaluateMockInterviewQuestion({
+  const { evaluation, score, lowConfidence } = await evaluateMockInterviewQuestion({
     question: body.segment.question,
     answer,
     rubric: body.segment.rubric,
@@ -65,6 +65,6 @@ export const POST = withTrialAi<Body>(async (body) => {
       console.error("示范回答生成失败，评分照常。", error);
     }
   }
-  const result: TrialEvaluation = { ...evaluation, score, exemplar };
+  const result: TrialEvaluation = { ...evaluation, score, exemplar, lowConfidence };
   return { evaluation: result };
 });

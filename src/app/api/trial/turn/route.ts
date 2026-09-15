@@ -39,6 +39,7 @@ export const POST = withTrialAiResponse<Body>(async (body) => {
     transcript: messages.map((message, seq) => ({ seq, role: message.role, content: message.content, kind: message.role === "interviewer" ? message.kind : null, control: null })),
     totalMinutes: body.state.totalMinutes,
     phase: messages.length === 0 ? "opening" : "running",
+    covered: [],
   };
   try {
     const run = runTurn({
@@ -59,6 +60,7 @@ export const POST = withTrialAiResponse<Body>(async (body) => {
           phase: result.phase,
           clock: result.clock,
           endedBy: result.endedBy,
+          coveredCount: 0,
           notebook: result.notebook,
         };
       },

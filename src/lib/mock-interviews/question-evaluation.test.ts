@@ -39,13 +39,11 @@ test("parses only valid rubric and expected signal inputs", () => {
   assert.deepEqual(parsed.expectedSignals, ["说明边界"]);
 });
 
-test("keeps only rubric dimensions and blanks quotes that are not in the answer", () => {
+test("keeps only rubric dimensions and drops findings whose quote is not in the answer", () => {
   const { evaluation, metrics } = validateQuestionEvaluation(output, [{ name: "技术正确性" }], answer, 80);
   assert.deepEqual(evaluation.dimensions.map((item) => item.name), ["技术正确性"]);
-  assert.equal(evaluation.strengths[0].quote, "上下文构建、LLM 推理、工具调用");
-  assert.equal(evaluation.strengths[1].quote, null);
-  assert.equal(evaluation.weaknesses[0].quote, "最多重试两次");
-  assert.equal(evaluation.weaknesses[1].quote, null);
+  assert.deepEqual(evaluation.strengths.map((item) => item.quote), ["上下文构建、LLM 推理、工具调用"]);
+  assert.deepEqual(evaluation.weaknesses.map((item) => item.quote), ["最多重试两次", null]);
   assert.deepEqual(metrics, { quoteMissing: 1, unexplainedLowScore: 0 });
 });
 

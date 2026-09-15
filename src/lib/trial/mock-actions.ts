@@ -19,8 +19,7 @@ import {
   parseJobDescriptionFile,
   requestBlueprint,
   requestBrief,
-  requestReport,
-} from "./client";
+  requestReport, requestSegments } from "./client";
 import {
   applyTurnPayload,
   completeTrialInterview,
@@ -226,6 +225,11 @@ export async function completeTrialMockSession(id: string): Promise<void> {
   if (interview.status !== "ready_to_evaluate" && interview.status !== "evaluating") throw new Error("面试还没有结束。");
   mutateTrialInterview(id, (current) => withStatus(current, "evaluating"));
   try {
+    // 先切段（幂等）：没有分段的会话让整理员从逐字稿切一次。
+    if (interview.questions.length === 0 && interview.brief) {
+      const segments = await requestSegments({ brief: interview.brief, messages: interview.messages, round: interview.round });
+      mutateTrialInterview(id, (current) => ({ ...current, questions: segments }));
+    }
     // 在途的评分等它跑完；失败与还没开始的当场补跑。
     while (requireInterview(id).questions.some((segment) => segment.evaluationStatus === "running")) {
       await new Promise((resolve) => setTimeout(resolve, 500));

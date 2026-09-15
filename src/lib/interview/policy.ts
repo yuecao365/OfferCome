@@ -143,14 +143,15 @@ ${context.resumeText.slice(0, MAX_RESUME_CHARS)}
 提示词版本：${POLICY_PROMPT_VERSION}`;
 }
 
-export type StateCard = { clock: Clock; notebook: string; opening: boolean };
+export type StateCard = { clock: Clock; notebook: string; opening: boolean; covered: string[] };
 
 /** 现场卡 + 候选人的话：最后一条用户消息。 */
 export function renderTurnMessage(card: StateCard, candidateContent: string | null): string {
   const notebook = card.notebook.trim() ? card.notebook.trim() : "（还没有笔记：这回合先写一份——打算聊哪些、各花多久。）";
+  const covered = card.covered.length > 0 ? `\n已经聊过的材料（不要再问）：${card.covered.join("、")}` : "";
   const opening = card.opening ? "\n还没开场：先问候，请候选人用一两分钟介绍与这个岗位相关的经历，不要问别的。" : "";
   const said = candidateContent?.trim() ? candidateContent.trim() : card.opening ? "（候选人已就座，请开场。）" : "（候选人没有说话。）";
-  return `[现场卡]\n${renderClock(card.clock)}\n你上一回合的笔记：\n${notebook}${opening}\n\n候选人说：\n${said}`;
+  return `[现场卡]\n${renderClock(card.clock)}\n你上一回合的笔记：\n${notebook}${covered}${opening}\n\n候选人说：\n${said}`;
 }
 
 /** 对话历史：双方说过的话，只追加；超上限才从最旧的整条丢（最后两条不丢）。 */

@@ -128,6 +128,7 @@ function Teaching({ question }: { question: Question }) {
 function Evaluation({ evaluation }: { evaluation: NonNullable<Question["evaluation"]> }) {
   return (
     <div className="mt-3 grid gap-3">
+      {evaluation.lowConfidence ? <Badge tone="neutral">两次评分分歧较大，这段分数仅供参考</Badge> : null}
       <p className="text-sm leading-6 text-muted-foreground">{evaluation.feedback}</p>
       <QuestionDimensionScores dimensions={evaluation.dimensions} />
       {evaluation.strengths.length > 0 || evaluation.weaknesses.length > 0 ? (
