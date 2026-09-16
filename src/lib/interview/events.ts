@@ -60,7 +60,7 @@ export const eventPayloadSchemas = {
     /** 从面试官上一句到候选人发送的毫秒数；不知道为 null。 */
     composeMs: z.number().int().nonnegative().nullable(),
   }),
-  /** 面试官说了一句；kind 是这句在流程里的角色（开场 / 提问 / 追问 / 答疑 / 收尾），旧系统的记账口径。 */
+  /** 面试官说了一句；kind：say（提问 / 追问）、aside（答疑：把题说具体，不占预算）、closing、fallback（代码接的话）。 */
   interviewer_said: said.extend({
     kind: z.string(),
     /** 这句聊哪份材料（材料 id，代码指派；F1–F2 是模型自报）；开场、告别为 null；旧事件没有。 */
@@ -71,7 +71,7 @@ export const eventPayloadSchemas = {
     doneFacet: z.number().int().nullable().optional(),
   }),
   /** 代码给这回合的建议：继续 / 换题 / 收尾，附一句理由（decide.ts）。 */
-  move_decided: z.object({ move: z.enum(["continue", "switch", "close"]), reason: z.string(), next: z.string().optional() }),
+  move_decided: z.object({ move: z.enum(["continue", "clarify", "switch", "close"]), reason: z.string(), next: z.string().optional() }),
   /** 面试官的笔记（新系统：每回合整份重写）。 */
   notebook_written: z.object({ text: z.string() }),
   /** 面试官查了资料（技能包 / 简历段落）。 */

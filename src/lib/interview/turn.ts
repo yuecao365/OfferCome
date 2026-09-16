@@ -107,7 +107,8 @@ export function buildCard(state: TurnState, progress: Progress, decision: Decisi
 
 type Spoken = {
   say: string;
-  kind: "say" | "closing" | "fallback";
+  /** aside = 答疑（决策 clarify）：不占材料预算，不算追问。 */
+  kind: "say" | "aside" | "closing" | "fallback";
   /** 这句问的材料与角度（代码指派）。 */
   target: Target;
   /** 模型说候选人刚才那段讲透了的角度（当前材料上），没有为 null。 */
@@ -176,7 +177,7 @@ export function speak(state: TurnState, decision: Decision, output: PolicyOutput
     const area = areaToAsk(state.brief, state.transcript, decision);
     return fixedSpoken(area?.entryQuestion ?? FALLBACK_SPEECH.switch, "say", { target: area ? { topic: area.id, facet: null } : null, notebook, guard, original: say, runId });
   }
-  return { say, kind: "say", target: opening ? null : target, doneFacet: opening ? null : doneFacet, notebook, failed: false, guard: null, original: null, runId, endedBy: null };
+  return { say, kind: decision.move === "clarify" ? "aside" : "say", target: opening ? null : target, doneFacet: opening ? null : doneFacet, notebook, failed: false, guard: null, original: null, runId, endedBy: null };
 }
 
 export type TurnRun = {

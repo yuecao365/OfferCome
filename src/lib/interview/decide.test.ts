@@ -55,7 +55,7 @@ test("项目：切入答完进第一个角度（无条件）；追问回合给�
   assert.match(last.reason, /换到下一份材料「Study Assistant：模块深挖」（p1-module）/);
 });
 
-test("预算用完、跳过、连续两次答不上都无条件换到下一份；求助与第一次答不上还是这个角度；最后一份聊完就收尾", () => {
+test("预算用完、跳过、连续两次答不上都无条件换到下一份；求助与第一次答不上是答疑（先于预算、不换题）；最后一份聊完就收尾", () => {
   const spent = decide([ask("p1-overview"), say("a"), ask("p1-overview", 0), say("b"), ask("p1-overview", 1), say("c"), ask("p1-overview", 0), say("d")]);
   assert.equal(spent.move, "switch");
   assert.deepEqual(spent.target, { topic: "p1-module", facet: null });
@@ -66,12 +66,17 @@ test("预算用完、跳过、连续两次答不上都无条件换到下一份�
   assert.deepEqual(twice.target, { topic: "q2", facet: null });
   assert.match(twice.reason, /连续两次答不上/);
   const once = decide([ask("q1"), say("我不会")]);
-  assert.equal(once.move, "continue");
+  assert.equal(once.move, "clarify");
   assert.deepEqual(once.target, { topic: "q1", facet: null });
   assert.match(once.reason, /降一层再问一次/);
   const help = decide([ask("q1", 0), say("能具体一点吗？")]);
+  assert.equal(help.move, "clarify");
   assert.deepEqual(help.target, { topic: "q1", facet: 0 });
-  assert.match(help.reason, /把题说具体，还是这个角度，不换题/);
+  assert.match(help.reason, /把上一句问的题说具体，还是这个角度，不换题/);
+  // 预算刚用完时说"什么意思"：答疑，不换题（2026-09-16 实测的失败）。
+  const spentHelp = decide([ask("q1"), say("a"), ask("q1", 0), say("什么意思？")]);
+  assert.equal(spentHelp.move, "clarify");
+  assert.deepEqual(spentHelp.target, { topic: "q1", facet: 0 });
   const closing = decide([ask("s1"), say("a"), ask("s1", 0), say("b"), ask("s1", 1), say("c")]);
   assert.equal(closing.move, "close");
   assert.equal(closing.target, null);

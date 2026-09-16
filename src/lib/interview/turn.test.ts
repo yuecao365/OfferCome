@@ -91,6 +91,9 @@ test("材料与角度由代码指派：模型说讲透了就按决策的另一�
   const ignored = speak(running, { move: "continue", reason: "", target: { topic: "p1-overview", facet: 0 } }, out("再问一句？", { facetDone: true }), "r");
   assert.deepEqual(ignored.target, { topic: "p1-overview", facet: 0 }, "决策没问模型的判断时 facetDone 不起作用");
   assert.equal(speak(state(), go, out("你好，先介绍一下。"), "r").target, null);
+  const aside = speak(running, { move: "clarify", reason: "答疑", target: { topic: "p1-overview", facet: null } }, out("我换个说法：你负责的那段主循环，输入是什么？"), "r");
+  assert.equal(aside.kind, "aside");
+  assert.deepEqual(aside.target, { topic: "p1-overview", facet: null });
 });
 
 test("底线：与前面某句几乎一样的不认；换材料的回合还像原材料切入问法的不认——都改问决策指的材料并记原话", () => {

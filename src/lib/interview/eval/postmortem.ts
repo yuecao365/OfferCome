@@ -47,13 +47,13 @@ export function postmortem(input: { events: InterviewEvent[]; brief: InterviewBr
   const askedOn = new Map<string, number>();
   const said: TranscriptLine[] = [];
   for (const item of input.events) {
-    if (item.type !== "interviewer_said" || item.payload.kind !== "say") continue;
+    if (item.type !== "interviewer_said" || (item.payload.kind !== "say" && item.payload.kind !== "aside")) continue;
     const line = transcript.find((entry) => entry.seq === item.seq);
     if (!line) continue;
     const before = transcript.filter((entry) => entry.seq < item.seq);
     if (said.some((prior) => questionSimilarity(prior.content, line.content) >= REPEAT_SIMILARITY)) violations.push({ seq: item.seq, rule: "repeat", text: line.content });
     if ((line.content.match(/[？?]/g) ?? []).length >= 2) violations.push({ seq: item.seq, rule: "multi_ask", text: line.content });
-    if (line.topic) {
+    if (line.topic && line.kind === "say") {
       const asked = (askedOn.get(line.topic) ?? 0) + 1;
       askedOn.set(line.topic, asked);
       if (asked > (budgets.get(line.topic) ?? Infinity)) violations.push({ seq: item.seq, rule: "over_budget", text: line.content });

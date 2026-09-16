@@ -11,7 +11,8 @@ export { coveredIds, currentTopic } from "./progress";
  * 讲透与没讲透两种情况下该问什么都在决策里写好，模型只是选一边并措辞。纯函数，可重放。
  */
 
-export type Move = "continue" | "switch" | "close";
+/** clarify：答疑——换个说法把题说具体（候选人求助或第一次答不上），不占材料预算。 */
+export type Move = "continue" | "clarify" | "switch" | "close";
 
 /** 这句问什么：哪份材料、哪个角度（切入为 null）；close 为 null。 */
 export type Target = { topic: string; facet: number | null } | null;
@@ -25,7 +26,7 @@ export type Decision = {
   ifDone?: Target;
 };
 
-export const MOVE_LABELS: Record<Move, string> = { continue: "继续", switch: "换题", close: "收尾" };
+export const MOVE_LABELS: Record<Move, string> = { continue: "继续", clarify: "答疑", switch: "换题", close: "收尾" };
 
 /** 候选人最近连续答不上了几次（隔着面试官的话不算断；不按话题分，模型误报材料也照数——F2 冒烟里一次误报就让"两次答不上换题"没触发）。 */
 export function trailingDontKnows(transcript: TranscriptLine[]): number {
@@ -56,12 +57,13 @@ export function decideMove(input: { brief: InterviewBrief; transcript: Transcrip
   const last = transcript.at(-1);
   const reply = last?.role === "candidate" ? classifyReply(last) : "normal";
   const area = areaOf(progress.current.id)!;
+  const here: Target = { topic: area.id, facet: progress.facet };
   if (reply === "skip") return switchTo("候选人要求跳过");
   if (reply === "dont_know" && trailingDontKnows(transcript) >= 2) return switchTo("候选人连续两次答不上，不纠缠");
+  // 答疑先于预算（2026-09-16 用户实测：预算刚用完时说"什么意思"，被直接换到下一题），答疑不占预算。
+  if (reply === "help") return { move: "clarify", reason: "候选人要求具体或没听懂：换个说法把上一句问的题说具体，还是这个角度，不换题、不追新的点", target: here };
+  if (reply === "dont_know") return { move: "clarify", reason: "候选人答不上：把上一句问的题说具体或降一层再问一次，还是这个角度；再答不上就换", target: here };
   if (progress.budgetLeft <= 0) return switchTo("这份材料的预算用完了");
-  const here: Target = { topic: area.id, facet: progress.facet };
-  if (reply === "help") return { move: "continue", reason: "候选人要求具体或没听懂：换个说法把题说具体，还是这个角度，不换题", target: here };
-  if (reply === "dont_know") return { move: "continue", reason: "候选人答不上：把题说具体或降一层再问一次，还是这个角度；再答不上就换", target: here };
 
   const nextFacet = pickFacet(area, progress, `${input.seed}:${area.id}:${progress.asked}`);
   const after: Target = nextFacet !== null ? { topic: area.id, facet: nextFacet } : entryOf(next);

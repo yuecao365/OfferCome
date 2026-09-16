@@ -42,6 +42,8 @@ test("进度：当前材料、已问几句、预算余量、每个角度追了�
   assert.equal(mid.quota, 6);
   assert.equal(mid.asked, 4);
   assert.equal(mid.budgetLeft, 0);
+  const aside: TranscriptLine = { seq: 99, role: "interviewer", content: "我把题说具体一点。", kind: "aside", control: null, topic: "p1-overview", facet: 0, doneFacet: null };
+  assert.equal(progressOf(plan, [ask("p1-overview"), say(), aside, say()]).asked, 1, "答疑不占预算");
   assert.equal(mid.facet, 0);
   assert.deepEqual(mid.facetProbes, { 1: 2, 0: 1 });
   assert.deepEqual(mid.doneFacets, [1]);

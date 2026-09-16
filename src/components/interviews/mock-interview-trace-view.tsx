@@ -16,6 +16,7 @@ import type { MockInterviewTrace } from "@/lib/mock-interviews/types";
 
 const KIND_LABELS: Record<string, string> = {
   say: "说话",
+  aside: "答疑",
   closing: "收尾",
   fallback: "代码接话",
   answer: "回答",

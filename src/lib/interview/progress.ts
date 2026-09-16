@@ -84,7 +84,8 @@ export function progressOf(plan: Plan, transcript: TranscriptLine[]): Progress {
   const topic = currentTopic(transcript);
   const index = topic ? plan.findIndex((item) => item.id === topic) : -1;
   const current = index >= 0 ? plan[index] : null;
-  const lines = current ? transcript.filter((line) => line.role === "interviewer" && line.topic === current.id && line.kind !== "closing") : [];
+  // 只有提问 / 追问（kind say，含底线替换的那句）占预算；答疑（aside）与告别不占。
+  const lines = current ? transcript.filter((line) => line.role === "interviewer" && line.topic === current.id && line.kind === "say") : [];
   const facetProbes: Record<number, number> = {};
   const doneFacets: number[] = [];
   let facet: number | null = null;
