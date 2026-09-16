@@ -14,8 +14,10 @@ export const maxDuration = 60;
 const MAX_CONTENT_LENGTH = 20_000;
 
 type Body = {
-  state: { brief: InterviewBrief; notebook: string; totalMinutes: number; messages: ConversationMessage[] };
+  state: { brief: InterviewBrief; notebook: string; messages: ConversationMessage[] };
   context: { jobTitle: string; jobDescription: string; resumeText: string };
+  /** 随机种子（会话 id）：抽追问角度用。 */
+  seed?: string;
   /** null = 开场回合。 */
   candidate: { content: string; intent: string | null; composeMs: number | null } | null;
 };
@@ -35,11 +37,10 @@ export const POST = withTrialAiResponse<Body>(async (body) => {
   const state: TurnState = {
     brief: body.state.brief,
     notebook: typeof body.state.notebook === "string" ? body.state.notebook : "",
-    transcript: messages.map((message, seq) => ({ seq, role: message.role, content: message.content, kind: message.role === "interviewer" ? message.kind : null, control: null, topic: message.role === "interviewer" ? (message.topic ?? null) : null })),
-    totalMinutes: body.state.totalMinutes,
+    transcript: messages.map((message, seq) => ({ seq, role: message.role, content: message.content, kind: message.role === "interviewer" ? message.kind : null, control: null, topic: message.role === "interviewer" ? (message.topic ?? null) : null, facet: message.facet ?? null, doneFacet: message.doneFacet ?? null })),
     phase: messages.length === 0 ? "opening" : "running",
     variant: policyVariant(null),
-    realTime: false,
+    seed: typeof body.seed === "string" ? body.seed : "trial",
   };
   try {
     const run = runTurn({
@@ -47,7 +48,7 @@ export const POST = withTrialAiResponse<Body>(async (body) => {
       config: await getAiTaskConfig("text"),
       state,
       candidate: body.candidate ? { clientId: null, content: content || (control ? CONTROL_PLACEHOLDERS[control] : ""), control, composeMs: body.candidate.composeMs ?? null } : null,
-      context: { ...body.context, totalMinutes: body.state.totalMinutes },
+      context: body.context,
     });
     const turnIndex = messages.filter((message) => message.role === "interviewer").length;
     return turnResponse({
@@ -56,11 +57,11 @@ export const POST = withTrialAiResponse<Body>(async (body) => {
       finalize: async () => {
         const result = await run.finalize();
         return {
-          newMessages: result.said.map((line) => ({ id: crypto.randomUUID(), turnIndex, role: line.role, kind: line.kind, content: line.content, topic: line.topic ?? null })),
+          newMessages: result.said.map((line) => ({ id: crypto.randomUUID(), turnIndex, role: line.role, kind: line.kind, content: line.content, topic: line.topic ?? null, facet: line.facet ?? null, doneFacet: line.doneFacet ?? null })),
           phase: result.phase,
-          clock: result.clock,
+          progress: result.progress,
           endedBy: result.endedBy,
-          coveredCount: 0,
+          coveredCount: result.progress.covered,
           notebook: result.notebook,
         };
       },

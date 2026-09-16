@@ -3,7 +3,6 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 
 import { prisma } from "@/lib/db";
-import { DURATION_MINUTES } from "@/lib/interview/clock";
 import { fillFlags } from "@/lib/interview/flags";
 import type { InterviewMemory } from "@/lib/interview/memory";
 import { recallCandidateMemory } from "@/lib/interview/memory-recall";
@@ -129,7 +128,6 @@ async function persistBrief(
         }),
         briefJson: JSON.stringify(brief),
         notebook: "",
-        durationMinutes: DURATION_MINUTES[session.pace],
         // 灰度：按会话 id 分桶定这场的策略变体与影子；模拟器先写好的不覆盖。
         flagsJson: fillFlags(current?.flagsJson, { policy: assignVariant(rolloutConfig(), session.id), shadow: rolloutConfig().shadow }),
         status: ready ? "in_progress" : "generation_failed",

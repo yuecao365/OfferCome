@@ -2,7 +2,6 @@
 
 import type { RecentWeakness } from "@/lib/mock-interviews/context";
 import { isInterviewPace, type InterviewBrief } from "@/lib/mock-interviews/brief/brief";
-import { DURATION_MINUTES } from "@/lib/interview/clock";
 import type { TurnPayload } from "@/lib/interview/views";
 
 import {
@@ -119,7 +118,6 @@ export async function createTrialMockSession(formData: FormData, resume: TrialRe
     resume,
     round: field(formData, "round") || null,
     pace: isInterviewPace(pace) ? pace : "standard",
-    totalMinutes: DURATION_MINUTES[isInterviewPace(pace) ? pace : "standard"],
   });
   writeTrialInterview(interview);
   void runGeneration(interview.id, field(formData, "seedQuestionId") || null);
@@ -173,7 +171,7 @@ export function createTrialChatTransport(id: string) {
     readState: () => {
       const current = requireInterview(id);
       if (!current.brief) throw new Error("这场面试还没有准备好。");
-      return { brief: current.brief, notebook: current.notebook, totalMinutes: current.totalMinutes, messages: current.messages };
+      return { brief: current.brief, notebook: current.notebook, messages: current.messages };
     },
     context: {
       jobTitle: interview.job.jobTitle,

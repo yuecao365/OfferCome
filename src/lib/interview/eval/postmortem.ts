@@ -2,6 +2,7 @@ import type { InterviewBrief } from "@/lib/mock-interviews/brief/brief";
 import { questionSimilarity } from "@/lib/text/similarity";
 
 import { currentTopic, trailingDontKnows } from "../decide";
+import { planQuota } from "../progress";
 import { classifyReply, transcriptOf, type InterviewEvent, type ReplyKind, type TranscriptLine } from "../events";
 
 /**
@@ -9,7 +10,7 @@ import { classifyReply, transcriptOf, type InterviewEvent, type ReplyKind, type 
  * 底线触发次数，再拼一句归因。真实场次的失败先在这里露出来，进失败清单（docs/interview-failures.md），再回灌模拟器。零模型调用。
  */
 
-export type ViolationRule = "repeat" | "multi_ask" | "asked_after_time" | "stuck_after_dont_know";
+export type ViolationRule = "repeat" | "multi_ask" | "over_budget" | "stuck_after_dont_know";
 
 export type Postmortem = {
   /** 备课备好了没（占位蓝图 / 兜底简报 = 没备好）。 */
@@ -26,7 +27,7 @@ export type Postmortem = {
 export const VIOLATION_LABELS: Record<ViolationRule, string> = {
   repeat: "同一题重复问",
   multi_ask: "一句多问",
-  asked_after_time: "时间到了还在问",
+  over_budget: "预算用完还在问",
   stuck_after_dont_know: "两次答不上还没换题",
 };
 
@@ -42,22 +43,21 @@ export function postmortem(input: { events: InterviewEvent[]; brief: InterviewBr
     if (line.content.length > LONG_ANSWER_CHARS) replies.long += 1;
   }
   const violations: Postmortem["violations"] = [];
-  let usedMinutes = 0;
-  let totalMinutes = Infinity;
+  const budgets = new Map((input.brief ? planQuota(input.brief) : []).map((item) => [item.id, item.budget]));
+  const askedOn = new Map<string, number>();
   const said: TranscriptLine[] = [];
   for (const item of input.events) {
-    if (item.type === "clock_tick") {
-      usedMinutes = item.payload.usedMinutes;
-      totalMinutes = item.payload.totalMinutes;
-      continue;
-    }
     if (item.type !== "interviewer_said" || item.payload.kind !== "say") continue;
     const line = transcript.find((entry) => entry.seq === item.seq);
     if (!line) continue;
     const before = transcript.filter((entry) => entry.seq < item.seq);
     if (said.some((prior) => questionSimilarity(prior.content, line.content) >= REPEAT_SIMILARITY)) violations.push({ seq: item.seq, rule: "repeat", text: line.content });
     if ((line.content.match(/[？?]/g) ?? []).length >= 2) violations.push({ seq: item.seq, rule: "multi_ask", text: line.content });
-    if (usedMinutes >= totalMinutes) violations.push({ seq: item.seq, rule: "asked_after_time", text: line.content });
+    if (line.topic) {
+      const asked = (askedOn.get(line.topic) ?? 0) + 1;
+      askedOn.set(line.topic, asked);
+      if (asked > (budgets.get(line.topic) ?? Infinity)) violations.push({ seq: item.seq, rule: "over_budget", text: line.content });
+    }
     const previous = currentTopic(before);
     if (trailingDontKnows(before) >= 2 && previous !== null && (line.topic ?? previous) === previous) violations.push({ seq: item.seq, rule: "stuck_after_dont_know", text: line.content });
     said.push(line);

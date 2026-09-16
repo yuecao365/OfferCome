@@ -2,16 +2,17 @@ import type { AiTaskConfig } from "@/lib/ai/config";
 import type { InterviewBrief } from "@/lib/mock-interviews/brief/brief";
 import { questionSimilarity } from "@/lib/text/similarity";
 
-import { estimateClock, realTimeClock, type Clock } from "./clock";
-import { areaToAsk, currentTopic, decideMove, type Decision } from "./decide";
+import { areaToAsk, currentTopic, decideMove, type Decision, type Target } from "./decide";
 import { event, type CandidateControl, type NewEvent, type TranscriptLine } from "./events";
 import { FALLBACK_SPEECH, runPolicy, type PolicyContext, type PolicyOutput, type StateCard } from "./policy";
+import { planQuota, progressOf, type Progress, type ProgressSummary } from "./progress";
 import type { PolicyVariant } from "./variants";
 
 /**
  * 一个回合的核心（纯逻辑 + 一次策略调用）。本地版由编排器装状态、落库；体验版由无状态接口装状态、
- * 把结果交回浏览器。代码守的：时间盒、候选人的结束按钮、这回合的决策（decide.ts）、模型没说出话时接一句、
+ * 把结果交回浏览器。代码守的：覆盖配额（progress.ts）、候选人的结束按钮、这回合的决策（decide.ts）、模型没说出话时接一句、
  * 几条底线（泄露内部词、过早的告别、重复提问、该换题没换：都改问下一份材料的切入问法）、每一步记事件。
+ * 这句聊哪份材料、哪个角度由代码指派（写进 interviewer_said），模型不自报。
  */
 
 export type TurnPhase = "opening" | "running" | "ended";
@@ -20,20 +21,14 @@ export type TurnState = {
   brief: InterviewBrief;
   /** 面试官上一回合写的笔记（最新一份）。 */
   notebook: string;
-  /** 双方说过的话（逐字稿投影，面试官的句子带自报的材料 id）。 */
+  /** 双方说过的话（逐字稿投影，面试官的句子带代码指派的材料 id 与角度）。 */
   transcript: TranscriptLine[];
-  totalMinutes: number;
   phase: TurnPhase;
   /** 这场面试官用的策略变体（灰度分到的）；体验版用默认。 */
   variant: PolicyVariant;
-  /** 语音模式：时钟按真实作答时间；文字模式按字数折算。 */
-  realTime: boolean;
+  /** 随机种子（会话 id）：抽追问角度用，同一场重放结果一样。 */
+  seed: string;
 };
-
-/** 这场的时钟：语音按真实作答时间，文字按字数折算。 */
-export function clockFor(state: Pick<TurnState, "totalMinutes" | "realTime">, transcript: TranscriptLine[]): Clock {
-  return state.realTime ? realTimeClock(transcript, state.totalMinutes) : estimateClock(transcript, state.totalMinutes);
-}
 
 export type CandidateInput = {
   clientId: string | null;
@@ -44,12 +39,12 @@ export type CandidateInput = {
 
 export type EndedBy = "interviewer" | "candidate" | "budget" | "breaker";
 
-/** 回合的结果：要写的事件、逐字稿新增的几句、新笔记、时钟、阶段。 */
+/** 回合的结果：要写的事件、逐字稿新增的几句、新笔记、进度、阶段。 */
 export type TurnResult = {
   events: NewEvent[];
-  said: { role: "interviewer" | "candidate"; kind: string; content: string; topic?: string | null }[];
+  said: { role: "interviewer" | "candidate"; kind: string; content: string; topic?: string | null; facet?: number | null; doneFacet?: number | null }[];
   notebook: string;
-  clock: Clock;
+  progress: ProgressSummary;
   phase: TurnPhase;
   endedBy: EndedBy | null;
   failed: boolean;
@@ -58,13 +53,11 @@ export type TurnResult = {
 
 const END_PATTERN = /(结束|到此为止|不想继续|先到这|今天就到这|别问了|不想答了|不面了|算了吧|end the interview)/i;
 const END_MAX_CHARS = 40;
-/** 面试过半之前模型说"告别"不认（v13 里模型把"换下一个话题"当成了收尾）；候选人要求结束由代码执行，不受此限。 */
-const CLOSING_ALLOWED_RATIO = 0.5;
 /** 说给候选人的话里出现这些词，说明模型把内部说法带出来了：换成固定的话。 */
 const LEAK_PATTERN = /(评分标准|期望信号|现场卡|材料里|系统提示|我的笔记)/;
 /** 这句与前面某句几乎一样：重复提问，不认。 */
 const REPEAT_SIMILARITY = 0.8;
-/** 这句与某份材料的切入问法像到这个程度，就认定在聊那份材料（模型自报的 topic 常常滞后：换了题还报上一份；换题回合它还像原话题的切入问法，才算"该换题没换"）。 */
+/** 换材料的回合这句还像原材料的切入问法到这个程度，就是"该换题没换"。 */
 const TOPIC_MATCH = 0.45;
 const UNRECOVERABLE = new Set(["not_configured", "unavailable", "network"]);
 /** 熔断：连续这么多回合模型没说出话，就不再调模型，用固定的话收尾。 */
@@ -83,7 +76,12 @@ function withCandidate(state: TurnState, candidate: CandidateInput | null): Tran
   return [...state.transcript, { seq: state.transcript.length, role: "candidate", content: candidate.content, kind: null, control: candidate.control, at: new Date() }];
 }
 
-export type TurnPlan = { kind: "model"; clock: Clock; decision: Decision } | { kind: "fixed"; endedBy: "candidate" | "budget" | "breaker"; clock: Clock; decision: Decision };
+/** 这场的进度：从逐字稿现算。 */
+export function progressFor(state: Pick<TurnState, "brief">, transcript: TranscriptLine[]): Progress {
+  return progressOf(planQuota(state.brief), transcript);
+}
+
+export type TurnPlan = { kind: "model"; progress: Progress; decision: Decision } | { kind: "fixed"; endedBy: "candidate" | "budget" | "breaker"; progress: Progress; decision: Decision };
 
 /** 连续几句都是代码接的话：模型一直没说出话，熔断。 */
 export function breakerTripped(transcript: TranscriptLine[]): boolean {
@@ -91,22 +89,38 @@ export function breakerTripped(transcript: TranscriptLine[]): boolean {
   return recent.length === BREAKER_FALLBACKS && recent.every((line) => line.kind === "fallback");
 }
 
-/** 这一回合谁做主：候选人要结束、时间盒到头、或熔断了，代码直接收尾不调模型；其余交给模型，附上代码的决策。 */
+/** 这一回合谁做主：候选人要结束、配额聊完、或熔断了，代码直接收尾不调模型；其余交给模型，附上代码的决策。 */
 export function planTurn(state: TurnState, candidate: CandidateInput | null): TurnPlan {
   const transcript = withCandidate(state, candidate);
-  const clock = clockFor(state, transcript);
-  if (candidateWantsToEnd(candidate)) return { kind: "fixed", endedBy: "candidate", clock, decision: { move: "close", reason: "候选人要求结束" } };
-  if (state.phase !== "opening" && clock.phase === "over") return { kind: "fixed", endedBy: "budget", clock, decision: { move: "close", reason: "时间到了" } };
-  if (breakerTripped(state.transcript)) return { kind: "fixed", endedBy: "breaker", clock, decision: { move: "close", reason: "模型连续没说出话，熔断" } };
-  return { kind: "model", clock, decision: decideMove({ brief: state.brief, clock, transcript, opening: state.phase === "opening" }) };
+  const progress = progressFor(state, transcript);
+  if (candidateWantsToEnd(candidate)) return { kind: "fixed", endedBy: "candidate", progress, decision: { move: "close", reason: "候选人要求结束", target: null } };
+  if (breakerTripped(state.transcript)) return { kind: "fixed", endedBy: "breaker", progress, decision: { move: "close", reason: "模型连续没说出话，熔断", target: null } };
+  const decision = decideMove({ brief: state.brief, transcript, opening: state.phase === "opening", seed: state.seed });
+  if (decision.move === "close") return { kind: "fixed", endedBy: "budget", progress, decision };
+  return { kind: "model", progress, decision };
 }
 
 /** 现场卡：影子运行也用同一张。 */
-export function buildCard(state: TurnState, clock: Clock, decision: Decision): StateCard {
-  return { clock, notebook: state.notebook, opening: state.phase === "opening", decision };
+export function buildCard(state: TurnState, progress: Progress, decision: Decision): StateCard {
+  return { progress, notebook: state.notebook, opening: state.phase === "opening", decision };
 }
 
-type Spoken = { say: string; kind: "say" | "closing" | "fallback"; topic: string | null; notebook: string | null; failed: boolean; guard: string | null; original: string | null; runId: string | null; endedBy: EndedBy | null };
+type Spoken = {
+  say: string;
+  kind: "say" | "closing" | "fallback";
+  /** 这句问的材料与角度（代码指派）。 */
+  target: Target;
+  /** 模型说候选人刚才那段讲透了的角度（当前材料上），没有为 null。 */
+  doneFacet: number | null;
+  notebook: string | null;
+  failed: boolean;
+  guard: string | null;
+  original: string | null;
+  runId: string | null;
+  endedBy: EndedBy | null;
+};
+
+const fixedSpoken = (say: string, kind: Spoken["kind"], extra: Partial<Spoken> = {}): Spoken => ({ say, kind, target: null, doneFacet: null, notebook: null, failed: false, guard: null, original: null, runId: null, endedBy: null, ...extra });
 
 /** 把这回合的话与记账变成事件与结果（纯函数）。 */
 export function applyTurn(state: TurnState, candidate: CandidateInput | null, decision: Decision, spoken: Spoken): TurnResult {
@@ -116,61 +130,53 @@ export function applyTurn(state: TurnState, candidate: CandidateInput | null, de
     events.push(event("candidate_said", { content: candidate.content, clientId: candidate.clientId, control: candidate.control, composeMs: candidate.composeMs }));
     said.push({ role: "candidate", kind: candidate.control ? "control" : "answer", content: candidate.content });
   }
-  events.push(event("move_decided", decision));
-  events.push(event("interviewer_said", { content: spoken.say, kind: spoken.kind, topic: spoken.topic }, spoken.runId));
-  said.push({ role: "interviewer", kind: spoken.kind, content: spoken.say, topic: spoken.topic });
+  const topic = spoken.target?.topic ?? null;
+  const facet = spoken.target?.facet ?? null;
+  events.push(event("move_decided", { move: decision.move, reason: decision.reason }));
+  events.push(event("interviewer_said", { content: spoken.say, kind: spoken.kind, topic, facet, doneFacet: spoken.doneFacet }, spoken.runId));
+  said.push({ role: "interviewer", kind: spoken.kind, content: spoken.say, topic, facet, doneFacet: spoken.doneFacet });
   const notebook = spoken.notebook !== null && spoken.notebook !== state.notebook ? spoken.notebook : state.notebook;
   if (spoken.notebook !== null && spoken.notebook !== state.notebook) events.push(event("notebook_written", { text: spoken.notebook }, spoken.runId));
   if (spoken.failed) events.push(event("fallback_used", { reason: "模型没说出话" }, spoken.runId));
   else if (spoken.guard) events.push(event("fallback_used", { reason: spoken.guard, original: spoken.original }, spoken.runId));
-  const transcript = [...withCandidate(state, candidate), { seq: 0, role: "interviewer" as const, content: spoken.say, kind: spoken.kind, control: null, topic: spoken.topic, at: new Date() }];
-  const clock = clockFor(state, transcript);
-  events.push(event("clock_tick", { usedMinutes: clock.usedMinutes, totalMinutes: clock.totalMinutes }));
+  const transcript = [...withCandidate(state, candidate), { seq: 0, role: "interviewer" as const, content: spoken.say, kind: spoken.kind, control: null, topic, facet, doneFacet: spoken.doneFacet, at: new Date() }];
+  const progress = progressFor(state, transcript);
+  events.push(event("progress_tick", { covered: progress.covered, quota: progress.quota, budgetLeft: progress.budgetLeft }));
   if (spoken.endedBy) events.push(event("ended", { by: spoken.endedBy }));
-  return { events, said, notebook, clock, phase: spoken.endedBy ? "ended" : "running", endedBy: spoken.endedBy, failed: spoken.failed, runId: spoken.runId };
+  return { events, said, notebook, progress: { covered: progress.covered, quota: progress.quota }, phase: spoken.endedBy ? "ended" : "running", endedBy: spoken.endedBy, failed: spoken.failed, runId: spoken.runId };
 }
 
 /**
- * 模型的产出 → 这回合说的话：空的接一句；过早的"告别"不认；三条底线——泄露内部词、与前面某句几乎一样（重复提问）、
- * 决策说换题而这句还像原话题的切入问法（该换题没换）——都不认，改问下一份材料的切入问法，原话记进事件（F2 冒烟：
- * 单凭自报材料判"没换"，三次换题误杀两次，换成的固定话又不带材料）。
+ * 模型的产出 → 这回合说的话：空的接一句；决策没允许的"告别"不认；模型说"讲透了"就按决策的另一边记材料与角度；
+ * 三条底线——泄露内部词、与前面某句几乎一样（重复提问）、换材料的回合这句还像原材料的切入问法（该换题没换）——都不认，
+ * 改问决策指的材料的切入问法，原话记进事件。
  */
-export function speak(state: TurnState, clock: Clock, decision: Decision, output: PolicyOutput | null, runId: string): Spoken {
+export function speak(state: TurnState, decision: Decision, output: PolicyOutput | null, runId: string): Spoken {
   const opening = state.phase === "opening";
-  if (!output || !output.say.trim()) {
-    return { say: opening ? FALLBACK_SPEECH.askIntro : FALLBACK_SPEECH.stall, kind: "fallback", topic: null, notebook: null, failed: true, guard: null, original: null, runId, endedBy: null };
-  }
+  if (!output || !output.say.trim()) return fixedSpoken(opening ? FALLBACK_SPEECH.askIntro : FALLBACK_SPEECH.stall, "fallback", { failed: true, runId });
   const say = output.say.trim();
   const notebook = output.notebook.trim();
-  // 告别里不会有问号：模型在收尾提醒下常把 closing 标在"最后再问一个"上，那样候选人没机会答。
-  const closing = output.closing && !opening && clock.usedMinutes / clock.totalMinutes >= CLOSING_ALLOWED_RATIO && !/[？?]/.test(say);
-  if (closing) return { say, kind: "closing", topic: null, notebook, failed: false, guard: null, original: null, runId, endedBy: "interviewer" };
-  const known = new Set(state.brief.areas.map((area) => area.id));
-  const reported = output.topic && known.has(output.topic) ? output.topic : null;
+  const done = output.facetDone && decision.ifDone !== undefined;
+  const target: Target = done ? decision.ifDone! : decision.target;
+  const doneFacet = done && decision.target?.facet !== undefined ? decision.target.facet : null;
+  // 告别只认决策允许的那种（讲透了且没有下一份材料）；告别里不会有问号。
+  const closing = output.closing && !opening && done && decision.ifDone === null && !/[？?]/.test(say);
+  if (closing) return fixedSpoken(say, "closing", { notebook, runId, endedBy: "interviewer" });
   const previous = currentTopic(state.transcript);
-  // 这句像哪份材料的切入问法：用来纠正滞后的自报（换了题还报上一份），也用来判断"该换题没换"。
-  const matched = state.brief.areas
-    .map((area) => ({ id: area.id, score: questionSimilarity(area.entryQuestion, say) }))
-    .filter((item) => item.score >= TOPIC_MATCH)
-    .sort((left, right) => right.score - left.score)[0]?.id ?? null;
-  const switching = decision.move === "switch" && !opening;
-  // 追问时模型常不报材料：沿用上一句的；换题回合没报新材料（或还报着上一份），记到决策指的那份名下。
-  const topic =
-    matched && matched !== reported && matched !== previous ? matched
-    : switching && (reported === null || reported === previous) ? (decision.next ?? null)
-    : (reported ?? (opening ? null : previous));
+  const switching = target !== null && target.topic !== previous && previous !== null;
+  const previousArea = previous ? state.brief.areas.find((area) => area.id === previous) : undefined;
   const guard = LEAK_PATTERN.test(say)
     ? "泄露内部词"
     : state.transcript.some((line) => line.role === "interviewer" && questionSimilarity(line.content, say) >= REPEAT_SIMILARITY)
       ? "重复提问"
-      : switching && previous !== null && matched === previous
+      : switching && previousArea && questionSimilarity(previousArea.entryQuestion, say) >= TOPIC_MATCH
         ? "该换题没换"
         : null;
   if (guard) {
     const area = areaToAsk(state.brief, state.transcript, decision);
-    return { say: area?.entryQuestion ?? FALLBACK_SPEECH.switch, kind: "say", topic: area?.id ?? null, notebook, failed: false, guard, original: say, runId, endedBy: null };
+    return fixedSpoken(area?.entryQuestion ?? FALLBACK_SPEECH.switch, "say", { target: area ? { topic: area.id, facet: null } : null, notebook, guard, original: say, runId });
   }
-  return { say, kind: "say", topic, notebook, failed: false, guard: null, original: null, runId, endedBy: null };
+  return { say, kind: "say", target: opening ? null : target, doneFacet: opening ? null : doneFacet, notebook, failed: false, guard: null, original: null, runId, endedBy: null };
 }
 
 export type TurnRun = {
@@ -189,7 +195,7 @@ export function runTurn(input: { runId: string; config: AiTaskConfig; state: Tur
   const { state, candidate } = input;
   const plan = planTurn(state, candidate);
   if (plan.kind === "fixed") {
-    const spoken: Spoken = { say: plan.endedBy === "breaker" ? FALLBACK_SPEECH.breaker : FALLBACK_SPEECH.closing, kind: "closing", topic: null, notebook: null, failed: false, guard: null, original: null, runId: null, endedBy: plan.endedBy };
+    const spoken = fixedSpoken(plan.endedBy === "breaker" ? FALLBACK_SPEECH.breaker : FALLBACK_SPEECH.closing, "closing", { endedBy: plan.endedBy });
     const result = applyTurn(state, candidate, plan.decision, spoken);
     return { say: once(spoken.say), finalize: async () => result };
   }
@@ -199,7 +205,7 @@ export function runTurn(input: { runId: string; config: AiTaskConfig; state: Tur
     brief: state.brief,
     context: input.context,
     transcript: state.transcript,
-    card: buildCard(state, plan.clock, plan.decision),
+    card: buildCard(state, plan.progress, plan.decision),
     candidateContent: candidate?.content ?? null,
     variant: state.variant,
   });
@@ -209,7 +215,7 @@ export function runTurn(input: { runId: string; config: AiTaskConfig; state: Tur
       const outcome = await policy.settled;
       // 额度、密钥、连不上服务商：重试也不会好，报给用户；其余失败接一句固定的话，回合照常落下。
       if (outcome.output === null && outcome.raw.error && UNRECOVERABLE.has(outcome.raw.error.kind)) throw outcome.raw.error;
-      return applyTurn(state, candidate, plan.decision, speak(state, plan.clock, plan.decision, outcome.output, outcome.runId));
+      return applyTurn(state, candidate, plan.decision, speak(state, plan.decision, outcome.output, outcome.runId));
     },
   };
 }

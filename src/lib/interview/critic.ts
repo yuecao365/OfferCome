@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { AiTaskConfig } from "@/lib/ai/config";
 import { runAgent } from "@/lib/ai/run-agent";
 
-import type { Clock } from "./clock";
+import { renderProgress, type Progress } from "./progress";
 import { event, type NewEvent, type TranscriptLine } from "./events";
 
 /**
@@ -39,7 +39,7 @@ ${Object.entries(CRITIC_RULES)
 没违反就 rule 与 note 都为 null（大多数回合应该是这样，不要硬挑毛病）。违反了就填 rule，note 写一句话告诉面试官下一句怎么改（不复述它说过的话，不超过 40 字，例如"上一句问了两个要点，这句只问一个"）。只输出 JSON。`;
 
 /** 评面试官刚说的那句；产出事件（不落库）；没违反为 null。 */
-export async function critique(input: { runId: string; config: AiTaskConfig; transcript: TranscriptLine[]; clock: Clock }): Promise<NewEvent<"critic_noted"> | null> {
+export async function critique(input: { runId: string; config: AiTaskConfig; transcript: TranscriptLine[]; progress: Progress }): Promise<NewEvent<"critic_noted"> | null> {
   const last = [...input.transcript].reverse().find((line) => line.role === "interviewer");
   if (!last || last.kind === "closing" || last.kind === "fallback") return null;
   const recent = input.transcript.slice(-CONTEXT_LINES);
@@ -52,7 +52,7 @@ export async function critique(input: { runId: string; config: AiTaskConfig; tra
     system: SYSTEM,
     untrustedInputs: "逐字稿",
     payload: {
-      clock: `已用约 ${Math.round(input.clock.usedMinutes)} / ${input.clock.totalMinutes} 分钟`,
+      progress: renderProgress(input.progress),
       transcript: recent.map((line) => `[${line.seq}] ${line.role === "interviewer" ? "面试官" : "候选人"}：${line.content.replace(/\s+/g, " ").slice(0, LINE_MAX_CHARS)}`),
       target: last.seq,
     },

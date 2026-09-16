@@ -97,7 +97,7 @@ mock.module("@/lib/candidate-profile/background", { namedExports: { enqueueCandi
 
 mock.module("@/lib/settings/ai", { namedExports: { getAiTaskConfig: async () => ({ task: "text", provider: "openai", model: "gpt-test", baseURL: null, apiKey: "k", requiresApiKey: true }) } });
 
-const say = (text: string, extras: Partial<PolicyOutput> = {}): PolicyOutput => ({ say: text, notebook: "", topic: null, closing: false, ...extras });
+const say = (text: string, extras: Partial<PolicyOutput> = {}): PolicyOutput => ({ say: text, notebook: "", facetDone: false, closing: false, ...extras });
 
 type Service = typeof import("./service");
 type Orchestrator = typeof import("@/lib/interview/orchestrator");
@@ -207,7 +207,6 @@ test("preparation persists the brief with an empty notebook and a time box, and 
   assert.equal(session.generationPhase, null);
   assert.equal(JSON.parse(session.briefJson!).areas.length, 7);
   assert.equal(session.notebook, "");
-  assert.equal(session.durationMinutes, 20);
   const interview = await prisma.interview.findUniqueOrThrow({ where: { id: interviewId } });
   assert.equal(interview.status, "in_progress");
 });
@@ -247,11 +246,10 @@ test("the opening turn streams the interviewer's words, writes events and the no
   const messages = await prisma.mockInterviewMessage.findMany({ where: { sessionId } });
   assert.equal(messages.length, 1);
   assert.equal(messages[0].kind, "say");
-  assert.deepEqual(await eventTypes(sessionId), ["move_decided", "interviewer_said", "notebook_written", "clock_tick"]);
+  assert.deepEqual(await eventTypes(sessionId), ["move_decided", "interviewer_said", "notebook_written", "progress_tick"]);
   const session = await readSession(sessionId);
   assert.equal(session.notebook, "先听自我介绍，再挑最贴岗位的项目。");
   assert.ok(session.startedAt);
-  assert.ok(JSON.parse(session.clockJson!).usedMinutes > 0);
 
   const again = await runTurn(sessionId, null);
   assert.equal(again.replay, true);
@@ -271,7 +269,7 @@ test("a candidate message and the reply land together; a duplicate clientId repl
       ["interviewer", "say"],
     ],
   );
-  assert.deepEqual(await eventTypes(sessionId), ["move_decided", "interviewer_said", "clock_tick", "candidate_said", "move_decided", "interviewer_said", "notebook_written", "clock_tick"]);
+  assert.deepEqual(await eventTypes(sessionId), ["move_decided", "interviewer_said", "progress_tick", "candidate_said", "move_decided", "interviewer_said", "notebook_written", "progress_tick"]);
   const again = await runTurn(sessionId, { clientId: "c1", content: "我叫小明。" });
   assert.equal(again.replay, true);
   assert.equal(again.replay && again.messages[0]?.content, "主循环里你负责哪一段？");
@@ -301,16 +299,17 @@ test("a failed model turn still produces a deterministic interviewer message and
   assert.equal((await readSession(sessionId)).status, "in_progress");
 });
 
-test("the interviewer's closing flag is ignored early and honoured once the time box is past half", async () => {
+test("the interviewer's closing flag is ignored until the last material is settled, then honoured", async () => {
   const { sessionId } = await seedReadySession();
-  stubs.outputs = [say("你好。"), say("这块先到这，我们换下一个话题。", { closing: true }), say("再问一句：怎么做的？"), say("再问一句：为什么？"), say("再问一句：结果呢？"), say("今天先到这里，谢谢。", { closing: true })];
+  const done = (text: string, extras: Partial<PolicyOutput> = {}) => say(text, { facetDone: true, ...extras });
+  stubs.outputs = [say("你好。"), say("这块先到这，我们换下一个话题。", { closing: true }), ...Array.from({ length: 10 }, (_, index) => done(`第 ${index} 问？`)), done("今天就到这里，谢谢。", { closing: true })];
   await runTurn(sessionId, null);
   const early = await runTurn(sessionId, { clientId: "c1", content: "我叫小明。" });
-  assert.equal(early.replay === false && early.payload.phase, "running");
-  // 每条回答最多记 2.5 分钟：四条长回答把 20 分钟的时钟推过一半。
-  for (const clientId of ["c2", "c3", "c4"]) await runTurn(sessionId, { clientId, content: "一".repeat(700) });
-  const late = await runTurn(sessionId, { clientId: "c5", content: "一".repeat(700) });
-  assert.equal(late.replay === false && late.payload.phase, "ended");
-  assert.equal(late.replay === false && late.payload.endedBy, "interviewer");
+  assert.equal(early.replay === false && early.payload.phase, "running", "配额刚开始，告别不认");
+  // 每回合都说"讲透了"：两个项目各走完角度、三道基础题各一句、场景题切入，第 12 回合到最后一份材料。
+  let last = early;
+  for (let index = 2; index <= 12; index += 1) last = await runTurn(sessionId, { clientId: `c${index}`, content: "答得很实。" });
+  assert.equal(last.replay === false && last.payload.phase, "ended");
+  assert.equal(last.replay === false && last.payload.endedBy, "interviewer");
   assert.equal((await readSession(sessionId)).status, "ready_to_evaluate");
 });

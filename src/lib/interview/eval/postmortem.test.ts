@@ -12,10 +12,10 @@ const said = (role: "interviewer" | "candidate", content: string, extra: { topic
   role === "interviewer"
     ? { seq: seq++, type: "interviewer_said", payload: { content, kind: extra.kind ?? "say", topic: extra.topic ?? null }, runId: null, at }
     : { seq: seq++, type: "candidate_said", payload: { content, clientId: null, control: extra.control ?? null, composeMs: null }, runId: null, at };
-const tick = (usedMinutes: number, totalMinutes = 20): InterviewEvent => ({ seq: seq++, type: "clock_tick", payload: { usedMinutes, totalMinutes }, runId: null, at });
+const tick = (_ignored: number): InterviewEvent => ({ seq: seq++, type: "progress_tick", payload: { covered: 1, quota: 6, budgetLeft: 1 }, runId: null, at });
 const guard = (): InterviewEvent => ({ seq: seq++, type: "fallback_used", payload: { reason: "重复提问", original: "原话" }, runId: null, at });
 
-test("复盘：回答分类与超长、面试官的四种违规、底线次数、归因句", () => {
+test("复盘：回答分类与超长、面试官的四种违规（含超预算）、底线次数、归因句", () => {
   const events: InterviewEvent[] = [
     said("interviewer", "你好，先介绍一下。"),
     tick(0.5),
@@ -38,7 +38,7 @@ test("复盘：回答分类与超长、面试官的四种违规、底线次数�
   ];
   const result = postmortem({ events, brief: testBrief(), ready: false });
   assert.deepEqual(result.replies, { normal: 2, help: 1, dont_know: 2, skip: 0, long: 1 });
-  assert.deepEqual(result.violations.map((item) => item.rule), ["repeat", "stuck_after_dont_know", "multi_ask", "asked_after_time"]);
+  assert.deepEqual(result.violations.map((item) => item.rule), ["repeat", "over_budget", "stuck_after_dont_know", "multi_ask"], "q1 预算 2 句，第 3 句超预算");
   assert.deepEqual(result.guards, [{ seq: 16, reason: "重复提问", original: "原话" }]);
   assert.equal(result.ready, false);
   assert.match(result.summary[0], /备课没备好/);

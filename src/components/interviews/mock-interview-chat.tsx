@@ -4,7 +4,7 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, isDataUIPart, isTextUIPart, type ChatTransport, type UIMessage } from "ai";
 import { ArrowLeft, FileText, Loader2, SendHorizontal } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { MockInterviewMaterialsDrawer } from "@/components/interviews/mock-interview-materials";
 import { MockInterviewVoiceControls } from "@/components/interviews/mock-interview-voice-controls";
@@ -12,9 +12,9 @@ import { ThemeButton } from "@/components/theme-button";
 import { Alert } from "@/components/ui/alert";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
-import type { Clock } from "@/lib/interview/clock";
 import { CONTROL_PLACEHOLDERS } from "@/lib/interview/events";
 import type { TurnData } from "@/lib/interview/stream";
+import type { ProgressSummary } from "@/lib/interview/progress";
 import type { ConversationMessage, TurnPayload } from "@/lib/interview/views";
 import type { MockInterviewConversation, MockInterviewView } from "@/lib/mock-interviews/types";
 
@@ -108,42 +108,12 @@ export function MockInterviewBubble({ message }: { message: ConversationMessage 
   );
 }
 
-/** 面试室的钟：从第一回合开始计时，结束后停住。 */
-function ElapsedClock({ startedAt, running }: { startedAt: string | null; running: boolean }) {
-  // 服务端渲染没有"现在"：首屏（含 hydration）不画钟，挂载后再按秒走。
-  const mounted = useSyncExternalStore(subscribeNoop, () => true, () => false);
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!running) return;
-    const timer = window.setInterval(() => setNow(Date.now()), 1_000);
-    return () => window.clearInterval(timer);
-  }, [running]);
-  if (!mounted || !startedAt) return null;
-  const seconds = Math.max(0, Math.floor((now - new Date(startedAt).getTime()) / 1_000));
-  const mm = String(Math.floor(seconds / 60)).padStart(2, "0");
-  const ss = String(seconds % 60).padStart(2, "0");
+/** 进度：聊到第几份材料、共几份；由服务端每回合给（覆盖配额，不是时间）。 */
+function ProgressBar({ progress, ended }: { progress: ProgressSummary; ended: boolean }) {
+  const covered = ended ? progress.quota : progress.covered;
   return (
-    <p aria-label="已用时" className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
-      {mm}:{ss}
-    </p>
-  );
-}
-
-function subscribeNoop(): () => void {
-  return () => {};
-}
-
-/** 时间盒：已用约几分钟 / 共几分钟；快到时间变色。 */
-/** 进度：文字模式按双方说话的字数折算，语音模式按真实作答时间（每题最多记 4 分钟，等待不计）；都由服务端每回合给。 */
-function ClockBar({ clock, ended, voice }: { clock: Clock; ended: boolean; voice: boolean }) {
-  const percent = Math.min(100, Math.round((clock.usedMinutes / clock.totalMinutes) * 100));
-  return (
-    <p
-      aria-label="面试进度"
-      className={cn("shrink-0 font-mono text-xs tabular-nums", !ended && (clock.phase === "wrap_up" || clock.phase === "over") ? "text-warning-strong" : "text-muted-foreground")}
-      title={voice ? "按真实作答时间计，每题最多记 4 分钟；开着房间不答不计时" : "按双方说话的字数折算，不是墙上时间"}
-    >
-      进度 {ended ? 100 : percent}% · 约 {clock.totalMinutes} 分钟
+    <p aria-label="面试进度" className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground" title="按聊完的材料数计，不按时间；中途离开再回来不受影响">
+      材料 {covered} / {progress.quota}
     </p>
   );
 }
@@ -163,7 +133,7 @@ export function MockInterviewChat({
   const conversation = session.conversation;
   const [transcript, setTranscript] = useState(conversation.messages);
   const [phase, setPhase] = useState(conversation.phase);
-  const [clock, setClock] = useState(conversation.clock);
+  const [progress, setProgress] = useState(conversation.progress);
   const [input, setInput] = useState("");
   const [turnError, setTurnError] = useState("");
   const [completing, setCompleting] = useState(false);
@@ -175,8 +145,6 @@ export function MockInterviewChat({
   /** 上一次发出的回合请求：失败后"重试"原样再发（clientId 不变，服务端按它去重）。 */
   const lastRequestRef = useRef<{ text: string; body: TurnBody } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  // 开场回合落下前还没有开始时间，先按进入房间的时刻计时。
-  const [openedAt] = useState(() => new Date().toISOString());
 
   const voice = session.interactionMode === "voice";
   const [voiceBusy, setVoiceBusy] = useState(false);
@@ -199,7 +167,7 @@ export function MockInterviewChat({
         });
         if (!data.replay) {
           setPhase(data.payload.phase);
-          setClock(data.payload.clock);
+          setProgress(data.payload.progress);
           driver.onTurn?.(data.payload);
         }
       }
@@ -325,8 +293,7 @@ export function MockInterviewChat({
         <p className="min-w-0 flex-1 truncate text-sm font-medium">
           {session.companyName} · {session.jobTitle}
         </p>
-        <ClockBar clock={clock} ended={ended} voice={voice} />
-        <ElapsedClock startedAt={conversation.startedAt ?? openedAt} running={!ended} />
+        <ProgressBar ended={ended} progress={progress} />
         <Button aria-pressed={materialsOpen} onClick={() => setMaterialsOpen((open) => !open)} size="sm" type="button" variant="ghost">
           <FileText aria-hidden="true" className="size-3.5" strokeWidth={1.5} />
           资料

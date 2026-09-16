@@ -7,7 +7,7 @@ import { claimSession } from "@/lib/mock-interviews/session-state";
 import { getAiTaskConfig } from "@/lib/settings/ai";
 
 import { scheduleLab, scheduleShadow } from "./background";
-import { appendEvents, coveredMaterials, parseEventRow, transcriptOf, type InterviewEvent } from "./events";
+import { appendEvents, parseEventRow, transcriptOf, type InterviewEvent } from "./events";
 import { sessionFlags } from "./flags";
 import { runTurn, type CandidateInput, type TurnResult, type TurnState } from "./turn";
 import { policyVariant } from "./variants";
@@ -41,10 +41,9 @@ function turnState(loaded: Loaded): TurnState {
     brief,
     notebook: loaded.notebook,
     transcript,
-    totalMinutes: loaded.durationMinutes,
     phase: loaded.status !== "in_progress" ? "ended" : transcript.length === 0 ? "opening" : "running",
     variant: policyVariant(sessionFlags(loaded.flagsJson).policy),
-    realTime: loaded.interactionMode === "voice",
+    seed: loaded.id,
   };
 }
 
@@ -61,7 +60,7 @@ export async function startTurn(input: { sessionId: string; candidate: Candidate
 
   const replayOf = (turnIndex: number): TurnReplay => ({
     replay: true,
-    messages: loaded.messages.filter((message) => message.turnIndex === turnIndex && message.role === "interviewer").map(toConversationMessage),
+    messages: loaded.messages.filter((message) => message.turnIndex === turnIndex && message.role === "interviewer").map((row) => toConversationMessage(row)),
   });
   if (input.candidate) {
     const seen = loaded.messages.find((message) => message.clientId === input.candidate!.clientId);
@@ -73,7 +72,7 @@ export async function startTurn(input: { sessionId: string; candidate: Candidate
   const state = turnState(loaded);
   const turnIndex = loaded.messages.filter((message) => message.role === "interviewer").length;
   const config = await getAiTaskConfig("text");
-  const context = { jobTitle: loaded.interview.jobTitle, jobDescription: loaded.jdTextSnapshot, resumeText: loaded.resumeTextSnapshot, totalMinutes: loaded.durationMinutes };
+  const context = { jobTitle: loaded.interview.jobTitle, jobDescription: loaded.jdTextSnapshot, resumeText: loaded.resumeTextSnapshot };
   const run = runTurn({ runId: `turn:${input.sessionId}:${turnIndex}`, config, state, candidate: input.candidate, context });
   const shadow = sessionFlags(loaded.flagsJson).shadow;
   return {
@@ -86,13 +85,13 @@ export async function startTurn(input: { sessionId: string; candidate: Candidate
         scheduleLab(input.sessionId);
         if (shadow && shadow !== state.variant.id) scheduleShadow({ sessionId: input.sessionId, turnIndex, config, state, candidate: input.candidate, context, variant: policyVariant(shadow) });
       }
-      return { newMessages, phase: result.phase, clock: result.clock, endedBy: result.endedBy, coveredCount: coveredMaterials(loaded.events.map(parseEventRow).filter((item): item is InterviewEvent => item !== null)).length };
+      return { newMessages, phase: result.phase, progress: result.progress, endedBy: result.endedBy, coveredCount: result.progress.covered };
     },
   };
 }
 
-function toConversationMessage(row: { id: string; turnIndex: number; role: string; kind: string; content: string }): ConversationMessage {
-  return { id: row.id, turnIndex: row.turnIndex, role: row.role === "candidate" ? "candidate" : "interviewer", kind: row.kind, content: row.content };
+function toConversationMessage(row: { id: string; turnIndex: number; role: string; kind: string; content: string }, line?: TurnResult["said"][number]): ConversationMessage {
+  return { id: row.id, turnIndex: row.turnIndex, role: row.role === "candidate" ? "candidate" : "interviewer", kind: row.kind, content: row.content, topic: line?.topic ?? null, facet: line?.facet ?? null, doneFacet: line?.doneFacet ?? null };
 }
 
 /** 一个事务：事件日志 + 消息投影 + 会话字段；结束时进入待评分并安排交卷。 */
@@ -116,12 +115,12 @@ async function persistTurn(loaded: Loaded, turnIndex: number, candidate: Candida
         },
         select: { id: true, turnIndex: true, role: true, kind: true, content: true },
       });
-      created.push(toConversationMessage(row));
+      created.push(toConversationMessage(row, line));
     }
     await appendEvents(tx, sessionId, result.events);
     await tx.mockInterviewSession.update({
       where: { id: sessionId },
-      data: { notebook: result.notebook, clockJson: JSON.stringify(result.clock), startedAt: loaded.startedAt ?? new Date() },
+      data: { notebook: result.notebook, startedAt: loaded.startedAt ?? new Date() },
     });
     if (result.phase === "ended") {
       await claimSession(tx, { where: { id: sessionId, status: "in_progress" }, data: { status: "ready_to_evaluate" } });

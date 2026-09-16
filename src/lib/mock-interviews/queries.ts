@@ -4,9 +4,9 @@ import { prisma } from "@/lib/db";
 import { REAL_USAGE_INTERVIEW_WHERE } from "@/lib/interviews/types";
 import { parseJsonArray, parseJsonObject, parseJsonValue } from "@/lib/json";
 
-import type { Clock } from "@/lib/interview/clock";
 import { estimate, type Estimate, type Observation } from "@/lib/interview/estimator";
-import { parseEventRow, type InterviewEvent } from "@/lib/interview/events";
+import { parseEventRow, transcriptOf, type InterviewEvent } from "@/lib/interview/events";
+import { planQuota, progressOf } from "@/lib/interview/progress";
 import { postmortem } from "@/lib/interview/eval/postmortem";
 import { sessionFlags } from "@/lib/interview/flags";
 import { conversationView, traceTurns, type TraceRun } from "@/lib/interview/views";
@@ -68,6 +68,7 @@ function loadSessionForView(id: string) {
         },
       },
       messages: { orderBy: [{ turnIndex: "asc" }, { createdAt: "asc" }] },
+      events: { orderBy: { seq: "asc" } },
       threads: { select: { competencyId: true, difficulty: true, questionId: true } },
     },
   });
@@ -94,10 +95,10 @@ function buildConversation(session: SessionWithConversation) {
     brief,
     status: session.status,
     startedAt: session.startedAt?.toISOString() ?? null,
-    totalMinutes: session.durationMinutes,
     notebook: session.notebook,
     messages: session.messages.map((message) => ({ id: message.id, turnIndex: message.turnIndex, role: message.role === "candidate" ? "candidate" : "interviewer", kind: message.kind, content: message.content })),
-    clock: session.interactionMode === "voice" ? (parseJsonValue(session.clockJson) as Clock | null) : null,
+    // 本地版的消息表不存材料 id：进度从事件日志算。
+    progress: progressOf(planQuota(brief), transcriptOf(session.events.map(parseEventRow).filter((item): item is InterviewEvent => item !== null))),
   });
 }
 
@@ -208,7 +209,7 @@ export async function getMockInterviewTrace(id: string): Promise<MockInterviewTr
     jobTitle: session.interview.jobTitle,
     status: session.status,
     pace: brief.pace,
-    totalMinutes: session.durationMinutes,
+    plan: planQuota(brief),
     areas: brief.areas.map((area) => ({ id: area.id, name: area.name, kind: area.kind })),
     competencies: competenciesOf(session.contextSnapshotJson).map((item) => ({ id: item.id, name: item.name })),
     flags: { policy: sessionFlags(session.flagsJson).policy ?? "v2", shadow: sessionFlags(session.flagsJson).shadow, lab: sessionFlags(session.flagsJson).lab },

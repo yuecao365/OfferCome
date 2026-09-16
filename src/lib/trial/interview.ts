@@ -70,8 +70,6 @@ export type TrialInterview = {
   resume: TrialResumeInput;
   round: string | null;
   pace: InterviewPace;
-  /** 时间盒（分钟）。 */
-  totalMinutes: number;
   status: TrialInterviewStatus;
   generationPhase: "job_blueprint" | "brief" | null;
   generationError: string | null;
@@ -86,7 +84,7 @@ export type TrialInterview = {
   report: MockInterviewReport | null;
 };
 
-export function createTrialInterview(input: { job: TrialJobInput; resume: TrialResumeInput; round: string | null; pace: InterviewPace; totalMinutes: number }): TrialInterview {
+export function createTrialInterview(input: { job: TrialJobInput; resume: TrialResumeInput; round: string | null; pace: InterviewPace }): TrialInterview {
   return {
     version: TRIAL_INTERVIEW_VERSION,
     id: crypto.randomUUID(),
@@ -97,7 +95,6 @@ export function createTrialInterview(input: { job: TrialJobInput; resume: TrialR
     resume: input.resume,
     round: input.round,
     pace: input.pace,
-    totalMinutes: input.totalMinutes,
     status: "generating",
     generationPhase: "job_blueprint",
     generationError: null,

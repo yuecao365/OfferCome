@@ -1,43 +1,33 @@
-import type { AreaKind, InterviewArea, InterviewBrief } from "@/lib/mock-interviews/brief/brief";
+import type { InterviewArea, InterviewBrief } from "@/lib/mock-interviews/brief/brief";
 
-import { LATE_RATIO, minutesLeft, type Clock } from "./clock";
 import { classifyReply, type TranscriptLine } from "./events";
+import { FACET_RUN_MAX, facetOpen, nextMaterial, pickFacet, planQuota, progressOf, type PlannedMaterial, type Progress } from "./progress";
+
+export { coveredIds, currentTopic } from "./progress";
 
 /**
- * 一个决策（设计修订 v3 §1.4）：代码把时钟、覆盖账、候选人这句的类型合成"这回合的动作"，面试官只看这一个。
- * 何时转题、收窄、收尾都在这里裁决，冲突按下面的顺序解决，不留给模型。纯函数，可重放。
+ * 一个决策（设计修订 v3 §1.4、§10）：代码把配额进度、候选人这句的类型合成"这回合的动作"，面试官只看这一个。
+ * 何时换角度、换材料、收尾都在这里裁决；唯一交给模型判断的是"候选人刚才这段把当前角度讲透了没有"（facetDone），
+ * 讲透与没讲透两种情况下该问什么都在决策里写好，模型只是选一边并措辞。纯函数，可重放。
  */
 
 export type Move = "continue" | "switch" | "close";
-/** next：换题时决策指的第一份材料（模型没报新材料或还报着上一份时，这句就记到它名下；底线替换时问它的切入问法）。 */
-export type Decision = { move: Move; reason: string; next?: string };
+
+/** 这句问什么：哪份材料、哪个角度（切入为 null）；close 为 null。 */
+export type Target = { topic: string; facet: number | null } | null;
+
+export type Decision = {
+  move: Move;
+  reason: string;
+  /** 模型没说"讲透了"时这句问的材料与角度。 */
+  target: Target;
+  /** 模型说"讲透了"时改问的材料与角度；null = 讲透了就告别；undefined = 这回合不问模型的判断。 */
+  ifDone?: Target;
+};
 
 export const MOVE_LABELS: Record<Move, string> = { continue: "继续", switch: "换题", close: "收尾" };
 
-/** 同一话题第一问之后最多追这么多轮。 */
-export const MAX_PROBES_PER_TOPIC = 3;
-/** 到这个时间比例还没问过基础题 / 场景题，就该转。 */
-export const QUICK_DUE_RATIO = 0.5;
-export const SCENARIO_DUE_RATIO = LATE_RATIO;
-const MAX_CANDIDATES = 3;
-
-/** 当前话题：最近一句面试官自报的材料 id（往回找第一个非空的）。 */
-export function currentTopic(transcript: Pick<TranscriptLine, "role" | "topic">[]): string | null {
-  for (let index = transcript.length - 1; index >= 0; index -= 1) {
-    const line = transcript[index];
-    if (line.role === "interviewer" && line.topic) return line.topic;
-  }
-  return null;
-}
-
-/** 聊过的材料 id（按第一次出现的顺序）。 */
-export function coveredIds(transcript: Pick<TranscriptLine, "role" | "topic">[]): string[] {
-  const seen: string[] = [];
-  for (const line of transcript) if (line.role === "interviewer" && line.topic && !seen.includes(line.topic)) seen.push(line.topic);
-  return seen;
-}
-
-/** 候选人最近连续答不上了几次（隔着面试官的话不算断；不按话题分，模型自报的材料换了也照数——F2 冒烟里一次误报就让"两次答不上换题"没触发）。 */
+/** 候选人最近连续答不上了几次（隔着面试官的话不算断；不按话题分，模型误报材料也照数——F2 冒烟里一次误报就让"两次答不上换题"没触发）。 */
 export function trailingDontKnows(transcript: TranscriptLine[]): number {
   let count = 0;
   for (let index = transcript.length - 1; index >= 0; index -= 1) {
@@ -49,63 +39,55 @@ export function trailingDontKnows(transcript: TranscriptLine[]): number {
   return count;
 }
 
-/** 收尾处这一话题追了几轮。 */
-export function topicRun(transcript: TranscriptLine[]): { topic: string | null; probes: number } {
-  const topic = currentTopic(transcript);
-  let start = transcript.length;
-  for (let index = transcript.length - 1; index >= 0; index -= 1) {
-    const line = transcript[index];
-    if (line.role === "interviewer" && line.topic && line.topic !== topic) break;
-    if (line.role === "interviewer") start = index;
-  }
-  const run = transcript.slice(start);
-  const asked = run.filter((line) => line.role === "interviewer").length;
-  return { topic, probes: Math.max(0, asked - 1) };
-}
+const label = (area: InterviewArea | undefined, item: PlannedMaterial) => `「${area?.name ?? item.id}」（${item.id}）`;
+const facetLabel = (area: InterviewArea, facet: number | null) => (facet === null ? "切入问法" : `角度「${area.guides[facet] ?? `第 ${facet + 1} 条`}」`);
 
-function unasked(brief: InterviewBrief, covered: string[], kind: AreaKind, except: string | null): InterviewArea[] {
-  return brief.areas.filter((area) => area.kind === kind && !covered.includes(area.id) && area.id !== except);
-}
+export function decideMove(input: { brief: InterviewBrief; transcript: TranscriptLine[]; opening: boolean; seed: string }): Decision {
+  const { brief, transcript } = input;
+  if (input.opening) return { move: "continue", reason: "开场：先问候，请候选人用一两分钟介绍与这个岗位相关的经历，不要问别的", target: null };
+  const progress = progressOf(planQuota(brief), transcript);
+  const areaOf = (id: string) => brief.areas.find((area) => area.id === id);
+  const next = nextMaterial(progress);
+  const entryOf = (item: PlannedMaterial | null): Target => (item ? { topic: item.id, facet: null } : null);
+  const switchTo = (why: string): Decision =>
+    next ? { move: "switch", reason: `${why}：换到${label(areaOf(next.id), next)}，用它的切入问法起头`, target: entryOf(next) } : { move: "close", reason: `${why}；配额里的材料都聊完了：告别，不再提问`, target: null };
 
-/** 底线替换这句话时改问的材料：决策指的那份，否则按材料顺序第一份还没聊的。 */
-export function areaToAsk(brief: InterviewBrief, transcript: Pick<TranscriptLine, "role" | "topic">[], decision: Decision): InterviewArea | null {
-  const covered = coveredIds(transcript);
-  return brief.areas.find((area) => area.id === decision.next) ?? brief.areas.find((area) => !covered.includes(area.id) && area.id !== currentTopic(transcript)) ?? null;
-}
-
-function describe(areas: InterviewArea[]): string {
-  if (areas.length === 0) return "别的话题";
-  return areas
-    .slice(0, MAX_CANDIDATES)
-    .map((area) => `「${area.name}」（${area.id}）`)
-    .join("、");
-}
-
-export function decideMove(input: { brief: InterviewBrief; clock: Clock; transcript: TranscriptLine[]; opening: boolean }): Decision {
-  const { brief, clock, transcript } = input;
-  if (input.opening) return { move: "continue", reason: "开场：先问候，请候选人用一两分钟介绍与这个岗位相关的经历，不要问别的" };
-  if (clock.phase === "over") return { move: "close", reason: "时间到了：只告别，不再提问" };
-
-  const covered = coveredIds(transcript);
-  const run = topicRun(transcript);
+  if (!progress.current) return switchTo("开场结束");
   const last = transcript.at(-1);
   const reply = last?.role === "candidate" ? classifyReply(last) : "normal";
-  const current = brief.areas.find((area) => area.id === run.topic) ?? null;
-  const ratio = clock.usedMinutes / clock.totalMinutes;
-  const count = (kind: AreaKind) => covered.filter((id) => brief.areas.find((area) => area.id === id)?.kind === kind).length;
-  const switchTo = (why: string, kind?: AreaKind): Decision => {
-    const kinds: AreaKind[] = kind ? [kind] : [current?.kind ?? "project", "quick", "scenario"];
-    const areas = kinds.flatMap((item) => unasked(brief, covered, item, run.topic));
-    return { move: "switch", reason: `${why}：换到${describe(areas)}`, ...(areas[0] ? { next: areas[0].id } : {}) };
-  };
-
-  if (clock.phase === "wrap_up") return { move: "continue", reason: "快到时间了：最多再问一两句就告别，不开新话题" };
+  const area = areaOf(progress.current.id)!;
   if (reply === "skip") return switchTo("候选人要求跳过");
   if (reply === "dont_know" && trailingDontKnows(transcript) >= 2) return switchTo("候选人连续两次答不上，不纠缠");
-  if (reply === "help") return { move: "continue", reason: "候选人要求具体或没听懂：换个说法把题说具体，不换题" };
-  if (reply === "dont_know") return { move: "continue", reason: "候选人答不上：把题说具体或降一层再问一次；再答不上就换题" };
-  if (count("scenario") === 0 && ratio >= SCENARIO_DUE_RATIO) return switchTo(`还剩约 ${minutesLeft(clock)} 分钟，场景题还没问`, "scenario");
-  if (count("quick") === 0 && ratio >= QUICK_DUE_RATIO) return switchTo(`已用 ${Math.round(ratio * 100)}% 的时间，基础题还一道没问`, "quick");
-  if (run.probes >= MAX_PROBES_PER_TOPIC) return switchTo(`这个话题已经追了 ${run.probes} 轮`);
-  return { move: "continue", reason: "顺着候选人上一句追问，验证一件事，一句一个要点" };
+  if (progress.budgetLeft <= 0) return switchTo("这份材料的预算用完了");
+  const here: Target = { topic: area.id, facet: progress.facet };
+  if (reply === "help") return { move: "continue", reason: "候选人要求具体或没听懂：换个说法把题说具体，还是这个角度，不换题", target: here };
+  if (reply === "dont_know") return { move: "continue", reason: "候选人答不上：把题说具体或降一层再问一次，还是这个角度；再答不上就换", target: here };
+
+  const nextFacet = pickFacet(area, progress, `${input.seed}:${area.id}:${progress.asked}`);
+  const after: Target = nextFacet !== null ? { topic: area.id, facet: nextFacet } : entryOf(next);
+  const afterLabel = nextFacet !== null ? `换到${facetLabel(area, nextFacet)}${nextFacet === 0 && area.kind === "project" ? "（岗位最关心）" : ""}` : next ? `换到下一份材料${label(areaOf(next.id), next)}，用它的切入问法起头` : "告别（closing 填 true）";
+  // 刚问完切入：项目直接进第一个角度；基础题 / 场景题看答得实不实——讲透了就换材料。
+  if (progress.facet === null) {
+    if (area.kind === "project" && nextFacet !== null) return { move: "continue", reason: `切入问完了：追问${facetLabel(area, nextFacet)}，从候选人刚说的话切过去`, target: { topic: area.id, facet: nextFacet } };
+    const skipLabel = next ? `换到下一份材料${label(areaOf(next.id), next)}，用它的切入问法起头` : "告别（closing 填 true）";
+    return { move: "continue", reason: `候选人答了切入问法。若这段已经答实、没什么可追（facetDone 填 true），${skipLabel}；否则追问${nextFacet !== null ? facetLabel(area, nextFacet) : "一句"}`, target: nextFacet !== null ? { topic: area.id, facet: nextFacet } : here, ifDone: entryOf(next) };
+  }
+  if (!facetOpen(progress)) {
+    if (nextFacet === null) return switchTo(`${facetLabel(area, progress.facet)}已经追满，没有别的角度了`);
+    return { move: "continue", reason: `${facetLabel(area, progress.facet)}已经追了 ${FACET_RUN_MAX} 句：换到${facetLabel(area, nextFacet)}，从候选人刚说的话切过去`, target: { topic: area.id, facet: nextFacet } };
+  }
+  return {
+    move: "continue",
+    reason: `上一句问的是${facetLabel(area, progress.facet)}。若候选人这段把它讲透了或明显讲不出更多（facetDone 填 true），${afterLabel}；否则接着这个角度问深一层，验证一件事`,
+    target: here,
+    ifDone: after,
+  };
 }
+
+/** 底线替换这句话时改问的材料：换材料的回合就是决策指的那份；追问的回合改问计划里的下一份（当前这份的切入问法已经问过，不能再问）。 */
+export function areaToAsk(brief: InterviewBrief, transcript: TranscriptLine[], decision: Decision): InterviewArea | null {
+  const wanted = decision.move === "switch" ? decision.target?.topic : nextMaterial(progressOf(planQuota(brief), transcript))?.id;
+  return wanted ? (brief.areas.find((area) => area.id === wanted) ?? null) : null;
+}
+
+export type { Progress };

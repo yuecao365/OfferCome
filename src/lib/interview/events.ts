@@ -34,7 +34,7 @@ export function classifyReply(line: Pick<TranscriptLine, "role" | "content" | "c
 
 export const isHelpRequest = (line: Pick<TranscriptLine, "role" | "content" | "control">): boolean => classifyReply(line) === "help";
 
-/** 聊过的材料 id（面试官自报的，按第一次出现的顺序）。 */
+/** 聊过的材料 id（按第一次出现的顺序）。 */
 export function coveredMaterials(events: InterviewEvent[]): string[] {
   const seen: string[] = [];
   for (const item of events) {
@@ -61,14 +61,24 @@ export const eventPayloadSchemas = {
     composeMs: z.number().int().nonnegative().nullable(),
   }),
   /** 面试官说了一句；kind 是这句在流程里的角色（开场 / 提问 / 追问 / 答疑 / 收尾），旧系统的记账口径。 */
-  interviewer_said: said.extend({ kind: z.string(), /** 面试官自报这句在聊哪份材料（材料 id）；开场、告别、临场话题为 null；旧事件没有。 */ topic: z.string().nullable().optional() }),
+  interviewer_said: said.extend({
+    kind: z.string(),
+    /** 这句聊哪份材料（材料 id，代码指派；F1–F2 是模型自报）；开场、告别为 null；旧事件没有。 */
+    topic: z.string().nullable().optional(),
+    /** 这句追问的角度（材料 guides 的下标）；切入问法为 null。 */
+    facet: z.number().int().nullable().optional(),
+    /** 模型判断候选人上一段回答把哪个角度讲透了（当前材料上）；没有为 null。 */
+    doneFacet: z.number().int().nullable().optional(),
+  }),
   /** 代码给这回合的建议：继续 / 换题 / 收尾，附一句理由（decide.ts）。 */
   move_decided: z.object({ move: z.enum(["continue", "switch", "close"]), reason: z.string(), next: z.string().optional() }),
   /** 面试官的笔记（新系统：每回合整份重写）。 */
   notebook_written: z.object({ text: z.string() }),
   /** 面试官查了资料（技能包 / 简历段落）。 */
   tool_called: z.object({ name: z.string(), argument: z.string().nullable() }),
-  /** 时钟估计：已用分钟与总时长。 */
+  /** 覆盖进度：聊到第几份材料、共几份、这份还能问几句。 */
+  progress_tick: z.object({ covered: z.number().int().nonnegative(), quota: z.number().int().nonnegative(), budgetLeft: z.number().int().nonnegative() }),
+  /** 旧系统的时钟估计（§10 之前的场次），只为能读旧事件。 */
   clock_tick: z.object({ usedMinutes: z.number().nonnegative(), totalMinutes: z.number().positive() }),
   /** 覆盖标注器给一次交换打的标签。 */
   label_added: z.object({ seq: z.number().int(), materialId: z.string().nullable(), competencyId: z.string().nullable(), act: z.string() }),
@@ -137,15 +147,15 @@ export async function appendEvents(sink: EventSink, sessionId: string, events: N
   return start;
 }
 
-/** at：这句落下的时刻（事件的 createdAt）；语音版的真实时间时钟按它算，纯逻辑测试可以不带。 */
-export type TranscriptLine = { seq: number; role: "interviewer" | "candidate"; content: string; kind: string | null; control: CandidateControl | null; at?: Date; /** 面试官自报的材料 id。 */ topic?: string | null };
+/** at：这句落下的时刻（事件的 createdAt），纯逻辑测试可以不带。topic / facet / doneFacet 见 interviewer_said。 */
+export type TranscriptLine = { seq: number; role: "interviewer" | "candidate"; content: string; kind: string | null; control: CandidateControl | null; at?: Date; topic?: string | null; facet?: number | null; doneFacet?: number | null };
 
 /** 逐字稿投影：双方说过的话，按 seq。 */
 export function transcriptOf(events: InterviewEvent[]): TranscriptLine[] {
   const lines: TranscriptLine[] = [];
   for (const item of events) {
     if (item.type === "candidate_said") lines.push({ seq: item.seq, role: "candidate", content: item.payload.content, kind: null, control: item.payload.control, at: item.at });
-    if (item.type === "interviewer_said") lines.push({ seq: item.seq, role: "interviewer", content: item.payload.content, kind: item.payload.kind, control: null, at: item.at, topic: item.payload.topic ?? null });
+    if (item.type === "interviewer_said") lines.push({ seq: item.seq, role: "interviewer", content: item.payload.content, kind: item.payload.kind, control: null, at: item.at, topic: item.payload.topic ?? null, facet: item.payload.facet ?? null, doneFacet: item.payload.doneFacet ?? null });
   }
   return lines;
 }

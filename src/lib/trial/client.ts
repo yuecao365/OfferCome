@@ -132,7 +132,7 @@ export async function requestBrief(input: {
   return postWithAi("/api/trial/brief", input);
 }
 
-export type TurnRequestState = { brief: InterviewBrief; notebook: string; totalMinutes: number; messages: ConversationMessage[] };
+export type TurnRequestState = { brief: InterviewBrief; notebook: string; messages: ConversationMessage[] };
 
 /**
  * 回合走 AI SDK 的聊天传输（流式）。状态从浏览器文档现取，随每个请求带上；

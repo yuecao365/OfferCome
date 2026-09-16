@@ -66,7 +66,7 @@ export function MockInterviewTraceView({ trace }: { trace: MockInterviewTrace })
             返回这场面试
           </ButtonLink>
         }
-        description={`${INTERVIEW_PACE_LABELS[trace.pace]}节奏 · ${trace.totalMinutes} 分钟 · 材料：${AREA_KINDS.map((kind) => `${AREA_KIND_LABELS[kind]} ${trace.areas.filter((area) => area.kind === kind).length} 道`).join(" / ")}`}
+        description={`${INTERVIEW_PACE_LABELS[trace.pace]}节奏 · 配额 ${trace.plan.length} 份（${AREA_KINDS.map((kind) => `${AREA_KIND_LABELS[kind]} ${trace.plan.filter((item) => item.kind === kind).length}`).join(" / ")}）· 备课材料 ${trace.areas.length} 份`}
         title={`决策记录 · ${trace.companyName} · ${trace.jobTitle}`}
       />
       <Dashboard trace={trace} />
@@ -95,7 +95,9 @@ export function MockInterviewTraceView({ trace }: { trace: MockInterviewTrace })
             <div className="flex items-center justify-between gap-3">
               <p className="text-xs font-semibold text-muted-foreground">
                 第 {turn.turnIndex + 1} 回合
-                {turn.clock ? ` · 已用约 ${turn.clock.usedMinutes} / ${turn.clock.totalMinutes} 分钟` : ""}
+                {turn.progress ? ` · 材料 ${turn.progress.covered} / ${turn.progress.quota}，这份还能问 ${turn.progress.budgetLeft} 句` : ""}
+                {turn.facet !== null ? ` · 角度 ${turn.facet + 1}` : ""}
+                {turn.doneFacet !== null ? ` · 讲透了角度 ${turn.doneFacet + 1}` : ""}
               </p>
               {turn.run ? (
                 <p className="font-mono text-xs text-muted-foreground">

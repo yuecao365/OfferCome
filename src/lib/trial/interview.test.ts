@@ -28,7 +28,6 @@ function fresh() {
     resume: { text: "简历正文", projects: [] },
     round: "first_interview",
     pace: "standard",
-    totalMinutes: 35,
   });
 }
 
@@ -49,11 +48,11 @@ test("备课两步各自落文档，失败后重试只重跑失败的那一步",
 
 test("回合结果应用到文档：消息追加、笔记换成最新一份、结束进入待评分", () => {
   const interview = withBrief(withBlueprint(fresh(), blueprint), testBrief());
-  const clock = { usedMinutes: 1.2, totalMinutes: 35, exchanges: 1, phase: "open" as const };
+  const progress = { covered: 0, quota: 6 };
   const opened = applyTurnPayload(interview, {
     newMessages: [{ id: "m0", turnIndex: 0, role: "interviewer", kind: "say", content: "你好，先介绍一下自己。" }],
     phase: "running",
-    clock,
+    progress,
     endedBy: null,
     coveredCount: 0,
     notebook: "先听自我介绍，再挑最贴岗位的项目。",
@@ -67,7 +66,7 @@ test("回合结果应用到文档：消息追加、笔记换成最新一份、�
       { id: "m1", turnIndex: 1, role: "interviewer", kind: "closing", content: "好的，今天就到这里。" },
     ],
     phase: "ended",
-    clock,
+    progress,
     endedBy: "candidate",
     coveredCount: 0,
   });
