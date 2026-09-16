@@ -8,7 +8,7 @@ import {
   fallbackBrief,
   fallbackHypothesis,
   firstQuestion,
-  PACE_PLAN,
+  SCENARIOS_PER_PACE,
   parseStoredBrief,
   briefReady,
   QUICK_POOL_SIZE,
@@ -109,13 +109,13 @@ test("题池就是抽样的主题，一个主题一道：模型没写的用包�
 test("场景题按节奏取数，JD 原句必须逐字、能力 id 必须在蓝图里，不够时代码兜底", () => {
   const brief = build({ scenarios: [scenarioOut(), scenarioOut({ name: "多余的" })] });
   const scenarios = brief.areas.filter((area) => area.kind === "scenario");
-  assert.equal(scenarios.length, PACE_PLAN.standard.scenarios);
+  assert.equal(scenarios.length, SCENARIOS_PER_PACE.standard);
   assert.deepEqual(scenarios[0].competencyIds, ["api"]);
   assert.equal(scenarios[0].jdEvidence, "参与 API 设计与自动化测试");
   const rewritten = build({ scenarios: [scenarioOut({ jdEvidence: "把 API 做好（改写）" })] });
   assert.equal(rewritten.areas.find((area) => area.kind === "scenario")?.jdEvidence, null);
   const deep = build({}, { pace: "deep" });
-  assert.equal(deep.areas.filter((area) => area.kind === "scenario").length, PACE_PLAN.deep.scenarios);
+  assert.equal(deep.areas.filter((area) => area.kind === "scenario").length, SCENARIOS_PER_PACE.deep);
   assert.ok(deep.areas.find((area) => area.kind === "scenario")?.entryQuestion.includes("对外接口"), "兜底场景题落在蓝图核心能力上");
   // 顺序：项目 → 题池 → 场景。
   assert.deepEqual([...new Set(brief.areas.map((area) => area.kind))], ["project", "quick", "scenario"]);
@@ -135,10 +135,9 @@ test("简历假设：证据逐字、按 projectId 或简历段落挂到项目；
   assert.equal(fallbackHypothesis("Study Assistant 2026年4月–现在", projects[0]), null);
 });
 
-test("兜底简报与总回合数：总回合按节奏，题池固定 4 道；蓝图的业务带进简报", () => {
+test("兜底简报：题池固定 4 道；蓝图的业务带进简报", () => {
   const brief = fallbackBrief({ blueprint, jobDescription, resumeText, projects, topics, skillPacks: ["backend"], pace: "quick", round: null, askIntro: true });
   assert.equal(brief.source, "fallback");
-  assert.equal(brief.turns, PACE_PLAN.quick.turns);
   assert.equal(brief.product, null);
   assert.equal(projectAreas(brief).length, 2);
   assert.equal(brief.areas.filter((area) => area.kind === "scenario").length, 1);
@@ -150,7 +149,7 @@ test("兜底简报与总回合数：总回合按节奏，题池固定 4 道；�
 test("只读 v8 简报：旧的按阶段预算、切入点或领域清单组织的简报视为没有简报", () => {
   const brief = build({});
   assert.deepEqual(parseStoredBrief(JSON.stringify(brief)), brief);
-  assert.equal(parseStoredBrief(JSON.stringify({ ...brief, version: 7, turns: undefined, plan: { project: 10, quick: 6, scenario: 3 } })), null);
+  assert.equal(parseStoredBrief(JSON.stringify({ ...brief, version: 7, plan: { project: 10, quick: 6, scenario: 3 } })), null);
   assert.equal(parseStoredBrief(JSON.stringify({ version: 5, pace: "standard", areas: [{ id: "a1", kind: "technical", depth: 2 }] })), null);
   assert.equal(parseStoredBrief("not json"), null);
 });

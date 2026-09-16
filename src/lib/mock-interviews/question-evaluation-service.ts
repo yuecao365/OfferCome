@@ -4,8 +4,9 @@ import { prisma } from "@/lib/db";
 import { parseJsonObject, parseJsonValue } from "@/lib/json";
 
 import { generateAnswerExemplar } from "./answer-exemplar-agent";
-import { parseThreadVerdict } from "./verdicts";
+import { verdictForScore } from "./verdicts";
 import { isAreaKind, parseStoredBrief } from "./brief/brief";
+import { competenciesOf } from "./context";
 import { evaluateMockInterviewQuestion } from "./question-evaluation-agent";
 import type { EvaluationThreadContext, EvaluationWeakness } from "./question-evaluation";
 import { loadSkillPacks } from "./skills/loader";
@@ -14,15 +15,14 @@ import { packsForInterview } from "./skills/selector";
 const RUNNING_EVALUATION_WAIT_MS = 32_000;
 const RUNNING_EVALUATION_POLL_MS = 250;
 
-/** 线程切段时写进 generationMetadataJson 的过程信号（见 interviewer/segments.ts）。 */
-function threadContext(metadata: Record<string, unknown>): EvaluationThreadContext | null {
+/** 切段时写进 generationMetadataJson 的过程信号（见 aftermath/segments.ts）。 */
+export function threadContext(metadata: Record<string, unknown>): EvaluationThreadContext | null {
   if (typeof metadata.depth !== "number" || !isAreaKind(metadata.areaKind)) return null;
   return {
     kind: metadata.areaKind,
     depth: metadata.depth,
     probeCount: typeof metadata.probeCount === "number" ? metadata.probeCount : metadata.depth,
-    verdict: parseThreadVerdict(metadata.verdict),
-    note: typeof metadata.note === "string" ? metadata.note : null,
+    facets: Array.isArray(metadata.facets) ? metadata.facets.filter((item): item is string => typeof item === "string") : [],
   };
 }
 
@@ -86,6 +86,7 @@ export async function evaluatePersistedMockInterviewQuestion(interviewQuestionId
       jobDescription: session.jdTextSnapshot,
       thread: threadContext(metadata),
       round: brief?.round ?? null,
+      competencies: competenciesOf(session.contextSnapshotJson).map((item) => ({ id: item.id, name: item.name })),
     });
     // 只允许仍持有 running 认领的调用写终态：交卷路径会把超时的评分强制置
     // failed 并重跑，旧调用迟到的结果必须被丢弃，不能覆盖重跑的结果。
@@ -106,6 +107,11 @@ export async function evaluatePersistedMockInterviewQuestion(interviewQuestionId
       },
     });
     if (completed.count !== 1) return false;
+    // 段的判断由评分写回线程（§11.2）：答得怎么样按分数推导，答到第几层与考的能力由评分给。
+    await prisma.interviewThread.updateMany({
+      where: { questionId: question.id },
+      data: { verdict: verdictForScore(result.score), difficulty: result.difficulty, ...(result.competencyId ? { competencyId: result.competencyId } : {}) },
+    });
     // 评分已落库，交卷不必等示范；示范在同一后台任务里接着跑。
     await attachExemplar({
       evaluationId: evaluation.id,

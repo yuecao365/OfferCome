@@ -1,6 +1,5 @@
 import { generateAnswerExemplar } from "@/lib/mock-interviews/answer-exemplar-agent";
-import { parseThreadVerdict } from "@/lib/mock-interviews/verdicts";
-import { isAreaKind } from "@/lib/mock-interviews/brief/brief";
+import { threadContext } from "@/lib/mock-interviews/question-evaluation-service";
 import type { TrialSegment } from "@/lib/trial/interview";
 import { evaluateMockInterviewQuestion } from "@/lib/mock-interviews/question-evaluation-agent";
 import { loadSkillPacks } from "@/lib/mock-interviews/skills/loader";
@@ -37,16 +36,9 @@ export const POST = withTrialAi<Body>(async (body) => {
     expectedSignals: body.segment.expectedSignals,
     jobTitle: body.jobTitle,
     jobDescription: body.jobDescription,
-    thread: isAreaKind(metadata.areaKind)
-      ? {
-          kind: metadata.areaKind,
-          depth: typeof metadata.depth === "number" ? metadata.depth : 0,
-          probeCount: typeof metadata.probeCount === "number" ? metadata.probeCount : 0,
-          verdict: parseThreadVerdict(metadata.verdict),
-          note: typeof metadata.note === "string" ? metadata.note : null,
-        }
-      : null,
+    thread: threadContext(metadata),
     round: body.round,
+    competencies: [],
   });
 
   let exemplar: TrialEvaluation["exemplar"] = null;

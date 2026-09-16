@@ -41,7 +41,7 @@ export type TrialEvaluation = MockInterviewQuestionEvaluation & {
 
 export type TrialEvaluationStatus = "pending" | "running" | "completed" | "failed";
 
-/** 整理员切出的一段（本地版的 InterviewQuestion + Evaluation 行）。重建阶段 C 起产出；之前为空。 */
+/** 切段（纯代码）切出的一段（本地版的 InterviewQuestion + Evaluation 行）。 */
 export type TrialSegment = {
   id: string;
   question: string;

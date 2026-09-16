@@ -48,10 +48,11 @@ export function isAreaKind(value: unknown): value is AreaKind {
  * 节奏 → 一场的总回合数（面试官说话的次数，含开场与收尾）与场景题数。
  * 总回合数是唯一的硬数字：用完就收尾；怎么分配由面试官的计划定。
  */
-export const PACE_PLAN: Record<InterviewPace, { turns: number; scenarios: number }> = {
-  quick: { turns: 12, scenarios: 1 },
-  standard: { turns: 20, scenarios: 1 },
-  deep: { turns: 32, scenarios: 2 },
+/** 每档备几道场景题（配额见 interview/progress.ts）。 */
+export const SCENARIOS_PER_PACE: Record<InterviewPace, number> = {
+  quick: 1,
+  standard: 1,
+  deep: 2,
 };
 
 /** 项目追问的角度（旧简报每个面一道材料；新简报只作线索与旧数据的标签）。 */
@@ -215,8 +216,6 @@ export type InterviewHypothesis = { id: string; text: string; evidence: string; 
 export type InterviewBrief = {
   version: typeof BRIEF_VERSION;
   pace: InterviewPace;
-  /** 一场的总回合数（面试官说话的次数）。 */
-  turns: number;
   round: string | null;
   /** 这个团队做什么（蓝图的业务；JD 没写为 null）：面试官人设里带一句。 */
   product: string | null;
@@ -402,7 +401,7 @@ export function buildBriefFromOutput(input: {
   askIntro: boolean;
 }): InterviewBrief {
   const { output, round } = input;
-  const plan = PACE_PLAN[input.pace];
+  const scenarioCount = SCENARIOS_PER_PACE[input.pace];
   const competencyIds = new Set(input.blueprint.competencies.map((item) => item.id));
   const projectsById = new Map(input.projects.map((project) => [project.id, project]));
   const resume = normalizedText(input.resumeText);
@@ -422,7 +421,7 @@ export function buildBriefFromOutput(input: {
   const written = new Map(output.quick.map((item) => [normalizedText(item.topic), item]));
   const quick = input.topics.map((topic, index) => quickArea(topic, `q${index + 1}`, round, written.get(normalizedText(topic.name)) ?? null));
 
-  const scenarios: InterviewArea[] = output.scenarios.slice(0, plan.scenarios).map((raw, index) => {
+  const scenarios: InterviewArea[] = output.scenarios.slice(0, scenarioCount).map((raw, index) => {
     const jdEvidence = raw.jdEvidence && isVerbatimEvidence(input.jobDescription, raw.jdEvidence) ? raw.jdEvidence : null;
     return {
       id: `s${index + 1}`,
@@ -439,7 +438,7 @@ export function buildBriefFromOutput(input: {
       rubric: rubricForArea("scenario", round),
     };
   });
-  while (scenarios.length < plan.scenarios) scenarios.push(fallbackScenarioArea(input.blueprint, `s${scenarios.length + 1}`, round));
+  while (scenarios.length < scenarioCount) scenarios.push(fallbackScenarioArea(input.blueprint, `s${scenarios.length + 1}`, round));
 
   // 假设挂到项目上：该项目的任何角度里都能验。
   const hypotheses: InterviewHypothesis[] = output.hypotheses
@@ -459,7 +458,6 @@ export function buildBriefFromOutput(input: {
   return {
     version: BRIEF_VERSION,
     pace: input.pace,
-    turns: plan.turns,
     round,
     product: input.blueprint.business?.product ?? null,
     askIntro: input.askIntro,
@@ -485,14 +483,13 @@ export function fallbackBrief(input: {
   round: string | null;
   askIntro: boolean;
 }): InterviewBrief {
-  const plan = PACE_PLAN[input.pace];
+  const scenarioCount = SCENARIOS_PER_PACE[input.pace];
   const projects = projectAreas(input.projects, input.round, () => null);
   const quick = input.topics.map((topic, index) => quickArea(topic, `q${index + 1}`, input.round, null));
-  const scenarios = Array.from({ length: plan.scenarios }, (_, index) => fallbackScenarioArea(input.blueprint, `s${index + 1}`, input.round));
+  const scenarios = Array.from({ length: scenarioCount }, (_, index) => fallbackScenarioArea(input.blueprint, `s${index + 1}`, input.round));
   return {
     version: BRIEF_VERSION,
     pace: input.pace,
-    turns: plan.turns,
     round: input.round,
     product: input.blueprint.business?.product ?? null,
     askIntro: input.askIntro,
@@ -520,7 +517,6 @@ export function parseStoredBrief(json: string | null): InterviewBrief | null {
     const usable =
       value.version === BRIEF_VERSION &&
       isInterviewPace(value.pace ?? "") &&
-      typeof value.turns === "number" &&
       Array.isArray(value.areas) &&
       value.areas.every((area) => isAreaKind(area.kind));
     return usable ? (value as InterviewBrief) : null;

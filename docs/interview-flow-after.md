@@ -1,6 +1,6 @@
 # 面试后：从整理员切段到报告与画像（报告 v2）
 
-> 重建后（2026-09-15，阶段 C）：面试中不再实时切段，面试结束后由整理员从逐字稿切段；之后的评分、汇总、画像链路不变。
+> 重建后（2026-09-15，阶段 C）：面试结束后从逐字稿切段；§11（2026-09-16）起切段是纯代码，段的判断由评分写回；之后的评分、汇总、画像链路不变。
 
 > 上一篇：[面试中](interview-flow-during.md) · 首篇：[整体流程](interview-flow-overview.md)
 > 代码：`interviewer/segments.ts`（切段）→ `interviewer/session.ts`（写兼容题目、安排评分与交卷）→ `question-evaluation-background.ts` / `question-evaluation-service.ts` / `question-evaluation-agent.ts` / `question-evaluation.ts`（逐段评分）→ `answer-exemplar-agent.ts`（示范回答）→ `completion.ts` + `summary-agent.ts` + `scoring.ts` + `report.ts`（交卷与报告）→ `candidate-profile/`（画像）。
@@ -22,19 +22,19 @@ flowchart TD
   DONE --> PAGE[报告页]
 ```
 
-三条原则：报告的骨架是面试官的现场判断（线程 note、工作记忆、假设验证）；负面反馈必须落到候选人的原话上，"说错了什么 / 没答上什么"与"练什么"分开；面试一结束报告自动生成，用户不点按钮。
+三条原则：报告的骨架是评分与面试官的工作记忆（笔记、假设验证）；负面反馈必须落到候选人的原话上，"说错了什么 / 没答上什么"与"练什么"分开；面试一结束报告自动生成，用户不点按钮。
 
-## 1. 整理员：逐字稿 → 话题段（`src/lib/interview/aftermath/`）
+## 1. 切段：逐字稿 → 话题段（`src/lib/interview/aftermath/`，纯代码，§11.2）
 
-**触发**：交卷（`completeMockInterview`）第一步 `ensureSegments`，幂等——已有分段直接返回；`resegment` 删掉旧分段与兼容题目重切（调试用）。体验版在浏览器发起交卷时调 `/api/trial/segment`。
+**触发**：交卷（`completeMockInterview`）第一步 `ensureSegments`，幂等——已有分段直接返回；`resegment` 删掉旧分段与兼容题目重切（调试用）。体验版在浏览器里直接调同一个纯函数。
 
-**一次调用**（`segmenter.ts`，segmenter-v5）：输入带编号的逐字稿（每句 ≤ 700 字；面试官的句子带它自报的材料 id，切段以它为准）、材料清单（id、种类、名称、建议问法）与岗位能力清单；输出每段的 `startSeq`（这段第一问的编号）、对应材料 id（临场话题 null）、种类、一句标签、verdict（answered / thin / failed / skipped）、一句判断。规则：一段从面试官进入一个话题的那句开始到下一段开始之前；同一材料的连续追问同一段；候选人的澄清、求助、跑题不开新段；开场与收尾不算段。
+**切段**（`cut.ts`，`cutSegments`）：§10 起每句面试官的话都带代码指派的材料 id 与角度，一段 = 进入一份材料的第一句提问（`kind: say`）起，到下一份材料之前；答疑（`aside`）与代码接的话归当前段；开场与告别不算段。每段带材料 id、种类、名称、切入问法、追问数（答疑不算）、问过的角度（`facets`）、候选人的回答（按钮替说的话不算）、有没有实质回答（`skipped`）。不需要模型，结果与面试中的决策完全一致。
 
-**代码修复**（`repairSegments`，纯函数）：编号要是面试官那句（写成候选人那句的靠到前一句面试官）、开场那句不算（从开场起的段靠到第一问，除非第一问已有段）、去重排序、结束编号取下一段开始之前（最后一段到逐字稿末尾）；areaId 只认材料里有的；没有候选人回答的段 verdict 强制 skipped；深度 = 段内面试官发言数 − 1。
+**段的判断由评分写回**：切段时线程只有 `verdict: skipped | answered`（有没有回答）；评分落库后按分数推导（`verdictForScore`：< 50 failed、< 70 thin、其余 answered），`difficulty`（答到阶梯第几层 1–4）与 `competencyId`（主要考的能力）由评分 agent 多输出的两个字段写回（场景题的能力切段时就按材料绑定）。`note` 不再有。简历假设的验证交给汇总 agent，交卷时把结论写回 `hypothesesJson`（跨场记忆 `previousClaims` 读它）。
 
-**重切**：`npm run resegment -- <sessionId> [...]` 用当前版本的整理员重切已结束的场次（删旧段、兼容题目与评分，评分同步跑完）；改了整理员之后对旧场次重跑用。
+**重切**：`npm run resegment -- <sessionId> [...]` 按当前代码重切已结束的场次（删旧段、兼容题目与评分，评分同步跑完）。
 
-**落库**（一个事务）：每段一行 `InterviewThread`（areaId、kind、label、entryQuestion、depth、verdict、note、startSeq、endSeq、competencyId（这段主要考的能力，只认岗位能力清单里的；对不上取材料的第一个）、difficulty（候选人答到阶梯第几层 1–4））+ 一行兼容 `InterviewQuestion`（题目 = 第一问 + "追问 n：…"，回答 = 段内候选人的话拼接，skipped = verdict 为 skipped 或没有回答）+ 待评分的 `InterviewQuestionEvaluation`（评分表与期望信号取材料的，没有材料按种类兜底；`generationMetadataJson` = areaId / areaName / areaKind / competencyOrigin / skillPack / note / depth / probeCount / verdict / startSeq / endSeq）。有回答的段安排后台评分。
+**落库**（一个事务）：每段一行 `InterviewThread`（areaId、kind、label、entryQuestion、depth、verdict、startSeq、endSeq、competencyId、difficulty）+ 一行兼容 `InterviewQuestion`（题目 = 第一问 + "追问 n：…"，回答 = 候选人在这段里的话；`generationMetadataJson` 带 areaId / areaName / areaKind / competencyOrigin / skillPack / facets / depth / probeCount / verdict / startSeq / endSeq）。
 
 **评分的引用硬门与置信**：strengths / weaknesses 里写了引用却不在回答里的条目整条丢掉（不再只是置空）；同一段两次采样，总分相差超过 15 标 `lowConfidence`（报告里提示"仅供参考"，不改分）。
 

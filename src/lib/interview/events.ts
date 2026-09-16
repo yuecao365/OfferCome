@@ -34,15 +34,6 @@ export function classifyReply(line: Pick<TranscriptLine, "role" | "content" | "c
 
 export const isHelpRequest = (line: Pick<TranscriptLine, "role" | "content" | "control">): boolean => classifyReply(line) === "help";
 
-/** 聊过的材料 id（按第一次出现的顺序）。 */
-export function coveredMaterials(events: InterviewEvent[]): string[] {
-  const seen: string[] = [];
-  for (const item of events) {
-    if (item.type === "interviewer_said" && item.payload.topic && !seen.includes(item.payload.topic)) seen.push(item.payload.topic);
-  }
-  return seen;
-}
-
 export const CONTROL_PLACEHOLDERS: Record<CandidateControl, string> = {
   skip: "这题我想跳过。",
   repeat: "能再说一遍吗？",
@@ -78,10 +69,6 @@ export const eventPayloadSchemas = {
   tool_called: z.object({ name: z.string(), argument: z.string().nullable() }),
   /** 覆盖进度：聊到第几份材料、共几份、这份还能问几句。 */
   progress_tick: z.object({ covered: z.number().int().nonnegative(), quota: z.number().int().nonnegative(), budgetLeft: z.number().int().nonnegative() }),
-  /** 旧系统的时钟估计（§10 之前的场次），只为能读旧事件。 */
-  clock_tick: z.object({ usedMinutes: z.number().nonnegative(), totalMinutes: z.number().positive() }),
-  /** 覆盖标注器给一次交换打的标签。 */
-  label_added: z.object({ seq: z.number().int(), materialId: z.string().nullable(), competencyId: z.string().nullable(), act: z.string() }),
   /** 能力估计器更新。 */
   estimate_updated: z.object({ competencyId: z.string(), mean: z.number(), confidence: z.number(), samples: z.number().int() }),
   /** 评论员对面试官某一句（seq）的提醒：违反了哪条准则、下一句怎么改。 */

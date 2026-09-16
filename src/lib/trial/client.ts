@@ -173,11 +173,6 @@ export async function evaluateSegment(input: {
   return evaluation;
 }
 
-/** 面试结束后让整理员把逐字稿切段（体验版的阶段 C）。 */
-export async function requestSegments(input: { brief: InterviewBrief; messages: ConversationMessage[]; round: string | null }): Promise<{ segments: TrialSegment[]; hypotheses: TrialInterview["hypotheses"] }> {
-  return postWithAi<{ segments: TrialSegment[]; hypotheses: TrialInterview["hypotheses"] }>("/api/trial/segment", input);
-}
-
 export async function requestReport(input: {
   jobTitle: string;
   brief: InterviewBrief;

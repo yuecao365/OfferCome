@@ -99,6 +99,8 @@ export const scorerCaseSchema = z.object({
     hinted: z.boolean(),
     verdict: z.enum(THREAD_VERDICTS).nullable().default(null),
     note: z.string().nullable(),
+    /** 问过的角度（§11 起）；旧用例没有。 */
+    facets: z.array(z.string()).default([]),
   }),
   answers: z.record(z.enum(SCORER_VARIANTS), z.string().min(1)),
   /** err 变体插入的错句与错因；drop 变体删掉的机制。 */

@@ -1,6 +1,8 @@
 "use client";
 
 import type { RecentWeakness } from "@/lib/mock-interviews/context";
+import { cutSegments } from "@/lib/interview/aftermath/cut";
+import { segmentRecord } from "@/lib/interview/aftermath/segments";
 import { isInterviewPace, type InterviewBrief } from "@/lib/mock-interviews/brief/brief";
 import type { TurnPayload } from "@/lib/interview/views";
 
@@ -18,7 +20,7 @@ import {
   parseJobDescriptionFile,
   requestBlueprint,
   requestBrief,
-  requestReport, requestSegments } from "./client";
+  requestReport } from "./client";
 import {
   applyTurnPayload,
   completeTrialInterview,
@@ -223,10 +225,16 @@ export async function completeTrialMockSession(id: string): Promise<void> {
   if (interview.status !== "ready_to_evaluate" && interview.status !== "evaluating") throw new Error("面试还没有结束。");
   mutateTrialInterview(id, (current) => withStatus(current, "evaluating"));
   try {
-    // 先切段（幂等）：没有分段的会话让整理员从逐字稿切一次。
+    // 先切段（幂等，纯代码）：消息带代码指派的材料 id 与角度，在浏览器里直接切。
     if (interview.questions.length === 0 && interview.brief) {
-      const { segments, hypotheses } = await requestSegments({ brief: interview.brief, messages: interview.messages, round: interview.round });
-      mutateTrialInterview(id, (current) => ({ ...current, questions: segments, hypotheses }));
+      const brief = interview.brief;
+      const transcript = interview.messages.map((message, seq) => ({ seq, role: message.role, content: message.content, kind: message.role === "interviewer" ? message.kind : null, control: null, topic: message.topic ?? null, facet: message.facet ?? null, doneFacet: message.doneFacet ?? null }));
+      const areas = new Map(brief.areas.map((area) => [area.id, area]));
+      const segments = cutSegments(transcript, brief).map((segment) => {
+        const probes = transcript.filter((line) => line.role === "interviewer" && line.kind === "say" && line.seq > segment.startSeq && line.seq <= segment.endSeq).map((line) => line.content);
+        return { id: crypto.randomUUID(), ...segmentRecord(areas.get(segment.areaId)!, segment, probes, interview.round), evaluationStatus: "pending" as const, evaluation: null };
+      });
+      mutateTrialInterview(id, (current) => ({ ...current, questions: segments, hypotheses: brief.hypotheses.map((item) => ({ id: item.id, status: "open" as const, note: null })) }));
     }
     // 在途的评分等它跑完；失败与还没开始的当场补跑。
     while (requireInterview(id).questions.some((segment) => segment.evaluationStatus === "running")) {

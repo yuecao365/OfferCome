@@ -146,12 +146,15 @@ export async function completeMockInterview(
               brief,
               areas,
               notebook: session.notebook,
-              hypotheses: parseJsonArray(session.hypothesesJson) as { id: string; status: "open" | "confirmed" | "refuted"; note: string | null }[],
+              hypotheses: brief.hypotheses.map((item) => ({ id: item.id, status: "open" as const, note: null })),
             }),
           )
         : ALL_SKIPPED_SUMMARY;
     const report = buildReport(areas, summary);
     const completedAt = new Date();
+    // 简历假设的验证结论由汇总给（§11.2）：写回会话，跨场记忆读它。
+    const judged = new Map(report.hypotheses.map((item) => [item.text, item]));
+    const hypotheses = brief.hypotheses.map((item) => ({ id: item.id, status: judged.get(item.text)?.status ?? "open", note: judged.get(item.text)?.verdict ?? null }));
 
     await prisma.$transaction(async (tx) => {
       await tx.mockInterviewSession.update({
@@ -160,6 +163,7 @@ export async function completeMockInterview(
           status: "completed",
           totalScore: report.totalScore,
           reportJson: JSON.stringify(report),
+          hypothesesJson: JSON.stringify(hypotheses),
           completedAt,
         },
       });

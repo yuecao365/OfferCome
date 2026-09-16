@@ -154,6 +154,7 @@ async function scorerSources(limit: number, existing: Set<string>, evalTag: stri
         hinted: metadata.hinted === true,
         verdict: parseThreadVerdict(metadata.verdict),
         note: typeof metadata.note === "string" ? metadata.note : null,
+        facets: Array.isArray(metadata.facets) ? (metadata.facets as unknown[]).filter((item): item is string => typeof item === "string") : [],
       },
     });
     if (sources.length >= limit) break;
@@ -191,7 +192,7 @@ async function scorerSourcesFromBriefs(existing: Set<string>, limit: number): Pr
           question: [area.entryQuestion.trim(), ...area.guides.map((guide, index) => `追问 ${index + 1}：${guide.trim()}`)].join("\n"),
           rubric: area.rubric,
           expectedSignals: area.expectedSignals,
-          thread: { kind: area.kind, depth: area.guides.length, probeCount: area.guides.length, hinted: false, verdict: null, note: null },
+          thread: { kind: area.kind, depth: area.guides.length, probeCount: area.guides.length, hinted: false, verdict: null, note: null, facets: area.guides },
         });
       }
       console.log(`${role} / ${jdId}：${brief.areas.filter((area) => area.kind !== "project").length} 道`);
@@ -509,8 +510,9 @@ async function scorerSmokeGate(cases: ScorerCase[]): Promise<void> {
         expectedSignals: item.expectedSignals,
         jobTitle: item.jobTitle,
         jobDescription: item.jobDescription,
-        thread: item.thread,
+        thread: { kind: item.thread.kind, depth: item.thread.depth, probeCount: item.thread.probeCount, facets: item.thread.facets },
         round: item.round,
+        competencies: [],
       });
       scores[variant] = result.score;
     }
@@ -564,8 +566,9 @@ async function commandScorer(models: EvalModels): Promise<void> {
             expectedSignals: item.expectedSignals,
             jobTitle: item.jobTitle,
             jobDescription: item.jobDescription,
-            thread: item.thread,
+            thread: { kind: item.thread.kind, depth: item.thread.depth, probeCount: item.thread.probeCount, facets: item.thread.facets },
             round: item.round,
+            competencies: [],
           });
           runs[variant].push({ score: result.score, evaluation: result.evaluation, metrics: result.metrics, durationMs: Date.now() - startedAt, totalTokens: null });
         } catch (error) {

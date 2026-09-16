@@ -1,11 +1,11 @@
 import { rubricForArea, type AreaKind, type InterviewArea, type RubricItem } from "@/lib/mock-interviews/brief/brief";
 import type { ThreadVerdict } from "@/lib/mock-interviews/verdicts";
 
-import type { Segment } from "./segmenter";
+import type { Segment } from "./cut";
 
 /**
  * 一段 → 兼容题目（InterviewQuestion + Evaluation 行）：让原有的逐题评分、复盘、画像链路不用改就能消费。
- * 题目 = 第一问 + "追问 n：…"；回答 = 候选人在这段里的话；评分表与期望信号取对应材料的，没有材料按种类兜底。
+ * 题目 = 第一问 + "追问 n：…"；回答 = 候选人在这段里的话；评分表与期望信号取对应材料的。判断（verdict / difficulty / competencyId）由评分写回线程。
  */
 
 export type SegmentRecord = {
@@ -26,7 +26,10 @@ export type SegmentMetadata = {
   areaKind: AreaKind;
   competencyOrigin: "jd" | "baseline" | null;
   skillPack: string | null;
+  /** 旧场次整理员的一句判断；§11 起为 null。 */
   note: string | null;
+  /** 问过的角度（材料 guides 的文字）。 */
+  facets: string[];
   depth: number;
   probeCount: number;
   verdict: ThreadVerdict;
@@ -40,27 +43,28 @@ export function categoryForKind(kind: AreaKind, round: string | null): string {
   return kind === "scenario" ? "system_design" : "technical";
 }
 
-export function segmentRecord(area: InterviewArea | null, segment: Segment, probes: string[], round: string | null): SegmentRecord {
+export function segmentRecord(area: InterviewArea, segment: Segment, probes: string[], round: string | null): SegmentRecord {
   const question = [segment.entryQuestion, ...probes.map((probe, index) => `追问 ${index + 1}：${probe}`)].join("\n");
   const answer = segment.answers.join("\n\n").trim();
   return {
     question,
     answer: answer || null,
-    skipped: segment.verdict === "skipped" || !answer,
+    skipped: segment.skipped || !answer,
     category: categoryForKind(segment.kind, round),
     sourceKind: segment.kind,
-    rubric: area?.rubric ?? rubricForArea(segment.kind, round),
-    expectedSignals: area?.expectedSignals ?? [],
+    rubric: area.rubric.length > 0 ? area.rubric : rubricForArea(segment.kind, round),
+    expectedSignals: area.expectedSignals,
     metadata: {
       areaId: segment.areaId,
       areaName: segment.label,
       areaKind: segment.kind,
-      competencyOrigin: area?.jdEvidence ? "jd" : area ? "baseline" : null,
-      skillPack: area?.topic?.skill ?? null,
-      note: segment.note || null,
+      competencyOrigin: area.jdEvidence ? "jd" : "baseline",
+      skillPack: area.topic?.skill ?? null,
+      note: null,
+      facets: segment.facets,
       depth: segment.depth,
       probeCount: probes.length,
-      verdict: segment.verdict,
+      verdict: segment.skipped || !answer ? "skipped" : "answered",
       startSeq: segment.startSeq,
       endSeq: segment.endSeq,
     },

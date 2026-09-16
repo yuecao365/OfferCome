@@ -15,7 +15,7 @@ import {
 } from "./question-evaluation";
 import { computeQuestionScore } from "./scoring";
 
-export const EVALUATION_PROMPT_VERSION = "evaluation-v3";
+export const EVALUATION_PROMPT_VERSION = "evaluation-v4";
 
 const questionEvaluationSchema = z.object({
   dimensions: z.array(
@@ -40,6 +40,10 @@ const questionEvaluationSchema = z.object({
     .max(4),
   advice: z.array(z.string().min(1).max(300)).max(3),
   feedback: z.string().min(1).max(800),
+  /** 候选人实际答到阶梯第几层：1 只到概念或名词，2 说清了机制，3 讲到了取舍与边界，4 有自己的判断并说得出怎么验证。 */
+  difficulty: z.number().int().min(1).max(4),
+  /** 这段主要考的能力（competencies 里的 id）；对不上填 null。 */
+  competencyId: z.string().max(40).nullable(),
 });
 
 const ROUND_LABELS: Record<string, string> = {
@@ -51,7 +55,7 @@ const ROUND_LABELS: Record<string, string> = {
 function systemPrompt(round: string | null): string {
   return `你是模拟面试逐题评分 Agent，只根据预先确定的 rubric 维度和候选人的实际回答评分，评价用于训练，不输出录用或淘汰结论。
 
-输入里的 thread 是这段问答的过程信号：kind 是这段属于哪个阶段——project 项目深挖（顺着回答追，最多 3 层）、quick 基础快问（一题一问，最多追 1 层，答不上就换题）、scenario 场景题（引导式，最多 3 层）；面试官越深越往失守点问，追到第 n 层答不上属于正常，按候选人实际达到的深度给分，不按"完美答案"扣分。基础快问只有一两句回答是正常的，按这一层答得准不准给分，不要因为"没展开"扣分。note 是面试官关掉这段时的现场判断，verdict 是它对候选人答得怎么样的结论（answered 有实质回答 / thin 只有关键词或空话 / failed 一句没答上），你的分数与它们明显不一致时在 feedback 里说明理由。expectedSignals 是备课时写的参考，候选人从别的角度答到位同样给分，不按清单扣。
+输入里的 thread 是这段问答的过程信号：kind 是这段属于哪个阶段——project 项目深挖（顺着回答追）、quick 基础快问（一题一问，最多追 1 层）、scenario 场景题（引导式）；probeCount 是追问了几句，facets 是面试官问过的角度；面试官越深越往失守点问，追到第 n 层答不上属于正常，按候选人实际达到的深度给分，不按"完美答案"扣分。基础快问只有一两句回答是正常的，按这一层答得准不准给分，不要因为"没展开"扣分。expectedSignals 是备课时写的参考，候选人从别的角度答到位同样给分，不按清单扣。另外给两个判断：difficulty 是候选人实际答到阶梯第几层（1 只到概念或名词，2 说清了机制，3 讲到了取舍与边界，4 有自己的判断并说得出怎么验证）；competencyId 是这段主要考的能力，只填 competencies 里的 id，对不上填 null。
 
 分带（本场是${ROUND_LABELS[round ?? ""] ?? "技术面"}；校招 / 社招从回答与简历里的经验判断）：90 以上 = 准确、有取舍、能迁移，面试官会继续加深追问；70–89 = 主干正确、细节或取舍有欠缺，达到该轮次常规要求；50–69 = 有基本尝试但关键点缺失或不稳；50 以下 = 关键内容错误或基本没答。
 
@@ -76,7 +80,9 @@ export async function evaluateMockInterviewQuestion(input: {
   jobDescription: string;
   thread: EvaluationThreadContext | null;
   round: string | null;
-}): Promise<{ evaluation: MockInterviewQuestionEvaluation; score: number; metrics: EvaluationMetrics; secondScore: number | null; lowConfidence: boolean }> {
+  /** 岗位能力清单：评分挑这段主要考的那项。 */
+  competencies: { id: string; name: string }[];
+}): Promise<{ evaluation: MockInterviewQuestionEvaluation; score: number; metrics: EvaluationMetrics; secondScore: number | null; lowConfidence: boolean; difficulty: number; competencyId: string | null }> {
   const parsed = parseQuestionEvaluationInput(input);
   if (parsed.rubric.length === 0) {
     throw new Error("这道题缺少有效的评分标准。");
@@ -101,6 +107,7 @@ export async function evaluateMockInterviewQuestion(input: {
       rubric: parsed.rubric,
       expectedSignals: parsed.expectedSignals,
       thread: input.thread,
+      competencies: input.competencies,
     },
   });
   // 同段两次采样：第一次的结果作数，第二次只用来看分歧；分歧大标低置信（报告里提示，不改分）。
@@ -120,5 +127,6 @@ export async function evaluateMockInterviewQuestion(input: {
     durationMs: Date.now() - startedAt,
     metrics: { score, ...validated.metrics, weaknessCount: validated.evaluation.weaknesses.length, secondScore: secondScore ?? -1, lowConfidence: lowConfidence ? 1 : 0 },
   });
-  return { ...validated, score, secondScore, lowConfidence };
+  const competencyId = output.competencyId && input.competencies.some((item) => item.id === output.competencyId) ? output.competencyId : null;
+  return { ...validated, score, secondScore, lowConfidence, difficulty: output.difficulty, competencyId };
 }

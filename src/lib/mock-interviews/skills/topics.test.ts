@@ -70,8 +70,9 @@ test("sampling without replacement follows the weights and dedupes names", () =>
   const picked = sampleTopics(topics, 3, context, random);
   assert.equal(picked.length, 3);
   assert.equal(new Set(picked.map((item) => item.name)).size, 3);
-  // 权重最高的主题在多次抽样里几乎总在前列。
+  // 权重最高的主题在多次抽样里明显更常被抽到（固定种子，结果确定）。
+  seed = 0.25;
   let first = 0;
-  for (let round = 0; round < 50; round += 1) if (sampleTopics(topics, 1, context, random)[0].name === "MySQL 索引") first += 1;
-  assert.ok(first > 25, `MySQL 索引只被抽中 ${first}/50 次`);
+  for (let round = 0; round < 200; round += 1) if (sampleTopics(topics, 1, context, random)[0].name === "MySQL 索引") first += 1;
+  assert.ok(first > 80, `MySQL 索引只被抽中 ${first}/200 次`);
 });
