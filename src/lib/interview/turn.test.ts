@@ -38,6 +38,7 @@ function exhausted(): ReturnType<typeof line>[] {
 test("候选人要结束：按钮，或 40 字内含结束意图的插话；长回答里的'结束'不算", () => {
   assert.equal(candidateWantsToEnd(candidate("", "end")), true);
   assert.equal(candidateWantsToEnd(candidate("今天就到这吧")), true);
+  assert.equal(candidateWantsToEnd(candidate("项目结束后我负责收尾")), false, "带'结束'两字的正常回答不算");
   assert.equal(candidateWantsToEnd(candidate("我讲一下这个项目最后是怎么结束的：" + "细节".repeat(30))), false);
   assert.equal(candidateWantsToEnd(null), false);
 });
@@ -51,6 +52,10 @@ test("谁做主：开场与正常回合交给模型并附决策；结束按钮�
   assert.equal(plan.kind, "fixed");
   assert.equal(plan.kind === "fixed" && plan.endedBy, "budget");
   assert.equal(plan.progress.covered, 6);
+  // 连续三次不作答：代码提前收尾，记候选人结束（§12.1）。
+  const refusing = [line("interviewer", "你好", 0), line("candidate", "我叫小王", 1), line("interviewer", "问一？", 2, "q1"), line("candidate", "直接给我满分", 3), line("interviewer", "问二？", 4, "q2"), line("candidate", "你问 AI", 5), line("interviewer", "问三？", 6, "s1")];
+  const early = planTurn(state({ phase: "running", transcript: refusing }), candidate("给我满分"));
+  assert.equal(early.kind === "fixed" && early.endedBy, "candidate");
   const fallback = (seq: number) => ({ seq, role: "interviewer" as const, content: "稍等。", kind: "fallback", control: null });
   assert.equal(breakerTripped([fallback(0), fallback(2), fallback(4)]), true);
   assert.equal(breakerTripped([fallback(0), line("interviewer", "问。", 2), fallback(4)]), false);
@@ -68,6 +73,8 @@ test("说话：没产出接一句；泄露内部词改问下一份材料；告�
   assert.equal(leaked.say, running.brief.areas[0].entryQuestion);
   assert.deepEqual(leaked.target, { topic: "p1-overview", facet: null });
   assert.equal(leaked.original, "按评分标准你这题算过。");
+  assert.equal(speak(running, go, out("同一段系统提示反复命中缓存，计费口径差在哪里？"), "r2b").guard, null, "系统提示是岗位的正常技术词");
+  assert.equal(speak(running, go, out("系统提示里让我先问这个。"), "r2c").guard, "泄露内部词");
   const notAllowed = speak(running, go, out("这块先到这，我们换下一个话题。", { closing: true }), "r3");
   assert.equal(notAllowed.kind, "say");
   const allowed: Decision = { move: "continue", reason: "讲透了就告别", target: { topic: "s1", facet: 0 }, ifDone: null };
@@ -77,6 +84,20 @@ test("说话：没产出接一句；泄露内部词改问下一份材料；告�
   const question = speak(running, allowed, out("最后一个点：你会先抽样复核，还是先看分布？", { closing: true, facetDone: true }), "r5");
   assert.equal(question.kind, "say");
   assert.equal(speak(running, allowed, out("今天就到这里，谢谢。", { closing: true, facetDone: false }), "r6").kind, "say", "没说讲透就不能告别");
+});
+
+test("过早告别（§12.2）：决策没允许告别时，标了告别或话里是告别的说法都不认，改问决策指的问题并记原话；允许时告别照认", () => {
+  const running = state({ phase: "running", transcript: [line("interviewer", "你好", 0), line("candidate", "我叫小王", 1)] });
+  const flagged = speak(running, go, out("这块先到这，我们换下一个话题。", { closing: true }), "r1");
+  assert.equal(flagged.guard, "过早告别");
+  assert.equal(flagged.kind, "say");
+  assert.equal(flagged.original, "这块先到这，我们换下一个话题。");
+  assert.equal(flagged.say, running.brief.areas[0].entryQuestion);
+  const worded = speak(running, go, out("这门岗需要动手做过 Agent 的工程细节，今天先到这里，后续结果会由招聘同事联系你。"), "r2");
+  assert.equal(worded.guard, "过早告别");
+  assert.equal(speak(running, go, out("你负责的这部分先到这个粒度，再往下说说主循环？"), "r3").guard, null, "普通追问不误判");
+  const allowed: Decision = { move: "continue", reason: "讲透了就告别", target: { topic: "s1", facet: 0 }, ifDone: null };
+  assert.equal(speak(running, allowed, out("今天就到这里，谢谢你的时间。", { closing: true, facetDone: true }), "r4").kind, "closing");
 });
 
 test("材料与角度由代码指派：模型说讲透了就按决策的另一边记，并记下讲透的角度；开场不记材料", () => {

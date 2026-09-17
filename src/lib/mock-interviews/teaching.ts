@@ -9,6 +9,10 @@ const metadataSchema = z.object({
   skillPack: z.string().nullable().optional(),
   note: z.string().nullable().optional(),
   answerSeconds: z.number().nullable().optional(),
+  facets: z.array(z.string()).optional(),
+  facetsDone: z.array(z.string()).optional(),
+  facetsAll: z.array(z.string()).optional(),
+  verdict: z.string().nullable().optional(),
 });
 
 const expectedSignalsSchema = z.array(z.string());
@@ -30,5 +34,9 @@ export function buildQuestionTeaching(input: {
     expectedSignals: expectedSignals.success ? expectedSignals.data : [],
     note: data.note ?? null,
     sourceKind: input.sourceKind,
+    facets: data.facets ?? [],
+    facetsDone: data.facetsDone ?? [],
+    facetsAll: data.facetsAll ?? [],
+    verdict: data.verdict ?? null,
   };
 }

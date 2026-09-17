@@ -32,15 +32,19 @@ const HISTORY_BLOCK_CHARS = 4_000;
 const TIMEOUT_MS = 60_000;
 const MAX_STEPS = 2;
 
+/** OpenAI 之外的服务商不按 schema 约束输出（DeepSeek 把 notebook 写成对象、facetDone 写成数组）：类型不对的先收敛，别整回合作废。 */
+const looseText = (max: number) => z.preprocess((value) => (typeof value === "string" ? value : value == null ? "" : JSON.stringify(value)).slice(0, max), z.string().max(max));
+const looseBoolean = z.preprocess((value) => value === true || value === "true", z.boolean());
+
 export const policyOutputSchema = z.object({
   /** 对候选人说的话：一句话问一个要点。 */
-  say: z.string().min(1).max(SAY_MAX_CHARS),
+  say: z.preprocess((value) => (typeof value === "string" ? value.slice(0, SAY_MAX_CHARS) : value), z.string().min(1).max(SAY_MAX_CHARS)),
   /** 整份重写的笔记：接下来聊什么、聊到哪了、哪些说法还要验、候选人哪里虚。 */
-  notebook: z.string().max(NOTEBOOK_MAX_CHARS),
+  notebook: looseText(NOTEBOOK_MAX_CHARS),
   /** 候选人刚才那段回答把当前角度（或这道题）讲透了、或明显讲不出更多：true 时按现场卡建议里"讲透了"那一边做。 */
-  facetDone: z.boolean(),
+  facetDone: looseBoolean,
   /** 这句是告别、面试到此结束。只有现场卡的建议说"告别"时才为 true。 */
-  closing: z.boolean(),
+  closing: looseBoolean,
 });
 export type PolicyOutput = z.infer<typeof policyOutputSchema>;
 
@@ -164,9 +168,13 @@ export function buildMessages(transcript: TranscriptLine[], card: StateCard, can
   return [...buildHistory(transcript), ...(content ? [{ role: "user" as const, content }] : []), { role: "user" as const, content: renderTurnMessage(card, content || null) }];
 }
 
-/** 对话历史：双方说过的话，只追加；超过上限才裁，裁掉的长度按 4 千字取整（最后两条不丢），于是前缀每长 4 千字才变一次。 */
+/**
+ * 对话历史：双方说过的话，只追加；超过上限才裁，裁掉的长度按 4 千字取整（最后两条不丢），于是前缀每长 4 千字才变一次。
+ * 面试官的话写成它当时的输出形状 `{"say": …}`：模型会模仿历史里自己的格式，历史是裸文本时 DeepSeek 在 JSON 模式下整回合只吐空白
+ * （2026-09-16 用户实测面试官每回合"没说出话"，逐段二分定位到这里；历史改成 JSON 形状后 6/6 正常）。
+ */
 export function buildHistory(transcript: TranscriptLine[]): { role: "user" | "assistant"; content: string }[] {
-  const lines = transcript.map((line) => ({ role: line.role === "candidate" ? ("user" as const) : ("assistant" as const), content: line.content }));
+  const lines = transcript.map((line) => ({ role: line.role === "candidate" ? ("user" as const) : ("assistant" as const), content: line.role === "candidate" ? line.content : JSON.stringify({ say: line.content }) }));
   const total = lines.reduce((sum, line) => sum + line.content.length, 0);
   if (total <= HISTORY_MAX_CHARS) return lines;
   const cut = Math.ceil((total - HISTORY_MAX_CHARS) / HISTORY_BLOCK_CHARS) * HISTORY_BLOCK_CHARS;
@@ -238,6 +246,7 @@ export function runPolicy(input: {
     tools: buildTools(input.context),
     providerOptions: { openai: { promptCacheKey: cacheKeyOf(input.runId) } },
     output: Output.object({ schema: policyOutputSchema, name: "turn", description: "这回合对候选人说的话、笔记、聊的材料与是否告别" }),
+    schema: policyOutputSchema,
     stopWhen: stepCountIs(MAX_STEPS),
     // 最后一步不许再查资料：否则查完步数用完，这回合没有话。
     prepareStep: ({ stepNumber }) => (stepNumber >= MAX_STEPS - 1 ? { toolChoice: "none" } : undefined),
@@ -268,6 +277,8 @@ export function runPolicy(input: {
 
   const settled = outcome.then(async (raw) => {
     let output: PolicyOutput | null = null;
+    // 正文只有空白（DeepSeek 思考模式下偶发，答案留在 reasoning 里）：不算"说出话"，走抢救与接话。
+    if (!raw.text.trim() && !raw.error) return { runId: raw.runId, output: null, failed: true, raw };
     try {
       const parsed = policyOutputSchema.safeParse(await stream.output);
       output = parsed.success ? parsed.data : null;

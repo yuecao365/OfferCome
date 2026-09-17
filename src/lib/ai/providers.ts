@@ -14,6 +14,22 @@ function providerName(config: AiTaskConfig): string {
   return config.provider === "compatible" ? "custom" : config.provider;
 }
 
+/**
+ * 思考的默认设置：判断都在代码里，模型只负责写，所以能关就关、关不了就压低。
+ * - OpenAI：reasoningEffort low。
+ * - DeepSeek / GLM / Kimi：`thinking: { type: "disabled" }`（DeepSeek V4 开着思考时 JSON 模式下正文有时只剩空白，答案留在 reasoning 里，
+ *   2026-09-16 用户实测面试官一半回合"没说出话"）。
+ * - Qwen：`enable_thinking: false`。
+ * - 其余兼容口：reasoningEffort low（不认的键被忽略）。
+ */
+export function lowReasoningOptions(config: AiTaskConfig): Record<string, Record<string, unknown>> {
+  const name = providerName(config);
+  if (config.provider === "openai") return { openai: { reasoningEffort: "low" } };
+  if (config.provider === "deepseek" || config.provider === "glm" || config.provider === "kimi") return { [name]: { thinking: { type: "disabled" } } };
+  if (config.provider === "qwen") return { [name]: { enable_thinking: false } };
+  return { [name]: { reasoningEffort: "low" } };
+}
+
 export function createTextModel(config: AiTaskConfig): LanguageModel {
   const fetch = getAiFetch();
   if (config.provider === "openai") {

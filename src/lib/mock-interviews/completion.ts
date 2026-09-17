@@ -71,15 +71,9 @@ async function collectEvaluations(answered: QuestionRow[]): Promise<void> {
       feedback: true,
     },
   });
-  const incomplete =
-    refreshed.length !== answered.length ||
-    refreshed.some(
-      (item) =>
-        item.evaluationStatus !== "completed" ||
-        item.score === null ||
-        !item.feedback,
-    );
-  if (incomplete) throw new Error("仍有题目正在评分，请稍后再次生成报告。");
+  // 还在跑的等下一次；补跑后仍失败的段不再卡整份报告（§12.3）：报告里该段标"评分失败"，总分不计它。
+  const running = refreshed.length !== answered.length || refreshed.some((item) => item.evaluationStatus === "running" || item.evaluationStatus === "pending");
+  if (running) throw new Error("仍有题目正在评分，请稍后再次生成报告。");
 }
 
 export async function completeMockInterview(

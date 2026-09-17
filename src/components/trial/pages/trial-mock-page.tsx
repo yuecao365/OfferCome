@@ -99,8 +99,6 @@ export function TrialMockPage() {
             ]}
             seed={seedQuestion ? { id: seedQuestion.id, title: seedQuestion.question } : null}
             textConfigured={aiReady}
-            transcriptionConfigured={false}
-            voiceDisabledHint="语音作答依赖本地版的转写服务，网页版暂不支持。"
           />
         ) : (
           <EmptyState

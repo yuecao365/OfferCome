@@ -242,7 +242,7 @@ export async function completeTrialMockSession(id: string): Promise<void> {
     }
     await Promise.all(segmentsToEvaluate(requireInterview(id)).map((segment) => evaluateTrialSegment(id, segment.id)));
     const current = requireInterview(id);
-    if (segmentsToEvaluate(current).length > 0) throw new Error("仍有题目没有评分成功，请重试。");
+    // 评分失败的段不卡整份报告（§12.3）：报告里标"评分失败"，总分不计它。
     const brief = current.brief as InterviewBrief;
     const report = await requestReport({
       jobTitle: current.job.jobTitle,

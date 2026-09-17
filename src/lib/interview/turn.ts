@@ -51,12 +51,16 @@ export type TurnResult = {
   runId: string | null;
 };
 
-const END_PATTERN = /(结束|到此为止|不想继续|先到这|今天就到这|别问了|不想答了|不面了|算了吧|end the interview)/i;
-const END_MAX_CHARS = 40;
+/** 只认明确的结束意图（"项目结束后我负责……"这种带"结束"两字的短句不算），且只看 20 字以内的插话；按钮不受此限。 */
+const END_PATTERN = /(结束面试|结束吧|结束了吧|到此为止|不想继续|先到这|今天就到这|别问了|不想答了|不面了|算了吧|end the interview)/i;
+const END_MAX_CHARS = 20;
 /** 说给候选人的话里出现这些词，说明模型把内部说法带出来了：换成固定的话。 */
-const LEAK_PATTERN = /(评分标准|期望信号|现场卡|材料里|系统提示|我的笔记)/;
+// "系统提示"本身是 Agent 岗位的正常技术词（§12 冒烟里一句"同一段系统提示反复命中缓存"被误判），只认指向面试官自己材料的说法。
+const LEAK_PATTERN = /(评分标准|期望信号|现场卡|材料里|我的笔记|系统提示(词)?(里|要求|让我|说))/;
 /** 这句与前面某句几乎一样：重复提问，不认。 */
 const REPEAT_SIMILARITY = 0.8;
+/** 告别的说法：决策没允许告别时命中这些词也不认（§12.2：模型想收尾被否决，文字却发给了候选人）。 */
+const FAREWELL_PATTERN = /(今天(就|先)?(到这里|到这|先这样)|就到这里|到此为止|谢谢你的时间|后续(结果|流程|安排)|招聘同事|面试(就|先)?结束|我这边就到这)/;
 /** 换材料的回合这句还像原材料的切入问法到这个程度，就是"该换题没换"。 */
 const TOPIC_MATCH = 0.45;
 const UNRECOVERABLE = new Set(["not_configured", "unavailable", "network"]);
@@ -96,7 +100,7 @@ export function planTurn(state: TurnState, candidate: CandidateInput | null): Tu
   if (candidateWantsToEnd(candidate)) return { kind: "fixed", endedBy: "candidate", progress, decision: { move: "close", reason: "候选人要求结束", target: null } };
   if (breakerTripped(state.transcript)) return { kind: "fixed", endedBy: "breaker", progress, decision: { move: "close", reason: "模型连续没说出话，熔断", target: null } };
   const decision = decideMove({ brief: state.brief, transcript, opening: state.phase === "opening", seed: state.seed });
-  if (decision.move === "close") return { kind: "fixed", endedBy: "budget", progress, decision };
+  if (decision.move === "close") return { kind: "fixed", endedBy: decision.end ?? "budget", progress, decision };
   return { kind: "model", progress, decision };
 }
 
@@ -161,18 +165,21 @@ export function speak(state: TurnState, decision: Decision, output: PolicyOutput
   const target: Target = done ? decision.ifDone! : decision.target;
   const doneFacet = done && decision.target?.facet !== undefined ? decision.target.facet : null;
   // 告别只认决策允许的那种（讲透了且没有下一份材料）；告别里不会有问号。
-  const closing = output.closing && !opening && done && decision.ifDone === null && !/[？?]/.test(say);
-  if (closing) return fixedSpoken(say, "closing", { notebook, runId, endedBy: "interviewer" });
+  const closingAllowed = !opening && done && decision.ifDone === null;
+  if (closingAllowed && output.closing && !/[？?]/.test(say)) return fixedSpoken(say, "closing", { notebook, runId, endedBy: "interviewer" });
   const previous = currentTopic(state.transcript);
   const switching = target !== null && target.topic !== previous && previous !== null;
   const previousArea = previous ? state.brief.areas.find((area) => area.id === previous) : undefined;
+  // 否决即替换：决策没允许告别，模型标了告别或话里是告别的说法，都不认，改问决策指的问题。
   const guard = LEAK_PATTERN.test(say)
     ? "泄露内部词"
-    : state.transcript.some((line) => line.role === "interviewer" && questionSimilarity(line.content, say) >= REPEAT_SIMILARITY)
-      ? "重复提问"
-      : switching && previousArea && questionSimilarity(previousArea.entryQuestion, say) >= TOPIC_MATCH
-        ? "该换题没换"
-        : null;
+    : !closingAllowed && (output.closing || FAREWELL_PATTERN.test(say))
+      ? "过早告别"
+      : state.transcript.some((line) => line.role === "interviewer" && questionSimilarity(line.content, say) >= REPEAT_SIMILARITY)
+        ? "重复提问"
+        : switching && previousArea && questionSimilarity(previousArea.entryQuestion, say) >= TOPIC_MATCH
+          ? "该换题没换"
+          : null;
   if (guard) {
     const area = areaToAsk(state.brief, state.transcript, decision);
     return fixedSpoken(area?.entryQuestion ?? FALLBACK_SPEECH.switch, "say", { target: area ? { topic: area.id, facet: null } : null, notebook, guard, original: say, runId });

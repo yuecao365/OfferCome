@@ -28,7 +28,8 @@ export default async function MockInterviewPage({
   if (!session) notFound();
 
   // 进行中的对话式面试独占整个视口，没有导航；报告出来后再回到带导航的页面。
-  if (session.conversation && session.status !== "completed") {
+  // 备课中或备课没成（fallback 简报也会有 conversation）仍走带导航的页面：进度卡与"重新备课 / 就这样开始"。
+  if (session.conversation && session.status !== "completed" && session.status !== "generating" && session.status !== "generation_failed") {
     return <MockInterviewChat session={{ ...session, conversation: session.conversation }} />;
   }
 

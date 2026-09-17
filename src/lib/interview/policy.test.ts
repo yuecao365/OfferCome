@@ -34,6 +34,7 @@ test("现场卡：时间、笔记、这回合的建议三块；候选人的话�
   const transcript = [{ seq: 0, role: "interviewer" as const, content: "先讲主循环。", kind: "say", control: null, topic: "p1-module" }];
   const messages = buildMessages(transcript, card, "我不会");
   assert.deepEqual(messages.map((item) => item.role), ["assistant", "user", "user"]);
+  assert.equal(messages[0].content, JSON.stringify({ say: "先讲主循环。" }), "面试官的历史写成它当时的输出形状");
   assert.equal(messages[1].content, "我不会");
   assert.match(messages[2].content, /^\[现场卡\]/);
   assert.equal(buildMessages(transcript, card, null).length, 2);
@@ -66,12 +67,13 @@ test("历史裁剪按块：超过 1.4 万字才裁，裁掉的长度按 4 千字
   const line = (seq: number, role: "interviewer" | "candidate", content: string) => ({ seq, role, content, kind: role === "interviewer" ? "say" : null, control: null, facetDone: false });
   const block = (from: number, count: number) => Array.from({ length: count }, (_, index) => line(from + index, (from + index) % 2 === 0 ? "interviewer" : "candidate", `${from + index}`.padEnd(500, "字")));
   const long = block(0, 30);
-  assert.equal(buildHistory(long.slice(0, 28)).length, 28, "1.4 万字以内不裁");
+  // 面试官的话写成 {"say": …} 多十来个字：27 条约 1.36 万字仍在上限内。
+  assert.equal(buildHistory(long.slice(0, 27)).length, 27, "1.4 万字以内不裁");
   const trimmed = buildHistory(long);
   assert.equal(trimmed.length, 22, "1.5 万字：裁掉 4 千字（8 条）");
-  assert.equal(trimmed[0].content.slice(0, 2), "8字");
+  assert.ok(trimmed[0].content.includes("8字"), "从第 9 条（编号 8）开始");
   const later = buildHistory([...long, line(30, "interviewer", "再问一句"), line(31, "candidate", "答")]);
   assert.equal(later[0].content, trimmed[0].content, "又长了几十字：起点不变");
   const much = buildHistory([...long, ...block(30, 8)]);
-  assert.equal(much[0].content.slice(0, 2), "16", "1.9 万字：裁掉 8 千字");
+  assert.ok(much[0].content.includes("16字"), "1.9 万字：裁掉 8 千字");
 });

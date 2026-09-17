@@ -37,7 +37,7 @@ test("复盘：回答分类与超长、面试官的四种违规（含超预算�
     tick(22),
   ];
   const result = postmortem({ events, brief: testBrief(), ready: false });
-  assert.deepEqual(result.replies, { normal: 2, help: 1, dont_know: 2, skip: 0, long: 1 });
+  assert.deepEqual(result.replies, { normal: 2, help: 1, dont_know: 2, not_mine: 0, non_answer: 0, skip: 0, long: 1 });
   assert.deepEqual(result.violations.map((item) => item.rule), ["repeat", "over_budget", "stuck_after_dont_know", "multi_ask"], "q1 预算 2 句，第 3 句超预算");
   assert.deepEqual(result.guards, [{ seq: 16, reason: "重复提问", original: "原话" }]);
   assert.equal(result.ready, false);

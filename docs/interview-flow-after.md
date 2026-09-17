@@ -28,13 +28,13 @@ flowchart TD
 
 **触发**：交卷（`completeMockInterview`）第一步 `ensureSegments`，幂等——已有分段直接返回；`resegment` 删掉旧分段与兼容题目重切（调试用）。体验版在浏览器里直接调同一个纯函数。
 
-**切段**（`cut.ts`，`cutSegments`）：§10 起每句面试官的话都带代码指派的材料 id 与角度，一段 = 进入一份材料的第一句提问（`kind: say`）起，到下一份材料之前；答疑（`aside`）与代码接的话归当前段；开场与告别不算段。每段带材料 id、种类、名称、切入问法、追问数（答疑不算）、问过的角度（`facets`）、候选人的回答（按钮替说的话不算）、有没有实质回答（`skipped`）。不需要模型，结果与面试中的决策完全一致。
+**切段**（`cut.ts`，`cutSegments`）：§10 起每句面试官的话都带代码指派的材料 id 与角度，一段 = 进入一份材料的第一句提问（`kind: say`）起，到下一份材料之前；答疑（`aside`）与代码接的话归当前段；开场与告别不算段。每段带材料 id、种类、名称、切入问法、追问数（答疑不算）、问过的角度（`facets`）、候选人的回答（按钮替说的话不算）、有没有实质回答（`skipped`；每句都是"我不会"的段 `unanswered`：记 failed、不评分）。不需要模型，结果与面试中的决策完全一致。
 
 **段的判断由评分写回**：切段时线程只有 `verdict: skipped | answered`（有没有回答）；评分落库后按分数推导（`verdictForScore`：< 50 failed、< 70 thin、其余 answered），`difficulty`（答到阶梯第几层 1–4）与 `competencyId`（主要考的能力）由评分 agent 多输出的两个字段写回（场景题的能力切段时就按材料绑定）。`note` 不再有。简历假设的验证交给汇总 agent，交卷时把结论写回 `hypothesesJson`（跨场记忆 `previousClaims` 读它）。
 
 **重切**：`npm run resegment -- <sessionId> [...]` 按当前代码重切已结束的场次（删旧段、兼容题目与评分，评分同步跑完）。
 
-**落库**（一个事务）：每段一行 `InterviewThread`（areaId、kind、label、entryQuestion、depth、verdict、startSeq、endSeq、competencyId、difficulty）+ 一行兼容 `InterviewQuestion`（题目 = 第一问 + "追问 n：…"，回答 = 候选人在这段里的话；`generationMetadataJson` 带 areaId / areaName / areaKind / competencyOrigin / skillPack / facets / depth / probeCount / verdict / startSeq / endSeq）。
+**落库**（一个事务）：每段一行 `InterviewThread`（areaId、kind、label、entryQuestion、depth、verdict、startSeq、endSeq、competencyId、difficulty）+ 一行兼容 `InterviewQuestion`（题目 = 第一问 + "追问 n：…"，回答 = 候选人在这段里的话；`generationMetadataJson` 带 areaId / areaName / areaKind / competencyOrigin / skillPack / facets / facetsDone / facetsAll（报告页列"追问的角度"：讲透了 / 问过没讲透 / 没问到）/ depth / probeCount / verdict / startSeq / endSeq）。
 
 **评分的引用硬门与置信**：strengths / weaknesses 里写了引用却不在回答里的条目整条丢掉（不再只是置空）；同一段两次采样，总分相差超过 15 标 `lowConfidence`（报告里提示"仅供参考"，不改分）。
 

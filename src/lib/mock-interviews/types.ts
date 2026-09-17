@@ -12,6 +12,7 @@ import type { MockInterviewReport } from "./report";
 /** 题目生成完成、房间可以开始作答时，关联的 Interview 记录进入这个状态。 */
 export const ACTIVE_MOCK_INTERVIEW_STATUS: InterviewStatus = "in_progress";
 
+/** 旧会话可能是 voice；新会话一律 text，语音只是输入方式（麦克风转写进输入框）。 */
 export const MOCK_INTERVIEW_MODES = ["text", "voice"] as const;
 export type MockInterviewMode = (typeof MOCK_INTERVIEW_MODES)[number];
 
@@ -101,6 +102,12 @@ export type MockInterviewQuestionTeaching = {
   note: string | null;
   /** 这段属于哪个阶段（project / quick / scenario）。 */
   sourceKind: string;
+  /** 面试官问过的角度、候选人讲透的角度、材料的全部角度（§10.6 起）；旧场次为空。 */
+  facets: string[];
+  facetsDone: string[];
+  facetsAll: string[];
+  /** 切段 / 评分写的判断（skipped / failed / thin / answered）；旧数据为 null。 */
+  verdict: string | null;
 };
 
 export type MockInterviewConversation = Conversation;

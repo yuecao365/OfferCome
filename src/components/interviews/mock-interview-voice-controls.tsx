@@ -7,22 +7,22 @@ import { Button } from "@/components/ui/button";
 import { pickRecordingMediaType, recordingFileExtension } from "@/lib/mock-interviews/audio";
 
 /**
- * 语音模式的作答：录一段 → 转写 → 交给房间作为这回合的回答（连同语音指标）。
- * 开始录音就停掉面试官的朗读（打断的最小实现）。音频只用于转写，不保存。
+ * 麦克风输入：录一段 → 转写 → 把文字交回输入框（候选人可以改再发）。音频只用于转写，不保存。
+ * 面试没有语音模式，这只是打字之外的另一种输入。
  */
 
 type RecordingPhase = "idle" | "requesting" | "recording" | "transcribing";
 
 const MAX_RECORDING_MS = 5 * 60_000;
 
-export type VoiceTranscript = { transcript: string; voiceMetricsJson: string | null };
+
 
 type MockInterviewVoiceControlsProps = {
   disabled: boolean;
   sessionId: string;
   onBusyChange: (busy: boolean) => void;
   onError: (message: string) => void;
-  onTranscript: (result: VoiceTranscript) => void;
+  onTranscript: (transcript: string) => void;
 };
 
 function stopStream(stream: MediaStream | null): void {
@@ -72,9 +72,9 @@ export function MockInterviewVoiceControls({ disabled, sessionId, onBusyChange, 
         const formData = new FormData();
         formData.append("audio", new File([blob], `answer.${recordingFileExtension(mediaType)}`, { type: mediaType }));
         const response = await fetch(`/api/interviews/mock/${sessionId}/transcribe`, { method: "POST", body: formData });
-        const result = (await response.json()) as { transcript?: string; voiceMetricsJson?: string | null; error?: string };
+        const result = (await response.json()) as { transcript?: string; error?: string };
         if (!response.ok || !result.transcript?.trim()) throw new Error(result.error ?? "回答录音转写失败。");
-        if (mountedRef.current) onTranscript({ transcript: result.transcript.trim(), voiceMetricsJson: result.voiceMetricsJson ?? null });
+        if (mountedRef.current) onTranscript(result.transcript.trim());
       } catch (error) {
         if (mountedRef.current) onError(error instanceof Error ? error.message : "回答录音转写失败。");
       } finally {
@@ -91,8 +91,6 @@ export function MockInterviewVoiceControls({ disabled, sessionId, onBusyChange, 
       return;
     }
     setRecordingPhase("requesting");
-    // 打断：候选人开口就不再朗读面试官的话。
-    window.speechSynthesis?.cancel();
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaType = pickRecordingMediaType(MediaRecorder.isTypeSupported);
@@ -161,7 +159,7 @@ export function MockInterviewVoiceControls({ disabled, sessionId, onBusyChange, 
         <>
           <Button onClick={stopRecording} size="sm" type="button" variant="danger">
             <Square aria-hidden="true" className="size-3.5" />
-            说完了，发送
+            说完了，转成文字
           </Button>
           <span className={elapsedSeconds >= 270 ? "text-sm font-semibold text-warning-strong" : "text-sm font-medium text-foreground"}>
             {elapsedMinutes}:{elapsedRemainder} / 5:00
@@ -170,11 +168,11 @@ export function MockInterviewVoiceControls({ disabled, sessionId, onBusyChange, 
       ) : (
         <Button disabled={disabled || busy} onClick={startRecording} size="sm" type="button">
           {busy ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin" /> : <Mic aria-hidden="true" className="size-4" />}
-          {phase === "requesting" ? "正在请求麦克风" : phase === "transcribing" ? "正在转写" : "按下开始回答"}
+          {phase === "requesting" ? "正在请求麦克风" : phase === "transcribing" ? "正在转写" : "说话输入"}
         </Button>
       )}
       <p aria-live="polite" className="text-xs leading-5 text-muted-foreground">
-        {phase === "recording" ? "正在录音，说完点发送；单次最长 5 分钟。" : phase === "transcribing" ? "录音只用于转写，不保存音频。" : "转写好的文字直接作为这回合的回答发出；也可以在下面打字。"}
+        {phase === "recording" ? "正在录音，说完点转写；单次最长 5 分钟。" : phase === "transcribing" ? "录音只用于转写，不保存音频。" : "转写好的文字会进输入框，改好再发。"}
       </p>
       <p aria-live="assertive" className="sr-only">
         {recordingNotice}

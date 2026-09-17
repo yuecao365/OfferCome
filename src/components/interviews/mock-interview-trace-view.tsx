@@ -76,7 +76,7 @@ export function MockInterviewTraceView({ trace }: { trace: MockInterviewTrace })
           <p className="text-xs font-semibold text-muted-foreground">复盘（从事件现算）</p>
           <p className="text-muted-foreground">{trace.postmortem.summary.join("；")}</p>
           <p className="text-xs text-muted-foreground">
-            备课{trace.postmortem.ready ? "备好了" : "没备好"} · 回答：正常 {trace.postmortem.replies.normal}、求助 {trace.postmortem.replies.help}、答不上 {trace.postmortem.replies.dont_know}、跳过 {trace.postmortem.replies.skip}、超长 {trace.postmortem.replies.long} · 底线 / 接话 {trace.postmortem.guards.length} 次
+            备课{trace.postmortem.ready ? "备好了" : "没备好"} · 回答：正常 {trace.postmortem.replies.normal}、求助 {trace.postmortem.replies.help}、答不上 {trace.postmortem.replies.dont_know}、不是我做的 {trace.postmortem.replies.not_mine}、不作答 {trace.postmortem.replies.non_answer}、跳过 {trace.postmortem.replies.skip}、超长 {trace.postmortem.replies.long} · 底线 / 接话 {trace.postmortem.guards.length} 次
           </p>
           {trace.postmortem.violations.map((item) => (
             <p className="text-xs text-warning-strong" key={`${item.seq}-${item.rule}`}>

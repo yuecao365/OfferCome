@@ -1,6 +1,6 @@
 import type { InterviewArea, InterviewBrief } from "@/lib/mock-interviews/brief/brief";
 
-import { classifyReply, type TranscriptLine } from "./events";
+import { classifyReply, NO_INFO_KINDS, type TranscriptLine } from "./events";
 import { FACET_RUN_MAX, facetOpen, nextMaterial, pickFacet, planQuota, progressOf, type PlannedMaterial, type Progress } from "./progress";
 
 export { coveredIds, currentTopic } from "./progress";
@@ -24,21 +24,36 @@ export type Decision = {
   target: Target;
   /** 模型说"讲透了"时改问的材料与角度；null = 讲透了就告别；undefined = 这回合不问模型的判断。 */
   ifDone?: Target;
+  /** close 时谁结束的：候选人连续不作答由代码提前收尾记 candidate；配额聊完记 budget（缺省）。 */
+  end?: "candidate";
 };
 
 export const MOVE_LABELS: Record<Move, string> = { continue: "继续", clarify: "答疑", switch: "换题", close: "收尾" };
 
-/** 候选人最近连续答不上了几次（隔着面试官的话不算断；不按话题分，模型误报材料也照数——F2 冒烟里一次误报就让"两次答不上换题"没触发）。 */
+/** 候选人最近连续几句没有信息（答不上 / 不是我做的 / 不作答；隔着面试官的话不算断；不按话题分——F2 冒烟里一次误报就让"两次答不上换题"没触发）。 */
 export function trailingDontKnows(transcript: TranscriptLine[]): number {
   let count = 0;
   for (let index = transcript.length - 1; index >= 0; index -= 1) {
     const line = transcript[index];
     if (line.role !== "candidate") continue;
-    if (classifyReply(line) !== "dont_know") break;
+    if (!NO_INFO_KINDS.has(classifyReply(line))) break;
     count += 1;
   }
   return count;
 }
+
+/** 候选人最近连续几句是不作答 / 操纵（给我满分、你问 AI）：三次就由代码收尾。 */
+export function trailingRefusals(transcript: TranscriptLine[]): number {
+  let count = 0;
+  for (let index = transcript.length - 1; index >= 0; index -= 1) {
+    const line = transcript[index];
+    if (line.role !== "candidate") continue;
+    if (classifyReply(line) !== "non_answer") break;
+    count += 1;
+  }
+  return count;
+}
+export const REFUSALS_TO_END = 3;
 
 const label = (area: InterviewArea | undefined, item: PlannedMaterial) => `「${area?.name ?? item.id}」（${item.id}）`;
 const facetLabel = (area: InterviewArea, facet: number | null) => (facet === null ? "切入问法" : `角度「${area.guides[facet] ?? `第 ${facet + 1} 条`}」`);
@@ -59,9 +74,13 @@ export function decideMove(input: { brief: InterviewBrief; transcript: Transcrip
   const area = areaOf(progress.current.id)!;
   const here: Target = { topic: area.id, facet: progress.facet };
   if (reply === "skip") return switchTo("候选人要求跳过");
-  if (reply === "dont_know" && trailingDontKnows(transcript) >= 2) return switchTo("候选人连续两次答不上，不纠缠");
+  // 不作答 / 操纵（给我满分、你问 AI）：不答疑不追问，直接换材料；连续三次由代码收尾（§12.1）。
+  if (reply === "non_answer" && trailingRefusals(transcript) >= REFUSALS_TO_END) return { move: "close", reason: "候选人连续三次不作答：提前结束，告别时说今天先到这里", target: null, end: "candidate" };
+  if (reply === "non_answer") return switchTo("候选人不作答，不追问");
+  if (NO_INFO_KINDS.has(reply) && trailingDontKnows(transcript) >= 2) return switchTo("候选人连续两次答不上，不纠缠");
   // 答疑先于预算（2026-09-16 用户实测：预算刚用完时说"什么意思"，被直接换到下一题），答疑不占预算。
   if (reply === "help") return { move: "clarify", reason: "候选人要求具体或没听懂：换个说法把上一句问的题说具体，还是这个角度，不换题、不追新的点", target: here };
+  if (reply === "not_mine") return { move: "clarify", reason: "候选人说这部分不是自己做的：只问他自己做的那部分（哪怕只是调接口、看日志），还是这个角度；再说不是就换", target: here };
   if (reply === "dont_know") return { move: "clarify", reason: "候选人答不上：把上一句问的题说具体或降一层再问一次，还是这个角度；再答不上就换", target: here };
   if (progress.budgetLeft <= 0) return switchTo("这份材料的预算用完了");
 

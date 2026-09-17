@@ -3,7 +3,8 @@ import { APICallError, RetryError, asSchema, generateText, NoObjectGeneratedErro
 import { randomUUID } from "node:crypto";
 
 import type { AiTaskConfig } from "./config";
-import { createTextModel } from "./providers";
+import { coerceToJsonSchema } from "./coerce";
+import { createTextModel, lowReasoningOptions } from "./providers";
 import { findStrictSchemaViolation } from "./strict-schema";
 
 /**
@@ -54,7 +55,8 @@ export type AgentRunStatus = "success" | "partial" | "failed";
 export type AgentLogRecord = {
   runId: string;
   agent: string;
-  event: "model_call" | "selection";
+  /** repair：结构化输出不合 schema 后带校验错误让模型改一次（§12.3）。 */
+  event: "model_call" | "selection" | "repair";
   status: AgentRunStatus;
   provider: string;
   model: string;
@@ -215,6 +217,8 @@ export type AgentRunOptions<T> = {
   schemaDescription?: string;
   timeoutMs: number;
   maxOutputTokens?: number;
+  /** 透传给服务商的选项（如 OpenAI 的 reasoningEffort）；服务商不认的键被忽略。 */
+  providerOptions?: Parameters<typeof generateText>[0]["providerOptions"];
   tools?: ToolSet;
   stopWhen?: StopCondition<ToolSet>;
   /** 复用已创建的模型实例，避免同一次生成里重复构造 */
@@ -315,6 +319,8 @@ export type AgentStreamOptions = {
   model?: LanguageModel;
   /** 透传给服务商的选项（如 OpenAI 的 promptCacheKey）；服务商不认的键被忽略。 */
   providerOptions?: Parameters<typeof streamText>[0]["providerOptions"];
+  /** 结构化输出的 schema：OpenAI 之外的服务商不随请求下发 schema，写进提示词让模型照着输出（同 runAgent）。 */
+  schema?: FlexibleSchema<unknown>;
 };
 
 export type AgentStreamOutcome = {
@@ -331,6 +337,81 @@ export type AgentStreamOutcome = {
   /** 流中途失败（超时、provider 错误）时不为 null；已收到的文本仍在 text 里。 */
   error: AgentRunError | null;
 };
+
+/**
+ * 思考型模型（DeepSeek V4、Kimi、GLM、Qwen3、gpt-5 系列……）的推理 token 算在输出上限里：调用方给的 maxOutputTokens 只表示"正文最多多少"，
+ * 这里统一加一段推理余量；推理档位默认压低（判断在代码里，模型只负责写），调用方传了同名键的以调用方为准。
+ * 2026-09-16：DeepSeek 默认 high 档把简报的 6000 全用在推理上、正文截断，备课两次都失败。
+ */
+const REASONING_HEADROOM_TOKENS = 8_000;
+
+function outputBudget(maxOutputTokens: number | undefined): Record<string, number> {
+  return maxOutputTokens ? { maxOutputTokens: maxOutputTokens + REASONING_HEADROOM_TOKENS } : {};
+}
+
+type ProviderOptions = NonNullable<Parameters<typeof generateText>[0]["providerOptions"]>;
+
+function providerOptionsFor(config: AiTaskConfig, given: ProviderOptions | undefined): ProviderOptions {
+  const merged: ProviderOptions = { ...(lowReasoningOptions(config) as ProviderOptions) };
+  for (const [provider, values] of Object.entries(given ?? {})) merged[provider] = { ...(merged[provider] ?? {}), ...values };
+  return merged;
+}
+
+const REPAIR_RAW_CHARS = 6_000;
+
+function parseLooseJson(rawText: string | undefined): unknown {
+  if (!rawText) return undefined;
+  const start = rawText.indexOf("{");
+  const end = rawText.lastIndexOf("}");
+  if (start < 0 || end <= start) return undefined;
+  try {
+    return JSON.parse(rawText.slice(start, end + 1)) as unknown;
+  } catch {
+    return undefined;
+  }
+}
+
+async function validateAgainst<T>(schema: FlexibleSchema<T>, value: unknown): Promise<{ ok: true; value: T } | { ok: false; error: string }> {
+  const standard = asSchema(schema);
+  const result = await standard.validate?.(value);
+  if (!result) return { ok: true, value: value as T };
+  if (result.success) return { ok: true, value: result.value };
+  return { ok: false, error: result.error instanceof Error ? result.error.message.slice(0, 1_500) : String(result.error).slice(0, 1_500) };
+}
+
+/**
+ * 结构化输出契约：模型的 JSON 不合 schema 时，先按 JSON Schema 收敛类型（字符串写成对象、布尔写成字符串、多余的键……），
+ * 还不合就把校验错误和上次输出一起发回去让它只改错处再输出一次。成功记 partial（日志里能看出走了修补）。
+ */
+async function repairStructuredOutput<T>(options: AgentRunOptions<T>, config: AiTaskConfig, rawText: string | undefined, logBase: Omit<AgentLogRecord, "status" | "durationMs">): Promise<T | null> {
+  const jsonSchema = asSchema(options.schema).jsonSchema as Parameters<typeof coerceToJsonSchema>[0];
+  const parsed = parseLooseJson(rawText);
+  const first = parsed === undefined ? { ok: false as const, error: "不是合法的 JSON" } : await validateAgainst(options.schema, coerceToJsonSchema(jsonSchema, parsed));
+  if (first.ok) return first.value;
+  const retryStartedAt = Date.now();
+  try {
+    const result = await generateText({
+      model: options.model ?? createTextModel(config),
+      ...outputBudget(options.maxOutputTokens),
+      providerOptions: providerOptionsFor(config, options.providerOptions),
+      abortSignal: AbortSignal.timeout(options.timeoutMs),
+      system: buildSystemPrompt(options.system, options.untrustedInputs) + schemaInstruction(config, options.schema),
+      messages: [
+        { role: "user", content: JSON.stringify(options.payload) },
+        { role: "assistant", content: (rawText ?? "").slice(0, REPAIR_RAW_CHARS) },
+        { role: "user", content: `上一次输出不符合要求：${first.error}
+只输出修正后的完整 JSON 对象，不要解释。` },
+      ],
+    });
+    const again = parseLooseJson(result.text);
+    const validated = again === undefined ? null : await validateAgainst(options.schema, coerceToJsonSchema(jsonSchema, again));
+    logAgentRun({ ...logBase, event: "repair", status: validated?.ok ? "success" : "failed", durationMs: Date.now() - retryStartedAt, finishReason: result.finishReason, usage: result.usage, rawText: result.text.slice(0, 2_000) });
+    return validated?.ok ? validated.value : null;
+  } catch (error) {
+    logAgentRun({ ...logBase, event: "repair", status: "failed", durationMs: Date.now() - retryStartedAt, errorKind: classifyError(error) });
+    return null;
+  }
+}
 
 /**
  * 流式对话回合的统一入口：与 runAgent 共用防注入基座、超时、错误归类与日志落点。
@@ -383,10 +464,10 @@ export function streamAgent(options: AgentStreamOptions): {
     ...(options.stopWhen ? { stopWhen: options.stopWhen } : {}),
     ...(options.prepareStep ? { prepareStep: options.prepareStep } : {}),
     ...(options.output ? { output: options.output as Parameters<typeof streamText>[0]["output"] } : {}),
-    ...(options.maxOutputTokens ? { maxOutputTokens: options.maxOutputTokens } : {}),
-    ...(options.providerOptions ? { providerOptions: options.providerOptions } : {}),
+    ...outputBudget(options.maxOutputTokens),
+    providerOptions: providerOptionsFor(config, options.providerOptions),
     abortSignal: AbortSignal.timeout(options.timeoutMs),
-    system: buildSystemPrompt(options.system, options.untrustedInputs),
+    system: buildSystemPrompt(options.system, options.untrustedInputs) + (options.schema ? schemaInstruction(config, options.schema) : ""),
     messages: options.messages,
     onChunk: ({ chunk }) => {
       if (chunk.type === "text-delta") textParts.push(chunk.text);
@@ -503,9 +584,8 @@ export async function runAgent<T>(
       }),
       ...(options.tools ? { tools: options.tools } : {}),
       ...(options.stopWhen ? { stopWhen: options.stopWhen } : {}),
-      ...(options.maxOutputTokens
-        ? { maxOutputTokens: options.maxOutputTokens }
-        : {}),
+      ...outputBudget(options.maxOutputTokens),
+      providerOptions: providerOptionsFor(config, options.providerOptions),
       abortSignal: AbortSignal.timeout(options.timeoutMs),
       system: buildSystemPrompt(options.system, options.untrustedInputs) + schemaInstruction(config, options.schema),
       prompt: JSON.stringify(options.payload),
@@ -542,7 +622,9 @@ export async function runAgent<T>(
     finishReason = noObject?.finishReason ?? finishReason;
     usage = noObject?.usage ?? usage;
     rawText = noObject?.text ?? rawText;
-    const rescued = options.rescue?.(rawText) ?? null;
+    // 输出契约（§12.3）：先按 schema 收敛类型；不行再带着校验错误让模型改一次；再不行才交给调用方的 rescue。
+    const contract = noObject ? await repairStructuredOutput(options, config, rawText, logBase) : null;
+    const rescued = contract ?? options.rescue?.(rawText) ?? null;
 
     if (rescued !== null) {
       logAgentRun({

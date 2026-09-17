@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Keyboard, LoaderCircle, Mic } from "lucide-react";
+import { ArrowRight, LoaderCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
@@ -25,8 +25,6 @@ import {
   INTERVIEW_PACES,
 } from "@/lib/mock-interviews/brief/brief";
 import {
-  MOCK_INTERVIEW_MODES,
-  MOCK_INTERVIEW_MODE_LABELS,
 } from "@/lib/mock-interviews/types";
 
 type ResumeOption = { id: string; name: string; isDefault: boolean };
@@ -55,20 +53,16 @@ export type MockInterviewApplication = {
 export function MockInterviewSetup({
   resumes,
   textConfigured,
-  transcriptionConfigured,
   seed,
   application,
   createSession,
-  voiceDisabledHint = "需先在设置页配置语音转写模型。",
 }: {
   resumes: ResumeOption[];
   textConfigured: boolean;
-  transcriptionConfigured: boolean;
   seed?: { id: string; title: string } | null;
   application?: MockInterviewApplication | null;
   /** 覆盖默认的创建接口（体验版走无状态 API + 浏览器存储）。 */
   createSession?: (formData: FormData) => Promise<{ href: string }>;
-  voiceDisabledHint?: string;
 }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
@@ -200,10 +194,10 @@ export function MockInterviewSetup({
           <summary className="flex cursor-pointer select-none flex-wrap items-baseline gap-x-3 gap-y-1 [&::-webkit-details-marker]:hidden">
             <h2 className="text-sm font-semibold text-foreground">面试设置</h2>
             <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground group-open:hidden">
-              {resumes.find((resume) => resume.isDefault)?.name ?? resumes[0]?.name} · 第一轮 · {INTERVIEW_PACE_LABELS[DEFAULT_INTERVIEW_PACE]}节奏（{quotaLabel(DEFAULT_INTERVIEW_PACE)}）· 文字作答
+              {resumes.find((resume) => resume.isDefault)?.name ?? resumes[0]?.name} · 第一轮 · {INTERVIEW_PACE_LABELS[DEFAULT_INTERVIEW_PACE]}节奏（{quotaLabel(DEFAULT_INTERVIEW_PACE)}）· 文字作答（可用麦克风输入）
             </span>
             <span className="text-xs text-muted-foreground group-open:hidden">调整</span>
-            <span className="w-full text-[0.8125rem] text-muted-foreground group-open:block hidden">选择面试使用的简历、轮次、节奏和作答方式。节奏定这场聊几份材料，长短由聊完为止，不按时间。面试官会根据岗位和简历备课，题目在对话中临场提出。</span>
+            <span className="w-full text-[0.8125rem] text-muted-foreground group-open:block hidden">选择面试使用的简历、轮次、节奏和作答方式。节奏定这场聊几份材料，长短由聊完为止，不按时间。作答打字或按麦克风说话都行，转写后可以改再发。面试官会根据岗位和简历备课，题目在对话中临场提出。</span>
           </summary>
           <div className="mt-5 border-t border-border pt-4">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -234,43 +228,6 @@ export function MockInterviewSetup({
             </Select>
           </FieldLabel>
         </div>
-        <fieldset className="mt-5 grid gap-2">
-          <legend className="text-xs font-medium text-muted-foreground">
-            作答方式
-          </legend>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {MOCK_INTERVIEW_MODES.map((mode) => {
-              const Icon = mode === "voice" ? Mic : Keyboard;
-              return (
-                <label className="cursor-pointer" key={mode}>
-                  <input
-                    className="peer sr-only"
-                    defaultChecked={mode === "text"}
-                    disabled={mode === "voice" && !transcriptionConfigured}
-                    name="interactionMode"
-                    type="radio"
-                    value={mode}
-                  />
-                  <span className="flex min-h-14 items-center gap-3 rounded-control border border-border-strong bg-surface px-3.5 py-2.5 text-sm text-foreground transition-colors duration-150 peer-checked:border-brand peer-checked:bg-accent peer-focus-visible:ring-2 peer-focus-visible:ring-ring">
-                    <Icon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" strokeWidth={1.5} />
-                    <span>
-                      <strong className="block font-medium">
-                        {MOCK_INTERVIEW_MODE_LABELS[mode]}
-                      </strong>
-                      <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">
-                        {mode === "voice"
-                          ? transcriptionConfigured
-                            ? "朗读 AI 问题，录音转写后可编辑再提交。"
-                            : voiceDisabledHint
-                          : "直接输入并提交文字回答。"}
-                      </span>
-                    </span>
-                  </span>
-                </label>
-              );
-            })}
-          </div>
-        </fieldset>
           </div>
         </details>
       </Card>

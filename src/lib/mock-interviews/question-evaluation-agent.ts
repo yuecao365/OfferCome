@@ -110,8 +110,11 @@ export async function evaluateMockInterviewQuestion(input: {
       competencies: input.competencies,
     },
   });
-  // 同段两次采样：第一次的结果作数，第二次只用来看分歧；分歧大标低置信（报告里提示，不改分）。
-  const [{ output, runId }, second] = await Promise.all([sample(), sample().catch(() => null)]);
+  // 同段两次采样：任一成功即出分（不按 schema 约束的服务商单次失败率不低，§12.3）；两次都成才看分歧，分歧大标低置信（报告里提示，不改分）。
+  const settled = await Promise.allSettled([sample(), sample()]);
+  const succeeded = settled.flatMap((item) => (item.status === "fulfilled" ? [item.value] : []));
+  if (succeeded.length === 0) throw (settled[0] as PromiseRejectedResult).reason;
+  const [{ output, runId }, second = null] = succeeded;
   const score = computeQuestionScore(parsed.rubric, output.dimensions);
   const secondScore = second ? computeQuestionScore(parsed.rubric, second.output.dimensions) : null;
   const lowConfidence = secondScore !== null && Math.abs(secondScore - score) > LOW_CONFIDENCE_GAP;

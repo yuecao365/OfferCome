@@ -37,12 +37,11 @@ export default async function MockInterviewsPage({
   await connection();
   const params = await searchParams;
   const applicationId = firstParam(params.applicationId);
-  const [resumes, recent, textConfig, transcriptionConfig, seed, application] =
+  const [resumes, recent, textConfig, seed, application] =
     await Promise.all([
       getResumes(),
       getRecentMockInterviews(),
       getAiTaskConfig("text"),
-      getAiTaskConfig("transcription"),
       resolveMockInterviewSeed(firstParam(params.seedQuestionId)),
       applicationId
         ? prisma.bossContact.findUnique({
@@ -114,7 +113,6 @@ export default async function MockInterviewsPage({
               }))}
               seed={seed}
               textConfigured={isAiTaskConfigured(textConfig)}
-              transcriptionConfigured={isAiTaskConfigured(transcriptionConfig)}
             />
           ) : (
             <EmptyState

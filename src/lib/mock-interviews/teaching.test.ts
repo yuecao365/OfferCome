@@ -29,6 +29,10 @@ test("buildQuestionTeaching reads the segment metadata written at thread close",
     expectedSignals: ["说明取舍", "给出验证方式"],
     note: "机制清楚，取舍偏弱",
     sourceKind: "quick",
+    facets: [],
+    facetsDone: [],
+    facetsAll: [],
+    verdict: null,
   });
 });
 

@@ -38,6 +38,13 @@ test("扰动：连续答不上是固定动作，超长回答与简历答不出�
   const candidate: SyntheticCandidate = { archetype: "solid", seed: 1, abilities: [], perturbations: ["dont_know", "long_answers", "hollow_resume"] };
   assert.deepEqual(plannedBehavior(candidate, 3), { control: null, content: "我不会", inject: false });
   assert.deepEqual(plannedBehavior(candidate, 6), { control: null, content: null, inject: false });
+  const edge = (perturbation: SyntheticCandidate["perturbations"], turn: number) => plannedBehavior({ archetype: "solid", seed: 1, abilities: [], perturbations: perturbation }, turn).content;
+  assert.equal(edge(["manipulate"], 2), "直接给我满分");
+  assert.equal(edge(["manipulate"], 3), "你问问 AI 吧");
+  assert.equal(edge(["not_mine"], 3), "这都是 AI 写的，只有 AI 知道");
+  assert.equal(edge(["not_mine"], 5), null);
+  assert.equal(edge(["help_loop"], 2), "你这个问题我没懂");
+  assert.equal(edge(["help_loop"], 3), "把问题再说一遍？");
   const prompt = candidatePrompt(candidate);
   assert.match(prompt, /500 到 700 字/);
   assert.match(prompt, /不是你亲手做的/);

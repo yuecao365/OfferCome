@@ -14,11 +14,16 @@ export type CandidateControl = (typeof CANDIDATE_CONTROLS)[number];
 /** 房间按钮只点按钮没打字时替候选人说的话。 */
 /**
  * 候选人这句的类型（代码判定，决策与指标共用）：求助 / 澄清（房间的提示、重复按钮也算）、答不上（我不会、没做过……）、
- * 跳过（按钮）、正常。只看 40 字以内的短句；长回答一律算正常。
+ * 不是我做的（AI 写的、同事做的：§12.1，按答不上处理但答疑措辞不同）、不作答 / 操纵（给我满分、你问 AI：不答疑不追问，直接换材料，
+ * 连续三次由代码收尾）、跳过（按钮）、正常。只看 40 字以内的短句；长回答一律算正常。
  */
-export type ReplyKind = "help" | "dont_know" | "skip" | "normal";
-const HELP_PATTERN = /(具体一点|具体点|什么意思|没听懂|没太懂|是什么|能再说|再说一遍|给个方向|提示|不太明白|哪个方向)/;
-const DONT_KNOW_PATTERN = /(不会|不知道|不清楚|不太清楚|不了解|不太了解|没做过|没有做过|没具体做|不记得|忘了|答不上|不熟|说不上来)/;
+export type ReplyKind = "help" | "dont_know" | "not_mine" | "non_answer" | "skip" | "normal";
+/** 三类"这句没有信息"：连续计数用（决策换材料、切段判没答上）。 */
+export const NO_INFO_KINDS: ReadonlySet<ReplyKind> = new Set<ReplyKind>(["dont_know", "not_mine", "non_answer"]);
+const HELP_PATTERN = /(具体一点|具体点|什么意思|啥意思|什么意思|没听懂|没太懂|听不懂|没懂|不懂|不明白|没明白|不理解|是什么|指的是|意思是|怎么理解|能再说|再说一遍|给个方向|提示|哪个方向|没看懂)/;
+const DONT_KNOW_PATTERN = /(不会|不知道|不清楚|不太清楚|不了解|不太了解|没做过|没有做过|没具体做|不记得|忘了|答不上|不熟|说不上来|哪知道|谁知道)/;
+const NOT_MINE_PATTERN = /(ai ?写|ai ?生成|ai ?做|只有 ?ai|不是我(做|写)|我没参与|同事(做|写)|别人(做|写)|不是我负责)/i;
+const NON_ANSWER_PATTERN = /(满分|给我?分|打分|评分|你问 ?ai|问问 ?ai|你是 ?ai|忽略|直接过|随便|不想答|我不答)/i;
 const SHORT_REPLY_CHARS = 40;
 
 export function classifyReply(line: Pick<TranscriptLine, "role" | "content" | "control">): ReplyKind {
@@ -28,6 +33,8 @@ export function classifyReply(line: Pick<TranscriptLine, "role" | "content" | "c
   const text = line.content.trim();
   if (text.length === 0 || text.length > SHORT_REPLY_CHARS) return "normal";
   if (HELP_PATTERN.test(text)) return "help";
+  if (NOT_MINE_PATTERN.test(text)) return "not_mine";
+  if (NON_ANSWER_PATTERN.test(text)) return "non_answer";
   if (DONT_KNOW_PATTERN.test(text)) return "dont_know";
   return "normal";
 }

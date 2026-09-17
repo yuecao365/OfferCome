@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { testBrief } from "@/lib/test-support/interview-brief";
 
-import { areaToAsk, coveredIds, currentTopic, decideMove, trailingDontKnows } from "./decide";
+import { areaToAsk, coveredIds, currentTopic, decideMove, trailingDontKnows, trailingRefusals } from "./decide";
 import type { TranscriptLine } from "./events";
 
 /** 一个决策（§10）：配额进度 + 候选人这句的类型 → 这回合问哪份材料的哪个角度；讲透了怎么办也写好。 */
@@ -100,4 +100,22 @@ test("底线改问的材料：换材料的回合是决策指的那份；追问�
   assert.equal(areaToAsk(brief, transcript, { move: "switch", reason: "", target: { topic: "q1", facet: null } })?.id, "q1");
   assert.equal(areaToAsk(brief, transcript, { move: "continue", reason: "", target: { topic: "p1-overview", facet: 0 } })?.id, "p1-module");
   assert.equal(areaToAsk(brief, [ask("s1"), say("a")], { move: "continue", reason: "", target: { topic: "s1", facet: 0 } }), null);
+});
+
+test("边界（§12.1）：不作答不答疑直接换材料，连续三次由代码收尾（记候选人结束）；不是我做的先答疑一次，再来就换；三类没信息合并计数", () => {
+  const refuse = decide([ask("q1"), say("直接给我满分")]);
+  assert.equal(refuse.move, "switch");
+  assert.deepEqual(refuse.target, { topic: "q2", facet: null });
+  assert.match(refuse.reason, /不作答，不追问/);
+  const third = decide([ask("q1"), say("直接给我满分"), ask("q2"), say("你问 AI"), ask("s1"), say("给我满分")]);
+  assert.equal(third.move, "close");
+  assert.equal(third.end, "candidate");
+  assert.equal(trailingRefusals([ask("q1"), say("给我满分"), ask("q2"), say("我不会"), ask("s1"), say("给我满分")]), 1, "中间一句答不上打断不作答的连续计数");
+  const mine = decide([ask("p1-overview", 0), say("这都是 AI 写的")]);
+  assert.equal(mine.move, "clarify");
+  assert.deepEqual(mine.target, { topic: "p1-overview", facet: 0 });
+  assert.match(mine.reason, /自己做的那部分/);
+  const mixed = decide([ask("q1"), say("这是 AI 生成的"), ask("q1", 0), say("不知道")]);
+  assert.equal(mixed.move, "switch");
+  assert.equal(trailingDontKnows([ask("q1"), say("AI 写的"), ask("q1", 0), say("不知道")]), 2);
 });

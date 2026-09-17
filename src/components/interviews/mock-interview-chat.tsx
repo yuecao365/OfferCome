@@ -11,7 +11,6 @@ import { MockInterviewVoiceControls } from "@/components/interviews/mock-intervi
 import { ThemeButton } from "@/components/theme-button";
 import { Alert } from "@/components/ui/alert";
 import { Button, ButtonLink } from "@/components/ui/button";
-import { cn } from "@/lib/cn";
 import { CONTROL_PLACEHOLDERS } from "@/lib/interview/events";
 import type { TurnData } from "@/lib/interview/stream";
 import type { ProgressSummary } from "@/lib/interview/progress";
@@ -36,7 +35,7 @@ const REPORT_POLL_MS = 3_000;
 
 export type TurnBody =
   | { kind: "start" }
-  | { kind: "message"; clientId: string; content: string; intent: Intent | null; composeMs: number | null; voiceMetricsJson: string | null };
+  | { kind: "message"; clientId: string; content: string; intent: Intent | null; composeMs: number | null };
 
 /** 房间的数据通道：本地版打服务端接口，体验版打无状态接口并把结果写进浏览器文档。 */
 export type MockInterviewChatDriver = {
@@ -146,10 +145,7 @@ export function MockInterviewChat({
   const lastRequestRef = useRef<{ text: string; body: TurnBody } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const voice = session.interactionMode === "voice";
   const [voiceBusy, setVoiceBusy] = useState(false);
-  /** 朗读进度：当前这条流已经读到第几个字符（按句读，"先说前半句"）。 */
-  const spokenRef = useRef({ text: "", upTo: 0 });
 
   const driver = useMemo(() => injectedDriver ?? createLocalChatDriver(session.id), [injectedDriver, session.id]);
   const refresh = useCallback(() => (onCompleted ? onCompleted() : router.refresh()), [onCompleted, router]);
@@ -193,36 +189,15 @@ export function MockInterviewChat({
     return text;
   }, [messages]);
 
-  // 语音模式：面试官的话边流边读，流到一整句就读一句；流结束把剩下的读完。候选人开始录音时停（见录音控件）。
-  useEffect(() => {
-    if (!voice || typeof window === "undefined" || !("speechSynthesis" in window)) return;
-    const full = busy ? streamingText : (transcript.at(-1)?.role === "interviewer" ? transcript.at(-1)!.content : "");
-    if (!full) return;
-    if (!full.startsWith(spokenRef.current.text.slice(0, spokenRef.current.upTo))) spokenRef.current = { text: full, upTo: 0 };
-    spokenRef.current.text = full;
-    const pending = full.slice(spokenRef.current.upTo);
-    const boundary = busy ? pending.search(/[。！？；\n](?=[^。！？；\n]*$)/u) : pending.length - 1;
-    if (boundary < 0) return;
-    const sentence = pending.slice(0, boundary + 1).trim();
-    spokenRef.current.upTo += boundary + 1;
-    if (!sentence) return;
-    const utterance = new SpeechSynthesisUtterance(sentence);
-    utterance.lang = "zh-CN";
-    utterance.rate = 1;
-    const zh = window.speechSynthesis.getVoices().find((item) => item.lang.toLowerCase().startsWith("zh"));
-    if (zh) utterance.voice = zh;
-    window.speechSynthesis.speak(utterance);
-  }, [voice, busy, streamingText, transcript]);
-  useEffect(() => () => window.speechSynthesis?.cancel(), []);
 
   const send = useCallback(
-    (content: string, intent: Intent | null, voiceMetricsJson: string | null = null) => {
+    (content: string, intent: Intent | null) => {
       const trimmed = content.trim();
       if (!trimmed && !intent) return;
       const clientId = crypto.randomUUID();
       const text = trimmed || (intent ? CONTROL_PLACEHOLDERS[intent] : "");
       const composeMs = lastInterviewerAtRef.current ? Math.max(0, Date.now() - lastInterviewerAtRef.current) : null;
-      const body: TurnBody = { kind: "message", clientId, content: trimmed, intent, composeMs, voiceMetricsJson };
+      const body: TurnBody = { kind: "message", clientId, content: trimmed, intent, composeMs };
       setTurnError("");
       setTranscript((current) => [
         ...current,
@@ -358,9 +333,7 @@ export function MockInterviewChat({
               send(input, null);
             }}
           >
-            {voice ? (
-              <MockInterviewVoiceControls disabled={busy} onBusyChange={setVoiceBusy} onError={setTurnError} onTranscript={(result) => send(result.transcript, null, result.voiceMetricsJson)} sessionId={session.id} />
-            ) : null}
+            <MockInterviewVoiceControls disabled={busy} onBusyChange={setVoiceBusy} onError={setTurnError} onTranscript={(text) => setInput((current) => (current.trim() ? `${current.trimEnd()}\n${text}` : text))} sessionId={session.id} />
             <textarea
               aria-label="你的回答"
               className="min-h-20 w-full resize-y rounded-lg border border-border-strong bg-surface px-3 py-2 text-sm leading-6 text-foreground outline-none focus:border-brand focus:ring-2 focus:ring-ring/20"

@@ -27,7 +27,7 @@ export type OutcomeQuestion = {
 
 export type AreaOutcome = { summary: SummaryInput["areas"][number]; scores: number[] };
 
-/** 每个聊过的话题：种类、追问轮数、面试官判断、分数与短板；跳过的记 0 分。权重按种类（项目 3、场景 2、基础 1）。 */
+/** 每个聊过的话题：种类、追问轮数、面试官判断、分数与短板；跳过的记 0 分；答了但评分失败的不计入总分。权重按种类（项目 3、场景 2、基础 1）。 */
 export function areaOutcomes(_brief: InterviewBrief, threads: OutcomeThread[], questions: OutcomeQuestion[]): AreaOutcome[] {
   const questionById = new Map(questions.map((question) => [question.id, question]));
   return threads.flatMap((thread) => {
@@ -35,9 +35,10 @@ export function areaOutcomes(_brief: InterviewBrief, threads: OutcomeThread[], q
     const kind = isAreaKind(thread.kind) ? thread.kind : "quick";
     const question = thread.questionId ? (questionById.get(thread.questionId) ?? null) : null;
     const answered = question !== null && !question.skipped;
+    const unscored = answered && (question.evaluation === null || question.evaluation.score === null);
     return [
       {
-        scores: [question?.evaluation?.score ?? 0],
+        scores: unscored ? [] : [question?.evaluation?.score ?? 0],
         summary: {
           name: thread.label,
           kind,

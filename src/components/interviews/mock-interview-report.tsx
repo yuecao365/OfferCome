@@ -132,6 +132,22 @@ function Teaching({ question }: { question: Question }) {
             </p>
           </div>
         ) : null}
+        {teaching.facetsAll.length > 0 ? (
+          <div>
+            <p className="font-medium text-foreground">追问的角度</p>
+            <ul className="mt-1 grid gap-1">
+              {teaching.facetsAll.map((facet) => {
+                const state = teaching.facetsDone.includes(facet) ? "讲透了" : teaching.facets.includes(facet) ? "问过，没讲透" : "没问到";
+                return (
+                  <li className="flex flex-wrap items-baseline gap-2" key={facet}>
+                    <Badge tone={state === "讲透了" ? "success" : state === "没问到" ? "neutral" : "warning"}>{state}</Badge>
+                    <span>{facet}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ) : null}
         {teaching.expectedSignals.length > 0 ? (
           <div>
             <p className="font-medium text-foreground">期望信号</p>
@@ -293,10 +309,10 @@ export function MockInterviewReport({ session }: { session: MockInterviewView })
                 </div>
                 <div className="flex items-center gap-3">
                   {question.teaching?.answerSeconds ? <MetaText>作答约 {formatSeconds(question.teaching.answerSeconds)}</MetaText> : null}
-                  {question.skipped ? <Badge tone="warning">已跳过</Badge> : <Score value={question.evaluation?.score ?? 0} />}
+                  {question.skipped ? <Badge tone="warning">{question.teaching?.verdict === "failed" ? "没答上" : "已跳过"}</Badge> : question.evaluation ? <Score value={question.evaluation.score ?? 0} /> : <Badge tone="neutral">评分失败，不计入总分</Badge>}
                 </div>
               </div>
-              {!question.skipped ? (
+              {!question.skipped || question.answer ? (
                 <details className="mt-3 rounded-control border border-border bg-surface-subtle p-3">
                   <summary className="cursor-pointer text-sm font-medium text-foreground">查看我的回答</summary>
                   <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{question.answer}</p>

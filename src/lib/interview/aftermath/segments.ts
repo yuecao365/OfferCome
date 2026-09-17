@@ -28,8 +28,10 @@ export type SegmentMetadata = {
   skillPack: string | null;
   /** 旧场次整理员的一句判断；§11 起为 null。 */
   note: string | null;
-  /** 问过的角度（材料 guides 的文字）。 */
+  /** 问过的角度（材料 guides 的文字）、讲透的角度、材料的全部角度。 */
   facets: string[];
+  facetsDone: string[];
+  facetsAll: string[];
   depth: number;
   probeCount: number;
   verdict: ThreadVerdict;
@@ -49,7 +51,8 @@ export function segmentRecord(area: InterviewArea, segment: Segment, probes: str
   return {
     question,
     answer: answer || null,
-    skipped: segment.skipped || !answer,
+    // 一句没答、只按了跳过、或每句都是"我不会"：不评分。
+    skipped: segment.skipped || segment.unanswered || !answer,
     category: categoryForKind(segment.kind, round),
     sourceKind: segment.kind,
     rubric: area.rubric.length > 0 ? area.rubric : rubricForArea(segment.kind, round),
@@ -62,9 +65,11 @@ export function segmentRecord(area: InterviewArea, segment: Segment, probes: str
       skillPack: area.topic?.skill ?? null,
       note: null,
       facets: segment.facets,
+      facetsDone: segment.doneFacets,
+      facetsAll: segment.allFacets,
       depth: segment.depth,
       probeCount: probes.length,
-      verdict: segment.skipped || !answer ? "skipped" : "answered",
+      verdict: segment.skipped || !answer ? "skipped" : segment.unanswered ? "failed" : "answered",
       startSeq: segment.startSeq,
       endSeq: segment.endSeq,
     },

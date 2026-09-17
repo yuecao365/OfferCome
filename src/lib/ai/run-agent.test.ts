@@ -222,7 +222,7 @@ test("rescues a partial result from unparsable output", async () => {
     });
     assert.deepEqual(result.output, { answer: "rescued" });
     assert.equal(result.partial, true);
-    assert.equal(logs.records[0].status, "partial");
+    assert.equal(logs.records.at(-1)?.status, "partial", "修补失败后由调用方 rescue，主记录记 partial");
   } finally {
     logs.restore();
   }
@@ -238,6 +238,50 @@ test("keeps the raw text on the error so callers can inspect it", async () => {
         NoObjectGeneratedError.isInstance(error.cause) &&
         error.rawText === "still not json",
     );
+  } finally {
+    logs.restore();
+  }
+});
+
+function sequenceModel(texts: string[]): { model: MockLanguageModelV4; prompts: unknown[] } {
+  const prompts: unknown[] = [];
+  const model = new MockLanguageModelV4({
+    doGenerate: async ({ prompt }) => {
+      prompts.push(prompt);
+      const text = texts[Math.min(prompts.length - 1, texts.length - 1)];
+      return {
+        content: [{ type: "text" as const, text }],
+        finishReason: { unified: "stop" as const, raw: "stop" },
+        usage: { inputTokens: { total: 10, noCache: 10, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: 5, text: 5, reasoning: 0 } },
+        warnings: [],
+      };
+    },
+  });
+  return { model, prompts };
+}
+
+test("输出契约（§12.3）：类型写偏先按 schema 收敛，不再调模型；收敛不了就带着校验错误让模型改一次，改好记 partial", async () => {
+  const logs = captureLogs();
+  try {
+    const coerced = sequenceModel([JSON.stringify({ answer: { text: "对象写成了字符串字段" }, extra: 1 })]);
+    const first = await run(coerced.model);
+    assert.deepEqual(first.output, { answer: '{"text":"对象写成了字符串字段"}' });
+    assert.equal(first.partial, true);
+    assert.equal(coerced.prompts.length, 1);
+
+    const repaired = sequenceModel([JSON.stringify({ reply: "键名错了" }), JSON.stringify({ answer: "改好了" })]);
+    const second = await run(repaired.model);
+    assert.deepEqual(second.output, { answer: "改好了" });
+    assert.equal(second.partial, true);
+    assert.equal(repaired.prompts.length, 2);
+    const retryPrompt = JSON.stringify(repaired.prompts[1]);
+    assert.match(retryPrompt, /上一次输出不符合要求/);
+    assert.match(retryPrompt, /键名错了/);
+    assert.deepEqual(logs.records.filter((record) => record.event === "repair").map((record) => record.status), ["success"]);
+
+    const hopeless = sequenceModel([JSON.stringify({ reply: "错" }), JSON.stringify({ reply: "还是错" })]);
+    await assert.rejects(run(hopeless.model), (error: unknown) => error instanceof AgentRunError && error.kind === "invalid_structured_output");
+    assert.equal(hopeless.prompts.length, 2, "只重试一次");
   } finally {
     logs.restore();
   }

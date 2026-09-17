@@ -34,7 +34,7 @@ mock.module("ai", {
 });
 
 mock.module("./providers", {
-  namedExports: { createTextModel: () => ({}) },
+  namedExports: { createTextModel: () => ({}), lowReasoningOptions: () => ({}) },
 });
 
 const config: AiTaskConfig = {

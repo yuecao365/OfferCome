@@ -36,7 +36,7 @@ const REPEAT_SIMILARITY = 0.8;
 
 export function postmortem(input: { events: InterviewEvent[]; brief: InterviewBrief | null; ready: boolean }): Postmortem {
   const transcript = transcriptOf(input.events);
-  const replies: Postmortem["replies"] = { normal: 0, help: 0, dont_know: 0, skip: 0, long: 0 };
+  const replies: Postmortem["replies"] = { normal: 0, help: 0, dont_know: 0, not_mine: 0, non_answer: 0, skip: 0, long: 0 };
   for (const line of transcript) {
     if (line.role !== "candidate") continue;
     replies[classifyReply(line)] += 1;
@@ -68,6 +68,8 @@ export function postmortem(input: { events: InterviewEvent[]; brief: InterviewBr
   if (replies.long > 0) summary.push(`候选人有 ${replies.long} 条超过 500 字的回答`);
   if (replies.dont_know > 0) summary.push(`候选人 ${replies.dont_know} 次答不上`);
   if (replies.help > 0) summary.push(`候选人 ${replies.help} 次求助 / 要求具体`);
+  if (replies.not_mine > 0) summary.push(`候选人 ${replies.not_mine} 次说不是自己做的`);
+  if (replies.non_answer > 0) summary.push(`候选人 ${replies.non_answer} 次不作答 / 要分`);
   const byRule = new Map<ViolationRule, number>();
   for (const item of violations) byRule.set(item.rule, (byRule.get(item.rule) ?? 0) + 1);
   for (const [rule, count] of byRule) summary.push(`面试官${VIOLATION_LABELS[rule]} ${count} 次`);
