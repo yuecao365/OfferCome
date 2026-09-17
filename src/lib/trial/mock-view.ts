@@ -61,6 +61,7 @@ export function trialInterviewToTrace(interview: TrialInterview): MockInterviewT
     competencies: [],
     flags: { policy: "v2", shadow: null, lab: false },
     postmortem: null,
+    agents: [],
     rows: traceTurns(
       interview.messages.map((message) => ({
         type: message.role === "candidate" ? "candidate_said" : "interviewer_said",

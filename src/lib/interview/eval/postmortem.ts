@@ -4,6 +4,7 @@ import { questionSimilarity } from "@/lib/text/similarity";
 import { currentTopic, trailingDontKnows } from "../decide";
 import { planQuota } from "../progress";
 import { classifyReply, transcriptOf, type InterviewEvent, type ReplyKind, type TranscriptLine } from "../events";
+import { evaluationTrajectoryMetrics, type EvaluationRunFact } from "./metrics";
 
 /**
  * 每场自动复盘（设计修订 v3 §3，F2）：从事件日志现算、不落库——备课备好了没、候选人的行为分类、面试官违反准则的回合、
@@ -21,6 +22,8 @@ export type Postmortem = {
   violations: { seq: number; rule: ViolationRule; text: string }[];
   /** 代码接话或底线触发的回合（fallback_used）：原因与被替换掉的原话。 */
   guards: { seq: number; reason: string; original: string | null }[];
+  /** 轨迹（G6，从记账行算）：评分每段步数与工具调用、无效调用、预算触顶、面试官查资料次数；没有记账为 null。 */
+  trajectory: { evaluationSteps: number | null; evaluationToolCalls: number | null; invalidToolCalls: number; budgetHits: number; interviewerLookups: number } | null;
   summary: string[];
 };
 
@@ -34,7 +37,7 @@ export const VIOLATION_LABELS: Record<ViolationRule, string> = {
 const LONG_ANSWER_CHARS = 500;
 const REPEAT_SIMILARITY = 0.8;
 
-export function postmortem(input: { events: InterviewEvent[]; brief: InterviewBrief | null; ready: boolean }): Postmortem {
+export function postmortem(input: { events: InterviewEvent[]; brief: InterviewBrief | null; ready: boolean; trajectory?: { evaluation: EvaluationRunFact[]; interviewerLookups: number } }): Postmortem {
   const transcript = transcriptOf(input.events);
   const replies: Postmortem["replies"] = { normal: 0, help: 0, dont_know: 0, not_mine: 0, non_answer: 0, skip: 0, long: 0 };
   for (const line of transcript) {
@@ -76,6 +79,19 @@ export function postmortem(input: { events: InterviewEvent[]; brief: InterviewBr
   if (guards.length > 0) summary.push(`代码接话或底线触发 ${guards.length} 次`);
   const lookups = input.events.filter((item) => item.type === "tool_called").length;
   if (lookups > 0) summary.push(`面试官查资料 ${lookups} 次`);
+  const trajectory = input.trajectory
+    ? {
+        evaluationSteps: evaluationTrajectoryMetrics(input.trajectory.evaluation).evaluationSteps,
+        evaluationToolCalls: evaluationTrajectoryMetrics(input.trajectory.evaluation).evaluationToolCalls,
+        invalidToolCalls: input.trajectory.evaluation.reduce((sum, run) => sum + run.invalidCalls, 0),
+        budgetHits: input.trajectory.evaluation.filter((run) => run.budgetHit).length,
+        interviewerLookups: input.trajectory.interviewerLookups,
+      }
+    : null;
+  // 轨迹级失败（G6）：给了工具一次没用、无效调用、预算触顶——这些从分数上看不出来。
+  if (trajectory && trajectory.evaluationSteps !== null && (trajectory.evaluationToolCalls ?? 0) === 0) summary.push("评分带着工具一次都没调（检查提示词里的触发时机）");
+  if (trajectory && trajectory.invalidToolCalls > 0) summary.push(`评分有 ${trajectory.invalidToolCalls} 次无效工具调用`);
+  if (trajectory && trajectory.budgetHits > 0) summary.push(`评分有 ${trajectory.budgetHits} 段触顶预算`);
   if (summary.length === 0) summary.push("没有发现准则违反或异常行为");
-  return { ready: input.ready, replies, violations, guards, summary };
+  return { ready: input.ready, replies, violations, guards, trajectory, summary };
 }

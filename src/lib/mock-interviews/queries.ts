@@ -7,7 +7,9 @@ import { parseJsonArray, parseJsonObject, parseJsonValue } from "@/lib/json";
 import { estimate, type Estimate, type Observation } from "@/lib/interview/estimator";
 import { parseEventRow, transcriptOf, type InterviewEvent } from "@/lib/interview/events";
 import { planQuota, progressOf } from "@/lib/interview/progress";
+import { loadEvaluationRuns } from "@/lib/interview/eval/facts";
 import { postmortem } from "@/lib/interview/eval/postmortem";
+import { agentChainsOf } from "@/lib/interview/trace-steps";
 import { sessionFlags } from "@/lib/interview/flags";
 import { conversationView, traceTurns, type TraceRun } from "@/lib/interview/views";
 
@@ -185,28 +187,41 @@ export async function getRecentMockInterviews() {
 export async function getMockInterviewTrace(id: string): Promise<MockInterviewTrace | null> {
   const session = await prisma.mockInterviewSession.findUnique({
     where: { id },
-    include: { interview: { select: { companyName: true, jobTitle: true } }, events: { orderBy: { seq: "asc" } } },
+    include: { interview: { select: { companyName: true, jobTitle: true, questions: { select: { id: true } } } }, events: { orderBy: { seq: "asc" } } },
   });
   if (!session) return null;
   const brief = parseStoredBrief(session.briefJson);
   if (!brief) return null;
-  const runs = await prisma.agentRun.findMany({
-    where: { runId: { startsWith: `turn:${id}:` }, event: "model_call" },
-    select: { runId: true, status: true, durationMs: true, totalTokens: true, cachedTokens: true, errorKind: true },
+  const questionIds = session.interview.questions.map((question) => question.id);
+  // 这场所有 agent 的记账行：面试官每回合、评分（带工具的那次与对照）、示范、评论员、档案。按 runId 归链，每链按步。
+  const rows = await prisma.agentRun.findMany({
+    where: {
+      OR: [
+        { runId: { startsWith: `turn:${id}:` } },
+        { runId: { startsWith: `critic:${id}:` } },
+        { runId: `dossier:${id}` },
+        ...(questionIds.length > 0 ? [{ runId: { in: questionIds.flatMap((questionId) => [`eval:${questionId}`, `eval:${questionId}:b`, `exemplar:${questionId}`]) } }] : []),
+      ],
+    },
+    orderBy: { createdAt: "asc" },
+    select: { runId: true, agent: true, event: true, status: true, durationMs: true, totalTokens: true, cachedTokens: true, errorKind: true, metricsJson: true, payloadJson: true, outputJson: true, rawText: true, createdAt: true },
   });
-  // 一回合一次调用（多步共用一个 runId）：按 runId 合并开销，状态取最差的那次。
+  const chains = agentChainsOf(rows);
   const runById = new Map<string, TraceRun>();
-  const sum = (previous: number | null | undefined, current: number | null) => (current === null && previous == null ? null : (previous ?? 0) + (current ?? 0));
-  for (const run of runs) {
-    const previous = runById.get(run.runId);
-    runById.set(run.runId, {
-      status: previous && previous.status !== "success" ? previous.status : run.status,
-      durationMs: (previous?.durationMs ?? 0) + run.durationMs,
-      totalTokens: sum(previous?.totalTokens, run.totalTokens),
-      cachedTokens: sum(previous?.cachedTokens, run.cachedTokens),
-      errorKind: previous?.errorKind ?? run.errorKind,
+  for (const chain of chains) {
+    if (!chain.runId.startsWith(`turn:${id}:`)) continue;
+    const calls = chain.steps.filter((step) => step.event === "model_call");
+    runById.set(chain.runId, {
+      status: chain.status,
+      durationMs: chain.durationMs,
+      totalTokens: calls.length === 0 ? null : chain.totalTokens,
+      cachedTokens: calls.length === 0 ? null : calls.reduce((sum, step) => sum + (step.cachedTokens ?? 0), 0),
+      errorKind: calls.find((step) => step.errorKind)?.errorKind ?? null,
+      steps: chain.steps,
     });
   }
+  const events = session.events.map(parseEventRow).filter((item): item is InterviewEvent => item !== null);
+  const trajectory = { evaluation: await loadEvaluationRuns(questionIds), interviewerLookups: events.filter((item) => item.type === "tool_called").length };
   return {
     id: session.id,
     companyName: session.interview.companyName,
@@ -217,10 +232,11 @@ export async function getMockInterviewTrace(id: string): Promise<MockInterviewTr
     areas: brief.areas.map((area) => ({ id: area.id, name: area.name, kind: area.kind })),
     competencies: competenciesOf(session.contextSnapshotJson).map((item) => ({ id: item.id, name: item.name })),
     flags: { policy: sessionFlags(session.flagsJson).policy ?? "v2", shadow: sessionFlags(session.flagsJson).shadow, lab: sessionFlags(session.flagsJson).lab },
-    postmortem: postmortem({ events: session.events.map(parseEventRow).filter((item): item is InterviewEvent => item !== null), brief, ready: briefReady({ competencies: competenciesOf(session.contextSnapshotJson) }, brief) }),
+    postmortem: postmortem({ events, brief, ready: briefReady({ competencies: competenciesOf(session.contextSnapshotJson) }, brief), trajectory }),
     rows: traceTurns(
       session.events.map((row) => ({ type: row.type, payload: parseJsonObject(row.payloadJson), runId: row.runId })),
       runById,
     ),
+    agents: chains.filter((chain) => !chain.runId.startsWith(`turn:${id}:`)),
   };
 }

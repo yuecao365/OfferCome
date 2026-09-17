@@ -53,7 +53,7 @@ export async function loadSessionFacts(sessionId: string, truth?: { competencyId
 }
 
 /** 每段评分的轨迹：带工具那次采样的 runId 是 eval:<questionId>（对照采样带 :b，不算）；步数与工具调用数在 selection 行的指标里，无效调用与触顶从循环事件行数。 */
-async function loadEvaluationRuns(questionIds: string[]): Promise<EvaluationRunFact[]> {
+export async function loadEvaluationRuns(questionIds: string[]): Promise<EvaluationRunFact[]> {
   if (questionIds.length === 0) return [];
   const rows = await prisma.agentRun.findMany({
     where: { agent: "question_evaluation", runId: { in: questionIds.map((id) => `eval:${id}`) } },

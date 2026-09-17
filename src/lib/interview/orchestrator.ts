@@ -13,6 +13,7 @@ import { sessionFlags } from "./flags";
 import { loadSkillPacks } from "@/lib/mock-interviews/skills/loader";
 import { packsForInterview } from "@/lib/mock-interviews/skills/selector";
 
+import { turnBoundary } from "./trace-steps";
 import { runTurn, toolsUsedOf, type CandidateInput, type TurnResult, type TurnState } from "./turn";
 import { policyVariant } from "./variants";
 import type { ConversationMessage, TurnPayload } from "./views";
@@ -133,4 +134,50 @@ async function persistTurn(loaded: Loaded, turnIndex: number, candidate: Candida
   }, { maxWait: 20_000, timeout: 30_000 });
   if (result.phase === "ended") scheduleMockInterviewCompletion(sessionId);
   return created;
+}
+
+export type ReplayTurnResult = { say: string; kind: string; guard: string | null; original: string | null; notebook: string | null; runId: string | null; durationMs: number };
+
+/**
+ * 重放到某一步（G6 步调试）：把事件日志回到第 turnIndex 回合之前，用现在的代码与提示词再跑那一回合，不落库、不改这场。
+ * 状态是事件的投影，所以"回到那一步"就是只取前面的事件。记账行的 runId 以 replay: 开头，不混进 trace 的回合行。
+ */
+export async function replayMockInterviewTurn(sessionId: string, turnIndex: number): Promise<ReplayTurnResult | null> {
+  const loaded = await loadSession(sessionId);
+  if (!loaded) return null;
+  const brief = parseStoredBrief(loaded.briefJson);
+  if (!brief) return null;
+  const events = loaded.events.map(parseEventRow).filter((item): item is InterviewEvent => item !== null);
+  const boundary = turnBoundary(events, turnIndex);
+  if (!boundary) return null;
+  const prefix = events.slice(0, boundary.prefixEnd);
+  const transcript = transcriptOf(prefix);
+  const notebook = [...prefix].reverse().find((item) => item.type === "notebook_written");
+  const state: TurnState = {
+    brief,
+    notebook: notebook?.type === "notebook_written" ? notebook.payload.text : "",
+    transcript,
+    phase: transcript.length === 0 ? "opening" : "running",
+    variant: policyVariant(sessionFlags(loaded.flagsJson).policy),
+    seed: loaded.id,
+    toolsUsed: toolsUsedOf(prefix),
+  };
+  const candidateEvent = boundary.candidateIndex === null ? null : events[boundary.candidateIndex];
+  const candidate: CandidateInput | null = candidateEvent?.type === "candidate_said" ? { clientId: `replay:${turnIndex}`, content: candidateEvent.payload.content, control: candidateEvent.payload.control ?? null, composeMs: candidateEvent.payload.composeMs ?? null } : null;
+  const context = { jobTitle: loaded.interview.jobTitle, jobDescription: loaded.jdTextSnapshot, resumeText: loaded.resumeTextSnapshot, skillPacks: packsForInterview(brief.skillPacks ?? [], await loadSkillPacks(), 3), dossier: dossierOf(loaded.contextSnapshotJson)?.body ?? null };
+  const startedAt = Date.now();
+  const run = runTurn({ runId: `replay:${sessionId}:${turnIndex}:${Date.now()}`, config: await getAiTaskConfig("text"), state, candidate, context });
+  for await (const _delta of run.say) void _delta;
+  const result = await run.finalize();
+  const spoken = result.said.find((line) => line.role === "interviewer");
+  const guard = result.events.find((item) => item.type === "fallback_used");
+  return {
+    say: spoken?.content ?? "",
+    kind: spoken?.kind ?? "say",
+    guard: guard?.type === "fallback_used" ? guard.payload.reason : null,
+    original: guard?.type === "fallback_used" ? (guard.payload.original ?? null) : null,
+    notebook: result.notebook || null,
+    runId: result.runId,
+    durationMs: Date.now() - startedAt,
+  };
 }

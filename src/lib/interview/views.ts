@@ -1,6 +1,7 @@
 import type { InterviewBrief } from "@/lib/mock-interviews/brief/brief";
 
 import type { Postmortem } from "./eval/postmortem";
+import type { TraceAgentChain, TraceStep } from "./trace-steps";
 import { planQuota, progressOf, type ProgressSummary } from "./progress";
 import type { TurnPhase, TurnResult } from "./turn";
 
@@ -83,7 +84,7 @@ export type TraceTurn = {
   run: TraceRun | null;
 };
 
-export type TraceRun = { status: string; durationMs: number; totalTokens: number | null; cachedTokens: number | null; errorKind: string | null };
+export type TraceRun = { status: string; durationMs: number; totalTokens: number | null; cachedTokens: number | null; errorKind: string | null; /** 这回合的每一步（模型调用、工具调用……），G6。 */ steps: TraceStep[] };
 
 export type Trace = {
   id: string;
@@ -100,6 +101,8 @@ export type Trace = {
   /** 自动复盘（从事件现算）；体验版没有事件，为 null。 */
   postmortem: Postmortem | null;
   rows: TraceTurn[];
+  /** 面试后的 agent 链（评分、示范、评论员、档案），按步（G6）；体验版没有记账，为空。 */
+  agents: TraceAgentChain[];
 };
 
 /** 一场的仪表（从 trace 行现算）：开销、降级、评论员；有影子时真身 vs 影子。 */

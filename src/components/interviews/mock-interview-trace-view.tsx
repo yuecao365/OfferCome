@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/page-header";
+import { ReplayTurnButton } from "@/components/interviews/replay-turn-button";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -7,6 +8,7 @@ import { levelLabel } from "@/lib/interview/estimator";
 import { VIOLATION_LABELS } from "@/lib/interview/eval/postmortem";
 import { AREA_KIND_LABELS, AREA_KINDS, INTERVIEW_PACE_LABELS } from "@/lib/mock-interviews/brief/brief";
 import { traceDashboard } from "@/lib/interview/views";
+import type { TraceStep } from "@/lib/interview/trace-steps";
 import type { MockInterviewTrace } from "@/lib/mock-interviews/types";
 
 /**
@@ -25,6 +27,37 @@ const KIND_LABELS: Record<string, string> = {
 
 /** 面试官一条话超过这个字数在 trace 页标出来：说话收短靠提示词，代码不截断。 */
 const LONG_MESSAGE_CHARS = 150;
+
+const STEP_LABELS: Record<string, string> = { model_call: "模型调用（汇总）", step: "模型调用", tool_result: "工具", repair: "输出修补", budget_exceeded: "预算触顶", interrupted: "挂起", resumed: "续跑", selection: "代码裁决" };
+
+/** 一条链的每一步：事件、成败、耗时、token、输入 / 输出片段、工具。 */
+function Steps({ steps }: { steps: TraceStep[] }) {
+  return (
+    <ol className="grid gap-1 text-[12px] leading-5">
+      {steps.map((step, index) => (
+        <li className="rounded-control bg-surface-subtle p-2" key={index}>
+          <span className="font-mono text-muted-foreground">
+            {STEP_LABELS[step.event] ?? step.event} · {step.status}
+            {step.durationMs > 0 ? ` · ${(step.durationMs / 1000).toFixed(1)}s` : ""}
+            {step.totalTokens !== null ? ` · ${step.totalTokens} tokens` : ""}
+            {step.cachedTokens !== null && step.cachedTokens > 0 ? `（缓存 ${step.cachedTokens}）` : ""}
+            {step.errorKind ? ` · ${step.errorKind}` : ""}
+            {step.metrics && step.event === "model_call" && typeof step.metrics.steps === "number" ? ` · ${step.metrics.steps} 步 / ${step.metrics.toolCalls ?? 0} 次工具` : ""}
+          </span>
+          {step.tool ? (
+            <p className="mt-1">
+              <Badge tone={step.tool.ok ? "neutral" : "warning"}>{step.tool.name}（{step.tool.access}）</Badge>
+              <span className="ml-1 font-mono">{step.tool.input}</span>
+              {step.output ? <span className="ml-1 text-muted-foreground">→ {step.output}</span> : null}
+            </p>
+          ) : null}
+          {step.input ? <p className="mt-1 whitespace-pre-wrap text-muted-foreground">输入：{step.input}</p> : null}
+          {!step.tool && step.output ? <p className="mt-1 whitespace-pre-wrap">输出：{step.output}</p> : null}
+        </li>
+      ))}
+    </ol>
+  );
+}
 
 function competencyName(trace: MockInterviewTrace, id: string): string {
   return trace.competencies.find((item) => item.id === id)?.name ?? id;
@@ -76,7 +109,9 @@ export function MockInterviewTraceView({ trace }: { trace: MockInterviewTrace })
           <p className="text-xs font-semibold text-muted-foreground">复盘（从事件现算）</p>
           <p className="text-muted-foreground">{trace.postmortem.summary.join("；")}</p>
           <p className="text-xs text-muted-foreground">
-            备课{trace.postmortem.ready ? "备好了" : "没备好"} · 回答：正常 {trace.postmortem.replies.normal}、求助 {trace.postmortem.replies.help}、答不上 {trace.postmortem.replies.dont_know}、不是我做的 {trace.postmortem.replies.not_mine}、不作答 {trace.postmortem.replies.non_answer}、跳过 {trace.postmortem.replies.skip}、超长 {trace.postmortem.replies.long} · 底线 / 接话 {trace.postmortem.guards.length} 次
+            备课{trace.postmortem.ready ? "备好了" : "没备好"}
+            {trace.postmortem.trajectory ? ` · 轨迹：评分每段 ${trace.postmortem.trajectory.evaluationSteps?.toFixed(1) ?? "—"} 步 / ${trace.postmortem.trajectory.evaluationToolCalls?.toFixed(1) ?? "—"} 次工具，无效 ${trace.postmortem.trajectory.invalidToolCalls}，触顶 ${trace.postmortem.trajectory.budgetHits}，面试官查资料 ${trace.postmortem.trajectory.interviewerLookups} 次` : ""}
+            {" · 回答："}正常 {trace.postmortem.replies.normal}、求助 {trace.postmortem.replies.help}、答不上 {trace.postmortem.replies.dont_know}、不是我做的 {trace.postmortem.replies.not_mine}、不作答 {trace.postmortem.replies.non_answer}、跳过 {trace.postmortem.replies.skip}、超长 {trace.postmortem.replies.long} · 底线 / 接话 {trace.postmortem.guards.length} 次
           </p>
           {trace.postmortem.violations.map((item) => (
             <p className="text-xs text-warning-strong" key={`${item.seq}-${item.rule}`}>
@@ -158,10 +193,41 @@ export function MockInterviewTraceView({ trace }: { trace: MockInterviewTrace })
               ) : (
                 <span>笔记没变</span>
               )}
+              {turn.run && turn.run.steps.length > 0 ? (
+                <details className="w-full">
+                  <summary className="cursor-pointer">这一步：模型看到的输入、输出与工具（{turn.run.steps.length} 行）</summary>
+                  <div className="mt-1">
+                    <Steps steps={turn.run.steps} />
+                  </div>
+                </details>
+              ) : null}
+              {trace.postmortem ? <ReplayTurnButton sessionId={trace.id} turnIndex={turn.turnIndex} /> : null}
             </div>
           </Card>
         ))}
       </ol>
+      {trace.agents.length > 0 ? (
+        <Card className="grid gap-3 p-4">
+          <p className="text-xs font-semibold text-muted-foreground">面试后的 agent 轨迹（评分、示范、评论员、档案；每链按步）</p>
+          <ol className="grid gap-2">
+            {trace.agents.map((chain) => (
+              <li key={chain.runId}>
+                <details>
+                  <summary className="cursor-pointer text-sm">
+                    {chain.label}
+                    <span className="ml-2 font-mono text-xs text-muted-foreground">
+                      {chain.runId} · {chain.status} · {(chain.durationMs / 1000).toFixed(1)}s · {chain.totalTokens} tokens · {chain.steps.length} 步
+                    </span>
+                  </summary>
+                  <div className="mt-2">
+                    <Steps steps={chain.steps} />
+                  </div>
+                </details>
+              </li>
+            ))}
+          </ol>
+        </Card>
+      ) : null}
     </>
   );
 }
