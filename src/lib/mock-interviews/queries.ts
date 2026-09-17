@@ -107,6 +107,7 @@ function buildConversation(session: SessionWithConversation) {
 export async function getMockInterviewView(id: string): Promise<MockInterviewView | null> {
   const session = await loadSessionForView(id);
   if (!session) return null;
+  const dossier = await prisma.candidateDossier.findFirst({ where: { sessionId: id }, select: { version: true, changes: true } });
   const snapshot = parseJsonObject(session.contextSnapshotJson);
   const generationErrorContext =
     snapshot.generationErrorContext &&
@@ -130,6 +131,7 @@ export async function getMockInterviewView(id: string): Promise<MockInterviewVie
     questionCount: session.questionCount,
     totalScore: session.totalScore,
     report: parseStoredReport(session.reportJson),
+    dossier: dossier ? { version: dossier.version, changes: dossier.changes } : null,
     materials: { resumeText: session.resumeTextSnapshot, jobDescription: session.jdTextSnapshot },
     conversation: buildConversation(session),
     estimates: buildEstimates(session),

@@ -115,10 +115,11 @@ async function createSession(base: string, input: { jd: string; resumeDbId: stri
   form.set("pace", input.pace);
   form.set("round", "first_interview");
   form.set("jobDescriptionText", jd.jobDescription);
+  // 标签随创建一起写：备课在创建请求里就开始，事后补写会让备课把这场当真实使用（读不到评测写的档案与记忆）。
+  form.set("evalTag", input.tag);
   const response = await fetch(`${base}/api/interviews/mock`, { method: "POST", body: form });
   const json = (await response.json()) as { id?: string; interviewId?: string; error?: string };
   if (!response.ok || !json.id || !json.interviewId) throw new Error(`创建会话失败：${json.error ?? response.status}`);
-  await prisma.interview.update({ where: { id: json.interviewId }, data: { evalTag: input.tag } });
   // 会话开关：实验层、指定策略变体、影子变体；备课完成时只补没写的项。
   const flags = { ...(input.lab ? { lab: true } : {}), ...(input.policy ? { policy: input.policy } : {}), ...(input.shadow ? { shadow: input.shadow } : {}) };
   if (Object.keys(flags).length > 0) await prisma.mockInterviewSession.update({ where: { id: json.id }, data: { flagsJson: JSON.stringify(flags) } });

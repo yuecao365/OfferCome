@@ -48,6 +48,7 @@ export async function POST(request: Request) {
       pace: stringValue(formData, "pace"),
       seedQuestionId: stringValue(formData, "seedQuestionId") || null,
       applicationId: stringValue(formData, "applicationId") || null,
+      evalTag: stringValue(formData, "evalTag") || null,
     });
     if (!result.mockSession) throw new Error("模拟面试会话创建失败。");
     scheduleMockInterviewGeneration(result.mockSession.id);

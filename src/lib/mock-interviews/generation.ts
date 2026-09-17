@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { fillFlags } from "@/lib/interview/flags";
 import type { InterviewMemory } from "@/lib/interview/memory";
+import { loadCandidateDossier } from "@/lib/interview/dossier";
 import { recallCandidateMemory } from "@/lib/interview/memory-recall";
 import { assignVariant, rolloutConfig } from "@/lib/interview/variants";
 
@@ -47,7 +48,7 @@ async function loadGeneratingSession(sessionId: string) {
   const session = await prisma.mockInterviewSession.findUnique({
     where: { id: sessionId },
     include: {
-      interview: { select: { companyName: true, jobTitle: true } },
+      interview: { select: { companyName: true, jobTitle: true, evalTag: true } },
     },
   });
   if (!session || session.status !== "generating" || !session.resumeId || !isInterviewPace(session.pace)) {
@@ -113,6 +114,7 @@ async function persistBrief(
   blueprint: MockInterviewJobBlueprint,
   brief: Awaited<ReturnType<typeof generateInterviewBrief>>,
   memory: InterviewMemory | null,
+  dossier: { version: number; body: string } | null,
   ready: boolean,
 ): Promise<void> {
   await prisma.$transaction(async (tx) => {
@@ -125,6 +127,7 @@ async function persistBrief(
           ...parseGenerationSnapshot(serializeMockInterviewContext(context, { blueprint })),
           generationRequest: snapshot.generationRequest,
           memory,
+          dossier,
         }),
         briefJson: JSON.stringify(brief),
         notebook: "",
@@ -191,8 +194,10 @@ export async function prepareMockInterview(sessionId: string): Promise<void> {
       seedQuestionId: request.seedQuestionId,
     });
 
-    // 语义记忆：同一份简历上几场的说法、能力估计、短板、问过的题——备课时用（没讲清的说法优先再验），并存进快照（可重放）。
-    const memory = session.resumeId ? await recallCandidateMemory({ resumeId: session.resumeId, excludeSessionId: session.id }) : null;
+    // 跨场记忆：能力估计的先验（代码侧）与候选人档案（agent 读）——备课时用，并存进快照（可重放）。评测场次读评测写的档案，真实使用只读真实的。
+    const includeEval = session.interview.evalTag !== null;
+    const memory = session.resumeId ? await recallCandidateMemory({ resumeId: session.resumeId, excludeSessionId: session.id, includeEval }) : null;
+    const dossier = session.resumeId ? await loadCandidateDossier(session.resumeId, { includeEval }) : null;
     let blueprint: MockInterviewJobBlueprint | null = null;
     let brief: Awaited<ReturnType<typeof generateInterviewBrief>> | null = null;
     // 没备好（蓝图占位或简报兜底）就再备一次：这类失败多半是模型服务瞬时不可用。
@@ -203,10 +208,10 @@ export async function prepareMockInterview(sessionId: string): Promise<void> {
       const advanced = await claimSession(prisma, { where: { id: sessionId, status: "generating" }, data: { generationPhase: "brief" } });
       if (!advanced) return;
       // generateInterviewBrief 自带兜底简报，不会抛出"没有简报"这种终态。
-      brief = await generateInterviewBrief({ generationId, jobTitle: session.interview.jobTitle, blueprint, context, pace: session.pace, round: request.round, memory: memory ?? undefined });
+      brief = await generateInterviewBrief({ generationId, jobTitle: session.interview.jobTitle, blueprint, context, pace: session.pace, round: request.round, dossier: dossier?.body ?? null });
       if (briefReady(blueprint, brief)) break;
     }
-    await persistBrief(session, snapshot, context, blueprint!, brief!, memory, briefReady(blueprint!, brief!));
+    await persistBrief(session, snapshot, context, blueprint!, brief!, memory, dossier ? { version: dossier.version, body: dossier.body } : null, briefReady(blueprint!, brief!));
   } catch (error) {
     await recordGenerationFailure(sessionId, snapshot, error);
   }

@@ -57,6 +57,14 @@ test("topic packs by role: the job's domain pack, the resume's stack when the JD
   assert.deepEqual(roles(javaBackend, "hr_interview"), [["domain", "behavioral"]]);
 });
 
+test("an agent-harness job picks the agent-harness domain pack; a generic agent-development job still picks ai-llm", async () => {
+  const packs = await loadSkillPacks();
+  const harness = packsForTopics({ jobTitle: "混元AI Agent Harness Engineer（北京/深圳，TEG）", jobDescription: "参与设计并实现 Agent 执行全链路的 tracing & observability 系统；构建 Agent 质量评估体系：自动化 eval pipeline、A/B testing、regression detection；开发 Agent debugging 工具。使用 Cursor / Claude Code / Codex 等进行重度编程，对 agentic coding 的能力边界和 failure mode 有切身的体感。", resumeText: "" }, packs, "first_interview");
+  assert.equal(harness[0]?.pack.name, "agent-harness");
+  const generic = packsForTopics({ jobTitle: "Agent 开发实习生（AI 产品方向）", jobDescription: "负责 Agent 技术研发，Memory 机制、RAG、工具调用、prompt 优化；熟悉 LLM 与 Agent framework。", resumeText: "" }, packs, "first_interview");
+  assert.equal(generic[0]?.pack.name, "ai-llm");
+});
+
 test("topic packs fall back to cs-fundamentals as the domain when nothing matches, without a duplicate basics pack", async () => {
   const packs = await loadSkillPacks();
   const picked = packsForTopics({ jobTitle: "xyzzy", jobDescription: "无", resumeText: "无" }, packs, null);

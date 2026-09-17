@@ -6,7 +6,7 @@ import { parseJsonObject, parseJsonValue } from "@/lib/json";
 import { generateAnswerExemplar } from "./answer-exemplar-agent";
 import { verdictForScore } from "./verdicts";
 import { isAreaKind, parseStoredBrief } from "./brief/brief";
-import { memoryOf } from "@/lib/interview/memory";
+import { dossierOf } from "@/lib/interview/dossier-doc";
 
 import { competenciesOf } from "./context";
 import { evaluateMockInterviewQuestion } from "./question-evaluation-agent";
@@ -92,7 +92,7 @@ export async function evaluatePersistedMockInterviewQuestion(interviewQuestionId
       competencies: competenciesOf(session.contextSnapshotJson).map((item) => ({ id: item.id, name: item.name })),
       resumeText: session.resumeTextSnapshot,
       skillPacks: packsForInterview(brief?.skillPacks ?? [], await loadSkillPacks(), 3),
-      memory: memoryOf(session.contextSnapshotJson),
+      dossier: dossierOf(session.contextSnapshotJson)?.body ?? null,
     });
     // 只允许仍持有 running 认领的调用写终态：交卷路径会把超时的评分强制置
     // failed 并重跑，旧调用迟到的结果必须被丢弃，不能覆盖重跑的结果。

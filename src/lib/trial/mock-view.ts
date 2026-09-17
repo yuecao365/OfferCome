@@ -26,6 +26,8 @@ export function trialInterviewToView(interview: TrialInterview): MockInterviewVi
     questionCount: interview.questions.length,
     totalScore: interview.report?.totalScore ?? null,
     report: interview.report,
+    // 体验版不留档案（没有服务端存储）。
+    dossier: null,
     materials: { resumeText: interview.resume.text, jobDescription: interview.job.jobDescription },
     conversation: interview.brief
       ? conversationView({ brief: interview.brief, status: interview.status, startedAt: interview.startedAt, notebook: interview.notebook, messages: interview.messages })

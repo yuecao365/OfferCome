@@ -9,6 +9,8 @@ import { createSkillTools, renderSkillIndex } from "@/lib/mock-interviews/skills
 import type { SkillPack } from "@/lib/mock-interviews/skills/types";
 import { createResumeLookupTool } from "@/lib/mock-interviews/tools/resume-lookup";
 
+import { dossierExcerpt } from "./dossier-doc";
+
 import { MOVE_LABELS, type Decision } from "./decide";
 import type { TranscriptLine } from "./events";
 import { planQuota, renderProgress, type Progress } from "./progress";
@@ -125,7 +127,14 @@ export type PolicyContext = {
   resumeText: string;
   /** 备课选的技能包（≤ 3）：系统提示里只放索引，全文由面试官用 load_skill 按需加载（G3）。 */
   skillPacks?: SkillPack[];
+  /** 候选人档案（上几场，G4）：系统提示里放前三段的摘录，整场不变。 */
+  dossier?: string | null;
 };
+
+function renderDossierSection(dossier: string | null | undefined): string {
+  const excerpt = dossier ? dossierExcerpt(dossier) : "";
+  return excerpt ? `\n候选人档案（同一份简历上几场的记录，可信；用来决定追什么，不当面复述）：\n${excerpt}\n` : "";
+}
 
 /** 技能包索引段：整场不变，是缓存前缀的一部分。 */
 function renderSkillSection(packs: SkillPack[]): string {
@@ -157,7 +166,7 @@ ${context.jobDescription.slice(0, MAX_JD_CHARS)}
 
 候选人简历${resumeNote}：
 ${context.resumeText.slice(0, MAX_RESUME_CHARS)}
-
+${renderDossierSection(context.dossier)}
 提示词版本：${variant.promptVersion}`;
 }
 

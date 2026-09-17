@@ -6,7 +6,6 @@ import { randomUUID } from "node:crypto";
 
 import type { LoopHooks, LoopToolSet } from "@/lib/ai/agent-loop";
 import { logAgentRun, runAgent, type AgentRunResult } from "@/lib/ai/run-agent";
-import type { InterviewMemory } from "@/lib/interview/memory";
 import { getAiTaskConfig } from "@/lib/settings/ai";
 
 import {
@@ -71,7 +70,7 @@ function toolGuide(tools: { resume: boolean; skills: SkillPack[]; recall: boolea
   const lines: string[] = [];
   if (tools.resume) lines.push("- lookup_resume：thread.kind 是 project 的段**必须**先按关键词（项目名、指标名、数字）查简历原文，核对回答里出现的数字与事实，查到再出分（最多 2 次）；其它段有可核对的事实时也查。核对结果写进 resumeChecks：claim 是回答里那句（逐字复制），resumeSays 是简历原文那句（逐字复制，只能来自工具返回的行），consistent 是否一致——数字、单位、倍数、规模对不上（例如回答说六千步、简历写 3000+）就是 false；与简历矛盾的同时记一条 kind=error 的短板，quote 是回答那句。回答里没有任何可核对的事实才留空。");
   if (tools.skills.length > 0) lines.push(`- load_skill：基础题 / 场景题拿不准这一层该讲什么时，查该主题技能包里的期望与危险信号（最多 1 次）。索引：\n${renderSkillIndex(tools.skills)}`);
-  if (tools.recall) lines.push("- recall_sessions：按关键词查这位候选人上几场同一材料的说法验证与短板（最多 1 次）；上几场也漏了同一机制的，feedback 里点出\"反复出现\"。");
+  if (tools.recall) lines.push("- recall_sessions：按关键词查这位候选人的档案——上几场的说法验证、反复出现的短板、问过的角度（最多 1 次）；上几场也漏了同一机制的，feedback 里点出\"反复出现\"。");
   return lines.length === 0 ? "" : `\n\n只读工具（查完直接出分）：\n${lines.join("\n")}`;
 }
 
@@ -123,8 +122,8 @@ export async function evaluateMockInterviewQuestion(input: {
   resumeText?: string;
   /** 备课时选的技能包：给 load_skill；空数组不给工具。 */
   skillPacks?: SkillPack[];
-  /** 上几场的记忆（会话快照里的）：给 recall_sessions；没有上几场不给工具。 */
-  memory?: InterviewMemory | null;
+  /** 候选人档案（会话快照里的，上几场）：给 recall_sessions；没有档案不给工具。 */
+  dossier?: string | null;
   /** 记账用的 runId 前缀（对照采样加 :b）；不给就随机。 */
   runId?: string;
 }): Promise<{ evaluation: MockInterviewQuestionEvaluation; score: number; metrics: EvaluationMetrics; secondScore: number | null; lowConfidence: boolean; toolShift: number | null; difficulty: number; competencyId: string | null }> {
@@ -136,7 +135,7 @@ export async function evaluateMockInterviewQuestion(input: {
   const startedAt = Date.now();
   const resumeText = input.resumeText ?? "";
   const skillPacks = input.skillPacks ?? [];
-  const recall = input.memory ? createRecallTool(input.memory) : null;
+  const recall = createRecallTool(input.dossier);
   const tools: LoopToolSet = {
     ...(resumeText ? { lookup_resume: createResumeLookupTool(resumeText) } : {}),
     ...(skillPacks.length > 0 ? createSkillTools(skillPacks).tools : {}),

@@ -52,7 +52,7 @@ flowchart TD
 
 ### 2.2 评分 agent（`question-evaluation-agent.ts`，evaluation-v5：跑在 G1 循环上，带三个只读工具）
 
-输入：`{ jobTitle, jobDescription≤12000, question, answer≤20000, rubric, expectedSignals, thread: { kind, depth, probeCount, facets }, round, competencies, resumeText, skillPacks, memory }`。后三项给工具：`lookup_resume`（按关键词查简历原文，逐字返回）、`load_skill`（技能包全文，索引在提示词里）、`recall_sessions`（会话快照里上几场的说法验证与短板；没有上几场不给）。用法写进提示词、代码不替它选：项目段先核对回答里的数字与事实（最多 2 次），基础 / 场景段拿不准时查技能包（最多 1 次），上几场也漏了同一机制的在 feedback 里点出"反复出现"。预算 3 步工具 + 1 步结论；`beforeTool` 拒绝同一工具同样入参的重复调用。thread 来自切段 metadata（kind 是这个话题的种类：基础题通常一两轮、一两句回答是正常的，评分按问到的那一层答得准不准给）；metadata 不全时传 `thread: null`。
+输入：`{ jobTitle, jobDescription≤12000, question, answer≤20000, rubric, expectedSignals, thread: { kind, depth, probeCount, facets }, round, competencies, resumeText, skillPacks, memory }`。后三项给工具：`lookup_resume`（按关键词查简历原文，逐字返回）、`load_skill`（技能包全文，索引在提示词里）、`recall_sessions`（按关键词查会话快照里的候选人档案；没有档案不给）。用法写进提示词、代码不替它选：项目段先核对回答里的数字与事实（最多 2 次），基础 / 场景段拿不准时查技能包（最多 1 次），上几场也漏了同一机制的在 feedback 里点出"反复出现"。预算 3 步工具 + 1 步结论；`beforeTool` 拒绝同一工具同样入参的重复调用。thread 来自切段 metadata（kind 是这个话题的种类：基础题通常一两轮、一两句回答是正常的，评分按问到的那一层答得准不准给）；metadata 不全时传 `thread: null`。
 
 输出 schema：
 
@@ -129,6 +129,10 @@ advice: 补一版完整的 Agent 主循环设计稿，重点写清上下文构�
 9. 事务外：`enqueueCandidateProfileRefresh()`；评测运行器跑出的面试（`Interview.evalTag` 非空）跳过这一步，不进画像
 
 报告 v2 形状：`{ version: 2, totalScore, summary, strengths[], weaknesses[], advice[], hypotheses[] }`。库里两条 v1 报告已一次性升成 v2（improvements + actionPlan → advice），代码不再读 v1。
+
+## 4.5 候选人档案（`interview/dossier.ts`，dossier-v1，G4）
+
+交卷写完报告后，档案 agent 拿上一版档案（没有就空模板）+ 这场的事实（岗位、日期、报告的总结 / 强项 / 短板 / 假设结论、每个话题问过与讲透的角度、逐段短板）整份重写一版：固定五段（已验证的说法 / 没讲清的说法 / 反复出现的短板 / 问过的项目角度 / 场次记录），每条带日期与岗位，同一件事多场出现合并标 ×N，一场的短板只进那场的记录行；`changes` 一句改动。代码 `normalizeDossier` 保证段落齐全、丢自创段、封顶 4000 字，版本 +1 存 `CandidateDossier`（评测场次带 evalTag，真实使用只读真实场次写的）。写失败只记日志、报告照出。下一场备课、面试官、评分从会话快照里读它（见 before / during 两篇）。报告页显示"候选人档案已更新到第 N 版：改动"。`npm run recall -- <resumeId>` 打印最新一版。
 
 ## 5. 能力画像刷新（`candidate-profile/`，后台，ability-assessment-v5）
 

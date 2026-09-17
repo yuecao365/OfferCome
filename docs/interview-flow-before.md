@@ -168,7 +168,7 @@ hypotheses[0..6]: { id, text≤300, evidence≤300（简历原文逐字）, proj
 
 ## 6. 落库与开房（`persistBrief`）
 
-一个事务内：`briefJson`（`version: 8`、`turns`、`product`、`areas`、`hypotheses`、`skillPacks` = 抽题用的包 + project-deep-dive）、`notebook` 为空（面试官开场后才写）、`durationMinutes` 按节奏、`flagsJson`（灰度分到的变体、影子）、快照里的 `memory`（上几场的说法、能力估计、短板、问过的题，备课时也拿来把"上次没讲清的说法"优先写进假设）；**备好了**才 `status=in_progress`。只认 v8：更早的简报（领域清单、切入点、阶段预算）视为无简报，那些会话只剩题目与评分可看。
+一个事务内：`briefJson`（`version: 8`、`turns`、`product`、`areas`、`hypotheses`、`skillPacks` = 抽题用的包 + project-deep-dive）、`notebook` 为空（面试官开场后才写）、`durationMinutes` 按节奏、`flagsJson`（灰度分到的变体、影子）、快照里的 `memory`（上几场的能力估计，估计器的先验）与 `dossier`（候选人档案最新一版，G4：备课把它全文给简报 agent——"没讲清的说法"优先写进假设并注明"上次没讲清"，"反复出现的短板"复测，"问过的角度"往后排；面试官与评分也从快照读它）；**备好了**才 `status=in_progress`。只认 v8：更早的简报（领域清单、切入点、阶段预算）视为无简报，那些会话只剩题目与评分可看。
 
 ## 7. 失败与重试
 

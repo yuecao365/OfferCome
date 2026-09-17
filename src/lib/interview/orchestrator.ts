@@ -7,6 +7,7 @@ import { claimSession } from "@/lib/mock-interviews/session-state";
 import { getAiTaskConfig } from "@/lib/settings/ai";
 
 import { scheduleLab, scheduleShadow } from "./background";
+import { dossierOf } from "./dossier-doc";
 import { appendEvents, parseEventRow, transcriptOf, type InterviewEvent } from "./events";
 import { sessionFlags } from "./flags";
 import { loadSkillPacks } from "@/lib/mock-interviews/skills/loader";
@@ -76,7 +77,7 @@ export async function startTurn(input: { sessionId: string; candidate: Candidate
   const state = turnState(loaded);
   const turnIndex = loaded.messages.filter((message) => message.role === "interviewer").length;
   const config = await getAiTaskConfig("text");
-  const context = { jobTitle: loaded.interview.jobTitle, jobDescription: loaded.jdTextSnapshot, resumeText: loaded.resumeTextSnapshot, skillPacks: packsForInterview(state.brief.skillPacks ?? [], await loadSkillPacks(), 3) };
+  const context = { jobTitle: loaded.interview.jobTitle, jobDescription: loaded.jdTextSnapshot, resumeText: loaded.resumeTextSnapshot, skillPacks: packsForInterview(state.brief.skillPacks ?? [], await loadSkillPacks(), 3), dossier: dossierOf(loaded.contextSnapshotJson)?.body ?? null };
   const run = runTurn({ runId: `turn:${input.sessionId}:${turnIndex}`, config, state, candidate: input.candidate, context });
   const shadow = sessionFlags(loaded.flagsJson).shadow;
   return {

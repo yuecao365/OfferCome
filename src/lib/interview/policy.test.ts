@@ -70,6 +70,13 @@ test("系统提示词：没有工具说明与记忆段；简历超过节选上�
   assert.equal(skillToLoad(brief, toQuick, { ...context, skillPacks: [pack] }, []), null, "包不在备课选的里就不点");
   assert.equal(skillToLoad(brief, { ...toQuick, move: "continue" }, { ...context, skillPacks: [quickPack] }, []), null);
   assert.match(renderTurnMessage({ progress: progress(0), notebook: "", opening: false, decision: toQuick, toolsUsed: [], loadSkill: "ai-llm" }, "答"), /先用 load_skill 查技能包「ai-llm」/);
+  // G4：有档案才有档案段，只放前三段的摘录。
+  const dossier = "# 候选人档案\n\n## 已验证的说法\n- 2026-09-01 · Agent 开发：P95 数字讲清了\n\n## 没讲清的说法\n（无）\n\n## 反复出现的短板\n（无）\n\n## 问过的项目角度\n- Study Assistant：记忆模块\n\n## 场次记录\n- 2026-09-01";
+  const withDossier = buildSystem(brief, { ...context, dossier });
+  assert.match(withDossier, /候选人档案（同一份简历上几场的记录/);
+  assert.match(withDossier, /P95 数字讲清了/);
+  assert.doesNotMatch(withDossier, /记忆模块/, "问过的角度不进面试官的提示词");
+  assert.doesNotMatch(system, /候选人档案/);
   assert.ok(system.length < 4_000, `提示词 ${system.length} 字`);
   const terse = buildSystem(brief, context, { id: "t", label: "t", promptVersion: "policy-t", extraRules: ["问句不超过 60 字"] });
   assert.ok(terse.indexOf("问句不超过 60 字") < terse.indexOf("笔记："));

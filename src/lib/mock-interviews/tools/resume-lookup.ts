@@ -11,10 +11,11 @@ import type { LoopTool } from "@/lib/ai/agent-loop";
 const MAX_LINES = 8;
 const MAX_LINE_CHARS = 400;
 
-export function lookupResumeLines(resumeText: string, keyword: string): string[] {
+/** 按关键词从一段文本里取包含它的行（逐字返回）：简历原文与候选人档案共用。 */
+export function lookupLines(text: string, keyword: string): string[] {
   const needle = keyword.trim().toLowerCase();
   if (!needle) return [];
-  return resumeText
+  return text
     .split(/\n+/)
     .map((line) => line.trim())
     .filter((line) => line.toLowerCase().includes(needle))
@@ -28,7 +29,7 @@ export function createResumeLookupTool(resumeText: string): LoopTool {
     ...tool({
       description: "按关键词查候选人简历原文里包含它的段落（逐字返回，可直接引用）。查不到时换更短的关键词再试一次。",
       inputSchema: z.object({ keyword: z.string().min(1).max(40) }),
-      execute: async ({ keyword }) => ({ keyword, lines: lookupResumeLines(resumeText, keyword) }),
+      execute: async ({ keyword }) => ({ keyword, lines: lookupLines(resumeText, keyword) }),
     }),
   };
 }

@@ -128,6 +128,8 @@ export type MockInterviewView = {
   questionCount: number;
   totalScore: number | null;
   report: MockInterviewReport | null;
+  /** 候选人档案（G4）：这场交卷后写的那一版与改动；没有简历或还没交卷为 null。 */
+  dossier: { version: number; changes: string } | null;
   /** 房间资料抽屉：本场的简历原文与岗位描述（会话快照）。 */
   materials: InterviewMaterials;
   /** 旧的分步会话没有简报，为 null，房间按只读回放处理。 */

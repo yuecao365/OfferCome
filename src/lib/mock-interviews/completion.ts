@@ -3,7 +3,7 @@ import "server-only";
 import { enqueueCandidateProfileRefresh } from "@/lib/candidate-profile/background";
 import { prisma } from "@/lib/db";
 import { ensureSegments } from "@/lib/interview/aftermath";
-import { parseJsonArray } from "@/lib/json";
+import { parseJsonArray, parseJsonObject } from "@/lib/json";
 
 import { parseStoredBrief } from "./brief/brief";
 import { ALL_SKIPPED_SUMMARY, areaOutcomes, buildReport, summaryInput } from "./outcome";
@@ -15,6 +15,7 @@ import type { EvaluationWeakness } from "./question-evaluation";
 import { parseStoredReport, type MockInterviewReport } from "./report";
 import { claimSession } from "./session-state";
 import { summarizeMockInterview } from "./summary-agent";
+import { writeCandidateDossier } from "@/lib/interview/dossier";
 
 /**
  * 交卷的本地版存取：等逐题评分收齐 → 拼全貌（outcome.ts）→ 汇总 agent → 落报告。
@@ -166,6 +167,34 @@ export async function completeMockInterview(
         data: { status: "completed", interviewedAt: completedAt },
       });
     });
+    // 候选人档案（G4）：交卷后写一版；失败只记日志，报告照出。
+    if (session.resumeId) {
+      const facetsOf = new Map(session.interview.questions.map((question) => [question.id, parseJsonObject(question.evaluation?.generationMetadataJson ?? null)] as const));
+      const weaknessesOf = new Map(session.interview.questions.map((question) => [question.id, question.evaluation ? (parseJsonArray(question.evaluation.weaknessesJson) as EvaluationWeakness[]) : []] as const));
+      const scoreOf = new Map(session.interview.questions.map((question) => [question.id, question.evaluation?.score ?? null] as const));
+      const strings = (value: unknown) => (Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : []);
+      await writeCandidateDossier({
+        resumeId: session.resumeId,
+        sessionId,
+        evalTag: existing.interview.evalTag,
+        facts: {
+          jobTitle: session.interview.jobTitle,
+          companyName: session.interview.companyName,
+          date: completedAt.toISOString().slice(0, 10),
+          report: { summary: report.summary, strengths: report.strengths, weaknesses: report.weaknesses, hypotheses: report.hypotheses },
+          areas: session.threads
+            .filter((thread) => thread.status !== "active")
+            .map((thread) => ({
+              name: thread.label,
+              kind: thread.kind,
+              score: thread.questionId ? (scoreOf.get(thread.questionId) ?? null) : null,
+              facetsAsked: thread.questionId ? strings(facetsOf.get(thread.questionId)?.facets) : [],
+              facetsDone: thread.questionId ? strings(facetsOf.get(thread.questionId)?.facetsDone) : [],
+              weaknesses: thread.questionId ? (weaknessesOf.get(thread.questionId) ?? []) : [],
+            })),
+        },
+      }).catch((error: unknown) => console.warn("[dossier] 写档案失败，报告照常。", error));
+    }
     // 评测跑出的面试不进能力画像。
     if (!existing.interview.evalTag) await enqueueCandidateProfileRefresh();
     return report;

@@ -259,6 +259,9 @@ export function MockInterviewReport({ session }: { session: MockInterviewView })
         <div>
           <h3 className="text-sm font-semibold text-foreground">总体评价</h3>
           <p className="mt-2 whitespace-pre-wrap text-[0.8125rem] leading-6 text-muted-foreground">{report.summary}</p>
+          {session.dossier ? (
+            <p className="mt-2 text-xs text-muted-foreground">候选人档案已更新到第 {session.dossier.version} 版：{session.dossier.changes}</p>
+          ) : null}
           {session.business?.product || session.business?.systems.length ? (
             <p className="mt-2 text-xs text-muted-foreground">
               按这个团队的业务出题：{session.business.product ?? "（岗位描述没写产品）"}

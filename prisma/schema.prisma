@@ -557,6 +557,24 @@ model AgentRun {
   @@index([tag, createdAt])
 }
 
+/// 候选人档案（G4）：同一份简历跨场的、agent 可读写的文件式记忆，每场交卷后由档案 agent 整份重写一版。
+model CandidateDossier {
+  id        String   @id @default(cuid())
+  resumeId  String
+  version   Int
+  /// Markdown，固定五段（dossier-doc.ts）。
+  body      String
+  /// 这版改了什么（档案 agent 一句话）。
+  changes   String
+  sessionId String
+  /// 写它的那场是评测跑的就带标签；真实使用为 null，读时按此过滤（与跨场记忆同一规则）。
+  evalTag   String?
+  createdAt DateTime @default(now())
+
+  @@unique([resumeId, version])
+  @@index([resumeId, createdAt])
+}
+
 /// 每回合一条决策记录：模型提了什么、代码用了什么、为什么换、面试走到了哪个阶段。trace 页面与评测读它。
 
 /// 面试的事件日志：一场里发生的一切，按 seq 追加写，是唯一的事实来源；逐字稿、线程、报告都是它的投影。

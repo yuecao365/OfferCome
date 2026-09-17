@@ -2,38 +2,21 @@ import { tool } from "ai";
 import { z } from "zod";
 
 import type { LoopTool } from "@/lib/ai/agent-loop";
-import type { InterviewMemory } from "@/lib/interview/memory";
+
+import { lookupLines } from "./resume-lookup";
 
 /**
- * 查上几场（只读工具）：从会话快照里的记忆按关键词取这位候选人上几场的说法验证与短板。
- * 记忆在备课时已 recall 进快照，这里不查库；没有上几场就不给这个工具。
+ * 查候选人档案（只读工具）：按关键词从上几场的档案里取相关的行（说法验证、反复出现的短板、问过的角度）。
+ * 档案在备课时存进会话快照，这里不查库；没有档案就不给这个工具。
  */
-
-const MAX_ITEMS = 6;
-
-export type RecallHit = { kind: "claim" | "weakness"; text: string; detail: string | null; at: string };
-
-export function recallByKeyword(memory: InterviewMemory, keyword: string): RecallHit[] {
-  const needle = keyword.trim().toLowerCase();
-  if (!needle) return [];
-  const hit = (...parts: (string | null)[]) => parts.some((part) => part?.toLowerCase().includes(needle));
-  const claims: RecallHit[] = memory.claims
-    .filter((item) => hit(item.text, item.evidence, item.note))
-    .map((item) => ({ kind: "claim", text: `${item.status === "confirmed" ? "已验证" : "被推翻"}：${item.text}`, detail: item.note, at: item.at }));
-  const weaknesses: RecallHit[] = memory.weaknesses
-    .filter((item) => hit(item.point, item.quote, item.areaName))
-    .map((item) => ({ kind: "weakness", text: item.point, detail: item.areaName, at: item.at }));
-  return [...claims, ...weaknesses].sort((left, right) => right.at.localeCompare(left.at)).slice(0, MAX_ITEMS);
-}
-
-export function createRecallTool(memory: InterviewMemory): LoopTool | null {
-  if (memory.sessions === 0) return null;
+export function createRecallTool(dossier: string | null | undefined): LoopTool | null {
+  if (!dossier?.trim()) return null;
   return {
     access: "read",
     ...tool({
-      description: `按关键词查这位候选人上 ${memory.sessions} 场模拟面试里的说法验证结果与评分短板（同一材料上几场也漏了什么）。`,
+      description: "按关键词查这位候选人上几场模拟面试的档案（已验证 / 没讲清的说法、反复出现的短板、问过的项目角度），逐行返回。",
       inputSchema: z.object({ keyword: z.string().min(1).max(40) }),
-      execute: async ({ keyword }) => ({ keyword, sessions: memory.sessions, hits: recallByKeyword(memory, keyword) }),
+      execute: async ({ keyword }) => ({ keyword, lines: lookupLines(dossier, keyword) }),
     }),
   };
 }
