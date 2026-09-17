@@ -36,7 +36,7 @@ flowchart TD
 
 **落库**（一个事务）：每段一行 `InterviewThread`（areaId、kind、label、entryQuestion、depth、verdict、startSeq、endSeq、competencyId、difficulty）+ 一行兼容 `InterviewQuestion`（题目 = 第一问 + "追问 n：…"，回答 = 候选人在这段里的话；`generationMetadataJson` 带 areaId / areaName / areaKind / competencyOrigin / skillPack / facets / facetsDone / facetsAll（报告页列"追问的角度"：讲透了 / 问过没讲透 / 没问到）/ depth / probeCount / verdict / startSeq / endSeq）。
 
-**评分的引用硬门与置信**：strengths / weaknesses 里写了引用却不在回答里的条目整条丢掉（不再只是置空）；同一段两次采样，总分相差超过 15 标 `lowConfidence`（报告里提示"仅供参考"，不改分）。
+**评分的引用硬门与置信**：strengths / weaknesses 里写了引用却不在回答里的条目整条丢掉（不再只是置空）；`resumeChecks` 两头都要是原话（claim 在回答里、resumeSays 在简历里），少一头整条丢。同一段两次采样：带工具的作数，不带工具的只作对照——总分相差超过 15 标 `lowConfidence`（报告里提示"仅供参考"，不改分）；带工具那份调了工具时分差记 `toolShift`（工具改了多少分）。任一成功即出分。
 
 ## 2. 后台逐段评分
 
@@ -50,9 +50,9 @@ flowchart TD
 4. 评分落库后，有短板的段接着跑示范回答（§2.5），示范失败不影响评分
 5. 失败：置 failed 并记录错误，交卷时补跑
 
-### 2.2 评分 agent（`question-evaluation-agent.ts`，evaluation-v3）
+### 2.2 评分 agent（`question-evaluation-agent.ts`，evaluation-v5：跑在 G1 循环上，带三个只读工具）
 
-输入：`{ jobTitle, jobDescription≤12000, question, answer≤20000, rubric, expectedSignals, thread: { kind, depth, probeCount, verdict, note }, round }`。thread 来自切段 metadata（kind 是这个话题的种类：基础题通常一两轮、一两句回答是正常的，评分按问到的那一层答得准不准给）；metadata 不全时传 `thread: null`。
+输入：`{ jobTitle, jobDescription≤12000, question, answer≤20000, rubric, expectedSignals, thread: { kind, depth, probeCount, facets }, round, competencies, resumeText, skillPacks, memory }`。后三项给工具：`lookup_resume`（按关键词查简历原文，逐字返回）、`load_skill`（技能包全文，索引在提示词里）、`recall_sessions`（会话快照里上几场的说法验证与短板；没有上几场不给）。用法写进提示词、代码不替它选：项目段先核对回答里的数字与事实（最多 2 次），基础 / 场景段拿不准时查技能包（最多 1 次），上几场也漏了同一机制的在 feedback 里点出"反复出现"。预算 3 步工具 + 1 步结论；`beforeTool` 拒绝同一工具同样入参的重复调用。thread 来自切段 metadata（kind 是这个话题的种类：基础题通常一两轮、一两句回答是正常的，评分按问到的那一层答得准不准给）；metadata 不全时传 `thread: null`。
 
 输出 schema：
 
@@ -63,6 +63,7 @@ weaknesses[≤4]: { point≤200, quote≤200 | null, kind: error | missing }
                  error   = 一句在技术上站不住的具体陈述（quote 必须是那句原话，原样复制）
                  missing = 追问到了没答上 / 答偏 / 该讲的关键机制没出现（point 里写是哪一层追问）
                  笼统、"不够严谨"、"过于绝对"、缺细节缺数字 都不是 error（v3 起明确，之前误报成 error）
+resumeChecks[≤3]: { claim≤200, resumeSays≤300, consistent }   简历核对：回答那句（逐字）、简历原文（逐字）、是否一致；与简历矛盾的同时记一条 error 短板；报告页在段下列"简历核对"
 advice[≤3]:      练什么，每条对应至少一条 weakness
 feedback≤800:    给候选人看的一段话，不报分数
 ```

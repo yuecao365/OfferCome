@@ -6,6 +6,8 @@ import { parseJsonObject, parseJsonValue } from "@/lib/json";
 import { generateAnswerExemplar } from "./answer-exemplar-agent";
 import { verdictForScore } from "./verdicts";
 import { isAreaKind, parseStoredBrief } from "./brief/brief";
+import { memoryOf } from "@/lib/interview/memory";
+
 import { competenciesOf } from "./context";
 import { evaluateMockInterviewQuestion } from "./question-evaluation-agent";
 import type { EvaluationThreadContext, EvaluationWeakness } from "./question-evaluation";
@@ -78,6 +80,7 @@ export async function evaluatePersistedMockInterviewQuestion(interviewQuestionId
     const metadata = parseJsonObject(evaluation.generationMetadataJson);
     const brief = parseStoredBrief(session.briefJson);
     const result = await evaluateMockInterviewQuestion({
+      runId: `eval:${question.id}`,
       question: question.question,
       answer,
       rubric: parseJsonValue(evaluation.rubricJson),
@@ -87,6 +90,9 @@ export async function evaluatePersistedMockInterviewQuestion(interviewQuestionId
       thread: threadContext(metadata),
       round: brief?.round ?? null,
       competencies: competenciesOf(session.contextSnapshotJson).map((item) => ({ id: item.id, name: item.name })),
+      resumeText: session.resumeTextSnapshot,
+      skillPacks: packsForInterview(brief?.skillPacks ?? [], await loadSkillPacks(), 3),
+      memory: memoryOf(session.contextSnapshotJson),
     });
     // 只允许仍持有 running 认领的调用写终态：交卷路径会把超时的评分强制置
     // failed 并重跑，旧调用迟到的结果必须被丢弃，不能覆盖重跑的结果。
@@ -100,6 +106,7 @@ export async function evaluatePersistedMockInterviewQuestion(interviewQuestionId
         strengthsJson: JSON.stringify(result.evaluation.strengths),
         weaknessesJson: JSON.stringify(result.evaluation.weaknesses),
         adviceJson: JSON.stringify(result.evaluation.advice),
+        resumeChecksJson: JSON.stringify(result.evaluation.resumeChecks),
         feedback: result.evaluation.feedback,
         secondScore: result.secondScore,
         lowConfidence: result.lowConfidence,

@@ -48,6 +48,7 @@ test("扰动：连续答不上是固定动作，超长回答与简历答不出�
   const prompt = candidatePrompt(candidate);
   assert.match(prompt, /500 到 700 字/);
   assert.match(prompt, /不是你亲手做的/);
+  assert.match(candidatePrompt({ ...candidate, perturbations: ["inflate"] }), /两倍左右/);
   assert.doesNotMatch(candidatePrompt({ archetype: "solid", seed: 1, abilities: [] }), /不是你亲手做的|500 到 700 字/);
 });
 

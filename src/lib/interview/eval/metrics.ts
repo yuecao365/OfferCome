@@ -26,6 +26,8 @@ export type SegmentFact = {
 
 /** 一次模型调用的开销（AgentRun）。 */
 export type RunFact = { runId: string; durationMs: number; inputTokens: number; cachedTokens: number; outputTokens: number };
+/** 一段评分的轨迹（G2，从 AgentRun 行算）：走了几步、调了几次工具、几次无效（未知 / 失败 / 被 hook 拒绝）、有没有触顶预算、核对出几条不一致、工具改了多少分。 */
+export type EvaluationRunFact = { steps: number; toolCalls: number; invalidCalls: number; budgetHit: boolean; resumeInconsistent: number; toolShift: number | null };
 
 export type SessionFacts = {
   sessionId: string;
@@ -35,6 +37,8 @@ export type SessionFacts = {
   segments: SegmentFact[];
   /** 面试官的模型调用（不含评分等事后调用）。 */
   runs: RunFact[];
+  /** 每段评分的轨迹；旧场次没有。 */
+  evaluationRuns?: EvaluationRunFact[];
   /** 岗位能力清单（估计器用）；没有为空。 */
   competencies?: Competency[];
   /** 模拟候选人的能力真值（只有模拟器有）。 */
@@ -72,6 +76,13 @@ export type SessionMetrics = {
   timeShare: { project: number; quick: number; scenario: number };
   tokens: { input: number; cached: number; output: number; cacheRate: number };
   latencyMs: { p50: number; p95: number };
+  /** 评分 agent 的轨迹（G2）：每段平均步数与工具调用数、无效调用率、预算触顶率、简历核对不一致条数、工具改分的平均绝对值（没调工具为 null）。 */
+  evaluationSteps: number | null;
+  evaluationToolCalls: number | null;
+  invalidToolCallRate: number | null;
+  budgetHitRate: number | null;
+  resumeInconsistencies: number | null;
+  toolShift: number | null;
   /** 在线评委评过的段数。 */
   scoredSegments: number;
   /** 面试中的估计 / 事后的估计与真值的平均绝对误差（0–1；只有模拟器有真值，只算测过的能力；没测过为 null）。 */
@@ -91,6 +102,20 @@ export type SessionMetrics = {
 };
 
 const isMultiQuestion = (text: string) => (text.match(/[？?]/g) ?? []).length >= 2;
+
+export function evaluationTrajectoryMetrics(runs: EvaluationRunFact[]): Pick<SessionMetrics, "evaluationSteps" | "evaluationToolCalls" | "invalidToolCallRate" | "budgetHitRate" | "resumeInconsistencies" | "toolShift"> {
+  if (runs.length === 0) return { evaluationSteps: null, evaluationToolCalls: null, invalidToolCallRate: null, budgetHitRate: null, resumeInconsistencies: null, toolShift: null };
+  const calls = runs.reduce((sum, run) => sum + run.toolCalls, 0);
+  const shifts = runs.flatMap((run) => (run.toolShift === null ? [] : [run.toolShift]));
+  return {
+    evaluationSteps: runs.reduce((sum, run) => sum + run.steps, 0) / runs.length,
+    evaluationToolCalls: calls / runs.length,
+    invalidToolCallRate: calls === 0 ? 0 : runs.reduce((sum, run) => sum + run.invalidCalls, 0) / calls,
+    budgetHitRate: runs.filter((run) => run.budgetHit).length / runs.length,
+    resumeInconsistencies: runs.reduce((sum, run) => sum + run.resumeInconsistent, 0),
+    toolShift: shifts.length === 0 ? null : shifts.reduce((sum, value) => sum + value, 0) / shifts.length,
+  };
+}
 
 export function shadowMetrics(events: InterviewEvent[], shadowVariant: string | null | undefined): SessionMetrics["shadow"] {
   const said = events.flatMap((item) => (item.type === "shadow_said" ? [item.payload] : []));
@@ -215,6 +240,7 @@ export function sessionMetrics(facts: SessionFacts): SessionMetrics {
     timeShare: totalChars === 0 ? { project: 0, quick: 0, scenario: 0 } : { project: chars.project / totalChars, quick: chars.quick / totalChars, scenario: chars.scenario / totalChars },
     tokens: { input, cached, output, cacheRate: input === 0 ? 0 : cached / input },
     latencyMs: { p50: percentile(latencies, 0.5), p95: percentile(latencies, 0.95) },
+    ...evaluationTrajectoryMetrics(facts.evaluationRuns ?? []),
     ...estimatorMetrics(facts),
     ...criticMetrics(facts.events, counted),
     variant: facts.variant ?? "v2",
@@ -246,6 +272,12 @@ const SUMMARY_KEYS = [
   "coreSettledAfter",
   "criticNotes",
   "criticNoteRate",
+  "evaluationSteps",
+  "evaluationToolCalls",
+  "invalidToolCallRate",
+  "budgetHitRate",
+  "resumeInconsistencies",
+  "toolShift",
 ] as const;
 
 export function summarize(list: SessionMetrics[]): MetricSummary {
@@ -290,6 +322,12 @@ const LABELS: Record<string, string> = {
   coreSettledAfter: "核心能力定下来用了几段",
   criticNotes: "评论员提醒条数",
   criticNoteRate: "被评论员提醒的回合比例",
+  evaluationSteps: "评分每段平均步数",
+  evaluationToolCalls: "评分每段工具调用数",
+  invalidToolCallRate: "评分无效工具调用率",
+  budgetHitRate: "评分预算触顶率",
+  resumeInconsistencies: "简历核对不一致条数",
+  toolShift: "工具改分的平均绝对值",
   shadowMultiQuestionRate: "影子：一句多问的比例",
   shadowCriticRate: "影子：被评论员判违反的比例",
   onlineCorrelation: "面试中估计与真值的相关（跨场合并）",

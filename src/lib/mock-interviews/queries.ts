@@ -18,6 +18,7 @@ import {
   type AnswerExemplar,
   type EvaluationStrength,
   type EvaluationWeakness,
+  type ResumeCheck,
 } from "./question-evaluation";
 import { parseStoredReport } from "./report";
 import { buildQuestionTeaching } from "./teaching";
@@ -47,6 +48,7 @@ function buildEvaluationView(
       kind: "missing",
     })),
     advice: parseArray<string>(evaluation.adviceJson),
+    resumeChecks: parseArray<ResumeCheck>(evaluation.resumeChecksJson).filter((item) => typeof item?.claim === "string" && typeof item.resumeSays === "string"),
     feedback: evaluation.feedback ?? "",
     lowConfidence: evaluation.lowConfidence,
     exemplar: (parseJsonValue(evaluation.exemplarJson) as AnswerExemplar | null) ?? null,

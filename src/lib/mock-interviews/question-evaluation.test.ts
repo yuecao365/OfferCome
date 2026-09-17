@@ -28,6 +28,7 @@ const output: MockInterviewQuestionEvaluation = {
   ],
   advice: ["练一遍工具协议的失败路径"],
   feedback: "主干清楚。",
+  resumeChecks: [],
 };
 
 test("parses only valid rubric and expected signal inputs", () => {
@@ -44,7 +45,21 @@ test("keeps only rubric dimensions and drops findings whose quote is not in the 
   assert.deepEqual(evaluation.dimensions.map((item) => item.name), ["技术正确性"]);
   assert.deepEqual(evaluation.strengths.map((item) => item.quote), ["上下文构建、LLM 推理、工具调用"]);
   assert.deepEqual(evaluation.weaknesses.map((item) => item.quote), ["最多重试两次", null]);
-  assert.deepEqual(metrics, { quoteMissing: 1, unexplainedLowScore: 0 });
+  assert.deepEqual(metrics, { quoteMissing: 1, unexplainedLowScore: 0, resumeQuoteMissing: 0, resumeInconsistent: 0 });
+});
+
+test("简历核对（G2）：claim 要在回答里、resumeSays 要在简历里，少一头整条丢；不一致的计数", () => {
+  const resume = "负责 Agent 主循环重构，重试上限 3 次；P95 从 2.8 秒降到 1.6 秒。";
+  const checks = [
+    { claim: "最多重试两次", resumeSays: "重试上限 3 次", consistent: false },
+    { claim: "最多重试两次", resumeSays: "重试上限 5 次", consistent: false },
+    { claim: "P95 降到 0.8 秒", resumeSays: "P95 从 2.8 秒降到 1.6 秒", consistent: false },
+  ];
+  const { evaluation, metrics } = validateQuestionEvaluation({ ...output, resumeChecks: checks }, [{ name: "技术正确性" }], answer, 80, resume);
+  assert.deepEqual(evaluation.resumeChecks, [checks[0]]);
+  assert.equal(metrics.resumeQuoteMissing, 2);
+  assert.equal(metrics.resumeInconsistent, 1);
+  assert.deepEqual(validateQuestionEvaluation({ ...output, resumeChecks: checks }, [{ name: "技术正确性" }], answer, 80).evaluation.resumeChecks, [], "没有简历时核对全部丢掉");
 });
 
 test("a low score without any weakness is flagged", () => {

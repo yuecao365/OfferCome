@@ -39,6 +39,8 @@ export const POST = withTrialAi<Body>(async (body) => {
     thread: threadContext(metadata),
     round: body.round,
     competencies: [],
+    resumeText: typeof body.resumeText === "string" ? body.resumeText : "",
+    skillPacks: packsForInterview(Array.isArray(body.skillPacks) ? body.skillPacks : [], await loadSkillPacks(), 3),
   });
 
   let exemplar: TrialEvaluation["exemplar"] = null;

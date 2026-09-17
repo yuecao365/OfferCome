@@ -6,7 +6,7 @@ import type { InterviewStatus } from "@/lib/interviews/types";
 import type { Conversation, Trace } from "@/lib/interview/views";
 
 import type { InterviewMaterials } from "./materials";
-import type { AnswerExemplar, EvaluationStrength, EvaluationWeakness } from "./question-evaluation";
+import type { AnswerExemplar, EvaluationStrength, EvaluationWeakness, ResumeCheck } from "./question-evaluation";
 import type { MockInterviewReport } from "./report";
 
 /** 题目生成完成、房间可以开始作答时，关联的 Interview 记录进入这个状态。 */
@@ -149,6 +149,8 @@ export type MockInterviewView = {
       weaknesses: EvaluationWeakness[];
       advice: string[];
       feedback: string;
+      /** 简历核对（评分 v5）；旧记录与旧的体验版数据没有。 */
+      resumeChecks?: ResumeCheck[];
       /** 同段两次采样分歧大：报告里标"评分置信度低"。 */
       lowConfidence?: boolean;
       exemplar: AnswerExemplar | null;

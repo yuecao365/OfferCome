@@ -2,7 +2,11 @@ import "server-only";
 
 import { z } from "zod";
 
-import { logAgentRun, runAgent } from "@/lib/ai/run-agent";
+import { randomUUID } from "node:crypto";
+
+import type { LoopHooks, LoopToolSet } from "@/lib/ai/agent-loop";
+import { logAgentRun, runAgent, type AgentRunResult } from "@/lib/ai/run-agent";
+import type { InterviewMemory } from "@/lib/interview/memory";
 import { getAiTaskConfig } from "@/lib/settings/ai";
 
 import {
@@ -14,8 +18,14 @@ import {
   type MockInterviewQuestionEvaluation,
 } from "./question-evaluation";
 import { computeQuestionScore } from "./scoring";
+import { createSkillTools, renderSkillIndex } from "./skills/tools";
+import type { SkillPack } from "./skills/types";
+import { createRecallTool } from "./tools/recall";
+import { createResumeLookupTool } from "./tools/resume-lookup";
 
-export const EVALUATION_PROMPT_VERSION = "evaluation-v4";
+export const EVALUATION_PROMPT_VERSION = "evaluation-v5";
+/** 最多调 3 步工具，之后一步直接出分。 */
+const EVALUATION_TOOL_STEPS = 3;
 
 const questionEvaluationSchema = z.object({
   dimensions: z.array(
@@ -44,6 +54,10 @@ const questionEvaluationSchema = z.object({
   difficulty: z.number().int().min(1).max(4),
   /** 这段主要考的能力（competencies 里的 id）；对不上填 null。 */
   competencyId: z.string().max(40).nullable(),
+  /** 简历核对：回答里的哪句（逐字）、简历原文怎么写（逐字）、是否一致。没核对就空数组。 */
+  resumeChecks: z
+    .array(z.object({ claim: z.string().min(1).max(200), resumeSays: z.string().min(1).max(300), consistent: z.boolean() }))
+    .max(3),
 });
 
 const ROUND_LABELS: Record<string, string> = {
@@ -52,7 +66,16 @@ const ROUND_LABELS: Record<string, string> = {
   hr_interview: "HR 面",
 };
 
-function systemPrompt(round: string | null): string {
+/** 工具的用法写进提示词：代码不替它选。哪个工具给了才写哪段。 */
+function toolGuide(tools: { resume: boolean; skills: SkillPack[]; recall: boolean }): string {
+  const lines: string[] = [];
+  if (tools.resume) lines.push("- lookup_resume：thread.kind 是 project 的段**必须**先按关键词（项目名、指标名、数字）查简历原文，核对回答里出现的数字与事实，查到再出分（最多 2 次）；其它段有可核对的事实时也查。核对结果写进 resumeChecks：claim 是回答里那句（逐字复制），resumeSays 是简历原文那句（逐字复制，只能来自工具返回的行），consistent 是否一致——数字、单位、倍数、规模对不上（例如回答说六千步、简历写 3000+）就是 false；与简历矛盾的同时记一条 kind=error 的短板，quote 是回答那句。回答里没有任何可核对的事实才留空。");
+  if (tools.skills.length > 0) lines.push(`- load_skill：基础题 / 场景题拿不准这一层该讲什么时，查该主题技能包里的期望与危险信号（最多 1 次）。索引：\n${renderSkillIndex(tools.skills)}`);
+  if (tools.recall) lines.push("- recall_sessions：按关键词查这位候选人上几场同一材料的说法验证与短板（最多 1 次）；上几场也漏了同一机制的，feedback 里点出\"反复出现\"。");
+  return lines.length === 0 ? "" : `\n\n只读工具（查完直接出分）：\n${lines.join("\n")}`;
+}
+
+function systemPrompt(round: string | null, tools: { resume: boolean; skills: SkillPack[]; recall: boolean }): string {
   return `你是模拟面试逐题评分 Agent，只根据预先确定的 rubric 维度和候选人的实际回答评分，评价用于训练，不输出录用或淘汰结论。
 
 输入里的 thread 是这段问答的过程信号：kind 是这段属于哪个阶段——project 项目深挖（顺着回答追）、quick 基础快问（一题一问，最多追 1 层）、scenario 场景题（引导式）；probeCount 是追问了几句，facets 是面试官问过的角度；面试官越深越往失守点问，追到第 n 层答不上属于正常，按候选人实际达到的深度给分，不按"完美答案"扣分。基础快问只有一两句回答是正常的，按这一层答得准不准给分，不要因为"没展开"扣分。expectedSignals 是备课时写的参考，候选人从别的角度答到位同样给分，不按清单扣。另外给两个判断：difficulty 是候选人实际答到阶梯第几层（1 只到概念或名词，2 说清了机制，3 讲到了取舍与边界，4 有自己的判断并说得出怎么验证）；competencyId 是这段主要考的能力，只填 competencies 里的 id，对不上填 null。
@@ -65,7 +88,21 @@ function systemPrompt(round: string | null): string {
 说得笼统、"不够严谨"、"过于绝对"、缺细节、缺数字、缺对照实验，都不是 error：没有说错就不要报 error，该记 missing 记 missing，否则候选人会把"表述可以更细"误当成"我说错了"。
 维度分要和短板对得上：某一层的关键机制没讲，对应维度的 gap 要写出来并在分数上体现，不能维度满分、短板里再补一句；出现 error 的那一层，对应维度不应超过 69。
 
-输出要求：dimension name 逐字使用 rubric 里的名称；evidence 是支持分数的回答原话，gap 写这个维度缺了什么。strengths 的 quote 同样逐字摘自回答。advice 每条对应至少一条 weakness，写练什么。feedback 是给候选人看的一段话，不报分数。提示词版本：${EVALUATION_PROMPT_VERSION}`;
+输出要求：dimension name 逐字使用 rubric 里的名称；evidence 是支持分数的回答原话，gap 写这个维度缺了什么。strengths 的 quote 同样逐字摘自回答。advice 每条对应至少一条 weakness，写练什么。feedback 是给候选人看的一段话，不报分数。resumeChecks 没核对时是空数组。${toolGuide(tools)}
+提示词版本：${EVALUATION_PROMPT_VERSION}`;
+}
+
+/** 同一工具同样入参再调一次是无效调用：拒绝并把原因回给模型。 */
+function dedupeHooks(): LoopHooks {
+  const seen = new Set<string>();
+  return {
+    beforeTool: (call) => {
+      const key = `${call.toolName}:${JSON.stringify(call.input)}`;
+      if (seen.has(key)) return { allow: false, reason: "这个工具刚用同样的参数查过了，结果就在上面，不要重复查" };
+      seen.add(key);
+      return { allow: true };
+    },
+  };
 }
 
 /** 两次采样的总分相差超过这个值算分歧大。 */
@@ -82,23 +119,43 @@ export async function evaluateMockInterviewQuestion(input: {
   round: string | null;
   /** 岗位能力清单：评分挑这段主要考的那项。 */
   competencies: { id: string; name: string }[];
-}): Promise<{ evaluation: MockInterviewQuestionEvaluation; score: number; metrics: EvaluationMetrics; secondScore: number | null; lowConfidence: boolean; difficulty: number; competencyId: string | null }> {
+  /** 简历原文：给 lookup_resume 核对用；空串不给工具。 */
+  resumeText?: string;
+  /** 备课时选的技能包：给 load_skill；空数组不给工具。 */
+  skillPacks?: SkillPack[];
+  /** 上几场的记忆（会话快照里的）：给 recall_sessions；没有上几场不给工具。 */
+  memory?: InterviewMemory | null;
+  /** 记账用的 runId 前缀（对照采样加 :b）；不给就随机。 */
+  runId?: string;
+}): Promise<{ evaluation: MockInterviewQuestionEvaluation; score: number; metrics: EvaluationMetrics; secondScore: number | null; lowConfidence: boolean; toolShift: number | null; difficulty: number; competencyId: string | null }> {
   const parsed = parseQuestionEvaluationInput(input);
   if (parsed.rubric.length === 0) {
     throw new Error("这道题缺少有效的评分标准。");
   }
   const config = await getAiTaskConfig("text");
   const startedAt = Date.now();
-  const sample = () => runAgent({
+  const resumeText = input.resumeText ?? "";
+  const skillPacks = input.skillPacks ?? [];
+  const recall = input.memory ? createRecallTool(input.memory) : null;
+  const tools: LoopToolSet = {
+    ...(resumeText ? { lookup_resume: createResumeLookupTool(resumeText) } : {}),
+    ...(skillPacks.length > 0 ? createSkillTools(skillPacks).tools : {}),
+    ...(recall ? { recall_sessions: recall } : {}),
+  };
+  const runId = input.runId ?? randomUUID();
+  // 两次采样：带工具的作数，不带的只作对照（分歧看置信，分差看工具改了多少）。
+  const sample = (withTools: boolean) => runAgent({
     agent: "question_evaluation",
+    runId: withTools ? runId : `${runId}:b`,
     config,
     feature: "AI 模拟面试",
     promptVersion: EVALUATION_PROMPT_VERSION,
     schema: questionEvaluationSchema,
     maxOutputTokens: 2_400,
-    timeoutMs: 40_000,
+    timeoutMs: withTools ? 60_000 : 40_000,
+    ...(withTools && Object.keys(tools).length > 0 ? { tools, budget: { maxSteps: EVALUATION_TOOL_STEPS }, hooks: dedupeHooks() } : {}),
     untrustedInputs: "岗位描述、问题、回答、评分标准和面试官备注",
-    system: systemPrompt(input.round),
+    system: systemPrompt(input.round, withTools ? { resume: Boolean(resumeText), skills: skillPacks, recall: recall !== null } : { resume: false, skills: [], recall: false }),
     payload: {
       jobTitle: input.jobTitle,
       jobDescription: input.jobDescription.slice(0, 12_000),
@@ -110,15 +167,18 @@ export async function evaluateMockInterviewQuestion(input: {
       competencies: input.competencies,
     },
   });
-  // 同段两次采样：任一成功即出分（不按 schema 约束的服务商单次失败率不低，§12.3）；两次都成才看分歧，分歧大标低置信（报告里提示，不改分）。
-  const settled = await Promise.allSettled([sample(), sample()]);
-  const succeeded = settled.flatMap((item) => (item.status === "fulfilled" ? [item.value] : []));
-  if (succeeded.length === 0) throw (settled[0] as PromiseRejectedResult).reason;
-  const [{ output, runId }, second = null] = succeeded;
+  // 任一成功即出分（不按 schema 约束的服务商单次失败率不低，§12.3）：带工具的坏了就用对照那份；两次都成才看分歧，分歧大标低置信（报告里提示，不改分）。
+  const [primary, control] = await Promise.allSettled([sample(true), sample(false)]);
+  const fulfilled = (item: PromiseSettledResult<AgentRunResult<z.infer<typeof questionEvaluationSchema>>>) => (item.status === "fulfilled" ? item.value : null);
+  const chosen = fulfilled(primary) ?? fulfilled(control);
+  if (!chosen) throw (primary as PromiseRejectedResult).reason;
+  const other = chosen === fulfilled(primary) ? fulfilled(control) : null;
+  const { output } = chosen;
   const score = computeQuestionScore(parsed.rubric, output.dimensions);
-  const secondScore = second ? computeQuestionScore(parsed.rubric, second.output.dimensions) : null;
+  const secondScore = other ? computeQuestionScore(parsed.rubric, other.output.dimensions) : null;
   const lowConfidence = secondScore !== null && Math.abs(secondScore - score) > LOW_CONFIDENCE_GAP;
-  const validated = validateQuestionEvaluation(output, parsed.rubric, input.answer, score);
+  const toolShift = secondScore !== null && chosen.toolCalls.length > 0 ? Math.abs(score - secondScore) : null;
+  const validated = validateQuestionEvaluation(output, parsed.rubric, input.answer, score, resumeText);
   logAgentRun({
     runId,
     agent: "question_evaluation",
@@ -128,8 +188,17 @@ export async function evaluateMockInterviewQuestion(input: {
     model: config.model,
     promptVersion: EVALUATION_PROMPT_VERSION,
     durationMs: Date.now() - startedAt,
-    metrics: { score, ...validated.metrics, weaknessCount: validated.evaluation.weaknesses.length, secondScore: secondScore ?? -1, lowConfidence: lowConfidence ? 1 : 0 },
+    metrics: {
+      score,
+      ...validated.metrics,
+      weaknessCount: validated.evaluation.weaknesses.length,
+      secondScore: secondScore ?? -1,
+      lowConfidence: lowConfidence ? 1 : 0,
+      steps: chosen.steps,
+      toolCalls: chosen.toolCalls.length,
+      toolShift: toolShift ?? -1,
+    },
   });
   const competencyId = output.competencyId && input.competencies.some((item) => item.id === output.competencyId) ? output.competencyId : null;
-  return { ...validated, score, secondScore, lowConfidence, difficulty: output.difficulty, competencyId };
+  return { ...validated, score, secondScore, lowConfidence, toolShift, difficulty: output.difficulty, competencyId };
 }

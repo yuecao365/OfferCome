@@ -206,6 +206,19 @@ function Evaluation({ evaluation }: { evaluation: NonNullable<Question["evaluati
           ) : null}
         </div>
       ) : null}
+      {(evaluation.resumeChecks ?? []).length > 0 ? (
+        <div>
+          <p className="text-xs font-medium text-muted-foreground">简历核对</p>
+          <ul className="mt-1 grid gap-1 text-sm leading-6 text-foreground">
+            {(evaluation.resumeChecks ?? []).map((item) => (
+              <li key={item.claim}>
+                <Badge tone={item.consistent ? "neutral" : "warning"}>{item.consistent ? "与简历一致" : "与简历不一致"}</Badge>
+                <span className="ml-1">回答说「{item.claim}」，简历写的是「{item.resumeSays}」</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       {evaluation.advice.length > 0 ? (
         <div>
           <p className="text-xs font-medium text-muted-foreground">练什么</p>

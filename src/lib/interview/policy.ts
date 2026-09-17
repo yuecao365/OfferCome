@@ -1,9 +1,10 @@
-import { Output, stepCountIs, tool, type ToolSet } from "ai";
+import { Output, stepCountIs, type ToolSet } from "ai";
 import { z } from "zod";
 
 import { streamAgent, type AgentStreamOutcome } from "@/lib/ai/run-agent";
 import type { AiTaskConfig } from "@/lib/ai/config";
 import type { InterviewArea, InterviewBrief } from "@/lib/mock-interviews/brief/brief";
+import { createResumeLookupTool } from "@/lib/mock-interviews/tools/resume-lookup";
 
 import { MOVE_LABELS, type Decision } from "./decide";
 import type { TranscriptLine } from "./events";
@@ -195,16 +196,7 @@ export function cacheKeyOf(runId: string): string {
 /** 只读工具：简历超过节选上限时按关键词查原文；其余情况没有工具。 */
 function buildTools(context: PolicyContext): ToolSet {
   if (context.resumeText.length <= MAX_RESUME_CHARS) return {};
-  return {
-    lookup_resume: tool({
-      description: "按关键词查简历原文里包含它的段落（节选里没有时用）。",
-      inputSchema: z.object({ keyword: z.string().min(1).max(40) }),
-      execute: async ({ keyword }) => {
-        const needle = keyword.toLowerCase();
-        return { keyword, lines: context.resumeText.split(/\n+/).filter((line) => line.toLowerCase().includes(needle)).slice(0, 8) };
-      },
-    }),
-  };
+  return { lookup_resume: createResumeLookupTool(context.resumeText) };
 }
 
 export type PolicyOutcome = {

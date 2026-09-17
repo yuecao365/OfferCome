@@ -21,12 +21,16 @@ export type WeaknessKind = (typeof WEAKNESS_KINDS)[number];
 export type EvaluationStrength = { point: string; quote: string | null };
 export type EvaluationWeakness = { point: string; quote: string | null; kind: WeaknessKind };
 
+/** 简历核对（G2）：回答里的哪句话、简历原文怎么写、是否一致。两句都要逐字：claim 摘自回答，resumeSays 摘自简历。 */
+export type ResumeCheck = { claim: string; resumeSays: string; consistent: boolean };
+
 export type MockInterviewQuestionEvaluation = {
   dimensions: { name: string; score: number; evidence: string; gap: string | null }[];
   strengths: EvaluationStrength[];
   weaknesses: EvaluationWeakness[];
   advice: string[];
   feedback: string;
+  resumeChecks: ResumeCheck[];
 };
 
 /** 示范回答（只在有短板时生成）：用候选人自己的项目示范这段可以怎么答。 */
@@ -53,6 +57,10 @@ export type EvaluationMetrics = {
   quoteMissing: number;
   /** 分数低于 70 却没有任何短板说明。 */
   unexplainedLowScore: number;
+  /** 简历核对里 claim 不在回答里或 resumeSays 不在简历里、被整条丢掉的条数。 */
+  resumeQuoteMissing: number;
+  /** 校验后保留的、与简历不一致的核对条数。 */
+  resumeInconsistent: number;
 };
 
 export function parseQuestionEvaluationInput(input: { rubric: unknown; expectedSignals: unknown }) {
@@ -85,6 +93,8 @@ export function validateQuestionEvaluation(
   rubric: Array<{ name: string }>,
   answer: string,
   score: number,
+  /** 简历原文：核对条目的 resumeSays 必须是它的子串；没有简历时核对条目全部丢掉。 */
+  resumeText = "",
 ): { evaluation: MockInterviewQuestionEvaluation; metrics: EvaluationMetrics } {
   const allowed = new Set(rubric.map((item) => item.name));
   const seen = new Set<string>();
@@ -100,16 +110,29 @@ export function validateQuestionEvaluation(
     quoteMissing += 1;
     return false;
   };
+  // 简历核对同一条硬门：两头都要是原话，少一头整条丢。
+  let resumeQuoteMissing = 0;
+  const resumeChecks = (output.resumeChecks ?? []).filter((item) => {
+    if (quoteInAnswer(answer, item.claim) && quoteInAnswer(resumeText, item.resumeSays)) return true;
+    resumeQuoteMissing += 1;
+    return false;
+  });
   const evaluation: MockInterviewQuestionEvaluation = {
     dimensions,
     strengths: output.strengths.filter(cited),
     weaknesses: output.weaknesses.filter(cited),
     advice: output.advice,
     feedback: output.feedback,
+    resumeChecks,
   };
   return {
     evaluation,
-    metrics: { quoteMissing, unexplainedLowScore: evaluation.weaknesses.length === 0 && score < 70 ? 1 : 0 },
+    metrics: {
+      quoteMissing,
+      unexplainedLowScore: evaluation.weaknesses.length === 0 && score < 70 ? 1 : 0,
+      resumeQuoteMissing,
+      resumeInconsistent: resumeChecks.filter((item) => !item.consistent).length,
+    },
   };
 }
 

@@ -303,6 +303,8 @@ model InterviewQuestionEvaluation {
   weaknessesJson           String?
   adviceJson               String?
   exemplarJson             String?
+  /// 评分 v5（G2）：简历核对条目 [{ claim, resumeSays, consistent }]。
+  resumeChecksJson         String?
   feedback                 String?
   /// 同段第二次采样的总分；两次分歧大（> 15）时 lowConfidence 为真，报告里标低置信。
   secondScore              Int?

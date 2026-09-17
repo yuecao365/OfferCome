@@ -10,7 +10,7 @@ import { judgeScorerCase, locatesWrongClaim, summarizeScorer, textsOverlap, type
 const CLAIM = "RabbitMQ 的 ack 机制保证消息只会被消费一次，不需要做幂等";
 
 function evaluation(overrides: Partial<MockInterviewQuestionEvaluation> = {}): MockInterviewQuestionEvaluation {
-  return { dimensions: [], strengths: [], weaknesses: [], advice: [], feedback: "", ...overrides };
+  return { dimensions: [], strengths: [], weaknesses: [], advice: [], feedback: "", resumeChecks: [], ...overrides };
 }
 
 function run(score: number, evaluationValue = evaluation(), quoteMissing = 0): VariantRun {

@@ -31,9 +31,11 @@ function buildSystemPrompt(system: string, untrustedInputs?: string): string {
  * OpenAI 之外的服务商走 OpenAI 兼容通道，SDK 只请求"返回 JSON"，schema 不随请求下发，
  * 模型会用自己想的键名。把 JSON Schema 写进提示词，让它照着输出。
  */
-export function schemaInstruction(config: AiTaskConfig, schema: FlexibleSchema<unknown>): string {
+export function schemaInstruction(config: AiTaskConfig, schema: FlexibleSchema<unknown>, withTools = false): string {
   if (config.provider === "openai") return "";
-  return `\n\n输出必须是一个 JSON 对象，严格符合下面的 JSON Schema：键名、类型、必填项都要一致，不要输出 schema 之外的键，不要输出任何其它文字。\n${JSON.stringify(asSchema(schema).jsonSchema)}`;
+  // 有工具时不能说"不要输出任何其它文字"：G2 冒烟里 DeepSeek 因此一次工具都没调，直接出了 JSON。
+  const lead = withTools ? "需要查资料就先调用工具（可以多次）；最终答案是一个 JSON 对象，严格符合下面的 JSON Schema" : "输出必须是一个 JSON 对象，严格符合下面的 JSON Schema";
+  return `\n\n${lead}：键名、类型、必填项都要一致，不要输出 schema 之外的键，最终答案之外不要输出任何其它文字。\n${JSON.stringify(asSchema(schema).jsonSchema)}`;
 }
 
 export type AgentRunErrorKind =
@@ -645,7 +647,7 @@ export async function runAgent<T>(
   // 工具交给模型只有描述与入参 schema；执行归循环（档位、hook、审计都在那里）。
   const declaredTools = Object.fromEntries(Object.entries(tools).map(([name, loopTool]) => [name, { description: loopTool.description, inputSchema: loopTool.inputSchema }]));
   const model = options.model ?? createTextModel(config);
-  const system = buildSystemPrompt(options.system, options.untrustedInputs) + schemaInstruction(config, options.schema);
+  const system = buildSystemPrompt(options.system, options.untrustedInputs) + schemaInstruction(config, options.schema, hasTools);
   // 最后一步的结构化结果：SDK 在读 output 时才校验并抛错，所以只存取法。
   let readOutput: (() => T) | null = null;
 

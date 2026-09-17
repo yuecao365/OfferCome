@@ -4,7 +4,7 @@ import { competenciesOf } from "@/lib/mock-interviews/context";
 
 import { parseEventRow, type InterviewEvent } from "../events";
 import { sessionFlags } from "../flags";
-import type { RunFact, SegmentFact, SessionFacts } from "./metrics";
+import type { EvaluationRunFact, RunFact, SegmentFact, SessionFacts } from "./metrics";
 
 /**
  * 从库里装一场的事实：事件日志 + 分段投影（带事后评分）+ 面试官的模型开销 + 岗位能力清单。指标只看这些。
@@ -46,9 +46,34 @@ export async function loadSessionFacts(sessionId: string, truth?: { competencyId
       select: { runId: true, durationMs: true, inputTokens: true, cachedTokens: true, outputTokens: true },
     })
   ).map((run) => ({ runId: run.runId, durationMs: run.durationMs, inputTokens: run.inputTokens ?? 0, cachedTokens: run.cachedTokens ?? 0, outputTokens: run.outputTokens ?? 0 }));
+  const evaluationRuns = await loadEvaluationRuns(session.threads.flatMap((thread) => (thread.questionId ? [thread.questionId] : [])));
   // 重建后预算是时间盒而不是回合数：回合预算指标不再适用（守住预算恒为真），时间盒由 clock_tick / ended 事件体现。
   const flags = sessionFlags(session.flagsJson);
-  return { sessionId, turnsTotal: null, events, segments, runs, competencies: competenciesOf(session.contextSnapshotJson), variant: flags.policy ?? "v2", shadowVariant: flags.shadow, ...(truth ? { truth } : {}) };
+  return { sessionId, turnsTotal: null, events, segments, runs, evaluationRuns, competencies: competenciesOf(session.contextSnapshotJson), variant: flags.policy ?? "v2", shadowVariant: flags.shadow, ...(truth ? { truth } : {}) };
+}
+
+/** 每段评分的轨迹：带工具那次采样的 runId 是 eval:<questionId>（对照采样带 :b，不算）；步数与工具调用数在 selection 行的指标里，无效调用与触顶从循环事件行数。 */
+async function loadEvaluationRuns(questionIds: string[]): Promise<EvaluationRunFact[]> {
+  if (questionIds.length === 0) return [];
+  const rows = await prisma.agentRun.findMany({
+    where: { agent: "question_evaluation", runId: { in: questionIds.map((id) => `eval:${id}`) } },
+    select: { runId: true, event: true, status: true, metricsJson: true },
+  });
+  const byRun = new Map<string, typeof rows>();
+  for (const row of rows) byRun.set(row.runId, [...(byRun.get(row.runId) ?? []), row]);
+  return [...byRun.values()].flatMap((group) => {
+    const selection = group.find((row) => row.event === "selection");
+    if (!selection) return [];
+    const metrics = (JSON.parse(selection.metricsJson ?? "{}") as Record<string, number>) ?? {};
+    return [{
+      steps: metrics.steps ?? 1,
+      toolCalls: metrics.toolCalls ?? 0,
+      invalidCalls: group.filter((row) => row.event === "tool_result" && row.status === "failed").length,
+      budgetHit: group.some((row) => row.event === "budget_exceeded"),
+      resumeInconsistent: metrics.resumeInconsistent ?? 0,
+      toolShift: metrics.toolShift === undefined || metrics.toolShift < 0 ? null : metrics.toolShift,
+    }];
+  });
 }
 
 /** 逐字稿投影与消息表对账：事件日志是否完整地记下了双方说的话。 */

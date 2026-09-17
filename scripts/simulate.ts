@@ -18,7 +18,7 @@ import { getAiTaskConfig } from "../src/lib/settings/ai";
  * 结果从事件日志算指标，写到 eval/runs/sim-<tag>.json。
  *
  * 用法：npm run simulate -- --tag baseline --jd tencent-hunyuan-agent-harness-engineer --resume synthetic-ai-llm \
- *        --archetypes solid,shaky,rambling,needy,adversarial --seeds 3 --pace standard --concurrency 1 --lab on --policy v2|v2-terse --shadow v2-terse --perturb long_answers,dont_know,hollow_resume,manipulate,not_mine,help_loop
+ *        --archetypes solid,shaky,rambling,needy,adversarial --seeds 3 --pace standard --concurrency 1 --lab on --policy v2|v2-terse --shadow v2-terse --perturb long_answers,dont_know,hollow_resume,manipulate,not_mine,help_loop,inflate
  *      npm run simulate -- --tag baseline --recompute     # 只按标签重算已有会话的指标
  */
 
