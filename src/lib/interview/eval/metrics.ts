@@ -70,6 +70,8 @@ export type SessionMetrics = {
   /** 求助 / 澄清之后面试官没有换题（仍在同一段）的比例；没求助为 null。 */
   helpHandledRate: number | null;
   fallbacks: number;
+  /** 面试官这场查资料的次数（tool_called 事件：查简历原文、查技能包）。 */
+  interviewerToolCalls: number;
   /** 面试官提问里两个以上问号的比例（"一句一个要点"的反面）。 */
   multiQuestionRate: number;
   /** 按种类的时间占比（从分段内的字数估）：项目 / 基础题 / 场景题。 */
@@ -236,6 +238,7 @@ export function sessionMetrics(facts: SessionFacts): SessionMetrics {
     helpRequests: help.requests,
     helpHandledRate: help.requests === 0 ? null : help.handled / help.requests,
     fallbacks: facts.events.filter((item) => item.type === "fallback_used").length,
+    interviewerToolCalls: facts.events.filter((item) => item.type === "tool_called").length,
     multiQuestionRate: questions.length === 0 ? 0 : multi / questions.length,
     timeShare: totalChars === 0 ? { project: 0, quick: 0, scenario: 0 } : { project: chars.project / totalChars, quick: chars.quick / totalChars, scenario: chars.scenario / totalChars },
     tokens: { input, cached, output, cacheRate: input === 0 ? 0 : cached / input },
@@ -265,6 +268,7 @@ const SUMMARY_KEYS = [
   "helpRequests",
   "helpHandledRate",
   "fallbacks",
+  "interviewerToolCalls",
   "multiQuestionRate",
   "scoredSegments",
   "onlineError",
@@ -315,6 +319,7 @@ const LABELS: Record<string, string> = {
   helpRequests: "求助次数",
   helpHandledRate: "求助后不换题的比例",
   fallbacks: "代码接话次数",
+  interviewerToolCalls: "面试官查资料次数",
   multiQuestionRate: "一句多问的比例",
   scoredSegments: "在线评委评过的段数",
   onlineError: "面试中估计与真值的平均误差",

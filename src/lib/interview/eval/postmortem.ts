@@ -74,6 +74,8 @@ export function postmortem(input: { events: InterviewEvent[]; brief: InterviewBr
   for (const item of violations) byRule.set(item.rule, (byRule.get(item.rule) ?? 0) + 1);
   for (const [rule, count] of byRule) summary.push(`面试官${VIOLATION_LABELS[rule]} ${count} 次`);
   if (guards.length > 0) summary.push(`代码接话或底线触发 ${guards.length} 次`);
+  const lookups = input.events.filter((item) => item.type === "tool_called").length;
+  if (lookups > 0) summary.push(`面试官查资料 ${lookups} 次`);
   if (summary.length === 0) summary.push("没有发现准则违反或异常行为");
   return { ready: input.ready, replies, violations, guards, summary };
 }

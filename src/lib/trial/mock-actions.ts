@@ -179,6 +179,7 @@ export function createTrialChatTransport(id: string) {
       jobTitle: interview.job.jobTitle,
       jobDescription: interview.job.jobDescription,
       resumeText: interview.resume.text,
+      skillPacks: interview.brief?.skillPacks ?? [],
     },
   });
 }

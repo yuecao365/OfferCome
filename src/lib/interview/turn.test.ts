@@ -6,7 +6,7 @@ import { testBrief } from "@/lib/test-support/interview-brief";
 import type { Decision } from "./decide";
 import { FALLBACK_SPEECH } from "./policy";
 import { planQuota } from "./progress";
-import { applyTurn, breakerTripped, candidateWantsToEnd, planTurn, speak, type CandidateInput, type TurnState } from "./turn";
+import { applyTurn, breakerTripped, buildCard, candidateWantsToEnd, planTurn, speak, toolUsesOf, toolsUsedOf, type CandidateInput, type TurnState } from "./turn";
 import { policyVariant } from "./variants";
 
 /**
@@ -15,7 +15,7 @@ import { policyVariant } from "./variants";
  */
 
 function state(overrides: Partial<TurnState> = {}): TurnState {
-  return { brief: testBrief(), notebook: "", transcript: [], phase: "opening", variant: policyVariant(null), seed: "s", ...overrides };
+  return { brief: testBrief(), notebook: "", transcript: [], phase: "opening", variant: policyVariant(null), seed: "s", toolsUsed: [], ...overrides };
 }
 
 const candidate = (content: string, control: CandidateInput["control"] = null): CandidateInput => ({ clientId: "c1", content, control, composeMs: null });
@@ -156,4 +156,16 @@ test("应用回合：事件按顺序（候选人的话、决策、面试官的�
   const ended = applyTurn(running, candidate("", "end"), { move: "close", reason: "候选人要求结束", target: null }, { say: FALLBACK_SPEECH.closing, kind: "closing", target: null, doneFacet: null, notebook: null, failed: false, guard: null, original: null, runId: null, endedBy: "candidate" });
   assert.equal(ended.phase, "ended");
   assert.equal(ended.events.at(-1)?.type, "ended");
+});
+
+test("工具账（G3）：模型这回合查过的资料记成 tool_called 事件（在面试官的话之前），投影成最近几次写进现场卡", () => {
+  const uses = toolUsesOf([{ toolName: "load_skill", input: { name: "ai-llm" } }, { toolName: "lookup_resume", input: { keyword: "P95" } }, { toolName: "x", input: "raw" }]);
+  assert.deepEqual(uses, [{ name: "load_skill", argument: "ai-llm" }, { name: "lookup_resume", argument: "P95" }, { name: "x", argument: null }]);
+  const running = state({ phase: "running", transcript: [line("interviewer", "你好", 0), line("candidate", "我叫小王", 1)] });
+  const result = applyTurn(running, candidate("答"), go, speak(running, go, out("再问一句？"), "r1"), uses.slice(0, 2));
+  assert.deepEqual(result.events.map((item) => item.type).slice(0, 4), ["candidate_said", "move_decided", "tool_called", "tool_called"]);
+  const projected = toolsUsedOf(result.events.map((item, seq) => ({ ...item, seq, at: new Date() })) as Parameters<typeof toolsUsedOf>[0]);
+  assert.deepEqual(projected, uses.slice(0, 2));
+  const card = buildCard({ ...running, toolsUsed: projected }, planTurn(running, candidate("答")).progress, go);
+  assert.deepEqual(card.toolsUsed, ["load_skill(ai-llm)", "lookup_resume(P95)"]);
 });

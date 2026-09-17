@@ -51,7 +51,9 @@ test("the pool is filled by role: the domain pack takes most slots, stack and ba
     jobDescription: "负责 Agent 技术研发，Memory 机制、RAG、工具调用；熟练掌握 Python/Java/Go 至少一门语言。",
     resumeText: "Python 写的 Agent Harness，FastAPI 服务，分层记忆与上下文工程。",
   };
-  const pool = sampleTopicPool(packsForTopics(input, packs, "first_interview"), 12, { ...input, recent: [] });
+  // 抽样带种子：不带时"简历碰过的主题进了题池"这条断言随机失败（2026-09-16 三次全量跑里两次红）。
+  let seed = 11;
+  const pool = sampleTopicPool(packsForTopics(input, packs, "first_interview"), 12, { ...input, recent: [] }, () => (seed = (seed * 9301 + 49297) % 233280) / 233280);
   const bySkill = new Map<string, number>();
   for (const topic of pool) bySkill.set(topic.skill, (bySkill.get(topic.skill) ?? 0) + 1);
   assert.equal(pool.length, 12);

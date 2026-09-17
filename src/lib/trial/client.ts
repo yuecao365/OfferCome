@@ -140,7 +140,7 @@ export type TurnRequestState = { brief: InterviewBrief; notebook: string; messag
  */
 export function createTrialTurnTransport(input: {
   readState: () => TurnRequestState;
-  context: { jobTitle: string; jobDescription: string; resumeText: string };
+  context: { jobTitle: string; jobDescription: string; resumeText: string; skillPacks?: string[] };
 }): DefaultChatTransport<UIMessage> {
   return new DefaultChatTransport<UIMessage>({
     api: "/api/trial/turn",

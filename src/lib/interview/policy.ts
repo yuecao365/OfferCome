@@ -1,9 +1,12 @@
-import { Output, stepCountIs, type ToolSet } from "ai";
+import { Output, stepCountIs } from "ai";
 import { z } from "zod";
 
+import type { LoopToolSet } from "@/lib/ai/agent-loop";
 import { streamAgent, type AgentStreamOutcome } from "@/lib/ai/run-agent";
 import type { AiTaskConfig } from "@/lib/ai/config";
 import type { InterviewArea, InterviewBrief } from "@/lib/mock-interviews/brief/brief";
+import { createSkillTools, renderSkillIndex } from "@/lib/mock-interviews/skills/tools";
+import type { SkillPack } from "@/lib/mock-interviews/skills/types";
 import { createResumeLookupTool } from "@/lib/mock-interviews/tools/resume-lookup";
 
 import { MOVE_LABELS, type Decision } from "./decide";
@@ -120,7 +123,15 @@ export type PolicyContext = {
   jobTitle: string;
   jobDescription: string;
   resumeText: string;
+  /** 备课选的技能包（≤ 3）：系统提示里只放索引，全文由面试官用 load_skill 按需加载（G3）。 */
+  skillPacks?: SkillPack[];
 };
+
+/** 技能包索引段：整场不变，是缓存前缀的一部分。 */
+function renderSkillSection(packs: SkillPack[]): string {
+  if (packs.length === 0) return "";
+  return `\n技能包索引（追问基础题或场景题时拿不准阶梯、期望信号或危险信号，用 load_skill 查全文，一回合最多一次；现场卡里"已查过"的不必再查）：\n${renderSkillIndex(packs)}\n`;
+}
 
 function quotaLabel(plan: ReturnType<typeof planQuota>): string {
   const count = (kind: string) => plan.filter((item) => item.kind === kind).length;
@@ -140,7 +151,7 @@ ${method}
 
 材料（备课产出；可信）：
 ${renderMaterials(brief)}
-
+${renderSkillSection(context.skillPacks ?? [])}
 岗位描述（节选）：
 ${context.jobDescription.slice(0, MAX_JD_CHARS)}
 
@@ -150,8 +161,20 @@ ${context.resumeText.slice(0, MAX_RESUME_CHARS)}
 提示词版本：${variant.promptVersion}`;
 }
 
-/** 现场卡：进度、上一回合的笔记、这回合的建议。 */
-export type StateCard = { progress: Progress; notebook: string; opening: boolean; decision: Decision };
+/** 现场卡：进度、上一回合的笔记、这回合的建议、工具账（这场已查过的资料）、这回合该先查的技能包（有才有）。 */
+export type StateCard = { progress: Progress; notebook: string; opening: boolean; decision: Decision; toolsUsed: string[]; loadSkill?: string | null };
+
+/**
+ * 这回合该先查哪个技能包（G3 冒烟：只写"拿不准时查"，面试官一次都没查——G2 同样的教训，触发时机得由代码点名）：
+ * 换到一道基础题、它所属的包在备课选的包里、这场还没查过，就让面试官先 load_skill 再问。
+ */
+export function skillToLoad(brief: InterviewBrief, decision: Decision, context: PolicyContext, toolsUsed: string[]): string | null {
+  if (decision.move !== "switch" || !decision.target) return null;
+  const area = brief.areas.find((item) => item.id === decision.target!.topic);
+  const skill = area?.kind === "quick" ? area.topic?.skill : null;
+  if (!skill || !(context.skillPacks ?? []).some((pack) => pack.name === skill)) return null;
+  return toolsUsed.some((item) => item === `load_skill(${skill})`) ? null : skill;
+}
 
 /**
  * 现场卡：单独一条用户消息，排在候选人的话之后——候选人的话单独成条，与下一回合历史里的那条一字不差，缓存前缀能多匹配一条（§9.3）。
@@ -160,7 +183,9 @@ export type StateCard = { progress: Progress; notebook: string; opening: boolean
 export function renderTurnMessage(card: StateCard, candidateContent: string | null): string {
   const notebook = card.notebook.trim() ? card.notebook.trim() : "（还没有笔记：这回合先写一份。）";
   const said = candidateContent?.trim() ? "候选人刚说的话在上一条。" : card.opening ? "候选人已就座，请开场。" : "候选人没有说话。";
-  return `[现场卡]\n${renderProgress(card.progress)}\n你上一回合的笔记：\n${notebook}\n这回合的建议：${MOVE_LABELS[card.decision.move]}——${card.decision.reason}\n${said}`;
+  const tools = card.toolsUsed.length > 0 ? `\n已查过：${card.toolsUsed.join("、")}` : "";
+  const load = card.loadSkill ? `\n先用 load_skill 查技能包「${card.loadSkill}」（这道题所属，这场还没查过），看它的阶梯与危险信号再问。` : "";
+  return `[现场卡]\n${renderProgress(card.progress)}\n你上一回合的笔记：\n${notebook}\n这回合的建议：${MOVE_LABELS[card.decision.move]}——${card.decision.reason}${tools}${load}\n${said}`;
 }
 
 /** 这回合发给模型的消息：历史 → 候选人的话（有才有）→ 现场卡。 */
@@ -193,10 +218,12 @@ export function cacheKeyOf(runId: string): string {
   return runId.replace(/:\d+$/, "");
 }
 
-/** 只读工具：简历超过节选上限时按关键词查原文；其余情况没有工具。 */
-function buildTools(context: PolicyContext): ToolSet {
-  if (context.resumeText.length <= MAX_RESUME_CHARS) return {};
-  return { lookup_resume: createResumeLookupTool(context.resumeText) };
+/** 只读工具：简历超过节选上限时按关键词查原文；备课选了技能包时按需加载全文。都是 read 档，决策规则不受影响。 */
+export function buildTools(context: PolicyContext): LoopToolSet {
+  return {
+    ...(context.resumeText.length > MAX_RESUME_CHARS ? { lookup_resume: createResumeLookupTool(context.resumeText) } : {}),
+    ...((context.skillPacks ?? []).length > 0 ? createSkillTools(context.skillPacks!).tools : {}),
+  };
 }
 
 export type PolicyOutcome = {
@@ -225,7 +252,8 @@ export function runPolicy(input: {
   variant?: PolicyVariant;
 }): PolicyRun {
   const variant = input.variant ?? policyVariant(null);
-  const messages = buildMessages(input.transcript, input.card, input.candidateContent);
+  const card = { ...input.card, loadSkill: skillToLoad(input.brief, input.card.decision, input.context, input.card.toolsUsed) };
+  const messages = buildMessages(input.transcript, card, input.candidateContent);
   const { stream, outcome } = streamAgent({
     agent: "interviewer",
     runId: input.runId,

@@ -3,7 +3,7 @@ import type { InterviewBrief } from "@/lib/mock-interviews/brief/brief";
 import { questionSimilarity } from "@/lib/text/similarity";
 
 import { areaToAsk, currentTopic, decideMove, type Decision, type Target } from "./decide";
-import { event, type CandidateControl, type NewEvent, type TranscriptLine } from "./events";
+import { event, type CandidateControl, type NewEvent, type TranscriptLine, type InterviewEvent } from "./events";
 import { FALLBACK_SPEECH, runPolicy, type PolicyContext, type PolicyOutput, type StateCard } from "./policy";
 import { planQuota, progressOf, type Progress, type ProgressSummary } from "./progress";
 import type { PolicyVariant } from "./variants";
@@ -28,6 +28,8 @@ export type TurnState = {
   variant: PolicyVariant;
   /** 随机种子（会话 id）：抽追问角度用，同一场重放结果一样。 */
   seed: string;
+  /** 这场面试官查过的资料（tool_called 事件的投影，最近几次）：写进现场卡，免得重复查。 */
+  toolsUsed: ToolUse[];
 };
 
 export type CandidateInput = {
@@ -104,9 +106,26 @@ export function planTurn(state: TurnState, candidate: CandidateInput | null): Tu
   return { kind: "model", progress, decision };
 }
 
+export type ToolUse = { name: string; argument: string | null };
+const TOOLS_USED_SHOWN = 6;
+
+/** 事件 → 这场查过的资料（最近几次）。 */
+export function toolsUsedOf(events: InterviewEvent[]): ToolUse[] {
+  return events.flatMap((item) => (item.type === "tool_called" ? [{ name: item.payload.name, argument: item.payload.argument }] : [])).slice(-TOOLS_USED_SHOWN);
+}
+
+/** 模型这回合的工具调用 → 事件里记的形状：工具名 + 一个短参数（关键词 / 包名）。 */
+export function toolUsesOf(calls: { toolName: string; input: unknown }[]): ToolUse[] {
+  return calls.map((call) => {
+    const input = call.input as Record<string, unknown> | null;
+    const argument = input && typeof input === "object" ? (typeof input.keyword === "string" ? input.keyword : typeof input.name === "string" ? input.name : JSON.stringify(input)) : null;
+    return { name: call.toolName, argument: argument ? argument.slice(0, 60) : null };
+  });
+}
+
 /** 现场卡：影子运行也用同一张。 */
 export function buildCard(state: TurnState, progress: Progress, decision: Decision): StateCard {
-  return { progress, notebook: state.notebook, opening: state.phase === "opening", decision };
+  return { progress, notebook: state.notebook, opening: state.phase === "opening", decision, toolsUsed: state.toolsUsed.map((item) => (item.argument ? `${item.name}(${item.argument})` : item.name)) };
 }
 
 type Spoken = {
@@ -128,7 +147,7 @@ type Spoken = {
 const fixedSpoken = (say: string, kind: Spoken["kind"], extra: Partial<Spoken> = {}): Spoken => ({ say, kind, target: null, doneFacet: null, notebook: null, failed: false, guard: null, original: null, runId: null, endedBy: null, ...extra });
 
 /** 把这回合的话与记账变成事件与结果（纯函数）。 */
-export function applyTurn(state: TurnState, candidate: CandidateInput | null, decision: Decision, spoken: Spoken): TurnResult {
+export function applyTurn(state: TurnState, candidate: CandidateInput | null, decision: Decision, spoken: Spoken, toolCalls: ToolUse[] = []): TurnResult {
   const events: NewEvent[] = [];
   const said: TurnResult["said"] = [];
   if (candidate) {
@@ -138,6 +157,7 @@ export function applyTurn(state: TurnState, candidate: CandidateInput | null, de
   const topic = spoken.target?.topic ?? null;
   const facet = spoken.target?.facet ?? null;
   events.push(event("move_decided", { move: decision.move, reason: decision.reason }));
+  for (const call of toolCalls) events.push(event("tool_called", call, spoken.runId));
   events.push(event("interviewer_said", { content: spoken.say, kind: spoken.kind, topic, facet, doneFacet: spoken.doneFacet }, spoken.runId));
   said.push({ role: "interviewer", kind: spoken.kind, content: spoken.say, topic, facet, doneFacet: spoken.doneFacet });
   const notebook = spoken.notebook !== null && spoken.notebook !== state.notebook ? spoken.notebook : state.notebook;
@@ -223,7 +243,7 @@ export function runTurn(input: { runId: string; config: AiTaskConfig; state: Tur
       const outcome = await policy.settled;
       // 额度、密钥、连不上服务商：重试也不会好，报给用户；其余失败接一句固定的话，回合照常落下。
       if (outcome.output === null && outcome.raw.error && UNRECOVERABLE.has(outcome.raw.error.kind)) throw outcome.raw.error;
-      return applyTurn(state, candidate, plan.decision, speak(state, plan.decision, outcome.output, outcome.runId));
+      return applyTurn(state, candidate, plan.decision, speak(state, plan.decision, outcome.output, outcome.runId), toolUsesOf(outcome.raw.toolCalls));
     },
   };
 }

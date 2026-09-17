@@ -3,7 +3,7 @@ import { APICallError, RetryError, asSchema, generateText, NoObjectGeneratedErro
 import { randomUUID } from "node:crypto";
 
 import type { AiTaskConfig } from "./config";
-import { runLoop, stepsOf, toolCallsOf, type Budget, type LoopEvent, type LoopHooks, type LoopResume, type LoopToolSet, type ToolCall } from "./agent-loop";
+import { instrumentTools, runLoop, stepsOf, toolCallsOf, type Budget, type LoopEvent, type LoopHooks, type LoopResume, type LoopToolSet, type ToolCall } from "./agent-loop";
 import { coerceToJsonSchema } from "./coerce";
 import { createTextModel, lowReasoningOptions } from "./providers";
 import { findStrictSchemaViolation } from "./strict-schema";
@@ -332,7 +332,9 @@ export type AgentStreamOptions = {
   untrustedInputs?: string;
   /** 对话历史；最后一条通常是候选人刚说的话。 */
   messages: ModelMessage[];
-  tools: ToolSet;
+  /** 工具（带档位）：执行经过与 runAgent 同一道门（档位、hook、tool_result 记账）；confirm 档在流式回合不执行。 */
+  tools: LoopToolSet;
+  hooks?: LoopHooks;
   /** required = 这一步必须调工具（只做决定）；none = 不许调工具（只说话）。 */
   toolChoice?: "auto" | "none" | "required";
   stopWhen?: StopCondition<ToolSet>;
@@ -526,9 +528,10 @@ export function streamAgent(options: AgentStreamOptions): {
     });
   };
 
+  const hasTools = Object.keys(options.tools).length > 0;
   const stream = streamText({
     model: options.model ?? createTextModel(config),
-    tools: options.tools,
+    tools: instrumentTools(options.tools, { hooks: options.hooks, emit: (event) => logLoopEvent(logBase, event) }),
     ...(options.toolChoice ? { toolChoice: options.toolChoice } : {}),
     ...(options.stopWhen ? { stopWhen: options.stopWhen } : {}),
     ...(options.prepareStep ? { prepareStep: options.prepareStep } : {}),
@@ -536,7 +539,7 @@ export function streamAgent(options: AgentStreamOptions): {
     ...outputBudget(options.maxOutputTokens),
     providerOptions: providerOptionsFor(config, options.providerOptions),
     abortSignal: AbortSignal.timeout(options.timeoutMs),
-    system: buildSystemPrompt(options.system, options.untrustedInputs) + (options.schema ? schemaInstruction(config, options.schema) : ""),
+    system: buildSystemPrompt(options.system, options.untrustedInputs) + (options.schema ? schemaInstruction(config, options.schema, hasTools) : ""),
     messages: options.messages,
     onChunk: ({ chunk }) => {
       if (chunk.type === "text-delta") textParts.push(chunk.text);

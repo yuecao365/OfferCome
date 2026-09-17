@@ -9,7 +9,10 @@ import { getAiTaskConfig } from "@/lib/settings/ai";
 import { scheduleLab, scheduleShadow } from "./background";
 import { appendEvents, parseEventRow, transcriptOf, type InterviewEvent } from "./events";
 import { sessionFlags } from "./flags";
-import { runTurn, type CandidateInput, type TurnResult, type TurnState } from "./turn";
+import { loadSkillPacks } from "@/lib/mock-interviews/skills/loader";
+import { packsForInterview } from "@/lib/mock-interviews/skills/selector";
+
+import { runTurn, toolsUsedOf, type CandidateInput, type TurnResult, type TurnState } from "./turn";
 import { policyVariant } from "./variants";
 import type { ConversationMessage, TurnPayload } from "./views";
 
@@ -44,6 +47,7 @@ function turnState(loaded: Loaded): TurnState {
     phase: loaded.status !== "in_progress" ? "ended" : transcript.length === 0 ? "opening" : "running",
     variant: policyVariant(sessionFlags(loaded.flagsJson).policy),
     seed: loaded.id,
+    toolsUsed: toolsUsedOf(events),
   };
 }
 
@@ -72,7 +76,7 @@ export async function startTurn(input: { sessionId: string; candidate: Candidate
   const state = turnState(loaded);
   const turnIndex = loaded.messages.filter((message) => message.role === "interviewer").length;
   const config = await getAiTaskConfig("text");
-  const context = { jobTitle: loaded.interview.jobTitle, jobDescription: loaded.jdTextSnapshot, resumeText: loaded.resumeTextSnapshot };
+  const context = { jobTitle: loaded.interview.jobTitle, jobDescription: loaded.jdTextSnapshot, resumeText: loaded.resumeTextSnapshot, skillPacks: packsForInterview(state.brief.skillPacks ?? [], await loadSkillPacks(), 3) };
   const run = runTurn({ runId: `turn:${input.sessionId}:${turnIndex}`, config, state, candidate: input.candidate, context });
   const shadow = sessionFlags(loaded.flagsJson).shadow;
   return {

@@ -4,7 +4,7 @@ import test from "node:test";
 import { tool } from "ai";
 import { z } from "zod";
 
-import { messagesOf, runLoop, type LoopEvent, type LoopToolSet, type StepResult } from "./agent-loop";
+import { instrumentTools, messagesOf, runLoop, type LoopEvent, type LoopToolSet, type StepResult } from "./agent-loop";
 
 /** 通用循环（G1）：状态是事件的投影；预算超了写事件再给一步结论；工具三档；hook 能拒绝；挂起后喂回事件续跑。 */
 
@@ -131,4 +131,17 @@ test("投影：只喂事件不喂决定也能从中断处续跑（上一步没�
   const messages = script.seen[0].messages;
   assert.equal(messages.length, 3);
   assert.equal((messages[2].content as unknown[]).length, 2, "两个工具结果合在一条 tool 消息里");
+});
+
+test("流式回合的工具门（instrumentTools）：执行经过档位 / hook / 事件；confirm 档不执行、以需要确认作为结果；hook 拒绝的原因回给模型", async () => {
+  const log: string[] = [];
+  const events: LoopEvent[] = [];
+  const wrapped = instrumentTools(tools(log), { emit: (event) => events.push(event), hooks: { beforeTool: (call) => (call.toolName === "write_note" ? { allow: false, reason: "评测里不许写" } : undefined) } });
+  assert.deepEqual(Object.keys(wrapped), ["lookup", "write_note", "deploy", "broken"]);
+  const options = { toolCallId: "t1", messages: [], context: {} };
+  assert.deepEqual(await wrapped.lookup.execute?.({ q: "abc" }, options), { hit: "ABC" });
+  assert.equal(await wrapped.write_note.execute?.({ text: "n" }, { ...options, toolCallId: "t2" }), "这次调用被拒绝：评测里不许写");
+  assert.match(String(await wrapped.deploy.execute?.({ env: "prod" }, { ...options, toolCallId: "t3" })), /需要用户确认/);
+  assert.deepEqual(log, ["lookup:abc"], "写档被拒、confirm 档没执行");
+  assert.deepEqual(events.filter((event) => event.type === "tool_result").map((event) => event.type === "tool_result" && [event.call.toolName, event.access, event.ok]), [["lookup", "read", true], ["write_note", "write", false], ["deploy", "confirm", false]]);
 });

@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import type { SkillPack } from "@/lib/mock-interviews/skills/types";
 import { testBrief } from "@/lib/test-support/interview-brief";
 
-import { buildHistory, buildMessages, buildSystem, cacheKeyOf, MAX_RESUME_CHARS, renderMaterials, renderTurnMessage, salvage } from "./policy";
+import { buildHistory, buildMessages, buildSystem, cacheKeyOf, MAX_RESUME_CHARS, renderMaterials, renderTurnMessage, salvage, buildTools, skillToLoad } from "./policy";
 
 /** 核心层的提示词：材料每条带 id、说法挂在项目上；现场卡只有进度、笔记、这回合的建议三块。 */
 
@@ -21,7 +22,7 @@ test("材料：项目带材料 id、要验证的说法与追问角度；基础�
 });
 
 test("现场卡：时间、笔记、这回合的建议三块；候选人的话单独一条排在卡之前；开场有开场的建议", () => {
-  const running = renderTurnMessage({ progress: progress(1), notebook: "先问主循环。", opening: false, decision: { move: "switch", reason: "候选人两次答不上：换到「缓存一致性」（q1）", target: null } }, "我不会");
+  const running = renderTurnMessage({ progress: progress(1), notebook: "先问主循环。", opening: false, decision: { move: "switch", reason: "候选人两次答不上：换到「缓存一致性」（q1）", target: null }, toolsUsed: [] }, "我不会");
   const lines = running.split("\n");
   assert.equal(lines[0], "[现场卡]");
   assert.match(lines[1], /^进度：第 1 份材料，共 6 份/);
@@ -30,7 +31,7 @@ test("现场卡：时间、笔记、这回合的建议三块；候选人的话�
   assert.equal(lines[4], "这回合的建议：换题——候选人两次答不上：换到「缓存一致性」（q1）");
   assert.equal(lines[5], "候选人刚说的话在上一条。");
   assert.doesNotMatch(running, /已聊：|能力估计|评论员/);
-  const card = { progress: progress(1), notebook: "先问主循环。", opening: false, decision: { move: "continue" as const, reason: "顺着追问", target: null } };
+  const card = { progress: progress(1), notebook: "先问主循环。", opening: false, decision: { move: "continue" as const, reason: "顺着追问", target: null }, toolsUsed: [] };
   const transcript = [{ seq: 0, role: "interviewer" as const, content: "先讲主循环。", kind: "say", control: null, topic: "p1-module" }];
   const messages = buildMessages(transcript, card, "我不会");
   assert.deepEqual(messages.map((item) => item.role), ["assistant", "user", "user"]);
@@ -39,7 +40,7 @@ test("现场卡：时间、笔记、这回合的建议三块；候选人的话�
   assert.match(messages[2].content, /^\[现场卡\]/);
   assert.equal(buildMessages(transcript, card, null).length, 2);
   assert.equal(cacheKeyOf("turn:abc123:7"), "turn:abc123");
-  const opening = renderTurnMessage({ progress: progress(0), notebook: "", opening: true, decision: { move: "continue", reason: "开场：先问候", target: null } }, null);
+  const opening = renderTurnMessage({ progress: progress(0), notebook: "", opening: true, decision: { move: "continue", reason: "开场：先问候", target: null }, toolsUsed: [] }, null);
   assert.match(opening, /还没有笔记/);
   assert.match(opening, /候选人已就座/);
 });
@@ -51,6 +52,24 @@ test("系统提示词：没有工具说明与记忆段；简历超过节选上�
   assert.doesNotMatch(system, /lookup_skill|上几场的记忆|技能包索引/);
   assert.doesNotMatch(system, /lookup_resume/);
   assert.match(buildSystem(brief, { ...context, resumeText: "字".repeat(MAX_RESUME_CHARS + 1) }), /lookup_resume/);
+  // G3：备课选了技能包才有索引段与 load_skill 工具；索引整场不变。
+  const pack = { name: "ai-llm", description: "大模型应用：RAG、Agent、评测", keywords: [], layer: "domain", body: "全文" } as unknown as SkillPack;
+  const withPacks = buildSystem(brief, { ...context, skillPacks: [pack] });
+  assert.match(withPacks, /技能包索引/);
+  assert.match(withPacks, /ai-llm（domain）：大模型应用/);
+  assert.deepEqual(Object.keys(buildTools({ ...context, skillPacks: [pack] })), ["load_skill"]);
+  assert.deepEqual(Object.keys(buildTools(context)), []);
+  assert.equal(buildTools({ ...context, skillPacks: [pack] }).load_skill.access, "read");
+  assert.match(renderTurnMessage({ progress: progress(0), notebook: "", opening: false, decision: { move: "continue", reason: "r", target: null }, toolsUsed: ["load_skill(ai-llm)"] }, "答"), /已查过：load_skill\(ai-llm\)/);
+  // 换到基础题、所属的包在备课选的包里、这场还没查过：现场卡点名先查；查过或不是基础题就不点。
+  const quick = brief.areas.find((area) => area.kind === "quick")!;
+  const quickPack = { ...pack, name: quick.topic!.skill } as SkillPack;
+  const toQuick = { move: "switch" as const, reason: "换题", target: { topic: quick.id, facet: null } };
+  assert.equal(skillToLoad(brief, toQuick, { ...context, skillPacks: [quickPack] }, []), quick.topic!.skill);
+  assert.equal(skillToLoad(brief, toQuick, { ...context, skillPacks: [quickPack] }, [`load_skill(${quick.topic!.skill})`]), null);
+  assert.equal(skillToLoad(brief, toQuick, { ...context, skillPacks: [pack] }, []), null, "包不在备课选的里就不点");
+  assert.equal(skillToLoad(brief, { ...toQuick, move: "continue" }, { ...context, skillPacks: [quickPack] }, []), null);
+  assert.match(renderTurnMessage({ progress: progress(0), notebook: "", opening: false, decision: toQuick, toolsUsed: [], loadSkill: "ai-llm" }, "答"), /先用 load_skill 查技能包「ai-llm」/);
   assert.ok(system.length < 4_000, `提示词 ${system.length} 字`);
   const terse = buildSystem(brief, context, { id: "t", label: "t", promptVersion: "policy-t", extraRules: ["问句不超过 60 字"] });
   assert.ok(terse.indexOf("问句不超过 60 字") < terse.indexOf("笔记："));

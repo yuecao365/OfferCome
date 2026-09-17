@@ -1,4 +1,4 @@
-import type { LanguageModelUsage, ModelMessage, Tool } from "ai";
+import type { LanguageModelUsage, ModelMessage, Tool, ToolSet } from "ai";
 
 /**
  * 通用 agent 循环（深度扩展 G1）：一次"调模型 → 执行工具 → 再调模型"的循环，由代码掌握，不交给 SDK 的 stopWhen。
@@ -124,6 +124,65 @@ function exceeded(budget: Budget, events: LoopEvent[]): Extract<LoopEvent, { typ
   return null;
 }
 
+export type ToolGate = { hooks?: LoopHooks; emit: (event: LoopEvent) => void };
+
+/**
+ * 执行一次工具调用——循环与流式回合共用的门：先记 tool_called；未知工具、hook 拒绝、执行抛错都变成失败的工具结果（循环不断）；
+ * confirm 档没批准就记 interrupted 并返回 null（挂起）。
+ */
+export async function callTool(tools: LoopToolSet, call: ToolCall, gate: ToolGate & { step: number; approved: boolean; messages: ModelMessage[] }): Promise<ToolOutcome | null> {
+  const tool = tools[call.toolName];
+  const access = tool?.access ?? "read";
+  gate.emit({ type: "tool_called", step: gate.step, call, access });
+  const settle = (ok: boolean, output: unknown, durationMs: number): ToolOutcome => {
+    const outcome = { ok, output, durationMs };
+    gate.emit({ type: "tool_result", step: gate.step, call, access, ...outcome });
+    gate.hooks?.afterTool?.(call, outcome);
+    return outcome;
+  };
+  if (!tool) return settle(false, `未知工具 ${call.toolName}，可用：${Object.keys(tools).join(", ") || "无"}`, 0);
+  const verdict = gate.hooks?.beforeTool?.(call, access);
+  if (verdict && !verdict.allow) return settle(false, `这次调用被拒绝：${verdict.reason}`, 0);
+  if (access === "confirm" && !gate.approved) {
+    gate.emit({ type: "interrupted", step: gate.step, call });
+    return null;
+  }
+  const startedAt = Date.now();
+  try {
+    const output = await tool.execute?.(call.input, { toolCallId: call.toolCallId, messages: gate.messages } as Parameters<NonNullable<Tool["execute"]>>[1]);
+    return settle(true, output ?? null, Date.now() - startedAt);
+  } catch (error) {
+    return settle(false, `工具执行失败：${error instanceof Error ? error.message : String(error)}`, Date.now() - startedAt);
+  }
+}
+
+/**
+ * 流式回合（SDK 自己走多步，为了第一步就能往外吐字）走同一道门：工具带 execute 交给 SDK，执行时经过档位 / hook / 事件。
+ * 流式回合不能挂起：confirm 档不执行，以"需要确认"作为结果回给模型。
+ */
+export function instrumentTools(tools: LoopToolSet, gate: ToolGate): ToolSet {
+  return Object.fromEntries(
+    Object.entries(tools).map(([name, loopTool]) => [
+      name,
+      {
+        description: loopTool.description,
+        inputSchema: loopTool.inputSchema,
+        execute: async (input: unknown, options: { toolCallId: string; messages: ModelMessage[] }) => {
+          const call: ToolCall = { toolCallId: options.toolCallId, toolName: name, input };
+          if (loopTool.access === "confirm") {
+            const outcome: ToolOutcome = { ok: false, output: "这个工具需要用户确认，这一回合不能等：不用它继续。", durationMs: 0 };
+            gate.emit({ type: "tool_called", step: 0, call, access: "confirm" });
+            gate.emit({ type: "tool_result", step: 0, call, access: "confirm", ...outcome });
+            return outcome.output;
+          }
+          const outcome = await callTool(tools, call, { ...gate, step: 0, approved: true, messages: options.messages });
+          return outcome?.output ?? null;
+        },
+      } as Tool,
+    ]),
+  );
+}
+
 export async function runLoop(options: LoopOptions): Promise<LoopResult> {
   const { tools, budget, hooks } = options;
   const events: LoopEvent[] = [...(options.resume?.events ?? [])];
@@ -137,31 +196,8 @@ export async function runLoop(options: LoopOptions): Promise<LoopResult> {
       : { status, pending: extra.pending!, steps: stepsOf(events), events, toolCalls: toolCallsOf(events) };
 
   /** 执行一次调用；挂起返回 null。 */
-  const execute = async (step: number, call: ToolCall, approved: boolean): Promise<ToolOutcome | null> => {
-    const tool = tools[call.toolName];
-    const access = tool?.access ?? "read";
-    emit({ type: "tool_called", step, call, access });
-    const settle = (ok: boolean, output: unknown, durationMs: number): ToolOutcome => {
-      const outcome = { ok, output, durationMs };
-      emit({ type: "tool_result", step, call, access, ...outcome });
-      hooks?.afterTool?.(call, outcome);
-      return outcome;
-    };
-    if (!tool) return settle(false, `未知工具 ${call.toolName}，可用：${Object.keys(tools).join(", ") || "无"}`, 0);
-    const gate = hooks?.beforeTool?.(call, access);
-    if (gate && !gate.allow) return settle(false, `这次调用被拒绝：${gate.reason}`, 0);
-    if (access === "confirm" && !approved) {
-      emit({ type: "interrupted", step, call });
-      return null;
-    }
-    const startedAt = Date.now();
-    try {
-      const output = await tool.execute?.(call.input, { toolCallId: call.toolCallId, messages: messagesOf(options.prompt, events) } as Parameters<NonNullable<Tool["execute"]>>[1]);
-      return settle(true, output ?? null, Date.now() - startedAt);
-    } catch (error) {
-      return settle(false, `工具执行失败：${error instanceof Error ? error.message : String(error)}`, Date.now() - startedAt);
-    }
-  };
+  const execute = (step: number, call: ToolCall, approved: boolean): Promise<ToolOutcome | null> =>
+    callTool(tools, call, { hooks, emit, step, approved, messages: messagesOf(options.prompt, events) });
 
   /** 把这一步剩下没执行的调用跑完；挂起返回那次调用。 */
   const drain = async (step: number, calls: ToolCall[], decision?: LoopResume["decision"]): Promise<ToolCall | null> => {

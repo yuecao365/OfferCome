@@ -30,7 +30,7 @@ async function loadLive(sessionId: string) {
   const brief = parseStoredBrief(loaded.briefJson);
   if (!brief) return null;
   const events = loaded.events.map(parseEventRow).filter((item): item is InterviewEvent => item !== null);
-  return { brief, events, competencies: competenciesOf(loaded.contextSnapshotJson), priors: priorsFrom(memoryOf(loaded.contextSnapshotJson)), flags: sessionFlags(loaded.flagsJson) };
+  return { brief, events, resumeText: loaded.resumeTextSnapshot, competencies: competenciesOf(loaded.contextSnapshotJson), priors: priorsFrom(memoryOf(loaded.contextSnapshotJson)), flags: sessionFlags(loaded.flagsJson) };
 }
 
 export function scheduleLab(sessionId: string): void {
@@ -76,7 +76,7 @@ async function critiqueLastTurn(sessionId: string): Promise<void> {
   const transcript = transcriptOf(live.events);
   const last = [...transcript].reverse().find((line) => line.role === "interviewer");
   if (!last || live.events.some((item) => item.type === "critic_noted" && item.payload.seq === last.seq)) return;
-  const noted = await critique({ runId: `critic:${sessionId}:${last.seq}`, config: await getAiTaskConfig("text"), transcript, progress: progressFor({ brief: live.brief }, transcript) });
+  const noted = await critique({ runId: `critic:${sessionId}:${last.seq}`, config: await getAiTaskConfig("text"), transcript, progress: progressFor({ brief: live.brief }, transcript), resumeText: live.resumeText });
   if (noted) await appendEvents(prisma, sessionId, [noted]);
 }
 
@@ -95,7 +95,7 @@ export function scheduleShadow(input: { sessionId: string; turnIndex: number; co
       if (!output) return;
       const withCandidate = input.candidate ? [...input.state.transcript, { seq: input.state.transcript.length, role: "candidate" as const, content: input.candidate.content, kind: null, control: input.candidate.control }] : input.state.transcript;
       const transcript = [...withCandidate, { seq: withCandidate.length, role: "interviewer" as const, content: output.say, kind: "say", control: null }];
-      const noted = await critique({ runId: `shadow-critic:${input.sessionId}:${input.turnIndex}`, config: input.config, transcript, progress: plan.progress }).catch(() => null);
+      const noted = await critique({ runId: `shadow-critic:${input.sessionId}:${input.turnIndex}`, config: input.config, transcript, progress: plan.progress, resumeText: input.context.resumeText }).catch(() => null);
       await appendEvents(prisma, input.sessionId, [event("shadow_said", { turnIndex: input.turnIndex, variant: input.variant.id, say: output.say, notebook: output.notebook, rule: noted?.payload.rule ?? null }, `shadow:${input.sessionId}:${input.turnIndex}`)]);
     } catch (error) {
       console.warn("[interview] 影子这回合没跑成。", error instanceof Error ? error.message : error);

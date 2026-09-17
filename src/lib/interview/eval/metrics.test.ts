@@ -77,6 +77,7 @@ test("一场的指标：覆盖、预算、求助、开销都从事件与分段�
     ],
   };
   const metrics = sessionMetrics(facts);
+  assert.equal(metrics.interviewerToolCalls, 0);
   assert.equal(metrics.evaluationSteps, 8 / 3);
   assert.equal(metrics.evaluationToolCalls, 5 / 3);
   assert.equal(metrics.invalidToolCallRate, 1 / 5);

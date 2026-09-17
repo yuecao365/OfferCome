@@ -4,6 +4,8 @@ import { CANDIDATE_CONTROLS, CONTROL_PLACEHOLDERS, type CandidateControl } from 
 import { turnResponse } from "@/lib/interview/stream";
 import { runTurn, type TurnState } from "@/lib/interview/turn";
 import type { ConversationMessage } from "@/lib/interview/views";
+import { loadSkillPacks } from "@/lib/mock-interviews/skills/loader";
+import { packsForInterview } from "@/lib/mock-interviews/skills/selector";
 import type { InterviewBrief } from "@/lib/mock-interviews/brief/brief";
 import { getAiTaskConfig } from "@/lib/settings/ai";
 import { withTrialAiResponse } from "@/lib/trial/route-handler";
@@ -15,7 +17,7 @@ const MAX_CONTENT_LENGTH = 20_000;
 
 type Body = {
   state: { brief: InterviewBrief; notebook: string; messages: ConversationMessage[] };
-  context: { jobTitle: string; jobDescription: string; resumeText: string };
+  context: { jobTitle: string; jobDescription: string; resumeText: string; skillPacks?: string[] };
   /** 随机种子（会话 id）：抽追问角度用。 */
   seed?: string;
   /** null = 开场回合。 */
@@ -41,14 +43,17 @@ export const POST = withTrialAiResponse<Body>(async (body) => {
     phase: messages.length === 0 ? "opening" : "running",
     variant: policyVariant(null),
     seed: typeof body.seed === "string" ? body.seed : "trial",
+    // 体验版不留事件：工具账每回合为空（面试官可能重复查，只多一次工具步）。
+    toolsUsed: [],
   };
+  const context = { ...body.context, skillPacks: packsForInterview(Array.isArray(body.context?.skillPacks) ? body.context.skillPacks : [], await loadSkillPacks(), 3) };
   try {
     const run = runTurn({
       runId: `trial-turn:${messages.length}:${Date.now()}`,
       config: await getAiTaskConfig("text"),
       state,
       candidate: body.candidate ? { clientId: null, content: content || (control ? CONTROL_PLACEHOLDERS[control] : ""), control, composeMs: body.candidate.composeMs ?? null } : null,
-      context: body.context,
+      context,
     });
     const turnIndex = messages.filter((message) => message.role === "interviewer").length;
     return turnResponse({
