@@ -1,4 +1,6 @@
-import { tool, type ToolSet } from "ai";
+import { tool } from "ai";
+
+import type { LoopToolSet } from "@/lib/ai/agent-loop";
 import { z } from "zod";
 
 import type { SkillPack } from "./types";
@@ -17,7 +19,7 @@ export function renderSkillIndex(packs: SkillPack[]): string {
 }
 
 export type SkillTools = {
-  tools: ToolSet;
+  tools: LoopToolSet;
   /** 按加载顺序登记的包名（含自动带上的父级领域包）。 */
   loaded: string[];
 };
@@ -31,7 +33,9 @@ export function createSkillTools(packs: SkillPack[]): SkillTools {
   const loaded: string[] = [];
   const render = (pack: SkillPack) => `### 技能包：${pack.name}\n${pack.body}`;
 
-  const load_skill = tool({
+  const load_skill = {
+    access: "read" as const,
+    ...tool({
     description:
       "加载一个面试技能包的全文（岗位职责与考察重点、主题与深度阶梯、好题坏题、项目结合钩子）。按索引里的 description 判断相关性，备课前先加载最相关的 1–3 个包；已加载过的不必重复加载。",
     inputSchema: z.object({ name: z.string().min(1).max(64) }),
@@ -50,7 +54,8 @@ export function createSkillTools(packs: SkillPack[]): SkillTools {
       parts.push(render(pack));
       return parts.join("\n\n");
     },
-  });
+  }),
+  };
 
   return { tools: { load_skill }, loaded };
 }

@@ -1,4 +1,4 @@
-# 面向大厂 Agent 开发岗的技术深度扩展计划（2026-09-16 草案，待用户测验完再放行）
+# 面向大厂 Agent 开发岗的技术深度扩展计划（2026-09-16 放行；G1 已做，G5 抛弃）
 
 > 目的：这个项目要帮用户拿大厂 Agent 开发 / Agent harness 岗位的 offer。前提是 AI 模拟面试本身的质量不降（每一步都过失败清单与冒烟），扩展的每一项都要在面试里有真实用途，不为架构而架构。
 > 上一篇：[interview-design-revision-3.md](interview-design-revision-3.md)（核心层已收敛到 §11）。
@@ -50,6 +50,19 @@
 - **hook**：`beforeTool / afterTool / onStep`，纯函数注册，先用于审计与评测，不做插件系统。
 - **中断与续跑**：循环状态 = 事件的投影；从事件重放即可从任一步继续。
 用途：G2 起所有 agent 都跑在它上面。可讲的点：为什么循环状态不单独存、为什么预算超了不抛错。
+
+**施工记录（2026-09-16，已做）**
+
+- `src/lib/ai/agent-loop.ts`：纯函数循环 `runLoop({ prompt, tools, budget, hooks, callStep, resume })`，不依赖 AI SDK 的调用细节——模型怎么调由调用方的 `callStep(messages, toolChoice)` 决定。**状态是事件的投影**：循环不存消息列表，每一步用 `messagesOf(prompt, events)` 从事件重放出消息（用户输入 → 每步"助手正文 + 工具调用" → 工具结果），所以续跑就是把事件喂回来；上一步没跑完的调用先补跑（只补没有 `tool_result` 的那几个）。
+- 事件：`step_started / step_finished / tool_called / tool_result / budget_exceeded / interrupted / resumed`。预算三种（调工具的步数、token、时长）任一超了写 `budget_exceeded`，再给模型一步 `toolChoice: none` 直接结论（这步即使又想调工具也不执行）；没有工具的 agent 只有一步。
+- 工具三档：`LoopTool = SDK tool + access`。read 自动放行；write 照跑、事件里带档位（审计按它查）；confirm 没批准就写 `interrupted` 并返回 `{ status: "interrupted", pending }`，续跑时 `resume.decision` 批准就执行、拒绝就把"用户拒绝了这次调用"作为工具结果回给模型。工具交给模型的只有描述与入参 schema，执行归循环（SDK 的 execute 由循环调）；未知工具、执行抛错都变成失败的工具结果，循环不断。
+- hook：`beforeTool`（可拒绝，原因作为工具结果回给模型）、`afterTool`、`onEvent`，纯函数。
+- `runAgent` 跑在循环上：`tools` 改为带档位的 `LoopToolSet`，`stopWhen` 删除，改 `budget`（有工具缺省 3 步工具 + 1 步结论）、`hooks`、`resume`；结果多了 `steps / toolCalls / events`，usage 是各步之和；挂起抛 `AgentRunError(kind: "interrupted", events, pending)`，喂回 `resume` 续跑。结构化输出契约（§12.3 的收敛 → 修补 → rescue）不变，作用在最后一步。示范回答 agent 的 `load_skill` 带 `access: "read"`，最多查 2 次。
+- 记账：同一张 AgentRun 表。有工具的 agent 逐步记 `step`（每步 usage、finishReason、正文）与 `tool_result`（档位、入参、结果、成败）行，`budget_exceeded / interrupted / resumed` 各一行；`model_call` 汇总行的 metrics 有 `steps / toolCalls`。没有工具的 agent 只有一步，只记汇总（表不翻倍）。`step_started / tool_called` 只在内存事件里。
+- 单测：`agent-loop.test.ts`（投影、预算三种、hook 拒绝 / 未知工具 / 抛错、confirm 挂起与批准 / 拒绝续跑、只喂事件从中断处续跑）、`run-agent.test.ts`（真 SDK mock：工具由循环执行、记账行、预算结论步、interrupted → resume）。
+- 不在 G1 做的：trace 页按步展示（G6）；面试官的流式回合 `streamAgent` 仍是 SDK 的 stopWhen 循环，G3 给面试官工具时并进 `runLoop`；confirm 档目前没有产品用途（G5 已抛弃），只有测试——留着是因为循环的挂起 / 续跑机制本身就是它。
+- 冒烟（DeepSeek，摇摆画像 1 场，约 0.15 美元）：整条链路在循环上跑通——备课、18 回合面试官、6 段评分（其中 3 次采样坏、6 次靠修补）、6 份示范、汇总、报告总分 50，失败清单无新增。示范 agent 这场没有主动查技能包（steps 1 / toolCalls 0），工具执行路径由 run-agent 单测用真 SDK mock 覆盖；线上首次真调工具在 G2。顺手修一处：模型调用在某一步抛错时循环没有返回值，失败记录会丢事件——事件改在 onEvent 里收，失败与修补路径也带 steps / toolCalls。
+- 另一条路评估过：AI SDK v7 已内置 `needsApproval` / `ToolApprovalRequest` 与 `stopWhen`。没用它，因为预算超了要"给一步结论"而不是停、要按档位记审计、要从事件续跑——这些都要循环在自己手里；SDK 只负责一次调用。
 
 ### G2 面试后评分改成带工具的 agent
 现在评分是"一段原文 + 评分表"一次调用两次采样。改成跑在 G1 上、有三个只读工具的 agent：`lookup_resume`（查简历原句核对候选人说的数字）、`load_skill`（查技能包的期望信号与危险信号）、`recall_sessions`（查这个候选人上几场同一材料的表现）。

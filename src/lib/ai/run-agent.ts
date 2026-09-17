@@ -3,6 +3,7 @@ import { APICallError, RetryError, asSchema, generateText, NoObjectGeneratedErro
 import { randomUUID } from "node:crypto";
 
 import type { AiTaskConfig } from "./config";
+import { runLoop, stepsOf, toolCallsOf, type Budget, type LoopEvent, type LoopHooks, type LoopResume, type LoopToolSet, type ToolCall } from "./agent-loop";
 import { coerceToJsonSchema } from "./coerce";
 import { createTextModel, lowReasoningOptions } from "./providers";
 import { findStrictSchemaViolation } from "./strict-schema";
@@ -44,6 +45,8 @@ export type AgentRunErrorKind =
   /** 连不上服务商（连接被拒、DNS 失败、代理没开）：每一次调用都会失败，同样要报给用户。 */
   | "network"
   | "invalid_structured_output"
+  /** confirm 档的工具调用没有批准：循环挂起，events / pending 在错误上，批准后用 resume 续跑。 */
+  | "interrupted"
   | "provider_error";
 
 export type AgentRunStatus = "success" | "partial" | "failed";
@@ -55,8 +58,11 @@ export type AgentRunStatus = "success" | "partial" | "failed";
 export type AgentLogRecord = {
   runId: string;
   agent: string;
-  /** repair：结构化输出不合 schema 后带校验错误让模型改一次（§12.3）。 */
-  event: "model_call" | "selection" | "repair";
+  /**
+   * model_call 一次 agent 调用的汇总（多步时 metrics 里有 steps / toolCalls）；selection 领域裁决；repair 结构化输出修补（§12.3）；
+   * 循环事件（G1）：step 每一步的模型调用、tool_result 每次工具调用（含档位与结果）、budget_exceeded / interrupted / resumed。
+   */
+  event: "model_call" | "selection" | "repair" | "step" | "tool_result" | "budget_exceeded" | "interrupted" | "resumed";
   status: AgentRunStatus;
   provider: string;
   model: string;
@@ -125,6 +131,10 @@ export class AgentRunError extends Error {
   readonly finishReason?: string;
   readonly usage?: LanguageModelUsage;
   readonly rawText?: string;
+  /** 循环到此为止的事件（挂起时续跑要喂回去；失败时供排查）。 */
+  readonly events: LoopEvent[];
+  /** 挂起等确认的那次工具调用。 */
+  readonly pending?: ToolCall;
 
   constructor(input: {
     kind: AgentRunErrorKind;
@@ -136,6 +146,8 @@ export class AgentRunError extends Error {
     usage?: LanguageModelUsage;
     rawText?: string;
     cause?: unknown;
+    events?: LoopEvent[];
+    pending?: ToolCall;
   }) {
     super(input.message, { cause: input.cause });
     this.name = "AgentRunError";
@@ -146,6 +158,8 @@ export class AgentRunError extends Error {
     this.finishReason = input.finishReason;
     this.usage = input.usage;
     this.rawText = input.rawText;
+    this.events = input.events ?? [];
+    this.pending = input.pending;
   }
 }
 
@@ -184,14 +198,19 @@ export function isAgentTimeout(error: unknown): boolean {
 
 export type AgentRunResult<T> = {
   output: T;
-  /** 结构化输出失败后由 rescue 抢救出的结果 */
+  /** 结构化输出失败后由收敛 / 修补 / rescue 得到的结果 */
   partial: boolean;
   runId: string;
   provider: string;
   model: string;
   durationMs: number;
   finishReason?: string;
+  /** 各步用量之和。 */
   usage?: LanguageModelUsage;
+  /** 循环走了几步、调了哪些工具、全部事件（trace 与评测用）。 */
+  steps: number;
+  toolCalls: ToolCall[];
+  events: LoopEvent[];
 };
 
 export type AgentRunOptions<T> = {
@@ -219,8 +238,13 @@ export type AgentRunOptions<T> = {
   maxOutputTokens?: number;
   /** 透传给服务商的选项（如 OpenAI 的 reasoningEffort）；服务商不认的键被忽略。 */
   providerOptions?: Parameters<typeof generateText>[0]["providerOptions"];
-  tools?: ToolSet;
-  stopWhen?: StopCondition<ToolSet>;
+  /** 工具（每个带档位 read / write / confirm）；由循环执行，不交给 SDK。 */
+  tools?: LoopToolSet;
+  /** 预算：调工具的步数（有工具时缺省 3）、token、时长；超了不抛错，给模型一步直接结论。 */
+  budget?: Partial<Budget>;
+  hooks?: LoopHooks;
+  /** 续跑：上次挂起 / 中断时的事件，与对挂起调用的决定。 */
+  resume?: LoopResume;
   /** 复用已创建的模型实例，避免同一次生成里重复构造 */
   model?: LanguageModel;
   /** 结构化输出失败时，从原始文本里抢救可用结果 */
@@ -358,6 +382,49 @@ function providerOptionsFor(config: AiTaskConfig, given: ProviderOptions | undef
 }
 
 const REPAIR_RAW_CHARS = 6_000;
+/** 有工具的 agent 缺省最多调 3 步工具，之后一步直接结论。 */
+const DEFAULT_TOOL_STEPS = 3;
+
+function loopMetrics(events: LoopEvent[]): Record<string, number> {
+  return { steps: stepsOf(events), toolCalls: toolCallsOf(events).length };
+}
+
+function sumUsage(events: LoopEvent[]): LanguageModelUsage | undefined {
+  const usages = events.flatMap((event) => (event.type === "step_finished" && event.usage ? [event.usage] : []));
+  const add = (a: number | undefined, b: number | undefined) => (a === undefined && b === undefined ? undefined : (a ?? 0) + (b ?? 0));
+  return usages.length <= 1
+    ? usages[0]
+    : usages.reduce((total, usage) => ({
+        ...total,
+        inputTokens: add(total.inputTokens, usage.inputTokens),
+        outputTokens: add(total.outputTokens, usage.outputTokens),
+        totalTokens: add(total.totalTokens, usage.totalTokens),
+        inputTokenDetails: { ...total.inputTokenDetails, cacheReadTokens: add(total.inputTokenDetails.cacheReadTokens, usage.inputTokenDetails.cacheReadTokens) },
+      }));
+}
+
+/** 循环事件进同一张记账表（step / tool_result / budget_exceeded / interrupted / resumed；step_started 与 tool_called 只在内存事件里）。 */
+function logLoopEvent(logBase: Omit<AgentLogRecord, "status" | "durationMs">, event: LoopEvent): void {
+  switch (event.type) {
+    case "step_finished":
+      logAgentRun({ ...logBase, event: "step", status: "success", durationMs: event.durationMs, finishReason: event.finishReason, usage: event.usage, metrics: { step: event.step, toolCalls: event.toolCalls.length }, rawText: event.text.slice(0, 2_000) });
+      return;
+    case "tool_result":
+      logAgentRun({ ...logBase, event: "tool_result", status: event.ok ? "success" : "failed", durationMs: event.durationMs, metrics: { step: event.step }, payload: { tool: event.call.toolName, access: event.access, input: event.call.input }, output: event.output });
+      return;
+    case "budget_exceeded":
+      logAgentRun({ ...logBase, event: "budget_exceeded", status: "partial", durationMs: 0, metrics: { step: event.step, used: event.used, max: event.max }, rawText: event.limit });
+      return;
+    case "interrupted":
+      logAgentRun({ ...logBase, event: "interrupted", status: "partial", durationMs: 0, metrics: { step: event.step }, payload: { tool: event.call.toolName, input: event.call.input } });
+      return;
+    case "resumed":
+      logAgentRun({ ...logBase, event: "resumed", status: event.approved ? "success" : "failed", durationMs: 0, metrics: { step: event.step, approved: event.approved ? 1 : 0 }, payload: { tool: event.call.toolName, input: event.call.input } });
+      return;
+    default:
+      return;
+  }
+}
 
 function parseLooseJson(rawText: string | undefined): unknown {
   if (!rawText) return undefined;
@@ -571,29 +638,63 @@ export async function runAgent<T>(
   let rawText: string | undefined;
   let finishReason: string | undefined;
   let usage: LanguageModelUsage | undefined;
+  // 事件在 onEvent 里就收下来：模型调用在某一步抛错时循环没有返回值，失败记录仍要有走到哪一步。
+  const events: LoopEvent[] = [];
+  const tools = options.tools ?? {};
+  const hasTools = Object.keys(tools).length > 0;
+  // 工具交给模型只有描述与入参 schema；执行归循环（档位、hook、审计都在那里）。
+  const declaredTools = Object.fromEntries(Object.entries(tools).map(([name, loopTool]) => [name, { description: loopTool.description, inputSchema: loopTool.inputSchema }]));
+  const model = options.model ?? createTextModel(config);
+  const system = buildSystemPrompt(options.system, options.untrustedInputs) + schemaInstruction(config, options.schema);
+  // 最后一步的结构化结果：SDK 在读 output 时才校验并抛错，所以只存取法。
+  let readOutput: (() => T) | null = null;
 
   try {
-    const result = await generateText({
-      model: options.model ?? createTextModel(config),
-      output: Output.object({
-        schema: options.schema,
-        ...(options.schemaName ? { name: options.schemaName } : {}),
-        ...(options.schemaDescription
-          ? { description: options.schemaDescription }
-          : {}),
-      }),
-      ...(options.tools ? { tools: options.tools } : {}),
-      ...(options.stopWhen ? { stopWhen: options.stopWhen } : {}),
-      ...outputBudget(options.maxOutputTokens),
-      providerOptions: providerOptionsFor(config, options.providerOptions),
-      abortSignal: AbortSignal.timeout(options.timeoutMs),
-      system: buildSystemPrompt(options.system, options.untrustedInputs) + schemaInstruction(config, options.schema),
+    const loop = await runLoop({
       prompt: JSON.stringify(options.payload),
+      tools,
+      budget: { maxSteps: hasTools ? DEFAULT_TOOL_STEPS : 1, ...options.budget },
+      hooks: {
+        ...options.hooks,
+        onEvent: (event) => {
+          events.push(event);
+          // 没有工具的 agent 只有一步，model_call 汇总就是它；有工具才逐步记账。
+          if (hasTools) logLoopEvent(logBase, event);
+          options.hooks?.onEvent?.(event);
+        },
+      },
+      resume: options.resume,
+      callStep: async (messages, toolChoice) => {
+        const result = await generateText({
+          model,
+          output: Output.object({
+            schema: options.schema,
+            ...(options.schemaName ? { name: options.schemaName } : {}),
+            ...(options.schemaDescription ? { description: options.schemaDescription } : {}),
+          }),
+          ...(hasTools ? { tools: declaredTools, toolChoice } : {}),
+          ...outputBudget(options.maxOutputTokens),
+          providerOptions: providerOptionsFor(config, options.providerOptions),
+          abortSignal: AbortSignal.timeout(options.timeoutMs),
+          system,
+          messages,
+        });
+        readOutput = () => result.output;
+        return {
+          text: result.text,
+          toolCalls: (result.toolCalls ?? []).map((call) => ({ toolCallId: call.toolCallId, toolName: call.toolName, input: call.input as unknown })),
+          finishReason: result.finishReason,
+          usage: result.usage,
+        };
+      },
     });
-    rawText = result.text;
-    finishReason = result.finishReason;
-    usage = result.usage;
-    const output = result.output;
+    if (loop.status === "interrupted") {
+      throw new AgentRunError({ kind: "interrupted", agent: options.agent, runId, message: `工具 ${loop.pending.toolName} 需要确认后才能继续。`, durationMs: Date.now() - startedAt, events: loop.events, pending: loop.pending });
+    }
+    rawText = loop.final.text;
+    finishReason = loop.final.finishReason;
+    usage = sumUsage(loop.events);
+    const output = readOutput!();
 
     const durationMs = Date.now() - startedAt;
     logAgentRun({
@@ -602,6 +703,7 @@ export async function runAgent<T>(
       durationMs,
       finishReason,
       usage,
+      metrics: loopMetrics(events),
       payload: options.payload,
       output,
       rawText,
@@ -615,9 +717,16 @@ export async function runAgent<T>(
       durationMs,
       finishReason,
       usage,
+      steps: loop.steps,
+      toolCalls: loop.toolCalls,
+      events,
     };
   } catch (error) {
     const durationMs = Date.now() - startedAt;
+    if (isAgentRunError(error) && error.kind === "interrupted") {
+      logAgentRun({ ...logBase, status: "partial", durationMs, errorKind: "interrupted", metrics: loopMetrics(events), payload: options.payload });
+      throw error;
+    }
     const noObject = NoObjectGeneratedError.isInstance(error) ? error : null;
     finishReason = noObject?.finishReason ?? finishReason;
     usage = noObject?.usage ?? usage;
@@ -633,6 +742,7 @@ export async function runAgent<T>(
         durationMs,
         finishReason,
         usage,
+        metrics: loopMetrics(events),
         payload: options.payload,
         output: rescued,
         rawText,
@@ -646,6 +756,9 @@ export async function runAgent<T>(
         durationMs,
         finishReason,
         usage,
+        steps: stepsOf(events),
+        toolCalls: toolCallsOf(events),
+        events,
       };
     }
 
@@ -670,6 +783,7 @@ export async function runAgent<T>(
       usage,
       rawText,
       cause: error,
+      events,
     });
   }
 }

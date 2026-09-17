@@ -1,6 +1,5 @@
 import "server-only";
 
-import { isStepCount } from "ai";
 import { z } from "zod";
 
 import { logAgentRun, runAgent } from "@/lib/ai/run-agent";
@@ -17,7 +16,8 @@ import { createSkillTools, renderSkillIndex } from "./skills/tools";
  */
 
 export const EXEMPLAR_PROMPT_VERSION = "exemplar-v1";
-const EXEMPLAR_MAX_STEPS = 3;
+/** 最多查 2 次技能包，之后一步直接写示范。 */
+const EXEMPLAR_MAX_STEPS = 2;
 
 const exemplarSchema = z.object({
   exemplar: z.string().min(1).max(1_200),
@@ -46,7 +46,7 @@ export async function generateAnswerExemplar(input: {
     maxOutputTokens: 1_600,
     timeoutMs: 45_000,
     tools: skills.tools,
-    stopWhen: isStepCount(EXEMPLAR_MAX_STEPS),
+    budget: { maxSteps: EXEMPLAR_MAX_STEPS },
     untrustedInputs: "题目、候选人的回答、简历和短板列表",
     system: `你是模拟面试的示范回答 Agent。候选人刚答完一段带追问的题，评分里列出了短板。请用候选人自己的项目，示范这一段可以怎么答，让候选人看到"用我的经历也能答到这一层"。
 

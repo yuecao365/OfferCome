@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { NoObjectGeneratedError } from "ai";
+import { tool } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 import { z } from "zod";
 
+import type { LoopToolSet } from "./agent-loop";
 import type { AiTaskConfig } from "./config";
 import {
   AgentRunError,
@@ -282,6 +284,78 @@ test("输出契约（§12.3）：类型写偏先按 schema 收敛，不再调模
     const hopeless = sequenceModel([JSON.stringify({ reply: "错" }), JSON.stringify({ reply: "还是错" })]);
     await assert.rejects(run(hopeless.model), (error: unknown) => error instanceof AgentRunError && error.kind === "invalid_structured_output");
     assert.equal(hopeless.prompts.length, 2, "只重试一次");
+  } finally {
+    logs.restore();
+  }
+});
+
+const step = (content: ({ type: "text"; text: string } | { type: "tool-call"; toolCallId: string; toolName: string; input: string })[]) => ({
+  content,
+  finishReason: { unified: (content.some((part) => part.type === "tool-call") ? "tool-calls" : "stop") as "tool-calls" | "stop", raw: "x" },
+  usage: { inputTokens: { total: 10, noCache: 10, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: 5, text: 5, reasoning: 0 } },
+  warnings: [],
+});
+
+/** 按步返回预设内容，并记下每步的 toolChoice 与消息条数。 */
+function loopModel(steps: ReturnType<typeof step>[]) {
+  const calls: { toolChoice: unknown; prompt: unknown }[] = [];
+  const model = new MockLanguageModelV4({
+    doGenerate: async ({ prompt, toolChoice }) => {
+      calls.push({ toolChoice, prompt });
+      return steps[Math.min(calls.length - 1, steps.length - 1)];
+    },
+  });
+  return { model, calls };
+}
+
+test("runAgent 跑在循环上（G1）：工具由循环执行、结果回给模型、最后一步出结构化结果；记账有 step / tool_result 行与 steps 指标", async () => {
+  const logs = captureLogs();
+  try {
+    const seen: string[] = [];
+    const lookup: LoopToolSet = { lookup: { access: "read", ...tool({ description: "查", inputSchema: z.object({ q: z.string() }), execute: async ({ q }) => { seen.push(q); return `found ${q}`; } }) } };
+    const { model, calls } = loopModel([
+      step([{ type: "tool-call", toolCallId: "t1", toolName: "lookup", input: JSON.stringify({ q: "resume" }) }]),
+      step([{ type: "text", text: JSON.stringify({ answer: "with tool" }) }]),
+    ]);
+    const result = await run(model, { tools: lookup });
+    assert.deepEqual(result.output, { answer: "with tool" });
+    assert.equal(result.steps, 2);
+    assert.deepEqual(seen, ["resume"]);
+    assert.deepEqual(result.toolCalls, [{ toolCallId: "t1", toolName: "lookup", input: { q: "resume" } }]);
+    assert.equal(calls.length, 2);
+    assert.deepEqual(logs.records.map((record) => [record.event, record.status]), [["step", "success"], ["tool_result", "success"], ["step", "success"], ["model_call", "success"]]);
+    assert.deepEqual(logs.records.at(-1)?.metrics, { steps: 2, toolCalls: 1 });
+  } finally {
+    logs.restore();
+  }
+});
+
+test("runAgent 的预算与挂起：步数到了写 budget_exceeded 再要一步结论；confirm 档没批准抛 interrupted（带事件），喂回事件与决定续跑", async () => {
+  const logs = captureLogs();
+  try {
+    const lookupCall = step([{ type: "tool-call", toolCallId: "t1", toolName: "lookup", input: JSON.stringify({ q: "a" }) }]);
+    const tools: LoopToolSet = {
+      lookup: { access: "read", ...tool({ description: "查", inputSchema: z.object({ q: z.string() }), execute: async ({ q }) => q }) },
+      publish: { access: "confirm", ...tool({ description: "发", inputSchema: z.object({ to: z.string() }), execute: async ({ to }) => `sent ${to}` }) },
+    };
+    const budgeted = loopModel([lookupCall, step([{ type: "text", text: JSON.stringify({ answer: "concluded" }) }])]);
+    const result = await run(budgeted.model, { tools, budget: { maxSteps: 1 } });
+    assert.deepEqual(result.output, { answer: "concluded" });
+    assert.equal(result.steps, 2);
+    assert.equal(budgeted.calls[1].toolChoice && (budgeted.calls[1].toolChoice as { type: string }).type, "none");
+    assert.equal(logs.records.some((record) => record.event === "budget_exceeded"), true);
+
+    const paused = loopModel([step([{ type: "tool-call", toolCallId: "p1", toolName: "publish", input: JSON.stringify({ to: "user" }) }])]);
+    const error = await run(paused.model, { tools }).catch((thrown: unknown) => thrown);
+    assert.ok(error instanceof AgentRunError && error.kind === "interrupted");
+    assert.deepEqual(error.pending, { toolCallId: "p1", toolName: "publish", input: { to: "user" } });
+    assert.equal(error.events.at(-1)?.type, "interrupted");
+
+    const resumed = loopModel([step([{ type: "text", text: JSON.stringify({ answer: "after publish" }) }])]);
+    const done = await run(resumed.model, { tools, resume: { events: error.events, decision: { toolCallId: "p1", approved: true } } });
+    assert.deepEqual(done.output, { answer: "after publish" });
+    assert.equal(done.events.some((event) => event.type === "tool_result" && event.ok && event.output === "sent user"), true);
+    assert.equal(resumed.calls.length, 1, "续跑不重跑挂起前的那一步");
   } finally {
     logs.restore();
   }
