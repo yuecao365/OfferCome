@@ -79,7 +79,7 @@
    - `load_skill({ name })`：现有 `createSkillTools`，已是 read 档。
    - `recall_sessions({ keyword })`：从会话快照里的记忆（`memoryOf(contextSnapshotJson)`，备课时已 recall，不再查库）按关键词取上几场的说法验证与短板；没有记忆时工具不给。
 2. **什么时候用**（写进提示词，代码不替它选）：项目段先用 `lookup_resume` 核对回答里的数字与事实（最多 2 次）；基础 / 场景段可用 `load_skill` 查该主题的期望与危险信号（最多 1 次）；`recall_sessions` 查同一材料上几场的短板（最多 1 次），上几场也漏了同一机制的，feedback 里点出"反复出现"。
-3. **输出多一项** `resumeChecks[≤3]: { claim, resumeSays, consistent }`：回答里的哪句话、简历原文怎么写、是否一致。代码校验 `resumeSays` 必须是简历的子串（同 quote 的规则），否则整条丢弃并计 `resumeQuoteMissing`。不一致的记进 weaknesses（kind 仍是 error / missing 二选一：与简历矛盾算 error，quote 是回答那句）。报告页在段下面列"简历核对"。提示词版本 evaluation-v5。
+3. **输出多一项** `resumeChecks[≤3]: { claim, resumeSays, consistent }`：回答里的哪句话、简历原文怎么写、是否一致。代码校验 `resumeSays` 必须是简历的子串（同 quote 的规则），否则整条丢弃并计 `resumeQuoteMissing`。不一致的记进 weaknesses（kind 仍是 error / missing 二选一：与简历矛盾算 error，quote 是回答那句）。报告页在段下面列"简历核对"。提示词版本 evaluation-v6。
 4. **双采样改为"一带工具、一不带"**：带工具的作数，不带的只作对照；`lowConfidence` 语义不变（两份分差 > 15）。新指标 `toolShift = |带 − 不带|`：工具到底改了多少分。这样费用只多一份工具步，不是两份。
 5. **hook 首次真用**：`beforeTool` 拒绝同一工具同样入参的重复调用（"无效调用"，拒绝原因回给模型）；`onEvent` 不加，记账已在 G1。
 6. **轨迹级评测**（`eval/metrics.ts` 从 AgentRun 行算，模拟器指标表加 5 行）：评分平均步数、每段工具调用数、无效调用率（未知工具 / 执行失败 / 被 hook 拒绝）、预算触顶率、简历核对不一致数。模拟器加扰动 `inflate`：提示词让候选人把简历上的数字说大一倍——评分应靠 `lookup_resume` 抓到不一致；这是工具"真有用"的直接证据。

@@ -547,6 +547,8 @@ model AgentRun {
   payloadJson   String?
   outputJson    String?
   rawText       String?
+  /// 发给模型的完整系统提示词（基座 + agent 指令 + schema 指令）：只在 model_call 汇总行上，trace 按步查看用。
+  systemText    String?
   /// 评测跑出来的记录打标签，与真实使用分开；真实使用为 null。
   tag           String?
   createdAt     DateTime @default(now())

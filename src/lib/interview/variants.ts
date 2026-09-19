@@ -12,11 +12,11 @@ export type PolicyVariant = {
 };
 
 export const POLICY_VARIANTS: Record<string, PolicyVariant> = {
-  v2: { id: "v2", label: "现状", promptVersion: "policy-v2", extraRules: [] },
+  v2: { id: "v2", label: "现状", promptVersion: "policy-v3", extraRules: [] },
   "v2-terse": {
     id: "v2-terse",
     label: "短问句",
-    promptVersion: "policy-v2-terse",
+    promptVersion: "policy-v3-terse",
     extraRules: ["问句不超过 60 字：先一句承接，再一个问号；要点多的留到下一轮，不并列。"],
   },
 };

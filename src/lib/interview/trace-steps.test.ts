@@ -5,7 +5,7 @@ import { agentChainsOf, traceStepOf, turnBoundary, type AgentRunRow } from "./tr
 
 /** trace 按步查看（G6）：AgentRun 行 → 步（输入片段、输出片段、工具）；按 runId 归链；从事件日志找某回合的边界。 */
 
-const row = (overrides: Partial<AgentRunRow>): AgentRunRow => ({ runId: "r", agent: "question_evaluation", event: "model_call", status: "success", durationMs: 100, totalTokens: 10, cachedTokens: 0, errorKind: null, metricsJson: null, payloadJson: null, outputJson: null, rawText: null, createdAt: new Date("2026-09-16T00:00:00Z"), ...overrides });
+const row = (overrides: Partial<AgentRunRow>): AgentRunRow => ({ runId: "r", agent: "question_evaluation", event: "model_call", status: "success", durationMs: 100, totalTokens: 10, cachedTokens: 0, errorKind: null, metricsJson: null, payloadJson: null, outputJson: null, rawText: null, systemText: null, createdAt: new Date("2026-09-16T00:00:00Z"), ...overrides });
 
 test("步：模型调用取消息列表的最后一条当输入片段、原始文本当输出；工具行带工具名 / 档位 / 入参 / 成败；长文本截断", () => {
   const call = traceStepOf(row({ payloadJson: JSON.stringify([{ role: "user", content: "候选人的话" }, { role: "user", content: "[现场卡]\n进度" }]), rawText: `{"say":"${"问".repeat(700)}"}` }));

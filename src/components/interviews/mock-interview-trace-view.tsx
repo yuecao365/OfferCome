@@ -53,6 +53,12 @@ function Steps({ steps }: { steps: TraceStep[] }) {
           ) : null}
           {step.input ? <p className="mt-1 whitespace-pre-wrap text-muted-foreground">输入：{step.input}</p> : null}
           {!step.tool && step.output ? <p className="mt-1 whitespace-pre-wrap">输出：{step.output}</p> : null}
+          {step.system ? (
+            <details className="mt-1">
+              <summary className="cursor-pointer text-muted-foreground">系统提示词（{step.system.length} 字）</summary>
+              <pre className="mt-1 whitespace-pre-wrap font-sans">{step.system}</pre>
+            </details>
+          ) : null}
         </li>
       ))}
     </ol>

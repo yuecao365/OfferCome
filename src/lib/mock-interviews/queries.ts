@@ -204,7 +204,7 @@ export async function getMockInterviewTrace(id: string): Promise<MockInterviewTr
       ],
     },
     orderBy: { createdAt: "asc" },
-    select: { runId: true, agent: true, event: true, status: true, durationMs: true, totalTokens: true, cachedTokens: true, errorKind: true, metricsJson: true, payloadJson: true, outputJson: true, rawText: true, createdAt: true },
+    select: { runId: true, agent: true, event: true, status: true, durationMs: true, totalTokens: true, cachedTokens: true, errorKind: true, metricsJson: true, payloadJson: true, outputJson: true, rawText: true, systemText: true, createdAt: true },
   });
   const chains = agentChainsOf(rows);
   const runById = new Map<string, TraceRun>();

@@ -78,6 +78,8 @@ export type AgentLogRecord = {
   payload?: unknown;
   output?: unknown;
   rawText?: string;
+  /** 发给模型的完整系统提示词：只进持久化落点（trace 页按步查看）。 */
+  system?: string;
 };
 
 export type AgentRunSink = (record: AgentLogRecord) => Promise<void> | void;
@@ -102,6 +104,7 @@ export function logAgentRun(record: AgentLogRecord): void {
       payload: undefined,
       output: undefined,
       rawText: undefined,
+      system: undefined,
       usage: record.usage
         ? {
             inputTokens: record.usage.inputTokens,
@@ -430,6 +433,7 @@ function logLoopEvent(logBase: Omit<AgentLogRecord, "status" | "durationMs">, ev
   }
 }
 
+/** 第一个 { 到最后一个 }；不成就取第一个配平的对象（DeepSeek 偶尔在 JSON 后面再吐一个对象或工具调用文本）。 */
 function parseLooseJson(rawText: string | undefined): unknown {
   if (!rawText) return undefined;
   const start = rawText.indexOf("{");
@@ -438,6 +442,25 @@ function parseLooseJson(rawText: string | undefined): unknown {
   try {
     return JSON.parse(rawText.slice(start, end + 1)) as unknown;
   } catch {
+    let depth = 0;
+    let inString = false;
+    for (let index = start; index < rawText.length; index += 1) {
+      const char = rawText[index];
+      if (inString) {
+        if (char === "\\") index += 1;
+        else if (char === '"') inString = false;
+        continue;
+      }
+      if (char === '"') inString = true;
+      else if (char === "{") depth += 1;
+      else if (char === "}" && --depth === 0) {
+        try {
+          return JSON.parse(rawText.slice(start, index + 1)) as unknown;
+        } catch {
+          return undefined;
+        }
+      }
+    }
     return undefined;
   }
 }
@@ -529,6 +552,7 @@ export function streamAgent(options: AgentStreamOptions): {
   };
 
   const hasTools = Object.keys(options.tools).length > 0;
+  const system = buildSystemPrompt(options.system, options.untrustedInputs) + (options.schema ? schemaInstruction(config, options.schema, hasTools) : "");
   const stream = streamText({
     model: options.model ?? createTextModel(config),
     tools: instrumentTools(options.tools, { hooks: options.hooks, emit: (event) => logLoopEvent(logBase, event) }),
@@ -539,7 +563,7 @@ export function streamAgent(options: AgentStreamOptions): {
     ...outputBudget(options.maxOutputTokens),
     providerOptions: providerOptionsFor(config, options.providerOptions),
     abortSignal: AbortSignal.timeout(options.timeoutMs),
-    system: buildSystemPrompt(options.system, options.untrustedInputs) + (options.schema ? schemaInstruction(config, options.schema, hasTools) : ""),
+    system,
     messages: options.messages,
     onChunk: ({ chunk }) => {
       if (chunk.type === "text-delta") textParts.push(chunk.text);
@@ -564,6 +588,7 @@ export function streamAgent(options: AgentStreamOptions): {
         finishReason: event.finishReason,
         usage,
         payload: options.messages,
+        system,
         output: { text: textParts.join(""), toolCalls },
       });
       settle({ usage, finishReason: event.finishReason, error: null });
@@ -577,6 +602,7 @@ export function streamAgent(options: AgentStreamOptions): {
         durationMs,
         errorKind: kind,
         payload: options.messages,
+        system,
         output: { text: textParts.join(""), toolCalls },
         // 失败原因落库：额度、鉴权、网络这类问题事后要能查到是哪一种。
         rawText: `${error instanceof Error ? error.name : typeof error}: ${providerMessage(error) || String(error)}`.slice(0, 2_000),
@@ -712,6 +738,7 @@ export async function runAgent<T>(
       payload: options.payload,
       output,
       rawText,
+      system,
     });
     return {
       output,
@@ -751,6 +778,7 @@ export async function runAgent<T>(
         payload: options.payload,
         output: rescued,
         rawText,
+        system,
       });
       return {
         output: rescued,
@@ -777,6 +805,7 @@ export async function runAgent<T>(
       errorKind: kind,
       payload: options.payload,
       rawText,
+      system,
     });
     throw new AgentRunError({
       kind,

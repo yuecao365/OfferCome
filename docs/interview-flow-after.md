@@ -50,7 +50,7 @@ flowchart TD
 4. 评分落库后，有短板的段接着跑示范回答（§2.5），示范失败不影响评分
 5. 失败：置 failed 并记录错误，交卷时补跑
 
-### 2.2 评分 agent（`question-evaluation-agent.ts`，evaluation-v5：跑在 G1 循环上，带三个只读工具）
+### 2.2 评分 agent（`question-evaluation-agent.ts`，evaluation-v6：跑在 G1 循环上，带三个只读工具）
 
 输入：`{ jobTitle, jobDescription≤12000, question, answer≤20000, rubric, expectedSignals, thread: { kind, depth, probeCount, facets }, round, competencies, resumeText, skillPacks, memory }`。后三项给工具：`lookup_resume`（按关键词查简历原文，逐字返回）、`load_skill`（技能包全文，索引在提示词里）、`recall_sessions`（按关键词查会话快照里的候选人档案；没有档案不给）。用法写进提示词、代码不替它选：项目段先核对回答里的数字与事实（最多 2 次），基础 / 场景段拿不准时查技能包（最多 1 次），上几场也漏了同一机制的在 feedback 里点出"反复出现"。预算 3 步工具 + 1 步结论；`beforeTool` 拒绝同一工具同样入参的重复调用。thread 来自切段 metadata（kind 是这个话题的种类：基础题通常一两轮、一两句回答是正常的，评分按问到的那一层答得准不准给）；metadata 不全时传 `thread: null`。
 

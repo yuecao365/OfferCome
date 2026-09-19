@@ -56,7 +56,7 @@ test("系统提示词：没有工具说明与记忆段；简历超过节选上�
   const pack = { name: "ai-llm", description: "大模型应用：RAG、Agent、评测", keywords: [], layer: "domain", body: "全文" } as unknown as SkillPack;
   const withPacks = buildSystem(brief, { ...context, skillPacks: [pack] });
   assert.match(withPacks, /技能包索引/);
-  assert.match(withPacks, /ai-llm（domain）：大模型应用/);
+  assert.match(withPacks, /- ai-llm：大模型应用：RAG、Agent、评测/);
   assert.deepEqual(Object.keys(buildTools({ ...context, skillPacks: [pack] })), ["load_skill"]);
   assert.deepEqual(Object.keys(buildTools(context)), []);
   assert.equal(buildTools({ ...context, skillPacks: [pack] }).load_skill.access, "read");

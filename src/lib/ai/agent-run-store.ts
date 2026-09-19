@@ -71,6 +71,7 @@ async function writeAgentRun(record: AgentLogRecord): Promise<void> {
       payloadJson: toJson(record.payload),
       outputJson: toJson(record.output),
       rawText: record.rawText ?? null,
+      systemText: record.system ?? null,
     },
   });
 }

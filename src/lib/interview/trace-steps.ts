@@ -16,6 +16,7 @@ export type AgentRunRow = {
   payloadJson: string | null;
   outputJson: string | null;
   rawText: string | null;
+  systemText: string | null;
   createdAt: Date;
 };
 
@@ -32,6 +33,8 @@ export type TraceStep = {
   output: string | null;
   tool: { name: string; access: string; input: string; ok: boolean } | null;
   metrics: Record<string, number> | null;
+  /** 发给模型的完整系统提示词（只有 model_call 汇总行有）。 */
+  system: string | null;
 };
 
 export type TraceAgentChain = {
@@ -89,13 +92,14 @@ export function traceStepOf(row: AgentRunRow): TraceStep {
   const base = { event: row.event, status: row.status, durationMs: row.durationMs, totalTokens: row.totalTokens, cachedTokens: row.cachedTokens, errorKind: row.errorKind, metrics };
   if (row.event === "tool_result" || row.event === "interrupted" || row.event === "resumed") {
     const call = (payload ?? {}) as { tool?: string; access?: string; input?: unknown };
-    return { ...base, input: null, output: excerpt(parse(row.outputJson), OUTPUT_CHARS), tool: { name: call.tool ?? "?", access: call.access ?? "read", input: excerpt(call.input, 200) ?? "", ok: row.status === "success" } };
+    return { ...base, input: null, output: excerpt(parse(row.outputJson), OUTPUT_CHARS), tool: { name: call.tool ?? "?", access: call.access ?? "read", input: excerpt(call.input, 200) ?? "", ok: row.status === "success" }, system: null };
   }
   return {
     ...base,
     input: row.event === "model_call" ? inputExcerpt(payload) : null,
     output: excerpt(row.rawText ?? parse(row.outputJson), OUTPUT_CHARS),
     tool: null,
+    system: row.systemText,
   };
 }
 

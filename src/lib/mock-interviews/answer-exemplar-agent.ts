@@ -61,7 +61,7 @@ export async function generateAnswerExemplar(input: {
       question: input.question,
       answer: input.answer.slice(0, 8_000),
       weaknesses: input.weaknesses,
-      resume: input.resumeText.slice(0, 6_000),
+      resume: input.resumeText.slice(0, 4_000),
     },
   });
   const stripped = stripUnverifiedNumbers(output.exemplar, [input.resumeText, input.answer]);
