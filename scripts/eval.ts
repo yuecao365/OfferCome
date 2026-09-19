@@ -366,7 +366,6 @@ async function generateEvalBrief(jdId: string, resumeId: string, runLabel: strin
       resume: { id: `eval-${resumeId}`, name: `eval-${resumeId}.md`, text: loadResumeText(resumeId) },
       projects: [],
       recentWeaknesses: [],
-      recentTopics: [],
       recentQuestions: [],
     },
     // 深入节奏：看备课最多能规划出什么；真实面试按用户节奏裁剪，是另一回事。
@@ -439,7 +438,7 @@ async function commandCoverage(models: EvalModels): Promise<void> {
             rep,
             covered,
             areaCount: brief.areas.length,
-            baselineAreaCount: brief.areas.filter((area) => area.topic).length,
+            anchoredCount: brief.areas.filter((area) => area.anchor).length,
             skillPacks: brief.skillPacks,
             areas,
             text,

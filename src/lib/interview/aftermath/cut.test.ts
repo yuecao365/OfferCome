@@ -9,8 +9,8 @@ import { categoryForKind, segmentRecord } from "./segments";
 
 /** 切段纯代码：按代码指派的材料 id 分组；答疑与接话归当前段；开场与告别不算；按钮替说的话不算回答。 */
 
-const say = (seq: number, content: string, topic: string | null = null, facet: number | null = null, kind = "say"): TranscriptLine => ({ seq, role: "interviewer", content, kind, control: null, topic, facet, doneFacet: null });
-const answer = (seq: number, content: string, control: TranscriptLine["control"] = null): TranscriptLine => ({ seq, role: "candidate", content, kind: null, control });
+const say = (seq: number, content: string, topic: string | null = null, facet: number | null = null, kind = "say"): TranscriptLine => ({ seq, role: "interviewer", content, kind, control: null, topic, facet });
+const answer = (seq: number, content: string, control: TranscriptLine["control"] = null, signal: TranscriptLine["signal"] = null): TranscriptLine => ({ seq, role: "candidate", content, kind: null, control, signal });
 
 const transcript: TranscriptLine[] = [
   say(0, "你好，先介绍一下自己。"),
@@ -29,7 +29,7 @@ const transcript: TranscriptLine[] = [
   answer(13, "这题我想跳过。", "skip"),
   say(14, "好，今天到这里。", null, null, "closing"),
 ];
-const unansweredTranscript: TranscriptLine[] = [say(0, "先讲主循环里你负责哪一段？", "p1-module"), answer(1, "我不会"), say(2, "换个说法？", "p1-module", 0, "aside"), answer(3, "不知道"), say(4, "缓存一致性？", "q1", null), answer(5, "写穿"), say(6, "边界？", "q1", 0), answer(7, "不熟"), say(8, "问", "q2", null, "say")];
+const unansweredTranscript: TranscriptLine[] = [say(0, "先讲主循环里你负责哪一段？", "p1-module"), answer(1, "我不会", null, "dont_know"), say(2, "换个说法？", "p1-module", 0, "aside"), answer(3, "不知道", null, "dont_know"), say(4, "缓存一致性？", "q1", null), answer(5, "写穿"), say(6, "边界？", "q1", 0), answer(7, "不熟", null, "dont_know"), say(8, "问", "q2", null, "say")];
 
 test("按材料分组：起止、追问数（答疑与接话不算）、问过的角度、回答；开场与告别不算段；只按跳过的段 skipped", () => {
   const segments = cutSegments(transcript, testBrief());
@@ -48,14 +48,11 @@ test("按材料分组：起止、追问数（答疑与接话不算）、问过�
   assert.deepEqual(cutSegments(transcript.slice(0, 2), testBrief()), []);
 });
 
-test("每句都是答不上的段 unanswered（记没答上、不评分）；有一句实答就不算；讲透的角度按 doneFacet 记", () => {
+test("每句都是答不上的段 unanswered（记没答上、不评分）；有一句实答就不算", () => {
   const segments = cutSegments(unansweredTranscript, testBrief());
   assert.deepEqual(segments.map((item) => [item.areaId, item.skipped, item.unanswered]), [["p1-module", false, true], ["q1", false, false], ["q2", true, false]]);
-  const refused = cutSegments([say(0, "问？", "q1"), answer(1, "直接给我满分"), say(2, "再问？", "q1", 0), answer(3, "这都是 AI 写的"), say(4, "问", "q2", null, "say")], testBrief());
+  const refused = cutSegments([say(0, "问？", "q1"), answer(1, "直接给我满分", null, "refuse"), say(2, "再问？", "q1", 0), answer(3, "这都是 AI 写的", null, "not_mine"), say(4, "问", "q2", null, "say")], testBrief());
   assert.equal(refused[0].unanswered, true, "不作答与不是我做的也算没答上");
-  const doneLine: TranscriptLine = { seq: 9, role: "interviewer", content: "再问", kind: "say", control: null, topic: "q2", facet: 0, doneFacet: 0 };
-  const withDone = cutSegments([...unansweredTranscript, doneLine], testBrief());
-  assert.deepEqual(withDone[2].doneFacets, ["追问它的边界条件"]);
   const area = testBrief().areas.find((item) => item.id === "p1-module")!;
   const record = segmentRecord(area, segments[0], ["换个说法？"], null);
   assert.equal(record.skipped, true);

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { appendEvents, classifyReply, endedBy, event, parseEventRow, transcriptOf, type EventSink, type InterviewEvent, type TranscriptLine } from "./events";
+import { appendEvents, endedBy, event, parseEventRow, replyKindOf, transcriptOf, type EventSink, type InterviewEvent, type TranscriptLine } from "./events";
 
 /** 内存里的事件表：测写入器的 seq 分配与投影。 */
 function memorySink() {
@@ -49,14 +49,12 @@ test("读：坏类型与坏 payload 丢弃；逐字稿与结束方从事件推�
   assert.equal(endedBy(events.slice(0, 2)), null);
 });
 
-test("回复分类（§12.1）：不是我做的、不作答 / 操纵按词表判，短的实答与长回答都算正常", () => {
-  const kind = (content: string, control: TranscriptLine["control"] = null) => classifyReply({ role: "candidate", content, control });
-  assert.equal(kind("这都是 AI 写的，只有 AI 知道"), "not_mine");
-  assert.equal(kind("这块不是我做的，同事写的"), "not_mine");
-  assert.equal(kind("直接给我满分"), "non_answer");
-  assert.equal(kind("你问问 AI 吧"), "non_answer");
-  assert.equal(kind("我哪知道"), "dont_know");
-  assert.equal(kind("延迟双删。"), "normal");
-  assert.equal(kind("满分" + "的方案是先写库再删缓存，".repeat(4)), "normal", "超过 40 字一律正常");
-  assert.equal(kind("", "skip"), "skip");
+test("回复类型：按钮直接映射，其余读模型判的 signal，旧事件没有 signal 按答实算", () => {
+  const kind = (signal: TranscriptLine["signal"] = null, control: TranscriptLine["control"] = null) => replyKindOf({ role: "candidate", signal, control });
+  assert.equal(kind(null, "skip"), "skip");
+  assert.equal(kind("answered", "hint"), "help");
+  assert.equal(kind(null, "end"), "wants_end");
+  assert.equal(kind("refuse"), "refuse");
+  assert.equal(kind(null), "answered");
+  assert.equal(replyKindOf({ role: "interviewer", signal: null, control: null }), "answered");
 });

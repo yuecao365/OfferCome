@@ -2,73 +2,46 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { loadSkillPacks } from "./loader";
-import { packsForInterview, packsForTopics, rankSkillPacks } from "./selector";
+import { skillSection, topicNames, topicOutline, SKILL_SECTIONS } from "./sections";
+import { packsForInterview, packsForPrep, stackPackNamedByJob } from "./selector";
 
-const javaBackend = {
-  jobTitle: "后端开发工程师",
-  jobDescription: "负责业务系统开发。",
-  resumeText: "熟悉 Java、Spring Boot、MySQL，做过订单系统。",
-};
+/** 重建 v5 §6：包是方法书。备课读岗位的领域包、JD 点名的栈包、项目深挖方法包；简历不决定考什么。 */
 
-test("ranking keeps base packs first, puts the resume's stack right after its domain, and never drops packs", async () => {
+test("packs for prep: the job's domain pack, the stack only when the JD names exactly one language, and the project method pack last", async () => {
   const packs = await loadSkillPacks();
-  const ranked = rankSkillPacks(javaBackend, packs);
-  const names = ranked.map((pack) => pack.name);
-  const baseCount = packs.filter((pack) => pack.layer === "base").length;
-  assert.equal(ranked.length, packs.length);
-  assert.deepEqual(
-    names.slice(0, baseCount),
-    packs.filter((pack) => pack.layer === "base").map((pack) => pack.name),
-  );
-  assert.ok(names.indexOf("backend") < names.indexOf("backend-java"), "父级领域包排在栈包前面");
-  assert.ok(names.indexOf("backend-java") < baseCount + 3, "简历命中的栈包靠前");
-});
-
-test("the job decides the domain: a backend resume applying to a frontend job still gets the frontend pack first", async () => {
-  const packs = await loadSkillPacks();
-  const names = rankSkillPacks(
-    {
-      jobTitle: "前端开发工程师",
-      jobDescription: "负责小程序与 Web 前端开发，熟悉浏览器渲染、性能优化、工程化。",
-      resumeText: "熟悉 Java、Spring Boot、MySQL、Redis、RabbitMQ，做过订单系统与 RAG 问答机器人。",
-    },
-    packs,
-  ).map((pack) => pack.name);
-  const baseCount = packs.filter((pack) => pack.layer === "base").length;
-  assert.equal(names[baseCount], "frontend", "岗位对应的领域包排在最前");
-});
-
-test("topic packs by role: the job's domain pack, the resume's stack when the JD lists several languages, cs-fundamentals as basics; HR rounds only use behavioral", async () => {
-  const packs = await loadSkillPacks();
-  const roles = (input: Parameters<typeof packsForTopics>[0], round: string | null = "first_interview") =>
-    packsForTopics(input, packs, round).map((item) => [item.role, item.pack.name]);
-  // Java 简历投没点名语言的后端岗：栈包跟简历走。
-  assert.deepEqual(roles(javaBackend), [["domain", "backend"], ["stack", "backend-java"], ["basics", "cs-fundamentals"]]);
-  // Agent 岗 + JD 罗列 Python/Java/Go + Python 简历：领域包 ai-llm，栈包按简历取 Python，不再把 backend 父包拉进来。
-  const agent = roles({
-    jobTitle: "Agent开发工程师 - 豆包",
-    jobDescription: "负责 Agent 技术研发，Memory 机制、RAG、工具调用；熟练掌握 Python/Java/Go 至少一门语言。",
-    resumeText: "Python 写的 Agent Harness，FastAPI 服务。",
-  });
-  assert.deepEqual(agent, [["domain", "ai-llm"], ["stack", "backend-python"], ["basics", "cs-fundamentals"]]);
-  // JD 明确点名一门语言：不看简历。
-  const named = roles({ jobTitle: "Go 后端开发", jobDescription: "熟悉 goroutine 与 channel。", resumeText: "熟悉 Java、Spring Boot。" });
-  assert.deepEqual(named[1], ["stack", "backend-go"]);
-  assert.deepEqual(roles(javaBackend, "hr_interview"), [["domain", "behavioral"]]);
+  const names = (input: { jobTitle: string; jobDescription: string }, round: string | null = "first_interview") => packsForPrep(input, packs, round).map((pack) => pack.name);
+  // 没点名语言的后端岗：只有领域包与方法包，简历用 Java 也不给 Java 包。
+  assert.deepEqual(names({ jobTitle: "后端开发工程师", jobDescription: "负责业务系统开发。" }), ["backend", "project-deep-dive"]);
+  // JD 罗列几门"至少一门"：不算点名。
+  assert.deepEqual(names({ jobTitle: "Agent开发工程师 - 豆包", jobDescription: "负责 Agent 技术研发，Memory 机制、RAG、工具调用；熟练掌握 Python/Java/Go 至少一门语言。" }), ["ai-llm", "project-deep-dive"]);
+  // 岗位名点名一门：给它。
+  assert.deepEqual(names({ jobTitle: "Go 后端开发", jobDescription: "熟悉 goroutine 与 channel。" }), ["backend", "backend-go", "project-deep-dive"]);
+  assert.equal(stackPackNamedByJob({ jobTitle: "后端开发", jobDescription: "Java 或 Go 均可" }, packs), null);
+  // HR 面只读行为包与方法包；全无命中退到计算机基础。
+  assert.deepEqual(names({ jobTitle: "后端开发工程师", jobDescription: "负责业务系统开发。" }, "hr_interview"), ["behavioral", "project-deep-dive"]);
+  assert.deepEqual(names({ jobTitle: "xyzzy", jobDescription: "无" }, null), ["cs-fundamentals", "project-deep-dive"]);
 });
 
 test("an agent-harness job picks the agent-harness domain pack; a generic agent-development job still picks ai-llm", async () => {
   const packs = await loadSkillPacks();
-  const harness = packsForTopics({ jobTitle: "混元AI Agent Harness Engineer（北京/深圳，TEG）", jobDescription: "参与设计并实现 Agent 执行全链路的 tracing & observability 系统；构建 Agent 质量评估体系：自动化 eval pipeline、A/B testing、regression detection；开发 Agent debugging 工具。使用 Cursor / Claude Code / Codex 等进行重度编程，对 agentic coding 的能力边界和 failure mode 有切身的体感。", resumeText: "" }, packs, "first_interview");
-  assert.equal(harness[0]?.pack.name, "agent-harness");
-  const generic = packsForTopics({ jobTitle: "Agent 开发实习生（AI 产品方向）", jobDescription: "负责 Agent 技术研发，Memory 机制、RAG、工具调用、prompt 优化；熟悉 LLM 与 Agent framework。", resumeText: "" }, packs, "first_interview");
-  assert.equal(generic[0]?.pack.name, "ai-llm");
+  const harness = packsForPrep({ jobTitle: "混元AI Agent Harness Engineer（北京/深圳，TEG）", jobDescription: "参与设计并实现 Agent 执行全链路的 tracing & observability 系统；构建 Agent 质量评估体系：自动化 eval pipeline、A/B testing、regression detection；开发 Agent debugging 工具。使用 Cursor / Claude Code / Codex 等进行重度编程，对 agentic coding 的能力边界和 failure mode 有切身的体感。" }, packs, "first_interview");
+  assert.equal(harness[0]?.name, "agent-harness");
+  const generic = packsForPrep({ jobTitle: "Agent 开发实习生（AI 产品方向）", jobDescription: "负责 Agent 技术研发，Memory 机制、RAG、工具调用、prompt 优化；熟悉 LLM 与 Agent framework。" }, packs, "first_interview");
+  assert.equal(generic[0]?.name, "ai-llm");
 });
 
-test("topic packs fall back to cs-fundamentals as the domain when nothing matches, without a duplicate basics pack", async () => {
+test("every pack is a method book with the four sections and a topic outline without example questions", async () => {
   const packs = await loadSkillPacks();
-  const picked = packsForTopics({ jobTitle: "xyzzy", jobDescription: "无", resumeText: "无" }, packs, null);
-  assert.deepEqual(picked.map((item) => [item.role, item.pack.name]), [["domain", "cs-fundamentals"]]);
+  assert.ok(packs.length >= 30);
+  for (const pack of packs) {
+    for (const heading of Object.values(SKILL_SECTIONS)) assert.ok(skillSection(pack, heading).length > 0, `${pack.name} 缺「${heading}」`);
+    assert.ok(topicNames(pack).length >= 8, `${pack.name} 主题清单太短`);
+    assert.doesNotMatch(pack.body, /^- 好题：/m, `${pack.name} 还带好题示例`);
+    assert.doesNotMatch(pack.body, /^## 好题/m, `${pack.name} 还带好题坏题对比`);
+  }
+  const outline = topicOutline(packs.find((pack) => pack.name === "agent-harness")!);
+  assert.match(outline, /^- 运行时循环与状态：一次 agent 执行由哪几段组成/m);
+  assert.equal(outline.split("\n").length, topicNames(packs.find((pack) => pack.name === "agent-harness")!).length);
 });
 
 test("packs for the interview follow the brief order and bring in parents", async () => {

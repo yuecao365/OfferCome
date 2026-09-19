@@ -58,7 +58,7 @@ export function summaryInput(input: {
   jobTitle: string;
   brief: InterviewBrief;
   areas: AreaOutcome[];
-  notebook: string;
+  ledger: string;
   /** 整理员对简历假设的判断；没有（旧会话）按 open。 */
   hypotheses: { id: string; status: "open" | "confirmed" | "refuted"; note: string | null }[];
 }): SummaryInput {
@@ -68,7 +68,7 @@ export function summaryInput(input: {
     round: input.brief.round,
     pace: input.brief.pace,
     areas: input.areas.map((area) => area.summary),
-    notebook: input.notebook,
+    ledger: input.ledger,
     hypotheses: input.brief.hypotheses.map((hypothesis) => {
       const item = judged.get(hypothesis.id);
       return { text: hypothesis.text, status: item?.status ?? "open", note: item?.note ?? null };

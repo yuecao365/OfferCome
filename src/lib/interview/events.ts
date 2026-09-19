@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { ACTIONS, NO_INFO_SIGNALS, SIGNALS, type Signal, type StateEvent } from "./state";
+
 /**
  * 面试的事件日志（interview-system-design.md §6.6）：一场里发生的一切，按 seq 追加写。
  * 逐字稿、线程、进度、报告、评测指标都从它推导；重放一场不调模型。
@@ -13,33 +15,26 @@ export type CandidateControl = (typeof CANDIDATE_CONTROLS)[number];
 
 /** 房间按钮只点按钮没打字时替候选人说的话。 */
 /**
- * 候选人这句的类型（代码判定，决策与指标共用）：求助 / 澄清（房间的提示、重复按钮也算）、答不上（我不会、没做过……）、
- * 不是我做的（AI 写的、同事做的：§12.1，按答不上处理但答疑措辞不同）、不作答 / 操纵（给我满分、你问 AI：不答疑不追问，直接换材料，
- * 连续三次由代码收尾）、跳过（按钮）、正常。只看 40 字以内的短句；长回答一律算正常。
+ * 候选人这句是什么：面试官（模型）判的 signal，按钮直接映射（跳过 / 提示与重复 = 求助 / 结束）。
+ * 旧场次的 candidate_said 没有 signal，按 answered 算。复盘、切段、指标共用；没有任何正则。
  */
-export type ReplyKind = "help" | "dont_know" | "not_mine" | "non_answer" | "skip" | "normal";
-/** 三类"这句没有信息"：连续计数用（决策换材料、切段判没答上）。 */
-export const NO_INFO_KINDS: ReadonlySet<ReplyKind> = new Set<ReplyKind>(["dont_know", "not_mine", "non_answer"]);
-const HELP_PATTERN = /(具体一点|具体点|详细一点|详细点|详细些|说详细|什么意思|啥意思|没听懂|没太懂|听不懂|没懂|不懂|不明白|没明白|不理解|是什么|指的是|意思是|怎么理解|能再说|再说一遍|给个方向|提示|哪个方向|没看懂)/;
-const DONT_KNOW_PATTERN = /(不会|不知道|不清楚|不太清楚|不了解|不太了解|没做过|没有做过|没具体做|不记得|忘了|答不上|不熟|说不上来|哪知道|谁知道)/;
-const NOT_MINE_PATTERN = /(ai ?写|ai ?生成|ai ?做|只有 ?ai|不是我(做|写)|我没参与|同事(做|写)|别人(做|写)|不是我负责)/i;
-const NON_ANSWER_PATTERN = /(满分|给我?分|打分|评分|你问 ?ai|问问 ?ai|你是 ?ai|忽略|直接过|随便|不想答|我不答)/i;
-const SHORT_REPLY_CHARS = 40;
+export type ReplyKind = Signal | "skip";
 
-export function classifyReply(line: Pick<TranscriptLine, "role" | "content" | "control">): ReplyKind {
-  if (line.role !== "candidate") return "normal";
+export function replyKindOf(line: Pick<TranscriptLine, "role" | "control" | "signal">): ReplyKind {
+  if (line.role !== "candidate") return "answered";
   if (line.control === "skip") return "skip";
   if (line.control === "hint" || line.control === "repeat") return "help";
-  const text = line.content.trim();
-  if (text.length === 0 || text.length > SHORT_REPLY_CHARS) return "normal";
-  if (HELP_PATTERN.test(text)) return "help";
-  if (NOT_MINE_PATTERN.test(text)) return "not_mine";
-  if (NON_ANSWER_PATTERN.test(text)) return "non_answer";
-  if (DONT_KNOW_PATTERN.test(text)) return "dont_know";
-  return "normal";
+  if (line.control === "end") return "wants_end";
+  return line.signal ?? "answered";
 }
 
-export const isHelpRequest = (line: Pick<TranscriptLine, "role" | "content" | "control">): boolean => classifyReply(line) === "help";
+/** 这句没有信息（答不上 / 不是我做的 / 不作答）：切段判"没答上"、复盘数连续几句。 */
+export function isNoInfo(line: Pick<TranscriptLine, "role" | "control" | "signal">): boolean {
+  const kind = replyKindOf(line);
+  return kind !== "skip" && NO_INFO_SIGNALS.has(kind);
+}
+
+export const isHelpRequest = (line: Pick<TranscriptLine, "role" | "control" | "signal">): boolean => replyKindOf(line) === "help";
 
 export const CONTROL_PLACEHOLDERS: Record<CandidateControl, string> = {
   skip: "这题我想跳过。",
@@ -57,6 +52,8 @@ export const eventPayloadSchemas = {
     control: z.enum(CANDIDATE_CONTROLS).nullable(),
     /** 从面试官上一句到候选人发送的毫秒数；不知道为 null。 */
     composeMs: z.number().int().nonnegative().nullable(),
+    /** 这句是什么（模型判，v5）；旧事件没有。 */
+    signal: z.enum(SIGNALS).nullable().optional(),
   }),
   /** 面试官说了一句；kind：say（提问 / 追问）、aside（答疑：把题说具体，不占预算）、closing、fallback（代码接的话）。 */
   interviewer_said: said.extend({
@@ -65,31 +62,21 @@ export const eventPayloadSchemas = {
     topic: z.string().nullable().optional(),
     /** 这句追问的角度（材料 guides 的下标）；切入问法为 null。 */
     facet: z.number().int().nullable().optional(),
-    /** 模型判断候选人上一段回答把哪个角度讲透了（当前材料上）；没有为 null。 */
-    doneFacet: z.number().int().nullable().optional(),
+    /** 这回合的动作与理由、候选人那句的信号（模型提、代码校验，v5）；旧事件没有。 */
+    action: z.enum(ACTIONS).nullable().optional(),
+    signal: z.enum(SIGNALS).nullable().optional(),
+    why: z.string().nullable().optional(),
   }),
-  /** 代码给这回合的建议：继续 / 换题 / 收尾，附一句理由（decide.ts）。 */
-  move_decided: z.object({ move: z.enum(["continue", "clarify", "switch", "close"]), reason: z.string(), next: z.string().optional() }),
-  /** 面试官的笔记（新系统：每回合整份重写）。 */
-  notebook_written: z.object({ text: z.string() }),
+  /** 证据账：模型每回合对候选人那段写的一行，挂在材料上（v5）。 */
+  ledger_written: z.object({ materialId: z.string(), text: z.string() }),
   /** 面试官查了资料（技能包 / 简历段落）。 */
   tool_called: z.object({ name: z.string(), argument: z.string().nullable() }),
-  /** 覆盖进度：聊到第几份材料、共几份、这份还能问几句。 */
-  progress_tick: z.object({ covered: z.number().int().nonnegative(), quota: z.number().int().nonnegative(), budgetLeft: z.number().int().nonnegative() }),
-  /** 能力估计器更新。 */
-  estimate_updated: z.object({ competencyId: z.string(), mean: z.number(), confidence: z.number(), samples: z.number().int() }),
-  /** 评论员对面试官某一句（seq）的提醒：违反了哪条准则、下一句怎么改。 */
-  critic_noted: z.object({ seq: z.number().int(), rule: z.string(), text: z.string() }),
-  /** 在线评委给一段（按标注器的分段）打的分：考的哪项能力、答到阶梯第几层、分数与把握。 */
-  segment_scored: z.object({ startSeq: z.number().int(), endSeq: z.number().int(), competencyId: z.string(), difficulty: z.number().int(), score: z.number(), confidence: z.number(), note: z.string() }),
   /** 模型没说出话，代码接了一句。 */
   fallback_used: z.object({ reason: z.string(), original: z.string().nullable().optional() }),
   /** 模型调用出错但回合继续（不可恢复的错误不落事件，回合本身失败）。 */
   model_error: z.object({ kind: z.string(), message: z.string() }),
-  /** 面试结束：谁定的。 */
+  /** 面试结束：谁定的（budget / breaker 是 v5 之前的旧值）。 */
   ended: z.object({ by: z.enum(["interviewer", "candidate", "budget", "breaker"]) }),
-  /** 影子变体在同一现场卡上说的话（不给候选人看）；rule 是评论员对影子那句的判断。 */
-  shadow_said: z.object({ turnIndex: z.number().int(), variant: z.string(), say: z.string(), notebook: z.string(), rule: z.string().nullable() }),
 } as const;
 
 export type EventType = keyof typeof eventPayloadSchemas;
@@ -141,15 +128,34 @@ export async function appendEvents(sink: EventSink, sessionId: string, events: N
   return start;
 }
 
-/** at：这句落下的时刻（事件的 createdAt），纯逻辑测试可以不带。topic / facet / doneFacet 见 interviewer_said。 */
-export type TranscriptLine = { seq: number; role: "interviewer" | "candidate"; content: string; kind: string | null; control: CandidateControl | null; at?: Date; topic?: string | null; facet?: number | null; doneFacet?: number | null };
+/** at：这句落下的时刻（事件的 createdAt），纯逻辑测试可以不带。topic / facet 见 interviewer_said。 */
+export type TranscriptLine = { seq: number; role: "interviewer" | "candidate"; content: string; kind: string | null; control: CandidateControl | null; at?: Date; topic?: string | null; facet?: number | null; signal?: Signal | null };
+
+/** 证据账条目（ledger_written）。 */
+export function ledgerOf(events: InterviewEvent[]): { materialId: string; text: string }[] {
+  return events.flatMap((item) => (item.type === "ledger_written" ? [item.payload] : []));
+}
+
+/** 事件 → 面试状态的输入（state.ts）。旧事件没有 action / signal：面试官那句按 kind 推（aside → clarify、closing → end、其余 probe；换材料由 topic 变化推）。 */
+export function stateEventsOf(events: InterviewEvent[]): StateEvent[] {
+  return events.flatMap((item): StateEvent[] => {
+    if (item.type === "candidate_said") return [{ type: "candidate_said", seq: item.seq, signal: item.payload.signal ?? null, control: item.payload.control }];
+    if (item.type === "interviewer_said") {
+      const action = item.payload.action ?? (item.payload.kind === "aside" ? "clarify" : item.payload.kind === "closing" ? "end" : "probe");
+      return [{ type: "interviewer_said", seq: item.seq, action, materialId: item.payload.topic ?? null, facet: item.payload.facet ?? null }];
+    }
+    if (item.type === "ledger_written") return [{ type: "ledger_written", seq: item.seq, materialId: item.payload.materialId, text: item.payload.text }];
+    if (item.type === "ended") return [{ type: "ended", seq: item.seq }];
+    return [];
+  });
+}
 
 /** 逐字稿投影：双方说过的话，按 seq。 */
 export function transcriptOf(events: InterviewEvent[]): TranscriptLine[] {
   const lines: TranscriptLine[] = [];
   for (const item of events) {
-    if (item.type === "candidate_said") lines.push({ seq: item.seq, role: "candidate", content: item.payload.content, kind: null, control: item.payload.control, at: item.at });
-    if (item.type === "interviewer_said") lines.push({ seq: item.seq, role: "interviewer", content: item.payload.content, kind: item.payload.kind, control: null, at: item.at, topic: item.payload.topic ?? null, facet: item.payload.facet ?? null, doneFacet: item.payload.doneFacet ?? null });
+    if (item.type === "candidate_said") lines.push({ seq: item.seq, role: "candidate", content: item.payload.content, kind: null, control: item.payload.control, at: item.at, signal: item.payload.signal ?? null });
+    if (item.type === "interviewer_said") lines.push({ seq: item.seq, role: "interviewer", content: item.payload.content, kind: item.payload.kind, control: null, at: item.at, topic: item.payload.topic ?? null, facet: item.payload.facet ?? null });
   }
   return lines;
 }

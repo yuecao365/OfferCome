@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { coreSettled, correlation, estimate, estimateLine, evidenceOf, nextToProbe, type Competency } from "./estimator";
+import { correlation, estimate, evidenceOf, type Competency } from "./estimator";
 
 const competencies: Competency[] = [
   { id: "c1", name: "系统可靠性", priority: "core" },
@@ -30,25 +30,6 @@ test("后验：没测过是 0.5 / 置信 0；置信加权更新；三段有效�
   assert.equal(c1.confidence, 0.6);
   assert.equal(c1.samples, 3);
   assert.ok(some[1].confidence < 0.3 && some[1].mean < 0.5);
-  assert.equal(coreSettled(some), false);
-});
-
-test("下一个最值得追：权重 × 不确定性最大；都定了就停", () => {
-  const partial = estimate(competencies, Array.from({ length: 3 }, () => ({ competencyId: "c1", difficulty: 3, score: 80, confidence: 1 })));
-  assert.equal(nextToProbe(partial)?.competencyId, "c2");
-  const all = estimate(
-    competencies,
-    ["c1", "c2"].flatMap((id) => Array.from({ length: 3 }, () => ({ competencyId: id, difficulty: 3, score: 80, confidence: 1 }))),
-  );
-  assert.equal(coreSettled(all), true);
-  assert.equal(nextToProbe(all)?.competencyId, "c3");
-  assert.equal(estimateLine(all), "能力估计：核心能力都已足够确定，剩下的时间可以收尾。");
-});
-
-test("现场卡一行：最值得追 + 已足够确定；没有能力清单为 null", () => {
-  assert.equal(estimateLine([]), null);
-  const line = estimateLine(estimate(competencies, Array.from({ length: 3 }, () => ({ competencyId: "c2", difficulty: 4, score: 90, confidence: 1 }))));
-  assert.equal(line, "能力估计：最值得追：系统可靠性（估计 中，置信 低，岗位权重 高）；已足够确定：RAG 基础（估计 高，置信 中，岗位权重 高）。");
 });
 
 test("相关：只算测过的能力；不足两项为 null", () => {

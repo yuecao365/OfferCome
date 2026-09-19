@@ -4,6 +4,7 @@ import type { RecentWeakness } from "@/lib/mock-interviews/context";
 import { cutSegments } from "@/lib/interview/aftermath/cut";
 import { segmentRecord } from "@/lib/interview/aftermath/segments";
 import { isInterviewPace, type InterviewBrief } from "@/lib/mock-interviews/brief/brief";
+import { renderLedger } from "@/lib/interview/state";
 import type { TurnPayload } from "@/lib/interview/views";
 
 import {
@@ -71,9 +72,9 @@ const RECENT_QUESTION_LIMIT = 12;
 
 /**
  * 最近几场模拟面试给备课的历史，与本地版 context.ts 同口径：最近 5 场、同岗位排前；
- * 失守的考点最多 6 条（"针对练习"指定的题的短板放最前）；最近问过的基础题主题（按候选人）与同岗位的切入问题。
+ * 失守的考点最多 6 条（"针对练习"指定的题的短板放最前）；同岗位的切入问题。
  */
-function recentHistory(jobTitle: string, seedQuestionId: string | null): { recentWeaknesses: RecentWeakness[]; recentTopics: string[]; recentQuestions: string[] } {
+function recentHistory(jobTitle: string, seedQuestionId: string | null): { recentWeaknesses: RecentWeakness[]; recentQuestions: string[] } {
   const wanted = jobTitle.trim().toLocaleLowerCase();
   const sameJob = (title: string) => title.trim().toLocaleLowerCase() === wanted;
   const records = currentWorkspace()
@@ -91,17 +92,11 @@ function recentHistory(jobTitle: string, seedQuestionId: string | null): { recen
       return question === seed ? [{ area, point: "候选人要求重练这道题。", kind: "practice", quote: null }] : [];
     })
     .slice(0, RECENT_WEAKNESS_LIMIT);
-  // 主题与切入问题从会话文档的切段元数据取（工作台记录里没有）。最近问过的基础题按候选人算、不按岗位名
-  //（同一个人换个岗位名再练，也不该老碰到同几道），切入问题仍只看同岗位；与本地版 context.ts 同口径。
+  // 切入问题从会话文档的切段元数据取（工作台记录里没有），只看同岗位；与本地版 context.ts 同口径。
   const completed = listTrialInterviews().filter((interview) => interview.status === "completed");
-  const recent = completed
-    .toSorted((left, right) => Number(sameJob(right.job.jobTitle)) - Number(sameJob(left.job.jobTitle)))
-    .slice(0, RECENT_WEAKNESS_INTERVIEWS)
-    .flatMap((interview) => interview.questions);
   const sameJobSegments = completed.filter((interview) => sameJob(interview.job.jobTitle)).flatMap((interview) => interview.questions);
   return {
     recentWeaknesses,
-    recentTopics: [...new Set(recent.flatMap((segment) => (segment.metadata.areaKind === "quick" && typeof segment.metadata.areaName === "string" ? [segment.metadata.areaName] : [])))],
     recentQuestions: sameJobSegments.map((segment) => segment.question.split("\n")[0].trim()).filter(Boolean).slice(0, RECENT_QUESTION_LIMIT),
   };
 }
@@ -173,7 +168,7 @@ export function createTrialChatTransport(id: string) {
     readState: () => {
       const current = requireInterview(id);
       if (!current.brief) throw new Error("这场面试还没有准备好。");
-      return { brief: current.brief, notebook: current.notebook, messages: current.messages };
+      return { brief: current.brief, messages: current.messages };
     },
     context: {
       jobTitle: interview.job.jobTitle,
@@ -185,7 +180,7 @@ export function createTrialChatTransport(id: string) {
 }
 
 /** 流结束后把回合结果写进文档。切段与评分在面试结束后由整理员做（重建阶段 C）。 */
-export function applyTrialTurn(id: string, payload: TurnPayload & { notebook?: string }): void {
+export function applyTrialTurn(id: string, payload: TurnPayload): void {
   writeTrialInterview(applyTurnPayload(requireInterview(id), payload));
 }
 
@@ -229,7 +224,7 @@ export async function completeTrialMockSession(id: string): Promise<void> {
     // 先切段（幂等，纯代码）：消息带代码指派的材料 id 与角度，在浏览器里直接切。
     if (interview.questions.length === 0 && interview.brief) {
       const brief = interview.brief;
-      const transcript = interview.messages.map((message, seq) => ({ seq, role: message.role, content: message.content, kind: message.role === "interviewer" ? message.kind : null, control: null, topic: message.topic ?? null, facet: message.facet ?? null, doneFacet: message.doneFacet ?? null }));
+      const transcript = interview.messages.map((message, seq) => ({ seq, role: message.role, content: message.content, kind: message.role === "interviewer" ? message.kind : null, control: null, topic: message.topic ?? null, facet: message.facet ?? null }));
       const areas = new Map(brief.areas.map((area) => [area.id, area]));
       const segments = cutSegments(transcript, brief).map((segment) => {
         const probes = transcript.filter((line) => line.role === "interviewer" && line.kind === "say" && line.seq > segment.startSeq && line.seq <= segment.endSeq).map((line) => line.content);
@@ -248,7 +243,7 @@ export async function completeTrialMockSession(id: string): Promise<void> {
     const report = await requestReport({
       jobTitle: current.job.jobTitle,
       brief,
-      notebook: current.notebook,
+      ledger: renderLedger(brief, current.ledger),
       hypotheses: current.hypotheses,
       threads: current.questions.map((segment) => ({
         areaId: typeof segment.metadata.areaId === "string" ? segment.metadata.areaId : null,

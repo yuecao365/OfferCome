@@ -12,13 +12,13 @@ layer: stack
 parent: backend
 ---
 
-## 出题原则
+## 面试官在意什么
 内容`);
   assert.equal(pack?.name, "backend-java");
   assert.deepEqual(pack?.keywords, ["java", "spring"]);
   assert.equal(pack?.layer, "stack");
   assert.equal(pack?.parent, "backend");
-  assert.equal(pack?.body.startsWith("## 出题原则"), true);
+  assert.equal(pack?.body.startsWith("## 面试官在意什么"), true);
 });
 
 test("rejects invalid names, missing layers, and orphan stacks", () => {

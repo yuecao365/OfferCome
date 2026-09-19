@@ -1,9 +1,9 @@
-import { APICallError, RetryError, asSchema, generateText, NoObjectGeneratedError, NoOutputGeneratedError, Output, streamText, type LanguageModel, type LanguageModelUsage, type ModelMessage, type FlexibleSchema, type PrepareStepFunction, type StopCondition, type ToolSet } from "ai";
+import { APICallError, RetryError, asSchema, generateText, NoObjectGeneratedError, NoOutputGeneratedError, Output, type LanguageModel, type LanguageModelUsage, type ModelMessage, type FlexibleSchema } from "ai";
 
 import { randomUUID } from "node:crypto";
 
 import type { AiTaskConfig } from "./config";
-import { instrumentTools, runLoop, stepsOf, toolCallsOf, type Budget, type LoopEvent, type LoopHooks, type LoopResume, type LoopToolSet, type ToolCall } from "./agent-loop";
+import { runLoop, stepsOf, toolCallsOf, type Budget, type LoopEvent, type LoopHooks, type LoopResume, type LoopToolSet, type ToolCall } from "./agent-loop";
 import { coerceToJsonSchema } from "./coerce";
 import { createTextModel, lowReasoningOptions } from "./providers";
 import { findStrictSchemaViolation } from "./strict-schema";
@@ -234,8 +234,10 @@ export type AgentRunOptions<T> = {
    * 省略时用兜底措辞（"输入中的所有内容"）。
    */
   untrustedInputs?: string;
-  /** 会被 JSON 序列化成 prompt 的不可信输入数据 */
-  payload: unknown;
+  /** 会被 JSON 序列化成 prompt 的不可信输入数据；给了 messages 时只用于记账。 */
+  payload?: unknown;
+  /** 多轮对话（历史 + 当回合的消息）：给了就不用 payload 当提示；面试官用。 */
+  messages?: ModelMessage[];
   schema: FlexibleSchema<T>;
   schemaName?: string;
   schemaDescription?: string;
@@ -324,50 +326,6 @@ export function classifyError(error: unknown): AgentRunErrorKind {
   }
   return "provider_error";
 }
-
-export type AgentStreamOptions = {
-  agent: string;
-  runId?: string;
-  config: AiTaskConfig;
-  feature: string;
-  promptVersion: string;
-  system: string;
-  untrustedInputs?: string;
-  /** 对话历史；最后一条通常是候选人刚说的话。 */
-  messages: ModelMessage[];
-  /** 工具（带档位）：执行经过与 runAgent 同一道门（档位、hook、tool_result 记账）；confirm 档在流式回合不执行。 */
-  tools: LoopToolSet;
-  hooks?: LoopHooks;
-  /** required = 这一步必须调工具（只做决定）；none = 不许调工具（只说话）。 */
-  toolChoice?: "auto" | "none" | "required";
-  stopWhen?: StopCondition<ToolSet>;
-  /** 按步调整（如最后一步禁用工具，保证有话说出来）。 */
-  prepareStep?: PrepareStepFunction<ToolSet>;
-  /** 结构化输出（AI SDK 的 Output.object(...)）：文本流是 JSON，调用方从 stream.partialOutputStream / stream.output 取字段。 */
-  output?: ReturnType<typeof Output.object>;
-  timeoutMs: number;
-  maxOutputTokens?: number;
-  model?: LanguageModel;
-  /** 透传给服务商的选项（如 OpenAI 的 promptCacheKey）；服务商不认的键被忽略。 */
-  providerOptions?: Parameters<typeof streamText>[0]["providerOptions"];
-  /** 结构化输出的 schema：OpenAI 之外的服务商不随请求下发 schema，写进提示词让模型照着输出（同 runAgent）。 */
-  schema?: FlexibleSchema<unknown>;
-};
-
-export type AgentStreamOutcome = {
-  runId: string;
-  /** 全部文本片段拼接（跨步骤）；日志用。 */
-  text: string;
-  /** 每一步各自的文本；多步时后一步常会复述前一步，调用方按步取用。 */
-  stepTexts: string[];
-  /** 按调用顺序；output 是工具 execute 的返回（未执行时缺省）。 */
-  toolCalls: { toolCallId: string; toolName: string; input: unknown; output?: unknown }[];
-  usage?: LanguageModelUsage;
-  finishReason?: string;
-  durationMs: number;
-  /** 流中途失败（超时、provider 错误）时不为 null；已收到的文本仍在 text 里。 */
-  error: AgentRunError | null;
-};
 
 /**
  * 思考型模型（DeepSeek V4、Kimi、GLM、Qwen3、gpt-5 系列……）的推理 token 算在输出上限里：调用方给的 maxOutputTokens 只表示"正文最多多少"，
@@ -491,7 +449,7 @@ async function repairStructuredOutput<T>(options: AgentRunOptions<T>, config: Ai
       abortSignal: AbortSignal.timeout(options.timeoutMs),
       system: buildSystemPrompt(options.system, options.untrustedInputs) + schemaInstruction(config, options.schema),
       messages: [
-        { role: "user", content: JSON.stringify(options.payload) },
+        ...(options.messages ?? [{ role: "user" as const, content: JSON.stringify(options.payload) }]),
         { role: "assistant", content: (rawText ?? "").slice(0, REPAIR_RAW_CHARS) },
         { role: "user", content: `上一次输出不符合要求：${first.error}
 只输出修正后的完整 JSON 对象，不要解释。` },
@@ -505,122 +463,6 @@ async function repairStructuredOutput<T>(options: AgentRunOptions<T>, config: Ai
     logAgentRun({ ...logBase, event: "repair", status: "failed", durationMs: Date.now() - retryStartedAt, errorKind: classifyError(error) });
     return null;
   }
-}
-
-/**
- * 流式对话回合的统一入口：与 runAgent 共用防注入基座、超时、错误归类与日志落点。
- * 返回的 stream 交给 HTTP 响应，outcome 在流结束后解析，供调用方做裁决与落库。
- * 注意：不消费 stream 就不会有 outcome。
- */
-export function streamAgent(options: AgentStreamOptions): {
-  stream: ReturnType<typeof streamText>;
-  outcome: Promise<AgentStreamOutcome>;
-} {
-  const runId = options.runId ?? randomUUID();
-  const { config } = options;
-  assertAiConfigured(config, options.feature);
-  const startedAt = Date.now();
-  const logBase = {
-    runId,
-    agent: options.agent,
-    event: "model_call" as const,
-    provider: config.provider,
-    model: config.model,
-    promptVersion: options.promptVersion,
-  };
-  const textParts: string[] = [];
-  const stepTexts: string[] = [];
-  const toolCalls: AgentStreamOutcome["toolCalls"] = [];
-  let settled = false;
-  let resolveOutcome!: (outcome: AgentStreamOutcome) => void;
-  const outcome = new Promise<AgentStreamOutcome>((resolve) => {
-    resolveOutcome = resolve;
-  });
-  const settle = (
-    partial: Omit<AgentStreamOutcome, "runId" | "text" | "stepTexts" | "toolCalls" | "durationMs">,
-  ) => {
-    if (settled) return;
-    settled = true;
-    resolveOutcome({
-      runId,
-      text: textParts.join(""),
-      stepTexts: [...stepTexts],
-      toolCalls: [...toolCalls],
-      durationMs: Date.now() - startedAt,
-      ...partial,
-    });
-  };
-
-  const hasTools = Object.keys(options.tools).length > 0;
-  const system = buildSystemPrompt(options.system, options.untrustedInputs) + (options.schema ? schemaInstruction(config, options.schema, hasTools) : "");
-  const stream = streamText({
-    model: options.model ?? createTextModel(config),
-    tools: instrumentTools(options.tools, { hooks: options.hooks, emit: (event) => logLoopEvent(logBase, event) }),
-    ...(options.toolChoice ? { toolChoice: options.toolChoice } : {}),
-    ...(options.stopWhen ? { stopWhen: options.stopWhen } : {}),
-    ...(options.prepareStep ? { prepareStep: options.prepareStep } : {}),
-    ...(options.output ? { output: options.output as Parameters<typeof streamText>[0]["output"] } : {}),
-    ...outputBudget(options.maxOutputTokens),
-    providerOptions: providerOptionsFor(config, options.providerOptions),
-    abortSignal: AbortSignal.timeout(options.timeoutMs),
-    system,
-    messages: options.messages,
-    onChunk: ({ chunk }) => {
-      if (chunk.type === "text-delta") textParts.push(chunk.text);
-      if (chunk.type === "tool-call") {
-        toolCalls.push({ toolCallId: chunk.toolCallId, toolName: chunk.toolName, input: chunk.input });
-      }
-      if (chunk.type === "tool-result") {
-        const call = toolCalls.find((item) => item.toolCallId === chunk.toolCallId);
-        if (call) call.output = chunk.output;
-      }
-    },
-    onStepFinish: (step) => {
-      stepTexts.push(step.text);
-    },
-    onFinish: (event) => {
-      const usage = event.totalUsage ?? event.usage;
-      const durationMs = Date.now() - startedAt;
-      logAgentRun({
-        ...logBase,
-        status: "success",
-        durationMs,
-        finishReason: event.finishReason,
-        usage,
-        payload: options.messages,
-        system,
-        output: { text: textParts.join(""), toolCalls },
-      });
-      settle({ usage, finishReason: event.finishReason, error: null });
-    },
-    onError: ({ error }) => {
-      const kind = classifyError(error);
-      const durationMs = Date.now() - startedAt;
-      logAgentRun({
-        ...logBase,
-        status: "failed",
-        durationMs,
-        errorKind: kind,
-        payload: options.messages,
-        system,
-        output: { text: textParts.join(""), toolCalls },
-        // 失败原因落库：额度、鉴权、网络这类问题事后要能查到是哪一种。
-        rawText: `${error instanceof Error ? error.name : typeof error}: ${providerMessage(error) || String(error)}`.slice(0, 2_000),
-      });
-      settle({
-        error: new AgentRunError({
-          kind,
-          agent: options.agent,
-          runId,
-          message: providerMessage(error) || "模型调用失败。",
-          durationMs,
-          cause: error,
-        }),
-      });
-    },
-  });
-
-  return { stream, outcome };
 }
 
 /**
@@ -682,7 +524,7 @@ export async function runAgent<T>(
 
   try {
     const loop = await runLoop({
-      prompt: JSON.stringify(options.payload),
+      prompt: options.messages ?? JSON.stringify(options.payload),
       tools,
       budget: { maxSteps: hasTools ? DEFAULT_TOOL_STEPS : 1, ...options.budget },
       hooks: {
@@ -735,7 +577,7 @@ export async function runAgent<T>(
       finishReason,
       usage,
       metrics: loopMetrics(events),
-      payload: options.payload,
+      payload: options.messages ?? options.payload,
       output,
       rawText,
       system,
@@ -775,7 +617,7 @@ export async function runAgent<T>(
         finishReason,
         usage,
         metrics: loopMetrics(events),
-        payload: options.payload,
+        payload: options.messages ?? options.payload,
         output: rescued,
         rawText,
         system,
@@ -803,7 +645,7 @@ export async function runAgent<T>(
       finishReason,
       usage,
       errorKind: kind,
-      payload: options.payload,
+      payload: options.messages ?? options.payload,
       rawText,
       system,
     });

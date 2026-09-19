@@ -53,8 +53,8 @@ export type LoopResume = {
 };
 
 export type LoopOptions = {
-  /** 第一条用户消息（agent 的输入）。 */
-  prompt: string;
+  /** agent 的输入：一条用户消息，或一段已有的对话（历史 + 当回合的消息）。 */
+  prompt: string | ModelMessage[];
   tools: LoopToolSet;
   budget: Budget;
   hooks?: LoopHooks;
@@ -68,8 +68,8 @@ export type LoopResult =
   | { status: "interrupted"; pending: ToolCall; steps: number; events: LoopEvent[]; toolCalls: ToolCall[] };
 
 /** 事件 → 消息列表：用户输入，之后每一步是"助手（正文 + 工具调用）+ 工具结果"。这是循环唯一的状态来源。 */
-export function messagesOf(prompt: string, events: LoopEvent[]): ModelMessage[] {
-  const messages: ModelMessage[] = [{ role: "user", content: prompt }];
+export function messagesOf(prompt: string | ModelMessage[], events: LoopEvent[]): ModelMessage[] {
+  const messages: ModelMessage[] = typeof prompt === "string" ? [{ role: "user", content: prompt }] : [...prompt];
   for (const event of events) {
     if (event.type === "step_finished" && event.toolCalls.length > 0) {
       messages.push({

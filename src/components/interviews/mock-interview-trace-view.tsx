@@ -3,8 +3,6 @@ import { ReplayTurnButton } from "@/components/interviews/replay-turn-button";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { CRITIC_RULES, type CriticRule } from "@/lib/interview/critic";
-import { levelLabel } from "@/lib/interview/estimator";
 import { VIOLATION_LABELS } from "@/lib/interview/eval/postmortem";
 import { AREA_KIND_LABELS, AREA_KINDS, INTERVIEW_PACE_LABELS } from "@/lib/mock-interviews/brief/brief";
 import { traceDashboard } from "@/lib/interview/views";
@@ -65,10 +63,6 @@ function Steps({ steps }: { steps: TraceStep[] }) {
   );
 }
 
-function competencyName(trace: MockInterviewTrace, id: string): string {
-  return trace.competencies.find((item) => item.id === id)?.name ?? id;
-}
-
 function Dashboard({ trace }: { trace: MockInterviewTrace }) {
   const board = traceDashboard(trace.rows);
   const cell = (label: string, value: string) => (
@@ -80,19 +74,11 @@ function Dashboard({ trace }: { trace: MockInterviewTrace }) {
   return (
     <Card className="grid gap-3 p-4">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        {cell("策略变体", `${trace.flags.policy}${trace.flags.shadow ? ` · 影子 ${trace.flags.shadow}` : ""}${trace.flags.lab ? " · 实验层开" : ""}`)}
+        {cell("回合", `${board.turns}`)}
         {cell("token（缓存）", `${board.totalTokens}（${Math.round(board.cacheRate * 100)}%）`)}
         {cell("回合 p95", `${(board.p95Ms / 1000).toFixed(1)}s`)}
-        {cell("兜底 / 评论员提醒", `${board.fallbacks} / ${board.criticNotes}`)}
+        {cell("兜底 / 一句多问", `${board.fallbacks} / ${Math.round(board.live.multiQuestionRate * 100)}%`)}
       </div>
-      {board.shadow ? (
-        <div className="grid grid-cols-2 gap-3 border-t border-border pt-3 md:grid-cols-4">
-          {cell("真身：一句多问", `${Math.round(board.live.multiQuestionRate * 100)}% · 平均 ${board.live.avgChars} 字`)}
-          {cell(`影子 ${board.shadow.variant}：一句多问`, `${Math.round(board.shadow.multiQuestionRate * 100)}% · 平均 ${board.shadow.avgChars} 字`)}
-          {cell("真身：被评论员提醒", `${Math.round((board.criticNotes / Math.max(1, board.turns)) * 100)}%`)}
-          {cell("影子：被评论员判违反", `${Math.round(board.shadow.criticRate * 100)}%（${board.shadow.turns} 句）`)}
-        </div>
-      ) : null}
     </Card>
   );
 }
@@ -117,7 +103,7 @@ export function MockInterviewTraceView({ trace }: { trace: MockInterviewTrace })
           <p className="text-xs text-muted-foreground">
             备课{trace.postmortem.ready ? "备好了" : "没备好"}
             {trace.postmortem.trajectory ? ` · 轨迹：评分每段 ${trace.postmortem.trajectory.evaluationSteps?.toFixed(1) ?? "—"} 步 / ${trace.postmortem.trajectory.evaluationToolCalls?.toFixed(1) ?? "—"} 次工具，无效 ${trace.postmortem.trajectory.invalidToolCalls}，触顶 ${trace.postmortem.trajectory.budgetHits}，面试官查资料 ${trace.postmortem.trajectory.interviewerLookups} 次` : ""}
-            {" · 回答："}正常 {trace.postmortem.replies.normal}、求助 {trace.postmortem.replies.help}、答不上 {trace.postmortem.replies.dont_know}、不是我做的 {trace.postmortem.replies.not_mine}、不作答 {trace.postmortem.replies.non_answer}、跳过 {trace.postmortem.replies.skip}、超长 {trace.postmortem.replies.long} · 底线 / 接话 {trace.postmortem.guards.length} 次
+            {" · 回答："}答实 {trace.postmortem.replies.answered}、答空 {trace.postmortem.replies.thin}、求助 {trace.postmortem.replies.help}、答不上 {trace.postmortem.replies.dont_know}、不是我做的 {trace.postmortem.replies.not_mine}、不作答 {trace.postmortem.replies.refuse}、跳过 {trace.postmortem.replies.skip}、超长 {trace.postmortem.replies.long} · 底线 / 接话 {trace.postmortem.guards.length} 次
           </p>
           {trace.postmortem.violations.map((item) => (
             <p className="text-xs text-warning-strong" key={`${item.seq}-${item.rule}`}>
@@ -137,9 +123,9 @@ export function MockInterviewTraceView({ trace }: { trace: MockInterviewTrace })
             <div className="flex items-center justify-between gap-3">
               <p className="text-xs font-semibold text-muted-foreground">
                 第 {turn.turnIndex + 1} 回合
-                {turn.progress ? ` · 材料 ${turn.progress.covered} / ${turn.progress.quota}，这份还能问 ${turn.progress.budgetLeft} 句` : ""}
+                {turn.action ? ` · ${turn.action}` : ""}
                 {turn.facet !== null ? ` · 角度 ${turn.facet + 1}` : ""}
-                {turn.doneFacet !== null ? ` · 讲透了角度 ${turn.doneFacet + 1}` : ""}
+                {turn.candidate?.signal ? ` · 候选人：${turn.candidate.signal}` : ""}
               </p>
               {turn.run ? (
                 <p className="font-mono text-xs text-muted-foreground">
@@ -170,35 +156,11 @@ export function MockInterviewTraceView({ trace }: { trace: MockInterviewTrace })
                 <span className="whitespace-pre-wrap">{message.content}</span>
               </div>
             ))}
-            {turn.shadow ? (
-              <div className="rounded-control border border-dashed border-border px-3 py-2 text-sm leading-6 text-muted-foreground">
-                <span className="mr-2 text-xs">影子 {turn.shadow.variant}{turn.shadow.rule ? ` · 评论员：${turn.shadow.rule}` : ""}</span>
-                <span className="whitespace-pre-wrap">{turn.shadow.say}</span>
-              </div>
-            ) : null}
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-              {turn.fallback ? <Badge tone="warning">模型没说出话，代码接了一句</Badge> : null}
-              {turn.move ? <span className="rounded-control bg-surface-subtle px-2 py-1">建议：{turn.move.move} · {turn.move.reason}</span> : null}
+              {turn.fallback ? <Badge tone="warning">重出 {turn.fallbackReasons.length} 次：{turn.fallbackReasons.join("；")}</Badge> : null}
+              {turn.why ? <span className="rounded-control bg-surface-subtle px-2 py-1">理由：{turn.why}</span> : null}
               {turn.topic ? <span className="rounded-control bg-surface-subtle px-2 py-1">材料：{trace.areas.find((area) => area.id === turn.topic)?.name ?? turn.topic}</span> : null}
-              {turn.critic ? <Badge tone="warning">评论员 · {CRITIC_RULES[turn.critic.rule as CriticRule] ? turn.critic.rule : "准则"}：{turn.critic.text}</Badge> : null}
-              {turn.scored.map((item) => (
-                <span className="rounded-control bg-surface-subtle px-2 py-1" key={`${item.competencyId}-${item.score}`} title={item.note}>
-                  评委：{competencyName(trace, item.competencyId)} · 第 {item.difficulty} 层 · {Math.round(item.score)} 分（把握 {item.confidence.toFixed(1)}）
-                </span>
-              ))}
-              {turn.estimates.map((item) => (
-                <span className="rounded-control bg-surface-subtle px-2 py-1" key={`${item.competencyId}-${item.samples}`}>
-                  估计：{competencyName(trace, item.competencyId)} {levelLabel(item.mean)}（置信 {levelLabel(item.confidence)}，{item.samples} 段）
-                </span>
-              ))}
-              {turn.notebook !== null ? (
-                <details className="w-full">
-                  <summary className="cursor-pointer">这回合的笔记</summary>
-                  <p className="mt-1 whitespace-pre-wrap rounded-control bg-surface-subtle p-2 text-[12px] leading-5">{turn.notebook || "（空）"}</p>
-                </details>
-              ) : (
-                <span>笔记没变</span>
-              )}
+              {turn.ledger ? <span className="w-full rounded-control bg-surface-subtle px-2 py-1">证据账：{turn.ledger}</span> : null}
               {turn.run && turn.run.steps.length > 0 ? (
                 <details className="w-full">
                   <summary className="cursor-pointer">这一步：模型看到的输入、输出与工具（{turn.run.steps.length} 行）</summary>

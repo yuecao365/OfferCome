@@ -68,8 +68,8 @@ export type BriefCoverage = {
   /** 每个话题是否被覆盖；裁判失败为 null。 */
   covered: Record<string, boolean | null>;
   areaCount: number;
-  /** 题池里来自技能包主题的题数。 */
-  baselineAreaCount: number;
+  /** 带锚点（简历 / JD 逐字片段）的题数：重建 v5 §6 的新指标。 */
+  anchoredCount: number;
   /** 备课加载了哪些技能包；覆盖率低时先看这里。 */
   skillPacks: string[];
 };
@@ -88,7 +88,7 @@ export type RoleCoverageMetrics = {
   briefs: number;
   weightedCoverage: Ratio;
   plainCoverage: Ratio;
-  baselineAreaShare: Ratio;
+  anchoredShare: Ratio;
   /** 每个岗位最常被漏掉的话题（按频次）。 */
   missed: { id: string; name: string; count: number; missedIn: number }[];
 };
@@ -109,7 +109,7 @@ export function summarizeRoleCoverage(role: CoverageRole, topics: Topic[], brief
     briefs: briefs.length,
     weightedCoverage: sumRatios(rates.map((rate) => rate.weighted)),
     plainCoverage: sumRatios(rates.map((rate) => rate.plain)),
-    baselineAreaShare: ratio(briefs.reduce((sum, brief) => sum + brief.baselineAreaCount, 0), briefs.reduce((sum, brief) => sum + brief.areaCount, 0)),
+    anchoredShare: ratio(briefs.reduce((sum, brief) => sum + brief.anchoredCount, 0), briefs.reduce((sum, brief) => sum + brief.areaCount, 0)),
     missed,
   };
 }
@@ -119,7 +119,7 @@ export function coverageMetricRows(roles: RoleCoverageMetrics[], judgeTrusted: b
   return roles.flatMap((item) => [
     { name: `${item.role} 话题覆盖率（加权）`, value: judgeTrusted ? item.weightedCoverage : null, expect: "记基线", note },
     { name: `${item.role} 话题覆盖率`, value: judgeTrusted ? item.plainCoverage : null, expect: "记基线", note: item.missed.slice(0, 3).map((topic) => topic.name).join("、") },
-    { name: `${item.role} 技能包题占比`, value: item.baselineAreaShare, expect: "记基线", note: "题池里来自技能包主题的题 / 全部题" },
+    { name: `${item.role} 题带锚点的比例`, value: item.anchoredShare, expect: "记基线", note: "带简历 / JD 逐字锚点的题 / 全部题" },
   ]);
 }
 
@@ -128,7 +128,7 @@ export function flattenCoverageMetrics(roles: RoleCoverageMetrics[]): Record<str
     roles.flatMap((item) => [
       [`${item.role}.weightedCoverage`, item.weightedCoverage],
       [`${item.role}.plainCoverage`, item.plainCoverage],
-      [`${item.role}.baselineAreaShare`, item.baselineAreaShare],
+      [`${item.role}.anchoredShare`, item.anchoredShare],
     ]),
   );
 }

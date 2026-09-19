@@ -18,7 +18,7 @@ import { getAiTaskConfig } from "../src/lib/settings/ai";
  * 结果从事件日志算指标，写到 eval/runs/sim-<tag>.json。
  *
  * 用法：npm run simulate -- --tag baseline --jd tencent-hunyuan-agent-harness-engineer --resume synthetic-ai-llm \
- *        --archetypes solid,shaky,rambling,needy,adversarial --seeds 3 --pace standard --concurrency 1 --lab on --policy v2|v2-terse --shadow v2-terse --perturb long_answers,dont_know,hollow_resume,manipulate,not_mine,help_loop,inflate
+ *        --archetypes solid,shaky,rambling,needy,adversarial --seeds 3 --pace standard --concurrency 1 --perturb long_answers,dont_know,hollow_resume,manipulate,not_mine,help_loop,inflate
  *      npm run simulate -- --tag baseline --recompute     # 只按标签重算已有会话的指标
  */
 
@@ -106,7 +106,7 @@ async function waitCompleted(base: string, sessionId: string, timeoutMs: number)
   return status;
 }
 
-async function createSession(base: string, input: { jd: string; resumeDbId: string; pace: string; label: string; tag: string; lab: boolean; policy: string | null; shadow: string | null }): Promise<string> {
+async function createSession(base: string, input: { jd: string; resumeDbId: string; pace: string; label: string; tag: string }): Promise<string> {
   const jd = loadJdFixture(input.jd);
   const form = new FormData();
   form.set("companyName", input.label);
@@ -120,9 +120,6 @@ async function createSession(base: string, input: { jd: string; resumeDbId: stri
   const response = await fetch(`${base}/api/interviews/mock`, { method: "POST", body: form });
   const json = (await response.json()) as { id?: string; interviewId?: string; error?: string };
   if (!response.ok || !json.id || !json.interviewId) throw new Error(`创建会话失败：${json.error ?? response.status}`);
-  // 会话开关：实验层、指定策略变体、影子变体；备课完成时只补没写的项。
-  const flags = { ...(input.lab ? { lab: true } : {}), ...(input.policy ? { policy: input.policy } : {}), ...(input.shadow ? { shadow: input.shadow } : {}) };
-  if (Object.keys(flags).length > 0) await prisma.mockInterviewSession.update({ where: { id: json.id }, data: { flagsJson: JSON.stringify(flags) } });
   return json.id;
 }
 
@@ -134,10 +131,10 @@ async function loadCompetencies(sessionId: string): Promise<{ id: string; name: 
 
 const truthOf = (abilities: { competencyId: string; level: number }[]) => abilities.map((item) => ({ competencyId: item.competencyId, level: item.level }));
 
-async function runCase(base: string, item: Case, config: { jd: string; resume: string; resumeDbId: string; pace: string; tag: string; maxTurns: number; lab: boolean; policy: string | null; shadow: string | null }): Promise<CaseResult> {
+async function runCase(base: string, item: Case, config: { jd: string; resume: string; resumeDbId: string; pace: string; tag: string; maxTurns: number }): Promise<CaseResult> {
   const jd = loadJdFixture(config.jd);
   const resumeText = loadResumeText(config.resume);
-  const sessionId = await createSession(base, { jd: config.jd, resumeDbId: config.resumeDbId, pace: config.pace, label: `模拟 ${item.id}`, tag: config.tag, lab: config.lab, policy: config.policy, shadow: config.shadow });
+  const sessionId = await createSession(base, { jd: config.jd, resumeDbId: config.resumeDbId, pace: config.pace, label: `模拟 ${item.id}`, tag: config.tag });
   const result: CaseResult = { ...item, sessionId, abilities: [], turns: 0, error: null, metrics: null };
   try {
     await waitReady(base, sessionId);
@@ -236,9 +233,6 @@ async function main() {
       pace: text(args, "pace", "standard"),
       tag,
       maxTurns: Number(text(args, "max-turns", "45")),
-      lab: text(args, "lab", "off") === "on",
-      policy: typeof args.policy === "string" ? args.policy : null,
-      shadow: typeof args.shadow === "string" ? args.shadow : null,
       resumeDbId: "",
     };
     config.resumeDbId = await ensureFixtureResume(config.resume);

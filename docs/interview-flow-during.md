@@ -1,133 +1,94 @@
-# 面试中：一个回合是怎么跑完的（核心层，设计修订 v3 §10 之后：覆盖配额，无时钟）
+# 面试中：一个回合是怎么跑完的（重建 v5，2026-09-18 起）
 
 > 上一篇：[面试开始前](interview-flow-before.md) · 下一篇：[面试结束后](interview-flow-after.md)
-> 设计：[interview-system-design.md](interview-system-design.md)（§4 形式、§6.6 运行时、§7 时序）；修订：[interview-design-revision-3.md](interview-design-revision-3.md)（两层、一个决策、备课失败不开房）；施工：[interview-refactor-plan.md](interview-refactor-plan.md)。
-> 代码：`src/lib/interview/` —— `orchestrator.ts`（本地版装状态与落库）→ `turn.ts`（回合核心）→ `decide.ts`（一个决策）→ `policy.ts`（一次模型调用）→ `progress.ts`（覆盖配额与角度）→ `events.ts`（事件日志）→ `stream.ts`（HTTP 流）→ `views.ts`（房间与 trace 视图）。实验层：`background.ts`（评论员、在线评委、影子）、`estimator.ts`、`memory.ts`。体验版走 `src/app/api/trial/turn/route.ts`，同一个 `runTurn`。
+> 设计：[interview-rebuild-v5.md](interview-rebuild-v5.md)（§1 结构性诊断、§2 状态、§3 回合、§4 约束表、§5 事件、§7 删除清单）。更早的设计（v3 覆盖配额、v2 重建）只作历史参考。
+> 代码：`src/lib/interview/` —— `orchestrator.ts`（本地版装状态与落库）→ `turn.ts`（回合：调一次模型、校验动作、落事件）→ `interviewer.ts`（面试官的一次调用：系统提示、历史、状态卡、工具）→ `state.ts`（从事件推导的面试状态）→ `constraints.ts`（动作约束）→ `progress.ts`（配额表）→ `events.ts`（事件日志）→ `stream.ts`（HTTP 响应）→ `views.ts`（房间与 trace 视图）。报告用的能力估计：`estimator.ts`（纯函数）。体验版走 `src/app/api/trial/turn/route.ts`，同一个 `runTurn`。
 
 ## 0. 总览
 
 ```mermaid
 flowchart TD
-  M[候选人消息 / 开场] --> L[装状态：材料 + 笔记 + 逐字稿（面试官的句子带代码指派的材料 id 与角度）]
-  L --> C[配额进度 → 候选人这句的类型 → decideMove：这句问哪份材料的哪个角度；讲透了怎么办]
-  C -- 结束按钮 / 配额聊完 / 熔断 --> F[固定告别语]
-  C -- 其余 --> A[一次模型调用<br/>输出 say + notebook + facetDone + closing]
-  A --> V[底线：空话接一句、过早的告别不认；内部词 / 重复提问 / 该换题没换都改问下一份材料的切入问法]
+  M[候选人消息 / 开场] --> S[状态 = stateOf(材料, 事件)<br/>每份材料：状态 / 余额 / 角度 / 证据账；候选人：连续无信息几句、求助几次]
+  S -- 结束按钮 --> F[固定告别 + ended(by candidate)]
+  S -- 其余 --> A[一次非流式模型调用<br/>输出 signal · action · target · facet · why · ledger · reply]
+  A --> V{checkAction<br/>预算 / 角度上限 / 不切回聊过的 / 收尾门槛}
+  V -- 违约 --> R[把原因写进状态卡，模型重出一次]
+  R -- 仍违约 --> C[代码定动作 fallbackAction，模型只写这句话]
+  V -- 合规 --> W{checkReply：话里带内部词？}
+  W -- 带 --> R
+  W -- 干净 --> E[事件：candidate_said(signal) / tool_called / fallback_used / interviewer_said(action, why) / ledger_written / ended]
+  C --> E
   F --> E
-  V --> E[事件：candidate_said / move_decided / interviewer_said / notebook_written / progress_tick / fallback_used / ended]
-  E --> S[一个事务：事件 + 消息投影 + 笔记]
-  S --> UI[data-turn 交给房间]
+  E --> UI[整句 + data-turn 交给房间，打字机显示]
 ```
 
-面试官只负责像面试官那样说话；它的工作记忆是一本自由文本的笔记，每回合整份重写。**这句问哪份材料的哪个角度、何时换材料、何时收尾由代码决定**（`decideMove`，写在现场卡上）；唯一交给模型判断的是"候选人刚才那段把当前角度讲透了没有"（`facetDone`），讲透与没讲透两种情况下问什么也都由代码写好。材料 id 与角度由代码指派写进事件，模型不自报（自报滞后与误报在 F1 / F2 各付过一次代价）。回合里没有后台任务；切段、判断、评分在面试之后由整理员与评分产出。实验层（评论员、在线评委与估计器、影子）只在会话开关 `lab` 打开时在响应返回后跑，只写事件与 trace，不进现场卡。
+一句话：**控制作用在动作上、发生在说出口之前**。模型每回合自己判候选人那句是什么、选下一步做什么、写一行证据账、说一句话；代码只校验动作是否越界，越界退回让它重出，仍越界才由代码定动作——但话永远是模型说的，没有任何固定句（唯一的例外是候选人按"结束"按钮）。文字不流式：回合先跑完，再整句交给前端。
 
-## 1. 状态
+## 1. 状态（`state.ts`）
+
+状态不存库，每回合从材料与事件推导（`stateOf(brief, stateEventsOf(events))`），渲染成模型看到的唯一"记忆"（`renderState`，状态卡正文）。
 
 | 东西 | 内容 |
 |---|---|
-| 材料（`brief`） | 备课产物，整场不变：每个项目一份（切入问法 + 要验证的说法 + 追问角度）、4 道基础题、场景题；每条有材料 id |
-| 笔记（`notebook`） | 面试官自己写的自由文本，≤ 300 字，每回合整份重写；库里只存最新一份，历史在事件日志 |
-| 逐字稿 | 从事件日志投影：双方说过的话；面试官的句子带代码指派的材料 id（`topic`）、追问角度（`facet`）、模型说讲透了的角度（`doneFacet`） |
-| 配额（`planQuota`，从材料与节奏现算） | 这场要聊的材料按顺序（项目 → 基础题 → 场景题）与各自预算 |
-| 阶段 | opening（还没开场）/ running / ended |
+| 材料 | 备课产物（面试开始前篇），整场不变：每个项目一份、基础题几道（每道带锚点）、场景题；每条有材料 id |
+| 每份材料的状态 | untouched / open / done / skipped；`asked` 已问几句、`budget` 预算（`planQuota`）；项目材料的每个角度 `probes` 追了几句、status（同一角度最多 2 句）；`ledger` 证据账（模型每回合写的一行，挂在当时的材料上） |
+| 候选人 | `noInfoStreak` 连续几句没有信息（dont_know / not_mine / refuse）、`noInfoTotal`、`helpCount`、`wantsToEnd` |
+| 阶段 | opening（还没人说话）/ running / ended |
 
-## 2. 覆盖配额（`progress.ts`）
+材料切换由 `interviewer_said.action = switch` 记录（也兼容旧事件：`topic` 变了就算换）；`clarify` 不占预算；候选人按"跳过"当前材料变 skipped。
 
-没有时钟。一场的长短由信息量决定：节奏定**配额**（这场聊几份材料），每份材料有**预算**（最多问几句），一份材料"够了"就换下一份，配额里的材料都聊完就结束。用户中途离开、写得长、说得慢都不影响；语音版同样不计时。
+## 2. 配额（`progress.ts`）
 
-| 节奏 | 项目 | 基础题 | 场景题 | 最多问句数 |
-|---|---|---|---|---|
-| 快速 | 1 | 2 | 1 | 11 |
-| 标准 | 2 | 3 | 1 | 17 |
-| 深入 | 3 | 4 | 2 | 26 |
+没有时钟。节奏定这场聊几份材料、每份最多问几句：快速 1 项目 + 2 基础 + 1 场景，标准 2 + 3 + 1，深入 3 + 4 + 2；预算项目 4 句（项目不够配额时缺的预算分给现有项目，每个最多 6 句）、基础题 2 句、场景题 3 句。配额只是上限：模型可以在候选人没信息时提前换材料或收尾，代码不推着它把余额用完。
 
-预算按种类：项目 4 句（切入 + 3 次追问）、基础题 2 句、场景题 3 句（三级阶梯）。项目不够配额（简历只有一两段经历；实习与项目都算）：缺的预算平均分给现有项目，每个最多 6 句；简历没有项目：项目配额让给题池。顺序固定项目 → 基础题 → 场景题（备课已按此排好）。
+## 3. 一次调用（`interviewer.ts`）
 
-进度从逐字稿现算（`progressOf`）：当前材料、已问几句、预算余量、每个角度追了几句、哪些角度讲透了。房间顶栏显示"材料 n / N"；每回合写 `progress_tick { covered, quota, budgetLeft }`。
+非流式，跑在 `runAgent` 的循环上（工具走协议通道，最多 1 步工具再出话），结构化输出：
 
-**项目的追问角度**（§10.6）：备课把每个项目的三个追问角度按岗位相关度排序，位置就是权重（3、2、1）。下一次追问的角度从还没讲透、也没追满 2 句的角度里按权重加权随机抽（`pickFacet`，随机种子 = 会话 id，可重放）；基础题与场景题按顺序（唯一一层追问 / 引导阶梯）。
+```
+signal:  answered | thin | dont_know | help | not_mine | refuse | wants_end   候选人刚才那句是什么
+action:  probe | switch | clarify | end                                       这回合做什么
+target:  switch 时的材料 id
+facet:   probe 项目时的角度序号
+why:     一句理由（≤ 40 字，进事件与 trace）
+ledger:  证据账一行（≤ 80 字，对候选人那段的摘要与存疑）
+reply:   对候选人说的话
+```
 
-没有语音模式（2026-09-16 用户定：面试只有文字，输入可以打字也可以说话）：房间里麦克风常驻，录一段 → `/transcribe`（只认会话，不落库）→ 文字进输入框，候选人改好再发；面试官不朗读。旧会话的 `interactionMode: voice` 只是历史标记。
+上下文布局为了前缀缓存：**系统提示**整场不变（人设、方法、议程含每份材料的切入问法 / 角度 / 锚点、技能包索引、JD ≤ 1500 字、简历 ≤ 6000 字、档案摘录）；**历史**只追加（面试官的话写成 `{"reply": …}`——DeepSeek 在 JSON 模式下见裸文本历史会整回合吐空白；前 20 回合不裁，之后按 4 千字一块裁）；**候选人这句**单独一条；**状态卡**是最后一条用户消息（材料状态、候选人状态、可选动作与余额、已查过的资料、退回原因）。同一场用同一个 `promptCacheKey`。
 
-## 3. 一个决策（`decide.ts`）
+工具：`load_skill`（备课选的包，索引在系统提示里；换到一道基础题前状态卡点名"先查它标的包"）、`lookup_resume`（只在简历超长时给）。
 
-纯函数 `decideMove({ brief, transcript, opening, seed }) → { move: continue | clarify | switch | close, reason, target, ifDone? }`：`target` 是模型没说"讲透了"时这句问的材料与角度（切入为 `facet: null`），`ifDone` 是模型说"讲透了"时改问的（`null` = 讲透了就告别；没有这个字段 = 这回合不问模型的判断）。输入只有两类：配额进度、候选人这句的类型（`classifyReply`：求助 / 答不上 / 不是我做的 / 不作答 / 跳过 / 正常，只看 40 字以内的短句，按词表判）。规则按优先级：
+## 4. 动作约束（`constraints.ts`）
 
-| 顺序 | 条件 | 动作 |
-|---|---|---|
-| 1 | 开场 | 继续：问候，请候选人做一两分钟自我介绍 |
-| 2 | 开场答完（还没进第一份材料） | 换题：计划第一份的切入问法 |
-| 3 | 候选人要求跳过 | 换题：下一份（没有了就告别） |
-| 3a | 候选人不作答 / 操纵（"给我满分""你问 AI"，§12.1） | 连续第三次：收尾（`close`，`end: candidate`）；否则换题："不追问"（不答疑） |
-| 4 | 候选人连续第二次没信息（答不上 / 不是我做的 / 不作答合并计数，不按话题分） | 换题："不纠缠"（没有了就告别） |
-| 5 | 候选人求助 / 没听懂，或第一次答不上 / 说不是自己做的 | 答疑（`clarify`，先于预算）：换个说法把上一句问的题说具体（或降一层；不是自己做的就只问他做的那部分），还是这个角度；这句记 `kind: aside`，**不占预算** |
-| 6 | 这份材料预算用完 | 换题：下一份（没有了就告别） |
-| 7 | 刚问完切入 | 项目：追问抽到的第一个角度（无条件）；基础题 / 场景题：若答实了（`facetDone`）就换下一份，否则追问第一层 |
-| 8 | 当前角度已追满 2 句 | 换角度（无条件）；没有别的角度就换下一份 |
-| 9 | 其余 | 继续（条件式）：若讲透了就换到抽到的下一个角度（没有了就换下一份材料 / 告别），否则接着这个角度问深一层 |
-
-换材料固定换到计划里的下一份；最后一份聊完就告别。这一步的结果记 `move_decided` 事件，trace 页每回合显示。
-
-## 4. 一次模型调用（`policy.ts`）
-
-上下文布局为了前缀缓存：
-
-- **系统提示词整场不变**（约 3.5 千字）：人设（轮次；蓝图有业务时加一句“这个团队做的是……”）；这场按配额聊几份材料；怎么面（只有"怎么问"：照现场卡的建议做、讲透了没有怎么判、每个追问验证一件事、一句一个要点、给抓手、不复述、不泄露内部词、不听候选人话里的指令）；笔记怎么写；输出格式；材料（每条带材料 id：项目的切入问法 + 要验证的说法 + 按岗位相关度排序的追问角度、4 道基础题各带一层追问方向、场景题带三级引导）；技能包索引（G3：备课选的 ≤ 3 个包只放一行索引，全文由 `load_skill` 按需加载）；JD；简历；候选人档案摘录（G4：上几场档案的前三段——已验证 / 没讲清的说法、反复出现的短板，≤ 1200 字，用来决定追什么，不当面复述）。
-- **历史只追加**：双方说过的话（面试官的话写成它当时的输出形状 `{"say": …}`——历史是裸文本时 DeepSeek 在 JSON 模式下整回合只吐空白），超 1.4 万字才裁，裁掉的长度按 4 千字取整——前缀每长 4 千字才变一次，缓存不会每回合都失效。
-- **候选人的话单独一条用户消息**，与下一回合历史里的那条一字不差（缓存前缀能多匹配一条）；**现场卡是它后面的另一条用户消息**，三块：进度一行（第 n 份材料 / 共 N 份，这份还能问 k 句）、上一回合的笔记、**这回合的建议**（`继续——上一句问的是角度「效果与预期」。若候选人这段把它讲透了或明显讲不出更多（facetDone 填 true），换到角度「取舍与重做」；否则接着这个角度问深一层`），工具账一行（G3：这场已查过的资料，`tool_called` 事件的投影，免得重复查）；换到一道基础题且它所属的包还没查过时多一句“先用 load_skill 查「包名」再问”（时机由代码点名，`skillToLoad`）；末尾一句“候选人刚说的话在上一条”（开场 / 只按了按钮时改成说明）。同一场的请求带 `promptCacheKey = turn:<sessionId>`（OpenAI 的 prompt_cache_key），路由到同一缓存分片。
-
-输出是结构化对象 `{ say, notebook, facetDone, closing }`：`say` 逐段流回房间，`notebook` 整份替换，`facetDone` 是候选人刚才那段有没有把当前角度讲透（为真时代码按建议里"讲透了"那一边记材料与角度，并把讲透的角度记进 `doneFacet`），`closing` 只在建议说"告别"且这句就是告别时为 true。只读工具（G3）：备课选了技能包就有 `load_skill`；简历超过 6 千字节选时才有 `lookup_resume`。工具都带档位，执行经过与 runAgent 同一道门（`instrumentTools`：档位、hook、`tool_result` 记账），流式回合不能挂起所以 confirm 档不给面试官。一回合最多 2 步，最后一步不许再查资料；查过的记 `tool_called` 事件，下一回合的现场卡写“已查过”。工具结果只在当回合的调用里、不进历史，缓存前缀不变。面试官的流式回合仍由 SDK 走多步（第一步就要往外吐字，自己的循环做不到边执行工具边流式），这是 G1 循环的一个刻意例外。
-
-**策略变体与灰度**（`variants.ts`）：变体只在流程段末尾追加规则（`v2` 现状、`v2-terse` 短问句），AgentRun 的 promptVersion 记变体；放量配置 `INTERVIEW_ROLLOUT` 在备课完成时按会话 id 分桶写进 `flagsJson.policy`。
-
-## 5. 代码守的底线（`turn.ts`）
-
-| 情形 | 处理 |
+| 提议 | 合规条件 |
 |---|---|
-| 候选人按"结束"，或 40 字以内含结束意图的插话 | 不调模型：固定告别语，`ended.by = candidate` |
-| 配额里的材料都聊完（决策 close） | 不调模型：固定告别语，`ended.by = budget` |
-| 候选人连续三次不作答（决策 close，`end: candidate`） | 不调模型：固定告别语，`ended.by = candidate` |
-| 连续三回合模型都没说出话（熔断） | 不再调模型：固定的话收尾，`ended.by = breaker` |
-| 模型没产出可用结果（超时、5xx、坏 JSON 抢救失败） | 接一句固定的话，记 `fallback_used`，笔记不动 |
-| 额度 / 密钥 / 连不上服务商 | 抛出，回合不落库，房间显示原因 |
-| `say` 里出现"评分标准 / 期望信号 / 现场卡"这类内部词 | 不认：同重复提问，记 `fallback_used("泄露内部词", original)` |
-| `closing = true` 但决策没允许（不是最后一份材料且讲透了），或那句里是告别的说法（今天先到这里 / 谢谢你的时间 / 后续结果 / 招聘同事） | 不认：改问决策指的材料的切入问法，记 `fallback_used("过早告别", original)`（§12.2；之前只不认标志位、告别的文字照发） |
-| `closing = true` 且决策允许，但那句里有问号 | 不认作告别，按普通话处理 |
-| 这句与前面某句几乎一样（相似度 ≥ 0.8） | 不认：改问计划里的下一份材料的切入问法（换材料的回合就是决策指的那份），记 `fallback_used("重复提问", original)` |
-| 换材料的回合，这句还像原材料的切入问法（相似度 ≥ 0.45） | 不认：同上，记 `fallback_used("该换题没换", original)` |
+| probe | 已在某份材料上；这份还有余额；项目材料要带角度序号，且该角度没追满 2 句 |
+| switch | target 是没聊过的材料 id（聊过或跳过的不能切回） |
+| clarify | 已在某份材料上（不占预算） |
+| end | 候选人连续 ≥ 3 句没信息，或候选人要结束，或材料都聊完且当前这份问满 |
+| 任何非 end | 候选人连续 ≥ 6 句没信息或按了"结束"时不允许（必须 end） |
 
-## 6. 事件与投影（`events.ts`、`orchestrator.ts`）
+违约把原因原话发回状态卡让模型重出一次；仍违约由 `fallbackAction` 定：当前材料没问够 → probe（项目取第一个没追满的角度），有没聊的 → switch 第一份，否则 end。两次都记 `fallback_used("重出：原因")`。话只有一条硬规则：不带内部词（评分标准 / 期望信号 / 材料 / 状态卡这类），带了同样重出一次。模型两次都没产出（服务不可用、JSON 坏）：这回合失败报给用户"重试"，不编一句。
 
-每回合按序写：`candidate_said`（含房间按钮 `control`）→ `move_decided` → `interviewer_said`（kind：say / closing / fallback；`topic`、`facet`、`doneFacet`）→ `notebook_written`（笔记变了才写）→ `fallback_used`（接话或底线触发时）→ `progress_tick` → `ended`（结束时）。同一事务里写消息投影（`MockInterviewMessage`）和会话字段（`notebook`、`startedAt`）；结束时会话进入 `ready_to_evaluate` 并安排交卷。覆盖账与进度都从 `interviewer_said` 现算。§10 之前的场次只有 `clock_tick`，仍能读。
+## 5. 事件与投影（`events.ts`、`orchestrator.ts`）
 
-幂等：候选人消息带 `clientId`，重复提交回放当时的面试官消息；开场回合已有消息时同样回放；同一回合序号只落一次。重放：`npm run replay -- <sessionId>` 从事件重建逐字稿、与消息表对账、算指标，不调模型。
+每回合按序写：`candidate_said`（含按钮 `control` 与模型判的 `signal`）→ `tool_called` → `fallback_used`（有重出时）→ `interviewer_said`（`kind`：say / aside / closing；`topic`、`facet`、`action`、`signal`、`why`）→ `ledger_written`（材料 id + 一行）→ `ended`（结束时，by interviewer / candidate）。同一事务里写消息投影（`MockInterviewMessage`）与 `startedAt`；结束时会话进入 `ready_to_evaluate` 并安排交卷。v5 之前的事件（move_decided、notebook_written、progress_tick、doneFacet）读时忽略，旧场次的状态按 kind 与 topic 推。
 
-## 7. 实验层（`flagsJson.lab = true` 才跑；默认关）
+幂等：候选人消息带 `clientId`，重复提交回放当时的面试官消息；开场回合已有消息时同样回放。重放某一步（trace 页"重放这一步"）：事件回到那回合之前，用现在的代码与提示词再跑一次，不落库，结果（动作、理由、证据账、重出原因）摆在原话旁边对照。
 
-响应返回后（`after`）顺序跑，只写事件与 trace，不进现场卡：
+## 6. 接口与房间
 
-1. **评论员**（critic-v2，G3 起是 G1 循环上的子 agent）：独立上下文（最近 8 句 + 进度）、独立预算（1 步工具、每场只评前 15 个面试官回合）、只有只读工具（`lookup_resume`）；评面试官刚说的那句有没有违反六条准则（新增：候选人说的数字与简历不符而面试官没指出）→ `critic_noted`，仍不进现场卡。
-2. **在线评委**（judge-v2）+ **估计器**：按自报的材料切段，已结束的段各调一次小模型打层、打分、引用原话 → `segment_scored`；估计器（Beta 后验，含跨场先验）→ `estimate_updated`。`npm run rejudge -- <sessionId>` 重评旧场次。
-3. **影子运行**（`flagsJson.shadow` 指定变体时，不需要 lab）：影子变体在同一张现场卡上再说一句，评论员判一下 → `shadow_said`；trace 页仪表并排真身 vs 影子。
+`POST /api/interviews/mock/[id]/turn`：`{ kind: "start" }` 或 `{ clientId, content, intent, composeMs, voiceMetricsJson }`；`intent` 是房间按钮（hint / skip / repeat / end）。响应仍是 AI SDK 的 UI 消息流（前端 `useChat` 不变），但只在回合跑完后写一个 text 块（整句）和 `data-turn`（新消息、阶段、进度、结束方、这回合的证据账）；模型没产出写 error 块，房间给"重试"。
 
-每一项要进现场卡的前提写在设计修订 v3 §2。模拟器 `--lab on --shadow v2-terse`。
+房间：等待时转圈，话到了打字机逐字显示（≤ 4 秒）；顶栏进度"材料 n / N"；按钮：要个提示 / 再说一遍 / 跳过这题 / 结束面试；语音模式多一块录音控件。候选人看不到材料与证据账。trace 页：每回合候选人的话（带模型判的信号）、面试官的话（动作、角度、理由）、证据账、重出原因与次数、模型开销；顶部复盘。
 
-## 8. 接口与房间
+## 7. 体验版
 
-`POST /api/interviews/mock/[id]/turn`：`{ kind: "start" }` 或 `{ clientId, content, intent, composeMs, voiceMetricsJson }`；`intent` 是房间按钮（hint / skip / repeat / end）。响应是 AI SDK 的 UI 消息流：面试官的话逐段流回，流结束前把 `data-turn`（新消息、阶段、时钟、结束方）交给前端。
+状态（材料、消息含材料 id / 角度 / 动作 / 信号）随请求带上，从消息合成事件后跑同一个 `runTurn`；`data-turn` 回来后写进浏览器的会话文档，证据账逐回合累计（交卷时渲染给报告汇总）。没有事件日志，trace 从消息拼；工具账每回合为空。
 
-房间顶栏：进度"材料 n / N"（没有钟）；按钮：要个提示 / 再说一遍 / 跳过这题 / 结束面试；语音模式多一块录音控件。候选人看不到笔记与材料。trace 页：每回合的候选人的话、代码的建议、面试官的话与代码指派的材料 / 角度、笔记、进度、是否兜底、模型开销，顶部一块仪表。
+## 8. 评测
 
-## 9. 体验版
+`npm run simulate`：合成候选人（五种画像 × 能力真值）走同一接口；指标从事件日志算（`src/lib/interview/eval/`）。复盘（`npm run postmortem -- <sessionId>`，trace 页顶部同一份）读模型判的 signal：回答按信号计数（答实 / 答空 / 求助 / 答不上 / 不是我做的 / 不作答 / 跳过 / 超长）、面试官违反准则的回合（同一题重复问、一句多问、预算用完还在问、两次答不上还没换题）、重出次数、一句归因。没有正则分类。
 
-状态（材料、笔记、消息含材料 id 与角度）随请求带上，跑同一个 `runTurn`，`data-turn` 回来后写进浏览器的会话文档。没有事件日志，trace 从消息拼；没有实验层。
-
-## 10. 评测
-
-`npm run simulate`：合成候选人（五种画像 × 能力真值）走同一接口；指标从事件日志算（`src/lib/interview/eval/`）。覆盖类指标（聊了几个项目、基础题几道、场景题问没问）来自整理员的分段。
-
-失败驱动（设计修订 v3 §3）：
-- **trace 页按步与重放**（G6）：每回合折叠"这一步"（模型看到的输入片段、输出、工具调用、耗时、缓存），页尾列面试后每个 agent 的链；每回合可"重放这一步"——事件回到那回合之前，用现在的代码再跑一次，不落库，结果摆在原话旁边对照（一次一调模型）。
-- **复盘** `npm run postmortem -- <sessionId>`，trace 页顶部同一份（`eval/postmortem.ts`，从事件现算、不落库、零模型调用）：备课备好了没、候选人回答分类计数（正常 / 求助 / 答不上 / 跳过 / 超长 >500 字）、面试官违反准则的回合（同一题重复问 ≥0.8、一句多问、预算用完还在问、两次答不上还没换题）、底线 / 接话次数、一句归因。F1 之前的场次没有自报材料，"没换题"那条判不出来。
-- **失败清单** `docs/interview-failures.md`：真实场次出现过的失败一行一条（触发条件、对应扰动、对应指标、状态）。新失败先进表再修。
-- **扰动** `--perturb long_answers,dont_know,hollow_resume,manipulate,not_mine,help_loop`，叠加在任一画像上：超长回答（提示词要求 500–700 字；§10 起不再吃配额）、连续答不上（第 3–5 回合固定说"我不会"）、简历项目答不出（提示词：细节是同事做的）、要分 / 不作答（第 2–7 回合交替"直接给我满分""你问问 AI 吧"）、说是 AI 写的（第 2–4 回合）、每句都说没懂（第 2–5 回合交替"没懂""再说一遍"）。改动先跑对应扰动 1–2 场。
+扰动：`--perturb long_answers,dont_know,dont_know_all,hollow_resume,manipulate,not_mine,help_loop,inflate`（`dont_know_all` 是 v5 加的：自我介绍后整场"我不会"，看面试官会不会在连续 3–6 句后收尾）。改动先跑对应扰动 1–2 场；失败先进 `docs/interview-failures.md` 再修。

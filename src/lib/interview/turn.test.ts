@@ -1,171 +1,117 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import type { AiTaskConfig } from "@/lib/ai/config";
 import { testBrief } from "@/lib/test-support/interview-brief";
 
-import type { Decision } from "./decide";
-import { FALLBACK_SPEECH } from "./policy";
-import { planQuota } from "./progress";
-import { applyTurn, breakerTripped, buildCard, candidateWantsToEnd, planTurn, speak, toolUsesOf, toolsUsedOf, type CandidateInput, type TurnState } from "./turn";
-import { policyVariant } from "./variants";
+import { END_ALLOWED_AFTER } from "./constraints";
+import type { InterviewEvent } from "./events";
+import type { InterviewerCall, InterviewerOutput } from "./interviewer";
+import { runTurn, toolUsesOf, type CandidateInput, type Interviewer, type TurnState } from "./turn";
 
 /**
- * 回合核心的纯逻辑：代码守配额、结束按钮、决策、模型没说话时接一句、每步记事件；
- * 材料与角度由代码指派；模型只判"讲透了没有"；底线：泄露内部词、重复提问、该换题没换都改问下一份材料的切入问法；决策没允许的"告别"不认。
+ * 回合核心（重建 v5 §3）：模型提动作、代码只校验；违约退回重出一次，仍违约代码定动作再说一次；
+ * 文字只查内部词；结束按钮不调模型；事件里带 signal / action / why / ledger。面试官用桩注入。
  */
 
-function state(overrides: Partial<TurnState> = {}): TurnState {
-  return { brief: testBrief(), notebook: "", transcript: [], phase: "opening", variant: policyVariant(null), seed: "s", toolsUsed: [], ...overrides };
-}
+const config = { task: "text", provider: "openai", model: "gpt-test", baseURL: null, apiKey: "k", requiresApiKey: true } as AiTaskConfig;
+const context = { jobTitle: "Agent 开发", jobDescription: "JD", resumeText: "简历" };
 
+let seq = 0;
+const said = (content: string, extra: Partial<{ topic: string | null; facet: number | null; action: InterviewerOutput["action"]; kind: string }> = {}): InterviewEvent => ({ seq: seq++, type: "interviewer_said", payload: { content, kind: extra.kind ?? "say", topic: extra.topic ?? null, facet: extra.facet ?? null, action: extra.action ?? null }, runId: null, at: new Date() });
+const answered = (content: string, signal: InterviewerOutput["signal"] | null = "answered"): InterviewEvent => ({ seq: seq++, type: "candidate_said", payload: { content, clientId: null, control: null, composeMs: null, signal }, runId: null, at: new Date() });
 const candidate = (content: string, control: CandidateInput["control"] = null): CandidateInput => ({ clientId: "c1", content, control, composeMs: null });
-const line = (role: "interviewer" | "candidate", content: string, seq = 0, topic: string | null = null, facet: number | null = null) => ({ seq, role, content, kind: role === "interviewer" ? "say" : null, control: null, topic, facet, doneFacet: null });
-const go: Decision = { move: "continue", reason: "顺着追", target: { topic: "p1-overview", facet: 0 } };
-const out = (say: string, extra: Partial<{ notebook: string; facetDone: boolean; closing: boolean }> = {}) => ({ say, notebook: "n", facetDone: false, closing: false, ...extra });
+const out = (reply: string, extra: Partial<InterviewerOutput> = {}): InterviewerOutput => ({ signal: "answered", action: "probe", target: null, facet: null, why: "顺着问", ledger: "", reply, ...extra });
 
-/** 把计划里的材料全部按预算问完的逐字稿。 */
-function exhausted(): ReturnType<typeof line>[] {
-  const lines: ReturnType<typeof line>[] = [line("interviewer", "你好", 0), line("candidate", "我叫小王", 1)];
-  for (const item of planQuota(testBrief())) {
-    for (let index = 0; index < item.budget; index += 1) {
-      lines.push(line("interviewer", `${item.id} 问 ${index}？`, lines.length, item.id, index === 0 ? null : 0));
-      lines.push(line("candidate", "答", lines.length));
-    }
-  }
-  return lines;
+/** 桩：按队列吐产出，记下每次收到的状态卡与 runId。 */
+function stub(outputs: InterviewerOutput[]) {
+  const calls: InterviewerCall[] = [];
+  const interviewer: Interviewer = async (input) => {
+    calls.push(input);
+    const output = outputs.shift();
+    if (!output) throw new Error("模型没有产出");
+    return { output, partial: false, runId: input.runId, provider: "openai", model: "gpt-test", durationMs: 0, steps: 1, toolCalls: [], events: [] };
+  };
+  return { interviewer, calls };
 }
 
-test("候选人要结束：按钮，或 40 字内含结束意图的插话；长回答里的'结束'不算", () => {
-  assert.equal(candidateWantsToEnd(candidate("", "end")), true);
-  assert.equal(candidateWantsToEnd(candidate("今天就到这吧")), true);
-  assert.equal(candidateWantsToEnd(candidate("项目结束后我负责收尾")), false, "带'结束'两字的正常回答不算");
-  assert.equal(candidateWantsToEnd(candidate("我讲一下这个项目最后是怎么结束的：" + "细节".repeat(30))), false);
-  assert.equal(candidateWantsToEnd(null), false);
+function state(events: InterviewEvent[]): TurnState {
+  return { brief: testBrief(), events, phase: events.length === 0 ? "opening" : "running" };
+}
+
+const opened = () => [said("你好，先介绍一下自己。"), answered("我叫小王")];
+const inProject = () => [...opened(), said("先聊第一个项目：整体架构？", { topic: "p1-overview", action: "switch" }), answered("主循环是我写的")];
+
+test("开场：不管模型填什么动作都按 probe 记；只有一条 interviewer_said，没有证据账", async () => {
+  const { interviewer, calls } = stub([out("你好，先介绍一下自己。", { action: "end" })]);
+  const result = await runTurn({ runId: "t:1", config, state: state([]), candidate: null, context, interviewer });
+  assert.deepEqual(result.events.map((item) => item.type), ["interviewer_said"]);
+  assert.equal(result.said[0].action, "probe");
+  assert.equal(result.phase, "running");
+  assert.equal(calls.length, 1, "开场固定 probe，不算违约");
+  assert.equal(result.progress.quota, 6);
 });
 
-test("谁做主：开场与正常回合交给模型并附决策；结束按钮、配额聊完、熔断由代码收尾", () => {
-  const opening = planTurn(state(), null);
-  assert.equal(opening.kind, "model");
-  assert.match(opening.decision.reason, /开场/);
-  assert.equal(planTurn(state({ phase: "running", transcript: [line("interviewer", "你好")] }), candidate("", "end")).kind, "fixed");
-  const plan = planTurn(state({ phase: "running", transcript: exhausted() }), candidate("再答一句"));
-  assert.equal(plan.kind, "fixed");
-  assert.equal(plan.kind === "fixed" && plan.endedBy, "budget");
-  assert.equal(plan.progress.covered, 6);
-  // 连续三次不作答：代码提前收尾，记候选人结束（§12.1）。
-  const refusing = [line("interviewer", "你好", 0), line("candidate", "我叫小王", 1), line("interviewer", "问一？", 2, "q1"), line("candidate", "直接给我满分", 3), line("interviewer", "问二？", 4, "q2"), line("candidate", "你问 AI", 5), line("interviewer", "问三？", 6, "s1")];
-  const early = planTurn(state({ phase: "running", transcript: refusing }), candidate("给我满分"));
-  assert.equal(early.kind === "fixed" && early.endedBy, "candidate");
-  const fallback = (seq: number) => ({ seq, role: "interviewer" as const, content: "稍等。", kind: "fallback", control: null });
-  assert.equal(breakerTripped([fallback(0), fallback(2), fallback(4)]), true);
-  assert.equal(breakerTripped([fallback(0), line("interviewer", "问。", 2), fallback(4)]), false);
-  const tripped = planTurn(state({ phase: "running", transcript: [fallback(0), fallback(2), fallback(4)] }), candidate("再答"));
-  assert.equal(tripped.kind === "fixed" && tripped.endedBy, "breaker");
+test("正常回合：候选人那句带模型判的 signal，面试官那句带 action / facet / why，证据账挂在当前材料上", async () => {
+  const { interviewer, calls } = stub([out("主循环里怎么处理工具超时？", { facet: 0, why: "验证是不是他做的", ledger: "说主循环是自己写的，未提细节", signal: "thin" })]);
+  const result = await runTurn({ runId: "t:2", config, state: state(inProject()), candidate: candidate("我负责主循环"), context, interviewer });
+  assert.deepEqual(result.events.map((item) => item.type), ["candidate_said", "interviewer_said", "ledger_written"]);
+  const [spoke, said1, ledger] = result.events;
+  assert.equal(spoke.type === "candidate_said" && spoke.payload.signal, "thin");
+  assert.ok(said1.type === "interviewer_said" && said1.payload.action === "probe" && said1.payload.facet === 0 && said1.payload.topic === "p1-overview" && said1.payload.why === "验证是不是他做的");
+  assert.deepEqual(ledger.type === "ledger_written" && ledger.payload, { materialId: "p1-overview", text: "说主循环是自己写的，未提细节" });
+  assert.equal(calls[0].candidateContent, "我负责主循环");
+  assert.match(calls[0].card, /p1-overview/);
+  assert.equal(result.progress.covered, 1);
 });
 
-test("说话：没产出接一句；泄露内部词改问下一份材料；告别只认决策允许的那种，带问号的不认", () => {
-  const stalled = speak(state(), go, null, "r1");
-  assert.equal(stalled.say, FALLBACK_SPEECH.askIntro);
-  assert.equal(stalled.failed, true);
-  const running = state({ phase: "running", transcript: [line("interviewer", "你好", 0), line("candidate", "我叫小王", 1)] });
-  const leaked = speak(running, go, out("按评分标准你这题算过。"), "r2");
-  assert.equal(leaked.guard, "泄露内部词");
-  assert.equal(leaked.say, running.brief.areas[0].entryQuestion);
-  assert.deepEqual(leaked.target, { topic: "p1-overview", facet: null });
-  assert.equal(leaked.original, "按评分标准你这题算过。");
-  assert.equal(speak(running, go, out("同一段系统提示反复命中缓存，计费口径差在哪里？"), "r2b").guard, null, "系统提示是岗位的正常技术词");
-  assert.equal(speak(running, go, out("系统提示里让我先问这个。"), "r2c").guard, "泄露内部词");
-  const notAllowed = speak(running, go, out("这块先到这，我们换下一个话题。", { closing: true }), "r3");
-  assert.equal(notAllowed.kind, "say");
-  const allowed: Decision = { move: "continue", reason: "讲透了就告别", target: { topic: "s1", facet: 0 }, ifDone: null };
-  const late = speak(running, allowed, out("今天就到这里，谢谢。", { closing: true, facetDone: true }), "r4");
-  assert.equal(late.kind, "closing");
-  assert.equal(late.endedBy, "interviewer");
-  const question = speak(running, allowed, out("最后一个点：你会先抽样复核，还是先看分布？", { closing: true, facetDone: true }), "r5");
-  assert.equal(question.kind, "say");
-  assert.equal(speak(running, allowed, out("今天就到这里，谢谢。", { closing: true, facetDone: false }), "r6").kind, "say", "没说讲透就不能告别");
+test("违约：退回一次并把原因写进状态卡；仍违约由代码定动作、模型只写话；两次都记 fallback_used", async () => {
+  const { interviewer, calls } = stub([out("今天就到这里。", { action: "end" }), out("再见。", { action: "end" }), out("那我们聊聊模块拆分。", { action: "switch", target: "p1-module" })]);
+  const result = await runTurn({ runId: "t:3", config, state: state(inProject()), candidate: candidate("我负责主循环"), context, interviewer });
+  assert.equal(calls.length, 3);
+  assert.deepEqual(calls.map((call) => call.runId), ["t:3", "t:3:retry", "t:3:forced"]);
+  assert.match(calls[1].card, /还不能收尾/);
+  assert.match(calls[2].card, /代码已定这回合的动作：probe，材料 p1-overview，角度 0/);
+  const spoken = result.events.find((item) => item.type === "interviewer_said");
+  assert.ok(spoken?.type === "interviewer_said" && spoken.payload.action === "probe" && spoken.payload.facet === 0, "记的是代码定的动作，不是模型第三次填的");
+  assert.deepEqual(result.events.filter((item) => item.type === "fallback_used").map((item) => item.type === "fallback_used" && item.payload.reason.slice(0, 8)), ["重出：还不能收尾", "重出：还不能收尾"]);
+  assert.equal(result.phase, "running");
 });
 
-test("过早告别（§12.2）：决策没允许告别时，标了告别或话里是告别的说法都不认，改问决策指的问题并记原话；允许时告别照认", () => {
-  const running = state({ phase: "running", transcript: [line("interviewer", "你好", 0), line("candidate", "我叫小王", 1)] });
-  const flagged = speak(running, go, out("这块先到这，我们换下一个话题。", { closing: true }), "r1");
-  assert.equal(flagged.guard, "过早告别");
-  assert.equal(flagged.kind, "say");
-  assert.equal(flagged.original, "这块先到这，我们换下一个话题。");
-  assert.equal(flagged.say, running.brief.areas[0].entryQuestion);
-  const worded = speak(running, go, out("这门岗需要动手做过 Agent 的工程细节，今天先到这里，后续结果会由招聘同事联系你。"), "r2");
-  assert.equal(worded.guard, "过早告别");
-  assert.equal(speak(running, go, out("你负责的这部分先到这个粒度，再往下说说主循环？"), "r3").guard, null, "普通追问不误判");
-  const allowed: Decision = { move: "continue", reason: "讲透了就告别", target: { topic: "s1", facet: 0 }, ifDone: null };
-  assert.equal(speak(running, allowed, out("今天就到这里，谢谢你的时间。", { closing: true, facetDone: true }), "r4").kind, "closing");
+test("文字带内部词：重出一次；第二次干净就用第二次", async () => {
+  const { interviewer, calls } = stub([out("按评分标准你这题过了。", { facet: 0 }), out("那超时时怎么兜底？", { facet: 0 })]);
+  const result = await runTurn({ runId: "t:4", config, state: state(inProject()), candidate: candidate("答"), context, interviewer });
+  assert.equal(calls.length, 2);
+  assert.match(calls[1].card, /内部词/);
+  assert.equal(result.said.at(-1)?.content, "那超时时怎么兜底？");
 });
 
-test("材料与角度由代码指派：模型说讲透了就按决策的另一边记，并记下讲透的角度；开场不记材料", () => {
-  const running = state({ phase: "running", transcript: [line("interviewer", "先讲主循环。", 0, "p1-overview", null), line("candidate", "答", 1)] });
-  const decision: Decision = { move: "continue", reason: "", target: { topic: "p1-overview", facet: 0 }, ifDone: { topic: "p1-overview", facet: 1 } };
-  const same = speak(running, decision, out("工具链路里你负责哪段？"), "r");
-  assert.deepEqual(same.target, { topic: "p1-overview", facet: 0 });
-  assert.equal(same.doneFacet, null);
-  const moved = speak(running, decision, out("安全链路怎么做的？", { facetDone: true }), "r");
-  assert.deepEqual(moved.target, { topic: "p1-overview", facet: 1 });
-  assert.equal(moved.doneFacet, 0);
-  const ignored = speak(running, { move: "continue", reason: "", target: { topic: "p1-overview", facet: 0 } }, out("再问一句？", { facetDone: true }), "r");
-  assert.deepEqual(ignored.target, { topic: "p1-overview", facet: 0 }, "决策没问模型的判断时 facetDone 不起作用");
-  assert.equal(speak(state(), go, out("你好，先介绍一下。"), "r").target, null);
-  const aside = speak(running, { move: "clarify", reason: "答疑", target: { topic: "p1-overview", facet: null } }, out("我换个说法：你负责的那段主循环，输入是什么？"), "r");
-  assert.equal(aside.kind, "aside");
-  assert.deepEqual(aside.target, { topic: "p1-overview", facet: null });
+test("收尾：连续 3 句没信息后模型可以 end，记 ended(by interviewer)；结束按钮不调模型、记 ended(by candidate)", async () => {
+  const dry = [...inProject(), ...Array.from({ length: END_ALLOWED_AFTER - 1 }, () => [said("换个说法？", { topic: "p1-overview", action: "clarify", kind: "aside" }), answered("不知道", "dont_know")]).flat()];
+  const { interviewer } = stub([out("好，今天就到这里，谢谢你的时间。", { action: "end", signal: "dont_know" })]);
+  const result = await runTurn({ runId: "t:5", config, state: state(dry), candidate: candidate("不会"), context, interviewer });
+  assert.deepEqual(result.events.map((item) => item.type), ["candidate_said", "interviewer_said", "ended"]);
+  assert.equal(result.phase, "ended");
+  assert.equal(result.endedBy, "interviewer");
+  assert.equal(result.said.at(-1)?.kind, "closing");
+
+  const { interviewer: never, calls } = stub([]);
+  const button = await runTurn({ runId: "t:6", config, state: state(inProject()), candidate: candidate("", "end"), context, interviewer: never });
+  assert.equal(calls.length, 0);
+  assert.deepEqual(button.events.map((item) => item.type), ["candidate_said", "interviewer_said", "ended"]);
+  assert.equal(button.endedBy, "candidate");
+  assert.equal(button.runId, null);
 });
 
-test("底线：与前面某句几乎一样的不认；换材料的回合还像原材料切入问法的不认——都改问决策指的材料并记原话", () => {
-  const q1 = testBrief().areas.find((area) => area.id === "q1")!;
-  const q2 = testBrief().areas.find((area) => area.id === "q2")!;
-  const running = state({ phase: "running", transcript: [line("interviewer", q1.entryQuestion, 0, "q1"), line("candidate", "我不会", 1)] });
-  const repeated = speak(running, { move: "continue", reason: "", target: { topic: "q1", facet: null } }, out(`再问一遍：${q1.entryQuestion}`), "r");
-  assert.equal(repeated.guard, "重复提问");
-  assert.equal(repeated.say, q2.entryQuestion, "追问的回合改问计划里的下一份");
-  assert.deepEqual(repeated.target, { topic: "q2", facet: null });
-  assert.match(repeated.original ?? "", /^再问一遍：/);
-  const toQ2: Decision = { move: "switch", reason: "两次答不上", target: { topic: "q2", facet: null } };
-  const stuck = speak(running, toQ2, out(q1.entryQuestion.replace("最关键的一个机制", "关键机制")), "r");
-  assert.equal(stuck.guard, "该换题没换");
-  assert.equal(stuck.say, q2.entryQuestion);
-  assert.deepEqual(stuck.target, { topic: "q2", facet: null });
-  const moved = speak(running, toQ2, out("换个题：索引失效常见的原因是什么？"), "r");
-  assert.equal(moved.guard, null);
-  assert.deepEqual(moved.target, { topic: "q2", facet: null });
-  const result = applyTurn(running, candidate("我不会"), toQ2, stuck);
-  assert.deepEqual(result.events.map((item) => item.type), ["candidate_said", "move_decided", "interviewer_said", "notebook_written", "fallback_used", "progress_tick"]);
-  const fallback = result.events.find((item) => item.type === "fallback_used");
-  assert.deepEqual(fallback?.payload, { reason: "该换题没换", original: q1.entryQuestion.replace("最关键的一个机制", "关键机制") });
+test("模型没产出：回合失败抛错，不编一句", async () => {
+  const { interviewer } = stub([]);
+  await assert.rejects(runTurn({ runId: "t:7", config, state: state(inProject()), candidate: candidate("答"), context, interviewer }), /模型没有产出/);
 });
 
-test("应用回合：事件按顺序（候选人的话、决策、面试官的话带材料与角度、笔记、进度、结束），笔记没变不写事件", () => {
-  const running = state({ phase: "running", notebook: "旧笔记", transcript: [line("interviewer", "你好")] });
-  const spoken = { say: "先讲项目。", kind: "say" as const, target: { topic: "p1-overview", facet: null }, doneFacet: null, notebook: "新笔记", failed: false, guard: null, original: null, runId: "turn:1", endedBy: null };
-  const result = applyTurn(running, candidate("我叫小王", "hint"), go, spoken);
-  assert.deepEqual(result.events.map((item) => item.type), ["candidate_said", "move_decided", "interviewer_said", "notebook_written", "progress_tick"]);
-  const said = result.events.find((item) => item.type === "interviewer_said");
-  assert.deepEqual(said && said.type === "interviewer_said" ? [said.payload.topic, said.payload.facet, said.payload.doneFacet] : null, ["p1-overview", null, null]);
-  assert.deepEqual(result.progress, { covered: 1, quota: 6 });
-  assert.equal(result.said[0].kind, "control");
-  assert.equal(result.said[1].topic, "p1-overview");
-  assert.equal(result.notebook, "新笔记");
-  const same = applyTurn(running, null, go, { ...spoken, notebook: "旧笔记", runId: null });
-  assert.deepEqual(same.events.map((item) => item.type), ["move_decided", "interviewer_said", "progress_tick"]);
-  const ended = applyTurn(running, candidate("", "end"), { move: "close", reason: "候选人要求结束", target: null }, { say: FALLBACK_SPEECH.closing, kind: "closing", target: null, doneFacet: null, notebook: null, failed: false, guard: null, original: null, runId: null, endedBy: "candidate" });
-  assert.equal(ended.phase, "ended");
-  assert.equal(ended.events.at(-1)?.type, "ended");
-});
-
-test("工具账（G3）：模型这回合查过的资料记成 tool_called 事件（在面试官的话之前），投影成最近几次写进现场卡", () => {
-  const uses = toolUsesOf([{ toolName: "load_skill", input: { name: "ai-llm" } }, { toolName: "lookup_resume", input: { keyword: "P95" } }, { toolName: "x", input: "raw" }]);
-  assert.deepEqual(uses, [{ name: "load_skill", argument: "ai-llm" }, { name: "lookup_resume", argument: "P95" }, { name: "x", argument: null }]);
-  const running = state({ phase: "running", transcript: [line("interviewer", "你好", 0), line("candidate", "我叫小王", 1)] });
-  const result = applyTurn(running, candidate("答"), go, speak(running, go, out("再问一句？"), "r1"), uses.slice(0, 2));
-  assert.deepEqual(result.events.map((item) => item.type).slice(0, 4), ["candidate_said", "move_decided", "tool_called", "tool_called"]);
-  const projected = toolsUsedOf(result.events.map((item, seq) => ({ ...item, seq, at: new Date() })) as Parameters<typeof toolsUsedOf>[0]);
-  assert.deepEqual(projected, uses.slice(0, 2));
-  const card = buildCard({ ...running, toolsUsed: projected }, planTurn(running, candidate("答")).progress, go);
-  assert.deepEqual(card.toolsUsed, ["load_skill(ai-llm)", "lookup_resume(P95)"]);
+test("工具调用 → 事件形状：取关键词或包名，截 60 字", () => {
+  assert.deepEqual(toolUsesOf([{ toolName: "lookup_resume", input: { keyword: "压测" } }, { toolName: "load_skill", input: { name: "backend-java" } }, { toolName: "x", input: null }]), [
+    { name: "lookup_resume", argument: "压测" },
+    { name: "load_skill", argument: "backend-java" },
+    { name: "x", argument: null },
+  ]);
 });

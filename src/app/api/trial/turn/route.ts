@@ -1,9 +1,8 @@
-import { policyVariant } from "@/lib/interview/variants";
 import { describeAgentError, isAgentRunError } from "@/lib/ai/run-agent";
 import { CANDIDATE_CONTROLS, CONTROL_PLACEHOLDERS, type CandidateControl } from "@/lib/interview/events";
 import { turnResponse } from "@/lib/interview/stream";
 import { runTurn, type TurnState } from "@/lib/interview/turn";
-import type { ConversationMessage } from "@/lib/interview/views";
+import { eventsOfMessages, type ConversationMessage } from "@/lib/interview/views";
 import { loadSkillPacks } from "@/lib/mock-interviews/skills/loader";
 import { packsForInterview } from "@/lib/mock-interviews/skills/selector";
 import type { InterviewBrief } from "@/lib/mock-interviews/brief/brief";
@@ -16,7 +15,7 @@ export const maxDuration = 60;
 const MAX_CONTENT_LENGTH = 20_000;
 
 type Body = {
-  state: { brief: InterviewBrief; notebook: string; messages: ConversationMessage[] };
+  state: { brief: InterviewBrief; messages: ConversationMessage[] };
   context: { jobTitle: string; jobDescription: string; resumeText: string; skillPacks?: string[] };
   /** 随机种子（会话 id）：抽追问角度用。 */
   seed?: string;
@@ -36,38 +35,29 @@ export const POST = withTrialAiResponse<Body>(async (body) => {
   if (content.length > MAX_CONTENT_LENGTH) return Response.json({ error: "消息不能超过 2 万字符。" }, { status: 400 });
 
   const messages = Array.isArray(body.state.messages) ? body.state.messages : [];
-  const state: TurnState = {
-    brief: body.state.brief,
-    notebook: typeof body.state.notebook === "string" ? body.state.notebook : "",
-    transcript: messages.map((message, seq) => ({ seq, role: message.role, content: message.content, kind: message.role === "interviewer" ? message.kind : null, control: null, topic: message.role === "interviewer" ? (message.topic ?? null) : null, facet: message.facet ?? null, doneFacet: message.doneFacet ?? null })),
-    phase: messages.length === 0 ? "opening" : "running",
-    variant: policyVariant(null),
-    seed: typeof body.seed === "string" ? body.seed : "trial",
-    // 体验版不留事件：工具账每回合为空（面试官可能重复查，只多一次工具步）。
-    toolsUsed: [],
-  };
+  // 体验版没有事件日志：从消息合成状态需要的事件（工具账因此每回合为空，面试官可能重复查）。
+  const state: TurnState = { brief: body.state.brief, events: eventsOfMessages(messages), phase: messages.length === 0 ? "opening" : "running" };
   const context = { ...body.context, skillPacks: packsForInterview(Array.isArray(body.context?.skillPacks) ? body.context.skillPacks : [], await loadSkillPacks(), 3) };
   try {
-    const run = runTurn({
-      runId: `trial-turn:${messages.length}:${Date.now()}`,
-      config: await getAiTaskConfig("text"),
-      state,
-      candidate: body.candidate ? { clientId: null, content: content || (control ? CONTROL_PLACEHOLDERS[control] : ""), control, composeMs: body.candidate.composeMs ?? null } : null,
-      context,
-    });
     const turnIndex = messages.filter((message) => message.role === "interviewer").length;
+    const config = await getAiTaskConfig("text");
     return turnResponse({
       replay: false,
-      say: run.say,
       finalize: async () => {
-        const result = await run.finalize();
+        const result = await runTurn({
+          runId: `trial-turn:${messages.length}:${Date.now()}`,
+          config,
+          state,
+          candidate: body.candidate ? { clientId: null, content: content || (control ? CONTROL_PLACEHOLDERS[control] : ""), control, composeMs: body.candidate.composeMs ?? null } : null,
+          context,
+        });
         return {
-          newMessages: result.said.map((line) => ({ id: crypto.randomUUID(), turnIndex, role: line.role, kind: line.kind, content: line.content, topic: line.topic ?? null, facet: line.facet ?? null, doneFacet: line.doneFacet ?? null })),
+          newMessages: result.said.map((line) => ({ id: crypto.randomUUID(), turnIndex, role: line.role, kind: line.kind, content: line.content, topic: line.topic ?? null, facet: line.facet ?? null, action: line.action ?? null, signal: line.signal ?? null })),
           phase: result.phase,
           progress: result.progress,
           endedBy: result.endedBy,
           coveredCount: result.progress.covered,
-          notebook: result.notebook,
+          ledger: result.events.flatMap((item) => (item.type === "ledger_written" ? [item.payload] : []))[0] ?? null,
         };
       },
     });

@@ -75,8 +75,8 @@ export type TrialInterview = {
   generationError: string | null;
   blueprint: MockInterviewJobBlueprint | null;
   brief: InterviewBrief | null;
-  /** 面试官的笔记，最新一份。 */
-  notebook: string;
+  /** 面试官的证据账：每回合一行，挂在材料上（与本地版的 ledger_written 事件同义）。 */
+  ledger: { materialId: string; text: string }[];
   messages: ConversationMessage[];
   questions: TrialSegment[];
   /** 整理员对简历假设的判断（交卷时切段一并给出）。 */
@@ -100,7 +100,7 @@ export function createTrialInterview(input: { job: TrialJobInput; resume: TrialR
     generationError: null,
     blueprint: null,
     brief: null,
-    notebook: "",
+    ledger: [],
     messages: [],
     questions: [],
     hypotheses: [],
@@ -130,13 +130,13 @@ export function retryGeneration(interview: TrialInterview): TrialInterview {
 
 /* ------------------------------ 面试中 ------------------------------ */
 
-/** 把一个回合的结果应用到文档：新消息、笔记、阶段，与本地版 persistTurn 同语义。 */
-export function applyTurnPayload(interview: TrialInterview, payload: TurnPayload & { notebook?: string }): TrialInterview {
+/** 把一个回合的结果应用到文档：新消息、证据账、阶段，与本地版 persistTurn 同语义。 */
+export function applyTurnPayload(interview: TrialInterview, payload: TurnPayload): TrialInterview {
   return {
     ...interview,
     startedAt: interview.startedAt ?? new Date().toISOString(),
     messages: [...interview.messages, ...payload.newMessages],
-    notebook: payload.notebook ?? interview.notebook,
+    ledger: payload.ledger ? [...interview.ledger, payload.ledger] : interview.ledger,
     status: payload.phase === "ended" ? "ready_to_evaluate" : interview.status,
   };
 }

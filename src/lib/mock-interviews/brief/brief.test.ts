@@ -1,23 +1,21 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { SkillTopic } from "../skills/topics";
 import type { MockInterviewJobBlueprint } from "../types";
 import {
   buildBriefFromOutput,
   fallbackBrief,
   fallbackHypothesis,
-  firstQuestion,
+  quickTarget,
   SCENARIOS_PER_PACE,
   parseStoredBrief,
   briefReady,
-  QUICK_POOL_SIZE,
   type BriefOutput,
 } from "./brief";
 
 /**
- * 备课的代码把关（v8，材料）：每个项目五个面补齐、题池 = 抽样主题、场景题数按节奏、JD 证据逐字、
- * 简历假设挂项目并兜底、总回合数、业务。
+ * 备课的代码把关（v8，材料；重建 v5 §6）：项目排序与兜底、基础题按配额取数并验锚点逐字、场景题数按节奏、JD 证据逐字、
+ * 简历假设挂项目并兜底、业务。
  */
 
 const jobDescription = "1、负责社交与通讯产品的后端开发；2、参与 API 设计与自动化测试；3、将智能对话能力融入产品。2027 届本科及以上。";
@@ -40,11 +38,10 @@ const projects = [
 
 const resumeText = "项目经历\nStudy Assistant ——基于 LLM Agent 的本地化个人助手 2026年4月–现在\n从零构建本地化个人助手，Agent Harness 主循环、分层记忆与工具协议，平均 prompt 长度降低约 50%。\n校园二手平台 2025年9月–2026年1月\n退款状态机重构，重复判断代码减少约四成；库存超卖排查。";
 
-const topic = (name: string, fromResume = false): SkillTopic => ({ skill: "backend", name, ladder: `${name}是什么 → 为什么 → 出问题怎么查`, example: `${name}里最容易出错的一步是什么？为什么？`, redFlags: "只会背", signals: "说得出边界", optional: false, fromResume });
-const topics = [topic("缓存一致性", true), topic("MySQL 索引"), topic("消息队列可靠投递")];
+const topicNames = ["缓存一致性", "MySQL 索引", "消息队列可靠投递", "接口幂等"];
 
 const projectOut = (projectId: string, question = "你负责哪一段？"): BriefOutput["projects"][number] => ({ projectId, question, leads: ["边界"], expectedSignals: ["职责"] });
-const quickOut = (name: string): BriefOutput["quick"][number] => ({ topic: name, question: `${name}怎么保证？`, followUp: "边界条件", expectedSignals: ["机制"] });
+const quickOut = (name: string, extra: Partial<BriefOutput["quick"][number]> = {}): BriefOutput["quick"][number] => ({ name, question: `${name}怎么保证？`, anchor: { kind: "resume", quote: "库存超卖排查" }, skill: "backend", followUp: "边界条件", expectedSignals: ["机制"], ...extra });
 const scenarioOut = (overrides: Partial<BriefOutput["scenarios"][number]> = {}): BriefOutput["scenarios"][number] => ({
   name: "场景：接口限流",
   competencyIds: ["api", "ghost"],
@@ -55,15 +52,15 @@ const scenarioOut = (overrides: Partial<BriefOutput["scenarios"][number]> = {}):
   ...overrides,
 });
 
-function build(output: Partial<BriefOutput>, extra: { pace?: "quick" | "standard" | "deep"; projects?: typeof projects; topics?: SkillTopic[] } = {}) {
+function build(output: Partial<BriefOutput>, extra: { pace?: "quick" | "standard" | "deep"; projects?: typeof projects } = {}) {
   return buildBriefFromOutput({
     output: { projects: [], quick: [], scenarios: [], hypotheses: [], ...output },
     blueprint,
     jobDescription,
     resumeText,
     projects: extra.projects ?? projects,
-    topics: extra.topics ?? topics,
-    skillPacks: ["backend"],
+    topicNames,
+    skillPacks: ["backend", "project-deep-dive"],
     pace: extra.pace ?? "standard",
     round: null,
     askIntro: true,
@@ -89,21 +86,26 @@ test("项目：模型先写到的排前面，每个项目一份材料，没写�
   assert.equal(projectAreas(build({}, { projects: [] })).length, 0);
 });
 
-test("题池就是抽样的主题，一个主题一道：模型没写的用包里的好题第一问；抽样之外的丢弃；简历碰过的带标记", () => {
-  const brief = build({ quick: [quickOut("MySQL 索引"), quickOut("Redis 分布式锁")] });
-  const pool = brief.areas.filter((area) => area.kind === "quick");
-  assert.deepEqual(pool.map((area) => [area.id, area.name]), [["q1", "缓存一致性"], ["q2", "MySQL 索引"], ["q3", "消息队列可靠投递"]]);
-  assert.equal(pool[1].entryQuestion, "MySQL 索引怎么保证？");
-  assert.equal(pool[0].entryQuestion, "缓存一致性里最容易出错的一步是什么？");
-  assert.deepEqual(pool[0].topic, { skill: "backend", name: "缓存一致性", fromResume: true });
-  assert.deepEqual(pool[0].rubric.map((item) => item.name), ["准确性", "原理深度", "表达结构"]);
-  // 模型少写的主题照样进池：题池的构成由抽样定，问不问在面试中定。
-  const eight = ["A", "B", "C", "D", "E", "F", "G", "H"].map((name) => topic(name));
-  const full = build({ quick: ["A", "C"].map(quickOut) }, { pace: "quick", topics: eight });
-  assert.deepEqual(full.areas.filter((area) => area.kind === "quick").map((area) => area.name), ["A", "B", "C", "D", "E", "F", "G", "H"]);
-  // 兜底题目只取好题的第一问：多个问号取第一个，一句里顿号并列的几问也只留第一问；顿号并列的名词不切。
-  assert.equal(firstQuestion("同一套提示迁移后失败率涨了，你怀疑哪些差异、怎么快速定位、最终怎么让提示更鲁棒？"), "同一套提示迁移后失败率涨了，你怀疑哪些差异？");
-  assert.equal(firstQuestion("如果工具里有删除、支付这类敏感操作，你会怎么加确认？为什么？"), "如果工具里有删除、支付这类敏感操作，你会怎么加确认？");
+test("基础题：模型按 JD 与简历定，取配额那么多道；锚点逐字才认，skill 必须是备课用的包；不够的从主题清单补且没有锚点", () => {
+  const brief = build({ quick: [quickOut("缓存一致性"), quickOut("MySQL 索引", { anchor: { kind: "jd", quote: "参与 API 设计与自动化测试" }, skill: "frontend" }), quickOut("消息队列", { anchor: { kind: "resume", quote: "改写过的一句" } }), quickOut("多余的第四道")] });
+  const quick = brief.areas.filter((area) => area.kind === "quick");
+  assert.equal(quick.length, quickTarget("standard", 2), "标准档 3 道");
+  assert.deepEqual(quick.map((area) => [area.id, area.name]), [["q1", "缓存一致性"], ["q2", "MySQL 索引"], ["q3", "消息队列"]]);
+  assert.deepEqual(quick[0].anchor, { kind: "resume", quote: "库存超卖排查" });
+  assert.equal(quick[0].skill, "backend");
+  assert.deepEqual(quick[1].anchor, { kind: "jd", quote: "参与 API 设计与自动化测试" });
+  assert.equal(quick[1].skill, null, "不是备课用的包");
+  assert.equal(quick[2].anchor, null, "改写过的引用不算锚点");
+  assert.equal(quick[0].entryQuestion, "缓存一致性怎么保证？");
+  assert.deepEqual(quick[0].rubric.map((item) => item.name), ["准确性", "原理深度", "表达结构"]);
+  // 模型只写了一道：从领域包的主题清单按顺序补到配额，补的没有锚点、不与已有的重名。
+  const short = build({ quick: [quickOut("MySQL 索引")] });
+  const filled = short.areas.filter((area) => area.kind === "quick");
+  assert.deepEqual(filled.map((area) => [area.name, area.anchor === null]), [["MySQL 索引", false], ["缓存一致性", true], ["消息队列可靠投递", true]]);
+  assert.match(filled[1].entryQuestion, /缓存一致性/);
+  // 简历没有项目：项目配额让给基础题。
+  assert.equal(build({}, { projects: [], pace: "quick" }).areas.filter((area) => area.kind === "quick").length, quickTarget("quick", 0));
+  assert.equal(quickTarget("quick", 0), 3);
 });
 
 test("场景题按节奏取数，JD 原句必须逐字、能力 id 必须在蓝图里，不够时代码兜底", () => {
@@ -135,14 +137,14 @@ test("简历假设：证据逐字、按 projectId 或简历段落挂到项目；
   assert.equal(fallbackHypothesis("Study Assistant 2026年4月–现在", projects[0]), null);
 });
 
-test("兜底简报：题池固定 4 道；蓝图的业务带进简报", () => {
-  const brief = fallbackBrief({ blueprint, jobDescription, resumeText, projects, topics, skillPacks: ["backend"], pace: "quick", round: null, askIntro: true });
+test("兜底简报：基础题从主题清单按配额取、没有锚点；蓝图的业务带进简报", () => {
+  const brief = fallbackBrief({ blueprint, jobDescription, resumeText, projects, topicNames, skillPacks: ["backend"], pace: "quick", round: null, askIntro: true });
   assert.equal(brief.source, "fallback");
   assert.equal(brief.product, null);
   assert.equal(projectAreas(brief).length, 2);
   assert.equal(brief.areas.filter((area) => area.kind === "scenario").length, 1);
-  assert.equal(QUICK_POOL_SIZE, 4);
-  const withBusiness = fallbackBrief({ blueprint: { ...blueprint, business: { product: "社交 App 的后端", systems: ["消息链路"], constraints: null } }, jobDescription, resumeText, projects, topics, skillPacks: ["backend"], pace: "quick", round: null, askIntro: true });
+  assert.deepEqual(brief.areas.filter((area) => area.kind === "quick").map((area) => [area.name, area.anchor]), [["缓存一致性", null], ["MySQL 索引", null]]);
+  const withBusiness = fallbackBrief({ blueprint: { ...blueprint, business: { product: "社交 App 的后端", systems: ["消息链路"], constraints: null } }, jobDescription, resumeText, projects, topicNames, skillPacks: ["backend"], pace: "quick", round: null, askIntro: true });
   assert.equal(withBusiness.product, "社交 App 的后端");
 });
 

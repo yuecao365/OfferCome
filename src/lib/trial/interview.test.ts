@@ -43,10 +43,10 @@ test("备课两步各自落文档，失败后重试只重跑失败的那一步",
   assert.equal(retried.generationPhase, "brief", "蓝图已有，重试直接备课");
   const ready = withBrief(retried, testBrief());
   assert.equal(ready.status, "in_progress");
-  assert.equal(ready.notebook, "");
+  assert.deepEqual(ready.ledger, []);
 });
 
-test("回合结果应用到文档：消息追加、笔记换成最新一份、结束进入待评分", () => {
+test("回合结果应用到文档：消息追加、证据账累计、结束进入待评分", () => {
   const interview = withBrief(withBlueprint(fresh(), blueprint), testBrief());
   const progress = { covered: 0, quota: 6 };
   const opened = applyTurnPayload(interview, {
@@ -55,11 +55,11 @@ test("回合结果应用到文档：消息追加、笔记换成最新一份、�
     progress,
     endedBy: null,
     coveredCount: 0,
-    notebook: "先听自我介绍，再挑最贴岗位的项目。",
+    ledger: null,
   });
   assert.ok(opened.startedAt);
   assert.equal(opened.messages.length, 1);
-  assert.equal(opened.notebook, "先听自我介绍，再挑最贴岗位的项目。");
+  assert.deepEqual(opened.ledger, []);
   const ended = applyTurnPayload(opened, {
     newMessages: [
       { id: "c1", turnIndex: 1, role: "candidate", kind: "control", content: "我们结束吧。" },
@@ -69,9 +69,10 @@ test("回合结果应用到文档：消息追加、笔记换成最新一份、�
     progress,
     endedBy: "candidate",
     coveredCount: 0,
+    ledger: { materialId: "p1-overview", text: "说到主循环是自己写的" },
   });
   assert.equal(ended.status, "ready_to_evaluate");
-  assert.equal(ended.notebook, opened.notebook, "没带笔记的回合不动笔记");
+  assert.deepEqual(ended.ledger, [{ materialId: "p1-overview", text: "说到主循环是自己写的" }]);
   assert.equal(ended.messages.length, 3);
 });
 

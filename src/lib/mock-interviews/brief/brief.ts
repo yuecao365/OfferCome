@@ -4,16 +4,17 @@ import type { ProfileDimension } from "@/lib/candidate-profile/types";
 import { isVerbatimEvidence } from "@/lib/text/evidence";
 import { normalizedText } from "@/lib/text/similarity";
 
-import type { SkillTopic } from "../skills/topics";
+import { QUOTA } from "@/lib/interview/progress";
+
 import type { MockInterviewJobBlueprint } from "../types";
 
 /**
  * 面试简报：面试官的"备课"产物（设计修订 v3 精简版）。
  *
  * 一场面试 = 开场 → 项目深挖 → 基础快问 → 场景题 → 收尾。材料只备三类，每类一道就是一份材料：
- * 每个项目一份（一句切入问法 + 最多 3 条要验证的线索；简历假设挂在项目上）、基础题 4 道
- * （主题由代码从技能包按角色配额抽样，模型只写题，每道带一层追问方向）、场景题带三级引导阶梯。
- * 何时转题、追几轮由面试中的代码决策定，不在材料里。评分表按种类固定，简历假设逐字引用简历原文（硬门）。
+ * 每个项目一份（一句切入问法 + 最多 3 条要验证的线索；简历假设挂在项目上）、基础题按配额几道
+ * （问什么由模型按这份 JD 与这份简历定，每道带锚点：简历或 JD 的逐字片段，代码只验逐字）、场景题带三级引导阶梯。
+ * 何时转题、追几句由面试中的状态与约束定，不在材料里。评分表按种类固定，简历假设逐字引用简历原文（硬门）。
  *
  * 旧简报（每个项目五个面）仍能读：area.angle 非空时按面的标签显示。
  */
@@ -76,8 +77,23 @@ export function isProjectAngle(value: unknown): value is ProjectAngle {
 export const KIND_WEIGHT: Record<AreaKind, number> = { project: 3, quick: 1, scenario: 2 };
 
 export const MAX_HYPOTHESES = 6;
-/** 基础题池：4 道，按 JD 方向配额抽（简历技术栈的包最多 1 道）；真实一面基础题本来只问三四道。 */
-export const QUICK_POOL_SIZE = 4;
+/** 备几道基础题：配额里的基础题数；简历没有项目时项目配额让给基础题（与 progress.planQuota 同口径）。 */
+export function quickTarget(pace: InterviewPace, projectCount: number): number {
+  const quota = QUOTA[pace];
+  return quota.quick + (projectCount === 0 ? quota.project : 0);
+}
+const MAX_QUICK = Math.max(...INTERVIEW_PACES.map((pace) => quickTarget(pace, 0)));
+
+export const ANCHOR_KINDS = ["resume", "jd"] as const;
+export type AnchorKind = (typeof ANCHOR_KINDS)[number];
+/** 一道基础题落在哪：简历里他用过的那句，或 JD 里的一条要求，逐字。 */
+export type QuestionAnchor = { kind: AnchorKind; quote: string };
+
+/** 锚点合格：quote 逐字出自它声明的来源。返回来源文本，不合格为 null。 */
+export function anchorSource(anchor: QuestionAnchor, sources: { resumeText: string; jobDescription: string }): string | null {
+  const source = anchor.kind === "resume" ? sources.resumeText : sources.jobDescription;
+  return isVerbatimEvidence(source, anchor.quote) ? source : null;
+}
 
 export type RubricItem = { name: string; description: string; weight: number };
 
@@ -151,15 +167,19 @@ export const briefOutputSchema = z.object({
   quick: z
     .array(
       z.object({
-        /** 逐字使用抽样主题名。 */
-        topic: z.string().min(1).max(80),
+        /** 题的主题名（不带简历项目名）。 */
+        name: z.string().min(1).max(80),
         question: z.string().min(1).max(400),
+        /** 这道题落在简历还是 JD 上，quote 逐字。 */
+        anchor: z.object({ kind: z.enum(ANCHOR_KINDS), quote: z.string().min(1).max(240) }),
+        /** 最贴的技能包名（载荷 skillPacks 之一）；拿不准为 null。 */
+        skill: z.string().min(1).max(64).nullable(),
         /** 答得实质时唯一的一层追问往哪问。 */
         followUp: z.string().min(1).max(200),
         expectedSignals: signals,
       }),
     )
-    .max(QUICK_POOL_SIZE),
+    .max(MAX_QUICK),
   scenarios: z
     .array(
       z.object({
@@ -201,8 +221,10 @@ export type InterviewArea = {
   /** 场景题绑定的岗位能力与 JD 原句；基础题与项目题为空。 */
   competencyIds: string[];
   jdEvidence: string | null;
-  /** 基础题来自哪个技能包的哪个主题；fromResume：候选人简历碰过它。 */
-  topic: { skill: string; name: string; fromResume: boolean } | null;
+  /** 基础题落在简历 / JD 的哪句上（逐字）；没有合格锚点为 null。项目与场景题为 null（场景题看 jdEvidence）。 */
+  anchor: QuestionAnchor | null;
+  /** 面试中问到这份材料前可查的技能包；没有为 null。 */
+  skill: string | null;
   entryQuestion: string;
   /** project：想验证的线索；quick：唯一一层追问的方向；scenario：引导阶梯。 */
   guides: string[];
@@ -308,7 +330,8 @@ function projectArea(project: Project, rank: number, round: string | null, writt
     angle: null,
     competencyIds: [],
     jdEvidence: null,
-    topic: null,
+    anchor: null,
+    skill: null,
     entryQuestion: written?.question ?? PROJECT_ANGLES.overview.question(project.name),
     guides: written && written.leads.length > 0 ? written.leads : PROJECT_LEADS,
     expectedSignals: written?.expectedSignals ?? ["能讲清自己负责的部分与关键决策"],
@@ -321,31 +344,38 @@ function projectAreas(ranked: Project[], round: string | null, written: (project
   return ranked.slice(0, MAX_PROJECTS).map((project, rank) => projectArea(project, rank, round, written(project)));
 }
 
-/** 一句里用顿号并列的子问题（"你怀疑哪些差异、怎么定位、最终怎么……"）从第二个问句词前切开。 */
-const SUBQUESTION_SPLIT = /、(?=(怎么|哪些|为什么|如何|什么|是否|会不会|能不能))/;
+type QuickInput = { name: string; question: string; anchor: QuestionAnchor | null; skill: string | null; followUp: string; expectedSignals: string[] };
 
-/** 好题第一问作兜底题目：包里的好题常带两三个问号或一句里并列几问，基础题只取第一个。 */
-export function firstQuestion(example: string): string {
-  const match = example.match(/^[^？?]+[？?]/);
-  const first = (match ? match[0] : example).trim().split(SUBQUESTION_SPLIT)[0].trim();
-  return /[？?]$/.test(first) ? first : `${first}？`;
-}
-
-function quickArea(topic: SkillTopic, id: string, round: string | null, written: { question: string; followUp: string; expectedSignals: string[] } | null): InterviewArea {
+function quickArea(written: QuickInput, id: string, round: string | null): InterviewArea {
   return {
     id,
     kind: "quick",
-    name: topic.name,
+    name: written.name,
     projectId: null,
     angle: null,
     competencyIds: [],
     jdEvidence: null,
-    topic: { skill: topic.skill, name: topic.name, fromResume: topic.fromResume },
-    entryQuestion: written?.question ?? firstQuestion(topic.example),
-    guides: [written?.followUp ?? topic.ladder.split("→")[1]?.trim() ?? "追问它的原理与边界"],
-    expectedSignals: written?.expectedSignals ?? [topic.signals],
+    anchor: written.anchor,
+    skill: written.skill,
+    entryQuestion: written.question,
+    guides: [written.followUp],
+    expectedSignals: written.expectedSignals,
     rubric: rubricForArea("quick", round),
   };
+}
+
+/** 模型没写够基础题时的兜底：从领域包的常考主题清单里按顺序补，没有锚点（面试官会先问他碰过没有）。 */
+function fallbackQuick(name: string): QuickInput {
+  return { name, question: `聊聊${name}：它解决什么问题、最关键的一个机制是什么？`, anchor: null, skill: null, followUp: "追问它的边界与出问题时怎么查", expectedSignals: ["机制准确", "说得出边界"] };
+}
+
+function quickAreas(written: QuickInput[], topicNames: string[], target: number, round: string | null): InterviewArea[] {
+  const picked = written.slice(0, target);
+  for (const name of topicNames) {
+    if (picked.length >= target) break;
+    if (!picked.some((item) => normalizedText(item.name) === normalizedText(name))) picked.push(fallbackQuick(name));
+  }
+  return picked.map((item, index) => quickArea(item, `q${index + 1}`, round));
 }
 
 function fallbackScenarioArea(blueprint: MockInterviewJobBlueprint, id: string, round: string | null): InterviewArea {
@@ -358,7 +388,8 @@ function fallbackScenarioArea(blueprint: MockInterviewJobBlueprint, id: string, 
     angle: null,
     competencyIds: competency ? [competency.id] : [],
     jdEvidence: competency?.origin === "jd" ? competency.jdEvidence : null,
-    topic: null,
+    anchor: null,
+    skill: null,
     entryQuestion: competency
       ? `如果你加入后第一个任务是${competency.description || competency.name}，先要弄清楚哪几件事，你会怎么排优先级？`
       : "如果你接手一个刚上线就频繁出问题的系统，你会从哪里开始排查，怎么决定先修什么？",
@@ -384,7 +415,7 @@ function attachHypothesis(resume: string, evidence: string, projects: Project[])
 /**
  * 模型产出 → 冻结的简报。规则全部由代码把关：
  * - 项目：projectId 必须存在；先出现的项目排前面，最多 MAX_PROJECTS 个，每个项目一份材料，模型没写的用兜底问法；
- * - 基础题池 = 抽样的主题，一个主题一道：题池的构成由抽样定（角色配额），问哪道在面试中定；模型没写的用包里的好题；模型写了不在抽样里的主题丢弃；
+ * - 基础题：模型按 JD 与简历定，取配额那么多道；锚点必须逐字出自它声明的来源（不合格标为无锚点）；skill 必须是备课用的包名；不够的从领域包主题清单补；
  * - 场景题数按节奏，JD 原句必须逐字，能力 id 必须在蓝图里；不够时代码兜底；
  * - 假设的简历证据必须逐字出现在简历里，挂到项目上；每个被问的项目至少一条，没有就从简历里兜底。
  */
@@ -394,7 +425,8 @@ export function buildBriefFromOutput(input: {
   jobDescription: string;
   resumeText: string;
   projects: Project[];
-  topics: SkillTopic[];
+  /** 领域包常考主题清单的主题名：模型没写够基础题时补。 */
+  topicNames: string[];
   skillPacks: string[];
   pace: InterviewPace;
   round: string | null;
@@ -418,8 +450,13 @@ export function buildBriefFromOutput(input: {
     return raw ? { question: raw.question, leads: raw.leads, expectedSignals: raw.expectedSignals } : null;
   });
 
-  const written = new Map(output.quick.map((item) => [normalizedText(item.topic), item]));
-  const quick = input.topics.map((topic, index) => quickArea(topic, `q${index + 1}`, round, written.get(normalizedText(topic.name)) ?? null));
+  const sources = { resumeText: input.resumeText, jobDescription: input.jobDescription };
+  const quick = quickAreas(
+    output.quick.map((item) => ({ ...item, anchor: anchorSource(item.anchor, sources) ? item.anchor : null, skill: item.skill && input.skillPacks.includes(item.skill) ? item.skill : null })),
+    input.topicNames,
+    quickTarget(input.pace, ranked.slice(0, MAX_PROJECTS).length),
+    round,
+  );
 
   const scenarios: InterviewArea[] = output.scenarios.slice(0, scenarioCount).map((raw, index) => {
     const jdEvidence = raw.jdEvidence && isVerbatimEvidence(input.jobDescription, raw.jdEvidence) ? raw.jdEvidence : null;
@@ -431,7 +468,8 @@ export function buildBriefFromOutput(input: {
       angle: null,
       competencyIds: raw.competencyIds.filter((id) => competencyIds.has(id)),
       jdEvidence,
-      topic: null,
+      anchor: null,
+    skill: null,
       entryQuestion: raw.question,
       guides: raw.guides,
       expectedSignals: raw.expectedSignals,
@@ -469,7 +507,7 @@ export function buildBriefFromOutput(input: {
 }
 
 /**
- * 兜底简报：模型没产出时按蓝图、简历项目与抽样主题直接搭。不可能失败，
+ * 兜底简报：模型没产出时按蓝图、简历项目与领域包的主题清单直接搭。不可能失败，
  * 与蓝图的兜底同一哲学——降级产出，不把"请重试"丢给用户。
  */
 export function fallbackBrief(input: {
@@ -477,7 +515,7 @@ export function fallbackBrief(input: {
   jobDescription: string;
   resumeText: string;
   projects: Project[];
-  topics: SkillTopic[];
+  topicNames: string[];
   skillPacks: string[];
   pace: InterviewPace;
   round: string | null;
@@ -485,7 +523,7 @@ export function fallbackBrief(input: {
 }): InterviewBrief {
   const scenarioCount = SCENARIOS_PER_PACE[input.pace];
   const projects = projectAreas(input.projects, input.round, () => null);
-  const quick = input.topics.map((topic, index) => quickArea(topic, `q${index + 1}`, input.round, null));
+  const quick = quickAreas([], input.topicNames, quickTarget(input.pace, projects.length), input.round);
   const scenarios = Array.from({ length: scenarioCount }, (_, index) => fallbackScenarioArea(input.blueprint, `s${index + 1}`, input.round));
   return {
     version: BRIEF_VERSION,

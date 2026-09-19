@@ -29,7 +29,7 @@ export type DossierSessionFacts = {
   companyName: string;
   date: string;
   report: Pick<MockInterviewReport, "summary" | "strengths" | "weaknesses" | "hypotheses">;
-  areas: { name: string; kind: string; score: number | null; facetsAsked: string[]; facetsDone: string[]; weaknesses: EvaluationWeakness[] }[];
+  areas: { name: string; kind: string; score: number | null; facetsAsked: string[]; weaknesses: EvaluationWeakness[] }[];
 };
 
 export async function loadCandidateDossier(resumeId: string, options: { includeEval: boolean }): Promise<{ version: number; body: string; changes: string } | null> {

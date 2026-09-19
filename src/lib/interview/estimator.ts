@@ -1,10 +1,6 @@
-import type { InterviewEvent } from "./events";
-
 /**
- * 能力估计器（interview-system-design.md §6.1 的最简版本）：把面试当自适应测验。
- * 每段问答是一次测量——难度是答到阶梯第几层，结果是评委的分数与置信；每项能力一个 Beta 后验，
- * 输出"最值得追 / 已足够确定"一行给面试官（怎么问它定）。纯函数；面试中从 segment_scored 现算，
- * 事后用整理员的分段与双采样评分再算一遍。
+ * 能力估计（报告页的"能力估计"栏）：每段问答是一次测量——难度是答到阶梯第几层，结果是评分与置信；每项能力一个 Beta 后验。
+ * 纯函数；面试后用切段与评分算（queries.buildEstimates）。面试中的在线估计、跨场先验与现场卡提示已随实验层删除（重建 v5 §7）。
  */
 
 export type Competency = { id: string; name: string; priority: "core" | "secondary"; /** 蓝图里的一句描述（模拟器按它对题）。 */ description?: string };
@@ -26,7 +22,7 @@ export type Estimate = {
   weight: number;
   /** 0–1 的能力估计（Beta 后验均值；没有测量也没有先验时 0.5）。 */
   mean: number;
-  /** 0–1：n / (n + 2)，n 是置信加权的测量数（含跨场先验的伪计数）。 */
+  /** 0–1：n / (n + 2)，n 是置信加权的测量数。 */
   confidence: number;
   samples: number;
 };
@@ -45,15 +41,11 @@ export function evidenceOf(observation: Observation): number {
   return (level - 1 + clamp(observation.score, 0, 100) / 100) / DIFFICULTY_LEVELS;
 }
 
-/** 跨场先验（memory.priorsFrom）：上几场折成的伪计数，加在 Beta(1, 1) 上。 */
-export type Prior = { competencyId: string; alpha: number; beta: number };
-
-export function estimate(competencies: Competency[], observations: Observation[], priors: Prior[] = []): Estimate[] {
+export function estimate(competencies: Competency[], observations: Observation[]): Estimate[] {
   return competencies.map((competency) => {
-    const prior = priors.find((item) => item.competencyId === competency.id);
-    let alpha = PRIOR.alpha + (prior?.alpha ?? 0);
-    let beta = PRIOR.beta + (prior?.beta ?? 0);
-    let weight = (prior?.alpha ?? 0) + (prior?.beta ?? 0);
+    let alpha = PRIOR.alpha;
+    let beta = PRIOR.beta;
+    let weight = 0;
     let samples = 0;
     for (const observation of observations) {
       if (observation.competencyId !== competency.id) continue;
@@ -68,40 +60,8 @@ export function estimate(competencies: Competency[], observations: Observation[]
   });
 }
 
-/** 面试中的测量：segment_scored 事件。 */
-export function observationsFromEvents(events: InterviewEvent[]): Observation[] {
-  return events.flatMap((item) => (item.type === "segment_scored" ? [{ competencyId: item.payload.competencyId, difficulty: item.payload.difficulty, score: item.payload.score, confidence: item.payload.confidence }] : []));
-}
-
-/** 下一个最值得追的能力：权重 × 不确定性最大的那项；都足够确定为 null。 */
-export function nextToProbe(estimates: Estimate[]): Estimate | null {
-  const open = estimates.filter((item) => item.confidence < CONFIDENT);
-  if (open.length === 0) return null;
-  return open.reduce((best, item) => (item.weight * (1 - item.confidence) > best.weight * (1 - best.confidence) ? item : best));
-}
-
-/** 停止规则的一半：核心能力都足够确定（另一半是时间到了）。 */
-export function coreSettled(estimates: Estimate[]): boolean {
-  const core = estimates.filter((item) => item.weight === WEIGHT.core);
-  return core.length > 0 && core.every((item) => item.confidence >= CONFIDENT);
-}
-
 export function levelLabel(value: number): string {
   return value < 0.4 ? "低" : value < 0.7 ? "中" : "高";
-}
-
-function describe(item: Estimate): string {
-  return `${item.name}（估计 ${levelLabel(item.mean)}，置信 ${levelLabel(item.confidence)}，岗位权重 ${item.weight >= WEIGHT.core ? "高" : "中"}）`;
-}
-
-/** 现场卡上的一行；没有能力清单时为 null。 */
-export function estimateLine(estimates: Estimate[]): string | null {
-  if (estimates.length === 0) return null;
-  if (coreSettled(estimates)) return "能力估计：核心能力都已足够确定，剩下的时间可以收尾。";
-  const next = nextToProbe(estimates);
-  const settled = estimates.filter((item) => item.confidence >= CONFIDENT);
-  const parts = [next ? `最值得追：${describe(next)}` : null, settled.length > 0 ? `已足够确定：${settled.map(describe).join("、")}` : null].filter((part): part is string => part !== null);
-  return `能力估计：${parts.join("；")}。`;
 }
 
 /** 测过的能力的（估计，真值）对；评测用，跨场合并后算相关。 */

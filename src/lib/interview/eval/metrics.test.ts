@@ -9,7 +9,7 @@ function events(list: NewEvent[]): InterviewEvent[] {
 }
 
 const say = (content: string, kind = "probe") => event("interviewer_said", { content, kind });
-const answer = (content: string, control: "hint" | "repeat" | null = null) => event("candidate_said", { content, clientId: null, control, composeMs: null });
+const answer = (content: string, control: "hint" | "repeat" | null = null, signal: "help" | null = null) => event("candidate_said", { content, clientId: null, control, composeMs: null, signal });
 
 test("重复提问：问法几乎一样的算一次；答疑与收尾不算", () => {
   const transcript = events([
@@ -26,15 +26,15 @@ test("重复提问：问法几乎一样的算一次；答疑与收尾不算", ()
   assert.equal(repeatedQuestionCount(transcriptOf(transcript)), 1);
 });
 
-test("求助识别与处理：按钮与短句都算求助；下一句不是新题就算处理了", () => {
+test("求助识别与处理：按钮与模型判的 help 都算求助；下一句不是新题就算处理了", () => {
   const lines = transcriptOf(
     events([
       say("先讲主循环。", "question"),
-      answer("具体点"),
+      answer("具体点", null, "help"),
       say("那就只讲一步：参数校验怎么做。", "aside"),
       answer("这题我不太会，能给个方向吗？", "hint"),
       say("换个题：缓存怎么失效？", "question"),
-      answer("这是一段很长的正常回答，里面提到了具体一点这个词但显然不是求助，因为它超过了四十个字的上限，属于正常作答。"),
+      answer("这是一段正常回答，提到了具体一点这个词但面试官没判成求助。"),
       say("那再往下问。"),
     ]),
   );
@@ -51,7 +51,7 @@ test("一场的指标：覆盖、预算、求助、开销都从事件与分段�
       say("先聊项目 A", "question"),
       answer("……"),
       say("追一层", "probe"),
-      answer("具体点"),
+      answer("具体点", null, "help"),
       say("只讲这一步", "aside"),
       answer("……"),
       say("场景题：……", "question"),

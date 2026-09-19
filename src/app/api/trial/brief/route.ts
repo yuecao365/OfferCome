@@ -17,9 +17,8 @@ type Body = {
   blueprint: MockInterviewJobBlueprint;
   pace: InterviewPace;
   round: string | null;
-  /** 浏览器从最近的模拟面试算好带上（与本地版 context.ts 同口径）：短板、问过的基础题主题、问过的题。 */
+  /** 浏览器从最近的模拟面试算好带上（与本地版 context.ts 同口径）：短板、问过的题。 */
   recentWeaknesses: RecentWeakness[];
-  recentTopics: string[];
   recentQuestions: string[];
 };
 
@@ -37,7 +36,6 @@ export const POST = withTrialAi<Body>(async (body) => {
       resume: { id: "trial-resume", name: "体验简历", text: body.resume.text },
       projects: body.resume.projects,
       recentWeaknesses: Array.isArray(body.recentWeaknesses) ? body.recentWeaknesses : [],
-      recentTopics: strings(body.recentTopics),
       recentQuestions: strings(body.recentQuestions),
     },
     pace,

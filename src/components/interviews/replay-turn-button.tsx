@@ -7,9 +7,10 @@ import { Button } from "@/components/ui/button";
 export type ReplayResult = {
   say: string;
   kind: string;
+  action: string | null;
+  why: string | null;
   guard: string | null;
-  original: string | null;
-  notebook: string | null;
+  ledger: string | null;
   runId: string | null;
   durationMs: number;
 };
@@ -40,12 +41,13 @@ export function ReplayTurnButton({ sessionId, turnIndex }: { sessionId: string; 
         <div className="rounded-control border border-dashed border-border px-3 py-2 text-sm leading-6">
           <span className="mr-2 text-xs text-muted-foreground">
             重放 · {state.result.kind}
-            {state.result.guard ? ` · 底线「${state.result.guard}」` : ""}
+            {state.result.action ? ` · ${state.result.action}` : ""}
+            {state.result.guard ? ` · 重出「${state.result.guard}」` : ""}
             {` · ${(state.result.durationMs / 1000).toFixed(1)}s`}
           </span>
           <span className="whitespace-pre-wrap">{state.result.say}</span>
-          {state.result.original ? <p className="mt-1 text-xs text-muted-foreground">被否决的原话：{state.result.original}</p> : null}
-          {state.result.notebook ? <p className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">笔记：{state.result.notebook}</p> : null}
+          {state.result.why ? <p className="mt-1 text-xs text-muted-foreground">理由：{state.result.why}</p> : null}
+          {state.result.ledger ? <p className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">证据账：{state.result.ledger}</p> : null}
         </div>
       ) : null}
     </div>

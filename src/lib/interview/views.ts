@@ -2,8 +2,11 @@ import type { InterviewBrief } from "@/lib/mock-interviews/brief/brief";
 
 import type { Postmortem } from "./eval/postmortem";
 import type { TraceAgentChain, TraceStep } from "./trace-steps";
-import { planQuota, progressOf, type ProgressSummary } from "./progress";
+import { stateEventsOf, type InterviewEvent } from "./events";
+import { stateOf, type Action, type Signal } from "./state";
 import type { TurnPhase, TurnResult } from "./turn";
+
+export type ProgressSummary = { covered: number; quota: number };
 
 /**
  * 面试中的视图（房间、trace）：纯数据进、组件吃的形状出。
@@ -17,11 +20,26 @@ export type ConversationMessage = {
   /** 面试官：say / closing / fallback；候选人：answer / control。 */
   kind: string;
   content: string;
-  /** 面试官这句聊的材料 id 与角度（代码指派；体验版靠它重建状态，本地版读事件）。 */
+  /** 面试官这句聊的材料 id、角度、动作；候选人这句的信号。体验版靠它们重建状态，本地版读事件。 */
   topic?: string | null;
   facet?: number | null;
-  doneFacet?: number | null;
+  action?: Action | null;
+  signal?: Signal | null;
 };
+
+/** 体验版没有事件日志：从消息合成状态需要的事件。 */
+export function eventsOfMessages(messages: ConversationMessage[]): InterviewEvent[] {
+  return messages.map((message, seq) =>
+    message.role === "candidate"
+      ? ({ seq, type: "candidate_said", payload: { content: message.content, clientId: null, control: message.kind === "control" ? "hint" : null, composeMs: null, signal: message.signal ?? null }, runId: null, at: new Date(0) } as InterviewEvent)
+      : ({ seq, type: "interviewer_said", payload: { content: message.content, kind: message.kind, topic: message.topic ?? null, facet: message.facet ?? null, action: message.action ?? null, signal: message.signal ?? null }, runId: null, at: new Date(0) } as InterviewEvent),
+  );
+}
+
+export function progressSummaryOf(brief: Pick<InterviewBrief, "pace" | "areas">, events: InterviewEvent[]): ProgressSummary {
+  const state = stateOf(brief, stateEventsOf(events));
+  return { covered: state.materials.filter((item) => item.status !== "untouched").length, quota: state.materials.length };
+}
 
 /** 房间视图。候选人看得到进度与对话，看不到笔记与材料。 */
 export type Conversation = {
@@ -30,22 +48,22 @@ export type Conversation = {
   startedAt: string | null;
   progress: ProgressSummary;
   messages: ConversationMessage[];
-  /** 仅已完成的会话带：面试官最后一份笔记，报告页展示"面试官当时的判断"。 */
-  notebook: string | null;
+  /** 仅已完成的会话带：面试官的证据账（按材料归组），报告页展示"面试官当时的判断"。 */
+  ledger: string | null;
   coveredCount: number;
 };
 
 /** 进度：本地版从事件日志算好传进来；体验版从消息现算（面试官的消息带代码指派的材料 id）。 */
-export function conversationView(input: { brief: InterviewBrief; status: string; startedAt: string | null; notebook: string; messages: ConversationMessage[]; coveredCount?: number; progress?: ProgressSummary }): Conversation {
+export function conversationView(input: { brief: InterviewBrief; status: string; startedAt: string | null; ledger: string; messages: ConversationMessage[]; coveredCount?: number; progress?: ProgressSummary }): Conversation {
   const ended = input.status !== "in_progress";
-  const progress = input.progress ?? progressOf(planQuota(input.brief), input.messages.map((message, seq) => ({ seq, role: message.role, content: message.content, kind: message.kind, control: null, topic: message.topic ?? null, facet: message.facet ?? null, doneFacet: message.doneFacet ?? null })));
+  const progress = input.progress ?? progressSummaryOf(input.brief, eventsOfMessages(input.messages));
   return {
     phase: ended ? "ended" : input.messages.length === 0 ? "opening" : "running",
     pace: input.brief.pace,
     startedAt: input.startedAt,
     progress: { covered: progress.covered, quota: progress.quota },
     messages: input.messages,
-    notebook: input.status === "completed" ? input.notebook : null,
+    ledger: input.status === "completed" ? input.ledger : null,
     coveredCount: input.coveredCount ?? 0,
   };
 }
@@ -56,31 +74,27 @@ export type TurnPayload = {
   phase: TurnPhase;
   progress: ProgressSummary;
   endedBy: TurnResult["endedBy"];
-  /** 标注器认为已经聊过的材料数（房间顶栏的进度提示）。 */
+  /** 已经聊过的材料数（房间顶栏的进度提示）。 */
   coveredCount: number;
+  /** 这回合写进证据账的一行（体验版靠它累计；本地版已落事件）。 */
+  ledger: { materialId: string; text: string } | null;
 };
 
-/** trace 页的一回合：候选人的话、面试官的话、这回合写的笔记、开销。 */
+/** trace 页的一回合：候选人的话（带模型判的信号）、面试官的话（带动作与理由）、证据账、开销。 */
 export type TraceTurn = {
   turnIndex: number;
-  candidate: { kind: string; content: string; composeMs: number | null } | null;
+  candidate: { kind: string; content: string; composeMs: number | null; signal: string | null } | null;
   interviewer: { kind: string; content: string }[];
-  notebook: string | null;
-  progress: { covered: number; quota: number; budgetLeft: number } | null;
+  /** 这回合写进证据账的一行。 */
+  ledger: string | null;
+  /** 有过重出或代码定动作。 */
   fallback: boolean;
-  /** 这回合之后评委给已结束的段打的分与估计器的更新。 */
-  scored: { competencyId: string; difficulty: number; score: number; confidence: number; note: string }[];
-  estimates: { competencyId: string; mean: number; confidence: number; samples: number }[];
-  /** 代码给这回合的建议。 */
-  move: { move: string; reason: string } | null;
-  /** 这句聊的材料 id 与角度（代码指派）；模型说讲透了的角度。 */
+  fallbackReasons: string[];
+  /** 模型的动作与理由。 */
+  action: string | null;
+  why: string | null;
   topic: string | null;
   facet: number | null;
-  doneFacet: number | null;
-  /** 评论员对这回合面试官那句的判断（实验层）。 */
-  critic: { rule: string; text: string } | null;
-  /** 影子变体在同一张现场卡上说的话与评论员的判断。 */
-  shadow: { variant: string; say: string; rule: string | null } | null;
   run: TraceRun | null;
 };
 
@@ -96,8 +110,6 @@ export type Trace = {
   plan: { id: string; kind: InterviewBrief["areas"][number]["kind"]; budget: number }[];
   areas: { id: string; name: string; kind: InterviewBrief["areas"][number]["kind"] }[];
   competencies: { id: string; name: string }[];
-  /** 这场的开关：策略变体、影子变体、实验层。 */
-  flags: { policy: string; shadow: string | null; lab: boolean };
   /** 自动复盘（从事件现算）；体验版没有事件，为 null。 */
   postmortem: Postmortem | null;
   rows: TraceTurn[];
@@ -105,7 +117,7 @@ export type Trace = {
   agents: TraceAgentChain[];
 };
 
-/** 一场的仪表（从 trace 行现算）：开销、降级、评论员；有影子时真身 vs 影子。 */
+/** 一场的仪表（从 trace 行现算）：开销、降级、一句多问。 */
 export type TraceDashboard = {
   turns: number;
   totalTokens: number;
@@ -113,9 +125,7 @@ export type TraceDashboard = {
   cacheRate: number;
   p95Ms: number;
   fallbacks: number;
-  criticNotes: number;
   live: { multiQuestionRate: number; avgChars: number };
-  shadow: { variant: string; turns: number; multiQuestionRate: number; criticRate: number; avgChars: number } | null;
 };
 
 const isMultiQuestion = (text: string) => (text.match(/[？?]/g) ?? []).length >= 2;
@@ -127,7 +137,6 @@ export function traceDashboard(rows: TraceTurn[]): TraceDashboard {
   const cachedTokens = runs.reduce((sum, run) => sum + (run.cachedTokens ?? 0), 0);
   const durations = runs.map((run) => run.durationMs).sort((left, right) => left - right);
   const said = rows.flatMap((row) => row.interviewer.filter((message) => message.kind === "say").map((message) => message.content));
-  const shadows = rows.flatMap((row) => (row.shadow ? [row.shadow] : []));
   return {
     turns: rows.length,
     totalTokens,
@@ -135,18 +144,7 @@ export function traceDashboard(rows: TraceTurn[]): TraceDashboard {
     cacheRate: rate(cachedTokens, totalTokens),
     p95Ms: durations.length === 0 ? 0 : durations[Math.max(0, Math.ceil(0.95 * durations.length) - 1)],
     fallbacks: rows.filter((row) => row.fallback).length,
-    criticNotes: rows.filter((row) => row.critic).length,
     live: { multiQuestionRate: rate(said.filter(isMultiQuestion).length, said.length), avgChars: said.length === 0 ? 0 : Math.round(said.reduce((sum, text) => sum + text.length, 0) / said.length) },
-    shadow:
-      shadows.length === 0
-        ? null
-        : {
-            variant: shadows[0].variant,
-            turns: shadows.length,
-            multiQuestionRate: rate(shadows.filter((item) => isMultiQuestion(item.say)).length, shadows.length),
-            criticRate: rate(shadows.filter((item) => item.rule !== null).length, shadows.length),
-            avgChars: Math.round(shadows.reduce((sum, item) => sum + item.say.length, 0) / shadows.length),
-          },
   };
 }
 
@@ -156,35 +154,25 @@ type TraceSource = { type: string; payload: Record<string, unknown>; runId: stri
 export function traceTurns(events: TraceSource[], runs?: Map<string, TraceRun>): TraceTurn[] {
   const rows: TraceTurn[] = [];
   let pendingCandidate: TraceTurn["candidate"] = null;
-  let pendingMove: TraceTurn["move"] = null;
+  let pendingFallbacks: string[] = [];
   for (const item of events) {
     if (item.type === "candidate_said") {
-      pendingCandidate = { kind: item.payload.control ? "control" : "answer", content: String(item.payload.content ?? ""), composeMs: typeof item.payload.composeMs === "number" ? item.payload.composeMs : null };
+      pendingCandidate = { kind: item.payload.control ? "control" : "answer", content: String(item.payload.content ?? ""), composeMs: typeof item.payload.composeMs === "number" ? item.payload.composeMs : null, signal: typeof item.payload.signal === "string" ? item.payload.signal : null };
       continue;
     }
-    if (item.type === "move_decided") {
-      pendingMove = { move: String(item.payload.move ?? ""), reason: String(item.payload.reason ?? "") };
+    if (item.type === "fallback_used") {
+      pendingFallbacks.push(String(item.payload.reason ?? ""));
       continue;
     }
     if (item.type === "interviewer_said") {
-      rows.push({ turnIndex: rows.length, candidate: pendingCandidate, interviewer: [{ kind: String(item.payload.kind ?? "say"), content: String(item.payload.content ?? "") }], notebook: null, progress: null, fallback: false, move: pendingMove, topic: typeof item.payload.topic === "string" ? item.payload.topic : null, facet: typeof item.payload.facet === "number" ? item.payload.facet : null, doneFacet: typeof item.payload.doneFacet === "number" ? item.payload.doneFacet : null, scored: [], estimates: [], critic: null, shadow: null, run: item.runId ? (runs?.get(item.runId) ?? null) : null });
+      rows.push({ turnIndex: rows.length, candidate: pendingCandidate, interviewer: [{ kind: String(item.payload.kind ?? "say"), content: String(item.payload.content ?? "") }], ledger: null, fallback: pendingFallbacks.length > 0, fallbackReasons: pendingFallbacks, action: typeof item.payload.action === "string" ? item.payload.action : null, why: typeof item.payload.why === "string" ? item.payload.why : null, topic: typeof item.payload.topic === "string" ? item.payload.topic : null, facet: typeof item.payload.facet === "number" ? item.payload.facet : null, run: item.runId ? (runs?.get(item.runId) ?? null) : null });
       pendingCandidate = null;
-      pendingMove = null;
-      continue;
-    }
-    if (item.type === "shadow_said") {
-      const row = rows[Number(item.payload.turnIndex)];
-      if (row) row.shadow = { variant: String(item.payload.variant ?? ""), say: String(item.payload.say ?? ""), rule: typeof item.payload.rule === "string" ? item.payload.rule : null };
+      pendingFallbacks = [];
       continue;
     }
     const current = rows.at(-1);
     if (!current) continue;
-    if (item.type === "notebook_written") current.notebook = String(item.payload.text ?? "");
-    if (item.type === "progress_tick") current.progress = { covered: Number(item.payload.covered), quota: Number(item.payload.quota), budgetLeft: Number(item.payload.budgetLeft) };
-    if (item.type === "fallback_used") current.fallback = true;
-    if (item.type === "segment_scored") current.scored.push({ competencyId: String(item.payload.competencyId), difficulty: Number(item.payload.difficulty), score: Number(item.payload.score), confidence: Number(item.payload.confidence), note: String(item.payload.note ?? "") });
-    if (item.type === "critic_noted") current.critic = { rule: String(item.payload.rule ?? ""), text: String(item.payload.text ?? "") };
-    if (item.type === "estimate_updated") current.estimates.push({ competencyId: String(item.payload.competencyId), mean: Number(item.payload.mean), confidence: Number(item.payload.confidence), samples: Number(item.payload.samples) });
+    if (item.type === "ledger_written") current.ledger = String(item.payload.text ?? "");
   }
   return rows;
 }

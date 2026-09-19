@@ -3,6 +3,8 @@ import "server-only";
 import { enqueueCandidateProfileRefresh } from "@/lib/candidate-profile/background";
 import { prisma } from "@/lib/db";
 import { ensureSegments } from "@/lib/interview/aftermath";
+import { ledgerOf, parseEventRow, type InterviewEvent } from "@/lib/interview/events";
+import { renderLedger } from "@/lib/interview/state";
 import { parseJsonArray, parseJsonObject } from "@/lib/json";
 
 import { parseStoredBrief } from "./brief/brief";
@@ -38,6 +40,7 @@ function loadSession(sessionId: string) {
         },
       },
       threads: { orderBy: { createdAt: "asc" } },
+      events: { where: { type: "ledger_written" }, orderBy: { seq: "asc" } },
     },
   });
 }
@@ -140,7 +143,7 @@ export async function completeMockInterview(
               jobTitle: session.interview.jobTitle,
               brief,
               areas,
-              notebook: session.notebook,
+              ledger: renderLedger(brief, ledgerOf(session.events.map(parseEventRow).filter((item): item is InterviewEvent => item !== null))),
               hypotheses: brief.hypotheses.map((item) => ({ id: item.id, status: "open" as const, note: null })),
             }),
           )
@@ -189,7 +192,6 @@ export async function completeMockInterview(
               kind: thread.kind,
               score: thread.questionId ? (scoreOf.get(thread.questionId) ?? null) : null,
               facetsAsked: thread.questionId ? strings(facetsOf.get(thread.questionId)?.facets) : [],
-              facetsDone: thread.questionId ? strings(facetsOf.get(thread.questionId)?.facetsDone) : [],
               weaknesses: thread.questionId ? (weaknessesOf.get(thread.questionId) ?? []) : [],
             })),
         },

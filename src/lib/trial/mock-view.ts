@@ -1,4 +1,5 @@
 import { planQuota } from "@/lib/interview/progress";
+import { renderLedger } from "@/lib/interview/state";
 import { conversationView, traceTurns } from "@/lib/interview/views";
 import { buildQuestionTeaching } from "@/lib/mock-interviews/teaching";
 import type { MockInterviewTrace, MockInterviewView } from "@/lib/mock-interviews/types";
@@ -30,7 +31,7 @@ export function trialInterviewToView(interview: TrialInterview): MockInterviewVi
     dossier: null,
     materials: { resumeText: interview.resume.text, jobDescription: interview.job.jobDescription },
     conversation: interview.brief
-      ? conversationView({ brief: interview.brief, status: interview.status, startedAt: interview.startedAt, notebook: interview.notebook, messages: interview.messages })
+      ? conversationView({ brief: interview.brief, status: interview.status, startedAt: interview.startedAt, ledger: renderLedger(interview.brief, interview.ledger), messages: interview.messages })
       : null,
     estimates: [],
     questions: interview.questions.map((segment, index) => ({
@@ -59,7 +60,6 @@ export function trialInterviewToTrace(interview: TrialInterview): MockInterviewT
     plan: planQuota(interview.brief),
     areas: interview.brief.areas.map((area) => ({ id: area.id, name: area.name, kind: area.kind })),
     competencies: [],
-    flags: { policy: "v2", shadow: null, lab: false },
     postmortem: null,
     agents: [],
     rows: traceTurns(

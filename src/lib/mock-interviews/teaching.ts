@@ -10,7 +10,6 @@ const metadataSchema = z.object({
   note: z.string().nullable().optional(),
   answerSeconds: z.number().nullable().optional(),
   facets: z.array(z.string()).optional(),
-  facetsDone: z.array(z.string()).optional(),
   facetsAll: z.array(z.string()).optional(),
   verdict: z.string().nullable().optional(),
 });
@@ -35,7 +34,6 @@ export function buildQuestionTeaching(input: {
     note: data.note ?? null,
     sourceKind: input.sourceKind,
     facets: data.facets ?? [],
-    facetsDone: data.facetsDone ?? [],
     facetsAll: data.facetsAll ?? [],
     verdict: data.verdict ?? null,
   };

@@ -28,9 +28,8 @@ export type SegmentMetadata = {
   skillPack: string | null;
   /** 旧场次整理员的一句判断；§11 起为 null。 */
   note: string | null;
-  /** 问过的角度（材料 guides 的文字）、讲透的角度、材料的全部角度。 */
+  /** 问过的角度（材料 guides 的文字）、材料的全部角度。 */
   facets: string[];
-  facetsDone: string[];
   facetsAll: string[];
   depth: number;
   probeCount: number;
@@ -62,10 +61,9 @@ export function segmentRecord(area: InterviewArea, segment: Segment, probes: str
       areaName: segment.label,
       areaKind: segment.kind,
       competencyOrigin: area.jdEvidence ? "jd" : "baseline",
-      skillPack: area.topic?.skill ?? null,
+      skillPack: area.skill ?? null,
       note: null,
       facets: segment.facets,
-      facetsDone: segment.doneFacets,
       facetsAll: segment.allFacets,
       depth: segment.depth,
       probeCount: probes.length,

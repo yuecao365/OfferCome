@@ -202,8 +202,6 @@ model MockInterviewSession {
   pace                 String    @default("standard")
   /// 备课产物（材料）：项目的五个面、基础题池、场景题、简历假设。
   briefJson            String?
-  /// 面试官自己的笔记：自由文本，每回合整份重写，只存最新一份（历史在事件日志）。
-  notebook             String    @default("")
   /// 时间盒（分钟），按节奏定。
   durationMinutes      Int       @default(35)
   /// 最近一次时钟估计（Clock），纯展示；真相从事件日志重算。

@@ -37,7 +37,7 @@ export function createSkillTools(packs: SkillPack[]): SkillTools {
     access: "read" as const,
     ...tool({
     description:
-      "加载一个面试技能包的全文（岗位职责与考察重点、主题与深度阶梯、好题坏题、项目结合钩子）。按索引里的 description 判断相关性，备课前先加载最相关的 1–3 个包；已加载过的不必重复加载。",
+      "加载一个面试技能包的全文（这个方向的面试官在意什么、项目 / 实习怎么深挖、常见失守与危险信号、常考主题清单与阶梯）。它是\"问到哪一层算实\"的参考，不是题库；已加载过的不必重复加载。",
     inputSchema: z.object({ name: z.string().min(1).max(64) }),
     execute: async ({ name }) => {
       const pack = byName.get(name);

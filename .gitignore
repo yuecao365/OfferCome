@@ -60,3 +60,6 @@ next-env.d.ts
 !/eval/runs/fix-*.json
 /eval/mianjing/raw/
 /eval/mianjing/extracted/
+
+# 本地数据库备份（手动删）
+*.db.*.bak

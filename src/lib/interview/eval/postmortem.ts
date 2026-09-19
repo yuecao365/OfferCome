@@ -1,9 +1,9 @@
 import type { InterviewBrief } from "@/lib/mock-interviews/brief/brief";
 import { questionSimilarity } from "@/lib/text/similarity";
 
-import { currentTopic, trailingDontKnows } from "../decide";
 import { planQuota } from "../progress";
-import { classifyReply, transcriptOf, type InterviewEvent, type ReplyKind, type TranscriptLine } from "../events";
+import { isNoInfo, replyKindOf, transcriptOf, type InterviewEvent, type ReplyKind, type TranscriptLine } from "../events";
+import { SIGNALS } from "../state";
 import { evaluationTrajectoryMetrics, type EvaluationRunFact } from "./metrics";
 
 /**
@@ -16,7 +16,7 @@ export type ViolationRule = "repeat" | "multi_ask" | "over_budget" | "stuck_afte
 export type Postmortem = {
   /** 备课备好了没（占位蓝图 / 兜底简报 = 没备好）。 */
   ready: boolean;
-  /** 候选人的话按类型计数；long = 超过 500 字的回答。 */
+  /** 候选人的话按信号计数（模型判的 signal，按钮直接映射）；long = 超过 500 字的回答。 */
   replies: Record<ReplyKind | "long", number>;
   /** 面试官违反准则的回合。 */
   violations: { seq: number; rule: ViolationRule; text: string }[];
@@ -37,12 +37,31 @@ export const VIOLATION_LABELS: Record<ViolationRule, string> = {
 const LONG_ANSWER_CHARS = 500;
 const REPEAT_SIMILARITY = 0.8;
 
+function currentTopic(transcript: Pick<TranscriptLine, "role" | "topic">[]): string | null {
+  for (let index = transcript.length - 1; index >= 0; index -= 1) {
+    const line = transcript[index];
+    if (line.role === "interviewer" && line.topic) return line.topic;
+  }
+  return null;
+}
+
+function trailingDontKnows(transcript: TranscriptLine[]): number {
+  let count = 0;
+  for (let index = transcript.length - 1; index >= 0; index -= 1) {
+    const line = transcript[index];
+    if (line.role !== "candidate") continue;
+    if (!isNoInfo(line)) break;
+    count += 1;
+  }
+  return count;
+}
+
 export function postmortem(input: { events: InterviewEvent[]; brief: InterviewBrief | null; ready: boolean; trajectory?: { evaluation: EvaluationRunFact[]; interviewerLookups: number } }): Postmortem {
   const transcript = transcriptOf(input.events);
-  const replies: Postmortem["replies"] = { normal: 0, help: 0, dont_know: 0, not_mine: 0, non_answer: 0, skip: 0, long: 0 };
+  const replies = Object.fromEntries([...SIGNALS, "skip", "long"].map((kind) => [kind, 0])) as Postmortem["replies"];
   for (const line of transcript) {
     if (line.role !== "candidate") continue;
-    replies[classifyReply(line)] += 1;
+    replies[replyKindOf(line)] += 1;
     if (line.content.length > LONG_ANSWER_CHARS) replies.long += 1;
   }
   const violations: Postmortem["violations"] = [];
@@ -72,7 +91,8 @@ export function postmortem(input: { events: InterviewEvent[]; brief: InterviewBr
   if (replies.dont_know > 0) summary.push(`候选人 ${replies.dont_know} 次答不上`);
   if (replies.help > 0) summary.push(`候选人 ${replies.help} 次求助 / 要求具体`);
   if (replies.not_mine > 0) summary.push(`候选人 ${replies.not_mine} 次说不是自己做的`);
-  if (replies.non_answer > 0) summary.push(`候选人 ${replies.non_answer} 次不作答 / 要分`);
+  if (replies.refuse > 0) summary.push(`候选人 ${replies.refuse} 次不作答 / 要分`);
+  if (replies.thin > 0) summary.push(`候选人 ${replies.thin} 句答了但空`);
   const byRule = new Map<ViolationRule, number>();
   for (const item of violations) byRule.set(item.rule, (byRule.get(item.rule) ?? 0) + 1);
   for (const [rule, count] of byRule) summary.push(`面试官${VIOLATION_LABELS[rule]} ${count} 次`);

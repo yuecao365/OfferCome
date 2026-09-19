@@ -1,6 +1,6 @@
 import { questionSimilarity } from "@/lib/text/similarity";
 
-import { coreSettled, estimate, estimatePairs, observationsFromEvents, pearson, type Competency, type Observation } from "../estimator";
+import { estimate, estimatePairs, pearson, type Competency, type Observation } from "../estimator";
 import { endedBy, isHelpRequest, transcriptOf, type InterviewEvent, type TranscriptLine } from "../events";
 
 /**
@@ -43,9 +43,6 @@ export type SessionFacts = {
   competencies?: Competency[];
   /** 模拟候选人的能力真值（只有模拟器有）。 */
   truth?: { competencyId: string; level: number }[];
-  /** 这场的策略变体与影子变体（会话开关）。 */
-  variant?: string;
-  shadowVariant?: string | null;
 };
 
 export type SessionMetrics = {
@@ -85,22 +82,10 @@ export type SessionMetrics = {
   budgetHitRate: number | null;
   resumeInconsistencies: number | null;
   toolShift: number | null;
-  /** 在线评委评过的段数。 */
-  scoredSegments: number;
-  /** 面试中的估计 / 事后的估计与真值的平均绝对误差（0–1；只有模拟器有真值，只算测过的能力；没测过为 null）。 */
-  onlineError: number | null;
+  /** 事后的能力估计与真值的平均绝对误差（0–1；只有模拟器有真值，只算测过的能力；没测过为 null）。 */
   offlineError: number | null;
   /** （估计，真值）对：一场里真值常常相同（同一画像），相关要跨场合并算。 */
-  estimatePairs: { online: [number, number][]; offline: [number, number][] };
-  /** 核心能力全部足够确定时评到了第几段；没到为 null。 */
-  coreSettledAfter: number | null;
-  /** 评论员的提醒条数与被提醒的回合占面试官回合的比例；按准则计数。 */
-  criticNotes: number;
-  criticNoteRate: number;
-  criticByRule: Record<string, number>;
-  variant: string;
-  /** 影子运行的对照：影子说了几句、一句多问比例、被评论员判违反的比例；没开影子为 null。 */
-  shadow: { variant: string; turns: number; multiQuestionRate: number; criticRate: number } | null;
+  estimatePairs: [number, number][];
 };
 
 const isMultiQuestion = (text: string) => (text.match(/[？?]/g) ?? []).length >= 2;
@@ -119,37 +104,13 @@ export function evaluationTrajectoryMetrics(runs: EvaluationRunFact[]): Pick<Ses
   };
 }
 
-export function shadowMetrics(events: InterviewEvent[], shadowVariant: string | null | undefined): SessionMetrics["shadow"] {
-  const said = events.flatMap((item) => (item.type === "shadow_said" ? [item.payload] : []));
-  if (!shadowVariant || said.length === 0) return null;
-  return { variant: shadowVariant, turns: said.length, multiQuestionRate: said.filter((item) => isMultiQuestion(item.say)).length / said.length, criticRate: said.filter((item) => item.rule !== null).length / said.length };
-}
-
-function criticMetrics(events: InterviewEvent[], interviewerTurns: number): Pick<SessionMetrics, "criticNotes" | "criticNoteRate" | "criticByRule"> {
-  const byRule: Record<string, number> = {};
-  const noted = new Set<number>();
-  for (const item of events) {
-    if (item.type !== "critic_noted") continue;
-    noted.add(item.payload.seq);
-    byRule[item.payload.rule] = (byRule[item.payload.rule] ?? 0) + 1;
-  }
-  return { criticNotes: noted.size, criticNoteRate: interviewerTurns === 0 ? 0 : noted.size / interviewerTurns, criticByRule: byRule };
-}
-
-/** 估计器准不准：在线与事后两条路各算一遍，再看核心能力多少段能定下来。 */
-export function estimatorMetrics(facts: SessionFacts): Pick<SessionMetrics, "scoredSegments" | "onlineError" | "offlineError" | "estimatePairs" | "coreSettledAfter"> {
-  const competencies = facts.competencies ?? [];
-  const online = observationsFromEvents(facts.events);
+/** 事后能力估计准不准：切段与评分折成测量，估计与模拟器真值比。 */
+export function estimatorMetrics(facts: SessionFacts): Pick<SessionMetrics, "offlineError" | "estimatePairs"> {
   const offline: Observation[] = facts.segments.flatMap((segment) =>
     segment.competencyId && segment.difficulty != null && segment.score != null ? [{ competencyId: segment.competencyId, difficulty: segment.difficulty, score: segment.score, confidence: segment.lowConfidence ? 0.5 : 1 }] : [],
   );
-  let coreSettledAfter: number | null = null;
-  for (let count = 1; count <= online.length && coreSettledAfter === null; count += 1) {
-    if (coreSettled(estimate(competencies, online.slice(0, count)))) coreSettledAfter = count;
-  }
-  const pairs = { online: facts.truth ? estimatePairs(estimate(competencies, online), facts.truth) : [], offline: facts.truth ? estimatePairs(estimate(competencies, offline), facts.truth) : [] };
-  const error = (list: [number, number][]) => (list.length === 0 ? null : list.reduce((sum, [mean, level]) => sum + Math.abs(mean - level), 0) / list.length);
-  return { scoredSegments: online.length, onlineError: error(pairs.online), offlineError: error(pairs.offline), estimatePairs: pairs, coreSettledAfter };
+  const pairs = facts.truth ? estimatePairs(estimate(facts.competencies ?? [], offline), facts.truth) : [];
+  return { offlineError: pairs.length === 0 ? null : pairs.reduce((sum, [mean, level]) => sum + Math.abs(mean - level), 0) / pairs.length, estimatePairs: pairs };
 }
 
 const REPEAT_SIMILARITY = 0.6;
@@ -245,9 +206,6 @@ export function sessionMetrics(facts: SessionFacts): SessionMetrics {
     latencyMs: { p50: percentile(latencies, 0.5), p95: percentile(latencies, 0.95) },
     ...evaluationTrajectoryMetrics(facts.evaluationRuns ?? []),
     ...estimatorMetrics(facts),
-    ...criticMetrics(facts.events, counted),
-    variant: facts.variant ?? "v2",
-    shadow: shadowMetrics(facts.events, facts.shadowVariant),
   };
 }
 
@@ -270,12 +228,7 @@ const SUMMARY_KEYS = [
   "fallbacks",
   "interviewerToolCalls",
   "multiQuestionRate",
-  "scoredSegments",
-  "onlineError",
   "offlineError",
-  "coreSettledAfter",
-  "criticNotes",
-  "criticNoteRate",
   "evaluationSteps",
   "evaluationToolCalls",
   "invalidToolCallRate",
@@ -296,11 +249,7 @@ export function summarize(list: SessionMetrics[]): MetricSummary {
   summary.outputTokensPerSession = list.length === 0 ? null : list.reduce((sum, item) => sum + item.tokens.output, 0) / list.length;
   summary.cacheRate = input === 0 ? null : list.reduce((sum, item) => sum + item.tokens.cached, 0) / input;
   summary.latencyP95Ms = list.length === 0 ? null : percentile(list.map((item) => item.latencyMs.p95), 0.5);
-  const shadows = list.flatMap((item) => (item.shadow ? [item.shadow] : []));
-  summary.shadowMultiQuestionRate = shadows.length === 0 ? null : shadows.reduce((sum, item) => sum + item.multiQuestionRate, 0) / shadows.length;
-  summary.shadowCriticRate = shadows.length === 0 ? null : shadows.reduce((sum, item) => sum + item.criticRate, 0) / shadows.length;
-  summary.onlineCorrelation = pearson(list.flatMap((item) => item.estimatePairs.online));
-  summary.offlineCorrelation = pearson(list.flatMap((item) => item.estimatePairs.offline));
+  summary.offlineCorrelation = pearson(list.flatMap((item) => item.estimatePairs));
   return summary;
 }
 
@@ -321,21 +270,13 @@ const LABELS: Record<string, string> = {
   fallbacks: "代码接话次数",
   interviewerToolCalls: "面试官查资料次数",
   multiQuestionRate: "一句多问的比例",
-  scoredSegments: "在线评委评过的段数",
-  onlineError: "面试中估计与真值的平均误差",
   offlineError: "事后估计与真值的平均误差",
-  coreSettledAfter: "核心能力定下来用了几段",
-  criticNotes: "评论员提醒条数",
-  criticNoteRate: "被评论员提醒的回合比例",
   evaluationSteps: "评分每段平均步数",
   evaluationToolCalls: "评分每段工具调用数",
   invalidToolCallRate: "评分无效工具调用率",
   budgetHitRate: "评分预算触顶率",
   resumeInconsistencies: "简历核对不一致条数",
   toolShift: "工具改分的平均绝对值",
-  shadowMultiQuestionRate: "影子：一句多问的比例",
-  shadowCriticRate: "影子：被评论员判违反的比例",
-  onlineCorrelation: "面试中估计与真值的相关（跨场合并）",
   offlineCorrelation: "事后估计与真值的相关（跨场合并）",
   timeShare_project: "时间占比：项目",
   timeShare_quick: "时间占比：基础题",

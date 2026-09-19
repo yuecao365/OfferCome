@@ -1,7 +1,7 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport, isDataUIPart, isTextUIPart, type ChatTransport, type UIMessage } from "ai";
+import { DefaultChatTransport, isDataUIPart, type ChatTransport, type UIMessage } from "ai";
 import { ArrowLeft, FileText, Loader2, SendHorizontal } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -13,14 +13,13 @@ import { Alert } from "@/components/ui/alert";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { CONTROL_PLACEHOLDERS } from "@/lib/interview/events";
 import type { TurnData } from "@/lib/interview/stream";
-import type { ProgressSummary } from "@/lib/interview/progress";
-import type { ConversationMessage, TurnPayload } from "@/lib/interview/views";
+import type { ConversationMessage, ProgressSummary, TurnPayload } from "@/lib/interview/views";
 import type { MockInterviewConversation, MockInterviewView } from "@/lib/mock-interviews/types";
 
 /**
  * 对话式面试房间：独占整个视口，没有应用导航——像真的坐进面试间。
- * 面试官的话经流式返回，流结束时服务端把回合结果以 data-turn 数据块交回，
- * 前端用它替换流中的临时内容。本地版真相在数据库，体验版真相在浏览器的会话文档，
+ * 回合不流式：服务端先把动作校验完、事件落库，再把整句话与回合结果（data-turn）一次交回；
+ * 刚到的那句在房间里用打字机显示。本地版真相在数据库，体验版真相在浏览器的会话文档，
  * 差别全部收在注入的 driver 里。
  *
  * 候选人看不到具体的题和面试官的笔记，看得到时间盒（已用 / 总时长）、已用时和"资料"抽屉
@@ -90,8 +89,33 @@ export function createLocalChatDriver(sessionId: string): MockInterviewChatDrive
   };
 }
 
-export function MockInterviewBubble({ message }: { message: ConversationMessage }) {
+/** 打字机：整句话一次到达，按字逐个显示；长句加速，总时长不超过 TYPEWRITER_MAX_MS。 */
+const TYPEWRITER_CHAR_MS = 35;
+const TYPEWRITER_MAX_MS = 4_000;
+
+function useTypewriter(text: string, enabled: boolean, onTick?: () => void): string {
+  const [shown, setShown] = useState(enabled ? 0 : text.length);
+  useEffect(() => {
+    if (!enabled) return;
+    const step = Math.min(TYPEWRITER_CHAR_MS, TYPEWRITER_MAX_MS / Math.max(1, text.length));
+    const timer = window.setInterval(() => {
+      setShown((current) => {
+        if (current >= text.length) {
+          window.clearInterval(timer);
+          return current;
+        }
+        onTick?.();
+        return current + 1;
+      });
+    }, step);
+    return () => window.clearInterval(timer);
+  }, [enabled, onTick, text.length]);
+  return enabled ? text.slice(0, shown) : text;
+}
+
+export function MockInterviewBubble({ message, typewriter = false, onTick }: { message: ConversationMessage; typewriter?: boolean; onTick?: () => void }) {
   const interviewer = message.role === "interviewer";
+  const content = useTypewriter(message.content, typewriter && interviewer, onTick);
   return (
     <div className={interviewer ? "flex justify-start" : "flex justify-end"}>
       <div
@@ -101,7 +125,7 @@ export function MockInterviewBubble({ message }: { message: ConversationMessage 
             : "max-w-[85%] rounded-2xl rounded-tr-sm bg-accent px-4 py-3 text-sm leading-6 text-accent-foreground"
         }
       >
-        <p className="whitespace-pre-wrap">{message.content}</p>
+        <p className="whitespace-pre-wrap">{content}</p>
       </div>
     </div>
   );
@@ -131,6 +155,8 @@ export function MockInterviewChat({
   const router = useRouter();
   const conversation = session.conversation;
   const [transcript, setTranscript] = useState(conversation.messages);
+  /** 这次打开房间后才到的面试官消息：用打字机显示（历史消息直接显示）。 */
+  const [arrivedIds, setArrivedIds] = useState<Set<string>>(() => new Set());
   const [phase, setPhase] = useState(conversation.phase);
   const [progress, setProgress] = useState(conversation.progress);
   const [input, setInput] = useState("");
@@ -150,7 +176,7 @@ export function MockInterviewChat({
   const driver = useMemo(() => injectedDriver ?? createLocalChatDriver(session.id), [injectedDriver, session.id]);
   const refresh = useCallback(() => (onCompleted ? onCompleted() : router.refresh()), [onCompleted, router]);
 
-  const { messages, sendMessage, setMessages, status, error } = useChat({
+  const { sendMessage, setMessages, status, error } = useChat({
     transport: driver.transport,
     onFinish: ({ message }) => {
       const part = message.parts.find((item) => isDataUIPart(item) && item.type === "data-turn");
@@ -161,6 +187,7 @@ export function MockInterviewChat({
           const known = new Set(current.map((item) => item.id));
           return [...current, ...arrived.filter((item) => !known.has(item.id))];
         });
+        if (!data.replay) setArrivedIds((current) => new Set([...current, ...arrived.map((item) => item.id)]));
         if (!data.replay) {
           setPhase(data.payload.phase);
           setProgress(data.payload.progress);
@@ -177,17 +204,6 @@ export function MockInterviewChat({
   const busy = status === "submitted" || status === "streaming";
   const ended = phase === "ended" || session.status !== "in_progress";
   const turnsUsed = transcript.reduce((max, message) => Math.max(max, message.turnIndex + 1), 0);
-
-  // 只显示当前步骤的文本：模型在工具调用后常再说一步，并把前一步复述一遍。
-  const streamingText = useMemo(() => {
-    const last = [...messages].reverse().find((message) => message.role === "assistant");
-    let text = "";
-    for (const part of last?.parts ?? []) {
-      if (part.type === "step-start") text = "";
-      else if (isTextUIPart(part)) text += part.text;
-    }
-    return text;
-  }, [messages]);
 
 
   const send = useCallback(
@@ -226,9 +242,10 @@ export function MockInterviewChat({
     void sendMessage({ text: "（开始面试）" }, { body });
   }, [busy, ended, sendMessage, transcript.length]);
 
+  const scrollToEnd = useCallback(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }), []);
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [transcript, streamingText]);
+    scrollToEnd();
+  }, [transcript, scrollToEnd]);
 
   // 面试官刚说完话的时刻：候选人下一条消息的作答时长从这里起算。
   useEffect(() => {
@@ -285,16 +302,12 @@ export function MockInterviewChat({
         />
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-4 sm:px-4" ref={scrollRef}>
           {transcript.map((message) => (
-            <MockInterviewBubble key={message.id} message={message} />
+            <MockInterviewBubble key={message.id} message={message} onTick={scrollToEnd} typewriter={arrivedIds.has(message.id)} />
           ))}
           {busy ? (
             <div className="flex justify-start">
               <div className="max-w-[85%] rounded-2xl rounded-tl-sm border border-border bg-surface px-4 py-3 text-sm leading-6 text-foreground">
-                {streamingText ? (
-                  <p className="whitespace-pre-wrap">{streamingText}</p>
-                ) : (
-                  <Loader2 aria-label="面试官正在思考" className="size-4 animate-spin text-muted-foreground" />
-                )}
+                <Loader2 aria-label="面试官正在思考" className="size-4 animate-spin text-muted-foreground" />
               </div>
             </div>
           ) : null}

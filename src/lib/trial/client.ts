@@ -126,13 +126,12 @@ export async function requestBrief(input: {
   pace: InterviewPace;
   round: string | null;
   recentWeaknesses: RecentWeakness[];
-  recentTopics: string[];
   recentQuestions: string[];
 }): Promise<{ brief: InterviewBrief }> {
   return postWithAi("/api/trial/brief", input);
 }
 
-export type TurnRequestState = { brief: InterviewBrief; notebook: string; messages: ConversationMessage[] };
+export type TurnRequestState = { brief: InterviewBrief; messages: ConversationMessage[] };
 
 /**
  * 回合走 AI SDK 的聊天传输（流式）。状态从浏览器文档现取，随每个请求带上；
@@ -176,7 +175,7 @@ export async function evaluateSegment(input: {
 export async function requestReport(input: {
   jobTitle: string;
   brief: InterviewBrief;
-  notebook: string;
+  ledger: string;
   hypotheses: TrialInterview["hypotheses"];
   threads: OutcomeThread[];
   questions: OutcomeQuestion[];

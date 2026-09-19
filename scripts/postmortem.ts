@@ -21,7 +21,7 @@ async function main() {
     const ready = brief ? briefReady({ competencies: competenciesOf(session.contextSnapshotJson) }, brief) : false;
     const result = postmortem({ events, brief, ready });
     console.log(`\n${session.interview.companyName} · ${session.interview.jobTitle}（${sessionId}，${session.status}）`);
-    console.log(`  备课：${result.ready ? "备好了" : "没备好"}；回答：正常 ${result.replies.normal}、求助 ${result.replies.help}、答不上 ${result.replies.dont_know}、不是我做的 ${result.replies.not_mine}、不作答 ${result.replies.non_answer}、跳过 ${result.replies.skip}、超长 ${result.replies.long}；底线 / 接话 ${result.guards.length} 次`);
+    console.log(`  备课：${result.ready ? "备好了" : "没备好"}；回答：答实 ${result.replies.answered}、答空 ${result.replies.thin}、求助 ${result.replies.help}、答不上 ${result.replies.dont_know}、不是我做的 ${result.replies.not_mine}、不作答 ${result.replies.refuse}、跳过 ${result.replies.skip}、超长 ${result.replies.long}；底线 / 接话 ${result.guards.length} 次`);
     for (const item of result.violations) console.log(`  [${item.seq}] ${VIOLATION_LABELS[item.rule]}：${item.text.replace(/\s+/g, " ").slice(0, 80)}`);
     for (const item of result.guards) console.log(`  [${item.seq}] 底线「${item.reason}」${item.original ? `，原话：${item.original.replace(/\s+/g, " ").slice(0, 80)}` : ""}`);
     console.log(`  归因：${result.summary.join("；")}`);

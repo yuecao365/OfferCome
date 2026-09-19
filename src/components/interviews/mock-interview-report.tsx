@@ -101,13 +101,13 @@ function Estimates({ items }: { items: MockInterviewView["estimates"] }) {
   );
 }
 
-function Notebook({ session }: { session: MockInterviewView }) {
-  const notebook = session.conversation?.notebook?.trim();
-  if (!notebook) return null;
+function Ledger({ session }: { session: MockInterviewView }) {
+  const ledger = session.conversation?.ledger?.trim();
+  if (!ledger) return null;
   return (
     <details className="rounded-control border border-border p-4">
-      <summary className="cursor-pointer text-sm font-semibold text-foreground">面试官的笔记</summary>
-      <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{notebook}</p>
+      <summary className="cursor-pointer text-sm font-semibold text-foreground">面试官的证据账</summary>
+      <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{ledger}</p>
     </details>
   );
 }
@@ -137,10 +137,10 @@ function Teaching({ question }: { question: Question }) {
             <p className="font-medium text-foreground">追问的角度</p>
             <ul className="mt-1 grid gap-1">
               {teaching.facetsAll.map((facet) => {
-                const state = teaching.facetsDone.includes(facet) ? "讲透了" : teaching.facets.includes(facet) ? "问过，没讲透" : "没问到";
+                const state = teaching.facets.includes(facet) ? "问过" : "没问到";
                 return (
                   <li className="flex flex-wrap items-baseline gap-2" key={facet}>
-                    <Badge tone={state === "讲透了" ? "success" : state === "没问到" ? "neutral" : "warning"}>{state}</Badge>
+                    <Badge tone={state === "没问到" ? "neutral" : "success"}>{state}</Badge>
                     <span>{facet}</span>
                   </li>
                 );
@@ -340,7 +340,7 @@ export function MockInterviewReport({ session }: { session: MockInterviewView })
           ))}
       </section>
 
-      <Notebook session={session} />
+      <Ledger session={session} />
     </div>
   );
 }

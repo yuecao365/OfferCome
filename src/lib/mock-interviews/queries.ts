@@ -5,13 +5,13 @@ import { REAL_USAGE_INTERVIEW_WHERE } from "@/lib/interviews/types";
 import { parseJsonArray, parseJsonObject, parseJsonValue } from "@/lib/json";
 
 import { estimate, type Estimate, type Observation } from "@/lib/interview/estimator";
-import { parseEventRow, transcriptOf, type InterviewEvent } from "@/lib/interview/events";
-import { planQuota, progressOf } from "@/lib/interview/progress";
+import { ledgerOf, parseEventRow, type InterviewEvent } from "@/lib/interview/events";
+import { renderLedger } from "@/lib/interview/state";
+import { planQuota } from "@/lib/interview/progress";
 import { loadEvaluationRuns } from "@/lib/interview/eval/facts";
 import { postmortem } from "@/lib/interview/eval/postmortem";
 import { agentChainsOf } from "@/lib/interview/trace-steps";
-import { sessionFlags } from "@/lib/interview/flags";
-import { conversationView, traceTurns, type TraceRun } from "@/lib/interview/views";
+import { conversationView, traceTurns, type TraceRun, progressSummaryOf } from "@/lib/interview/views";
 
 import { briefReady, parseStoredBrief } from "./brief/brief";
 import { businessOf, competenciesOf } from "./context";
@@ -95,14 +95,15 @@ function buildEstimates(session: SessionWithConversation): Estimate[] {
 function buildConversation(session: SessionWithConversation) {
   const brief = parseStoredBrief(session.briefJson);
   if (!brief) return null;
+  const events = session.events.map(parseEventRow).filter((item): item is InterviewEvent => item !== null);
   return conversationView({
     brief,
     status: session.status,
     startedAt: session.startedAt?.toISOString() ?? null,
-    notebook: session.notebook,
+    ledger: renderLedger(brief, ledgerOf(events)),
     messages: session.messages.map((message) => ({ id: message.id, turnIndex: message.turnIndex, role: message.role === "candidate" ? "candidate" : "interviewer", kind: message.kind, content: message.content })),
     // 本地版的消息表不存材料 id：进度从事件日志算。
-    progress: progressOf(planQuota(brief), transcriptOf(session.events.map(parseEventRow).filter((item): item is InterviewEvent => item !== null))),
+    progress: progressSummaryOf(brief, events),
   });
 }
 
@@ -231,7 +232,6 @@ export async function getMockInterviewTrace(id: string): Promise<MockInterviewTr
     plan: planQuota(brief),
     areas: brief.areas.map((area) => ({ id: area.id, name: area.name, kind: area.kind })),
     competencies: competenciesOf(session.contextSnapshotJson).map((item) => ({ id: item.id, name: item.name })),
-    flags: { policy: sessionFlags(session.flagsJson).policy ?? "v2", shadow: sessionFlags(session.flagsJson).shadow, lab: sessionFlags(session.flagsJson).lab },
     postmortem: postmortem({ events, brief, ready: briefReady({ competencies: competenciesOf(session.contextSnapshotJson) }, brief), trajectory }),
     rows: traceTurns(
       session.events.map((row) => ({ type: row.type, payload: parseJsonObject(row.payloadJson), runId: row.runId })),

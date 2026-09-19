@@ -30,7 +30,6 @@ test("buildQuestionTeaching reads the segment metadata written at thread close",
     note: "机制清楚，取舍偏弱",
     sourceKind: "quick",
     facets: [],
-    facetsDone: [],
     facetsAll: [],
     verdict: null,
   });

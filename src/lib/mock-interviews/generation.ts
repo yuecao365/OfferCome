@@ -3,11 +3,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 
 import { prisma } from "@/lib/db";
-import { fillFlags } from "@/lib/interview/flags";
-import type { InterviewMemory } from "@/lib/interview/memory";
 import { loadCandidateDossier } from "@/lib/interview/dossier";
-import { recallCandidateMemory } from "@/lib/interview/memory-recall";
-import { assignVariant, rolloutConfig } from "@/lib/interview/variants";
 
 import {
   buildMockInterviewContext,
@@ -113,26 +109,19 @@ async function persistBrief(
   context: MockInterviewContext,
   blueprint: MockInterviewJobBlueprint,
   brief: Awaited<ReturnType<typeof generateInterviewBrief>>,
-  memory: InterviewMemory | null,
   dossier: { version: number; body: string } | null,
   ready: boolean,
 ): Promise<void> {
   await prisma.$transaction(async (tx) => {
-    // 开关要读事务里的现值：备课期间模拟器可能已经写了策略 / 影子变体，入口时的快照是旧的。
-    const current = await tx.mockInterviewSession.findUnique({ where: { id: session.id }, select: { flagsJson: true } });
     const claimed = await claimSession(tx, {
       where: { id: session.id, status: "generating", generationPhase: "brief" },
       data: {
         contextSnapshotJson: JSON.stringify({
           ...parseGenerationSnapshot(serializeMockInterviewContext(context, { blueprint })),
           generationRequest: snapshot.generationRequest,
-          memory,
           dossier,
         }),
         briefJson: JSON.stringify(brief),
-        notebook: "",
-        // 灰度：按会话 id 分桶定这场的策略变体与影子；模拟器先写好的不覆盖。
-        flagsJson: fillFlags(current?.flagsJson, { policy: assignVariant(rolloutConfig(), session.id), shadow: rolloutConfig().shadow }),
         status: ready ? "in_progress" : "generation_failed",
         generationPhase: null,
         generationErrorCode: ready ? null : DEGRADED_ERROR_CODE,
@@ -194,9 +183,8 @@ export async function prepareMockInterview(sessionId: string): Promise<void> {
       seedQuestionId: request.seedQuestionId,
     });
 
-    // 跨场记忆：能力估计的先验（代码侧）与候选人档案（agent 读）——备课时用，并存进快照（可重放）。评测场次读评测写的档案，真实使用只读真实的。
+    // 跨场记忆只剩候选人档案（agent 读），备课时读并存进快照（可重放）。评测场次读评测写的档案，真实使用只读真实的。
     const includeEval = session.interview.evalTag !== null;
-    const memory = session.resumeId ? await recallCandidateMemory({ resumeId: session.resumeId, excludeSessionId: session.id, includeEval }) : null;
     const dossier = session.resumeId ? await loadCandidateDossier(session.resumeId, { includeEval }) : null;
     let blueprint: MockInterviewJobBlueprint | null = null;
     let brief: Awaited<ReturnType<typeof generateInterviewBrief>> | null = null;
@@ -211,7 +199,7 @@ export async function prepareMockInterview(sessionId: string): Promise<void> {
       brief = await generateInterviewBrief({ generationId, jobTitle: session.interview.jobTitle, blueprint, context, pace: session.pace, round: request.round, dossier: dossier?.body ?? null });
       if (briefReady(blueprint, brief)) break;
     }
-    await persistBrief(session, snapshot, context, blueprint!, brief!, memory, dossier ? { version: dossier.version, body: dossier.body } : null, briefReady(blueprint!, brief!));
+    await persistBrief(session, snapshot, context, blueprint!, brief!, dossier ? { version: dossier.version, body: dossier.body } : null, briefReady(blueprint!, brief!));
   } catch (error) {
     await recordGenerationFailure(sessionId, snapshot, error);
   }

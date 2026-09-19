@@ -60,7 +60,7 @@
 - `runAgent` 跑在循环上：`tools` 改为带档位的 `LoopToolSet`，`stopWhen` 删除，改 `budget`（有工具缺省 3 步工具 + 1 步结论）、`hooks`、`resume`；结果多了 `steps / toolCalls / events`，usage 是各步之和；挂起抛 `AgentRunError(kind: "interrupted", events, pending)`，喂回 `resume` 续跑。结构化输出契约（§12.3 的收敛 → 修补 → rescue）不变，作用在最后一步。示范回答 agent 的 `load_skill` 带 `access: "read"`，最多查 2 次。
 - 记账：同一张 AgentRun 表。有工具的 agent 逐步记 `step`（每步 usage、finishReason、正文）与 `tool_result`（档位、入参、结果、成败）行，`budget_exceeded / interrupted / resumed` 各一行；`model_call` 汇总行的 metrics 有 `steps / toolCalls`。没有工具的 agent 只有一步，只记汇总（表不翻倍）。`step_started / tool_called` 只在内存事件里。
 - 单测：`agent-loop.test.ts`（投影、预算三种、hook 拒绝 / 未知工具 / 抛错、confirm 挂起与批准 / 拒绝续跑、只喂事件从中断处续跑）、`run-agent.test.ts`（真 SDK mock：工具由循环执行、记账行、预算结论步、interrupted → resume）。
-- 不在 G1 做的：trace 页按步展示（G6）；面试官的流式回合 `streamAgent` 仍是 SDK 的 stopWhen 循环，G3 给面试官工具时并进 `runLoop`；confirm 档目前没有产品用途（G5 已抛弃），只有测试——留着是因为循环的挂起 / 续跑机制本身就是它。
+- 不在 G1 做的：trace 页按步展示（G6）；confirm 档目前没有产品用途（G5 已抛弃），只有测试——留着是因为循环的挂起 / 续跑机制本身就是它。（G1 时面试官的流式回合 `streamAgent` 是刻意例外；重建 v5 第 3 步起面试官改为非流式、跑在 `runLoop` 上，`streamAgent` 已删。）
 - 冒烟（DeepSeek，摇摆画像 1 场，约 0.15 美元）：整条链路在循环上跑通——备课、18 回合面试官、6 段评分（其中 3 次采样坏、6 次靠修补）、6 份示范、汇总、报告总分 50，失败清单无新增。示范 agent 这场没有主动查技能包（steps 1 / toolCalls 0），工具执行路径由 run-agent 单测用真 SDK mock 覆盖；线上首次真调工具在 G2。顺手修一处：模型调用在某一步抛错时循环没有返回值，失败记录会丢事件——事件改在 onEvent 里收，失败与修补路径也带 steps / toolCalls。
 - 另一条路评估过：AI SDK v7 已内置 `needsApproval` / `ToolApprovalRequest` 与 `stopWhen`。没用它，因为预算超了要"给一步结论"而不是停、要按档位记审计、要从事件续跑——这些都要循环在自己手里；SDK 只负责一次调用。
 
@@ -103,7 +103,7 @@
 
 **施工记录（2026-09-16，已做；用户"开始执行"，方案与代码一起）**
 
-- 工具门共用：`agent-loop.ts` 把工具执行抽成 `callTool`（档位、hook、tool_called / tool_result 事件、未知与抛错变失败结果、confirm 挂起），`runLoop` 与流式回合的 `instrumentTools` 都走它。流式回合（面试官）仍由 SDK 走多步：第一步就要往外吐字，自己的循环做不到边执行工具边流式——这是 G1 的刻意例外，工具门与记账是同一套，confirm 档在流式回合不执行（以"需要确认"回给模型）。
+- 工具门共用：`agent-loop.ts` 把工具执行抽成 `callTool`（档位、hook、tool_called / tool_result 事件、未知与抛错变失败结果、confirm 挂起），`runLoop` 与当时流式回合的 `instrumentTools` 都走它。（流式例外已随重建 v5 取消：面试官每回合一次非流式调用，与其它 agent 同一条循环。）
 - 面试官：`PolicyContext.skillPacks`（备课选的 ≤ 3 包），系统提示只放一行索引（整场不变，缓存前缀），`load_skill` 按需加载全文；`lookup_resume` 仍只在简历超长时给。现场卡多一行"已查过"（`tool_called` 事件的投影，最近 6 次），工具结果不进历史。决策规则一行没动。体验版同一条路（没有事件，工具账每回合为空）。
 - 评论员子 agent：`critique` 带 `lookup_resume`（read）、预算 1 步工具、每场只评前 15 个面试官回合；准则加"候选人说的数字与简历不符而面试官没指出"。仍只写 `critic_noted`，lab 开关不变。
 - 指标：模拟器表加"面试官查资料次数"；复盘加一行。

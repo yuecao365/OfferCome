@@ -1,6 +1,6 @@
 import type { AreaKind, InterviewBrief } from "@/lib/mock-interviews/brief/brief";
 
-import { classifyReply, NO_INFO_KINDS, type TranscriptLine } from "../events";
+import { isNoInfo, type TranscriptLine } from "../events";
 
 /**
  * 切段（设计修订 v3 §11.2）：纯代码。§10 起每句面试官的话都带代码指派的材料 id 与角度，一段 = 进入一份材料的第一句提问，
@@ -20,8 +20,6 @@ export type Segment = {
   depth: number;
   /** 问过的角度（材料 guides 的文字，按第一次问到的顺序）。 */
   facets: string[];
-  /** 模型判断候选人讲透了的角度。 */
-  doneFacets: string[];
   /** 材料的全部角度（报告标哪些没问到）。 */
   allFacets: string[];
   /** 候选人在这段里说的话（按顺序；按钮替说的话不算）。 */
@@ -43,13 +41,13 @@ export function cutSegments(transcript: TranscriptLine[], brief: Pick<InterviewB
     if (line.role === "candidate") {
       if (!current || line.control) continue;
       current.answers.push(line.content);
-      if (!NO_INFO_KINDS.has(classifyReply(line))) current.unanswered = false;
+      if (!isNoInfo(line)) current.unanswered = false;
       continue;
     }
     const area = line.topic ? areas.get(line.topic) : undefined;
     if (area && line.kind === "say" && (!current || current.areaId !== area.id)) {
       if (current) current.endSeq = line.seq - 1;
-      current = { startSeq: line.seq, endSeq: line.seq, areaId: area.id, kind: area.kind, label: area.name, entryQuestion: line.content, depth: 0, facets: [], doneFacets: [], allFacets: area.guides, answers: [], skipped: true, unanswered: true };
+      current = { startSeq: line.seq, endSeq: line.seq, areaId: area.id, kind: area.kind, label: area.name, entryQuestion: line.content, depth: 0, facets: [], allFacets: area.guides, answers: [], skipped: true, unanswered: true };
       segments.push(current);
       continue;
     }
@@ -58,8 +56,6 @@ export function cutSegments(transcript: TranscriptLine[], brief: Pick<InterviewB
     const guides = areas.get(current.areaId)?.guides ?? [];
     const facet = typeof line.facet === "number" ? guides[line.facet] : undefined;
     if (facet && !current.facets.includes(facet)) current.facets.push(facet);
-    const done = typeof line.doneFacet === "number" ? guides[line.doneFacet] : undefined;
-    if (done && !current.doneFacets.includes(done)) current.doneFacets.push(done);
   }
   if (current) current.endSeq = lastSeq;
   for (const segment of segments) {

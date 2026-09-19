@@ -29,8 +29,6 @@ export type MockInterviewContext = {
     description: string;
   }[];
   recentWeaknesses: RecentWeakness[];
-  /** 最近几场同岗位问过的基础题主题名：题池抽样时降权。 */
-  recentTopics: string[];
   /** 最近几场同岗位问过的题（切入问题）：备课换场景、换切入点。 */
   recentQuestions: string[];
 };
@@ -156,8 +154,6 @@ export async function buildMockInterviewContext(input: {
     },
     projects: Array.from(projectsById.values()),
     recentWeaknesses,
-    // 最近问过的基础题按候选人算、不按岗位名：同一个人换个岗位名再练，也不该老碰到同几道。
-    recentTopics: [...new Set(recentQuestions.flatMap((item) => (item.areaKind === "quick" && item.areaName ? [item.areaName] : [])))],
     recentQuestions: sameJob.map((item) => item.question.split("\n")[0].trim()).filter(Boolean).slice(0, RECENT_QUESTION_LIMIT),
   };
 }

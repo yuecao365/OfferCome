@@ -1,5 +1,7 @@
 # 面试技能包（Skill Packs）P0 实施计划
 
+> 2026-09-18 起作废的部分：技能包不再是题纲（"好题 / 坏题"、主题抽样、栈包按简历命中都删了），改为四段方法书，备课由模型按 JD 与简历定方向、每道题带锚点。现状见 [interview-rebuild-v5.md](interview-rebuild-v5.md) §6 与 [interview-flow-before.md](interview-flow-before.md) §4–5。下面是历史记录。
+
 2026-08-17。目标：治"八股题空洞"——把领域面试知识打包成分层技能包注入出题 agent；JD 降级为方向信号。对齐 Anthropic Agent Skills 规范（frontmatter 触发、渐进式披露、好/坏示例驱动）。
 
 ## 一、三层结构
