@@ -31,7 +31,7 @@ function brief(areas: Partial<InterviewArea>[]): InterviewBrief {
       angle: null,
       competencyIds: [],
       jdEvidence: null,
-      anchor: null,
+      basis: null,
       skill: null,
       entryQuestion: "切入",
       guides: ["一", "二"],
@@ -57,13 +57,13 @@ test("coverageRates weights by mianjing frequency and ignores unjudged topics", 
 
 test("summarizeRoleCoverage merges briefs and lists the most-missed topics", () => {
   const briefs: BriefCoverage[] = [
-    { role: "backend", jd: "a", rep: 1, covered: { "redis-lock": true, "mysql-index": false, mq: false }, areaCount: 3, anchoredCount: 1, skillPacks: ["backend"] },
-    { role: "backend", jd: "b", rep: 1, covered: { "redis-lock": true, "mysql-index": true, mq: false }, areaCount: 2, anchoredCount: 0, skillPacks: [] },
+    { role: "backend", jd: "a", rep: 1, covered: { "redis-lock": true, "mysql-index": false, mq: false }, areaCount: 3, quickCount: 3, derivedCount: 1, skillPacks: ["backend"] },
+    { role: "backend", jd: "b", rep: 1, covered: { "redis-lock": true, "mysql-index": true, mq: false }, areaCount: 2, quickCount: 2, derivedCount: 0, skillPacks: [] },
   ];
   const metrics = summarizeRoleCoverage("backend", topics, briefs);
   assert.deepEqual(metrics.weightedCoverage, { value: 16 / 24, numerator: 16, denominator: 24 });
   assert.deepEqual(metrics.plainCoverage, { value: 0.5, numerator: 3, denominator: 6 });
-  assert.deepEqual(metrics.anchoredShare, { value: 0.2, numerator: 1, denominator: 5 });
+  assert.deepEqual(metrics.derivedShare, { value: 0.2, numerator: 1, denominator: 5 });
   assert.deepEqual(metrics.missed.map((topic) => topic.id), ["mq", "mysql-index"]);
 });
 

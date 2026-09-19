@@ -54,7 +54,7 @@ test("没有工具：一步就完；有工具：调用 → 结果回到消息里
   assert.deepEqual(script.seen.map((item) => item.toolChoice), ["auto", "auto", "auto"]);
 });
 
-test("预算：步数 / token / 时长任一超了写 budget_exceeded，再给一步不许调工具的结论；这步即使又想调工具也不执行", async () => {
+test("预算：步数 / token / 时长 / 美元任一超了写 budget_exceeded，再给一步不许调工具的结论；这步即使又想调工具也不执行", async () => {
   const log: string[] = [];
   const script = scripted([call("c1", "lookup", { q: "a" }), call("c2", "lookup", { q: "b" }), call("c3", "lookup", { q: "c" })]);
   const result = await runLoop({ prompt: "q", tools: tools(log), budget: { maxSteps: 2 }, callStep: script.callStep });
@@ -70,6 +70,22 @@ test("预算：步数 / token / 时长任一超了写 budget_exceeded，再给�
   const byTokens = await runLoop({ prompt: "q", tools: tools(), budget: { maxSteps: 9, maxTokens: 1_000 }, callStep: tokens.callStep });
   assert.equal(byTokens.events.some((event) => event.type === "budget_exceeded" && event.limit === "tokens" && event.used === 1_800), true);
   assert.equal(byTokens.steps, 3, "两步用了 1800 token，第三步是结论");
+
+  // 钱这一档：折算由调用方给（run-agent 用价格表），循环只管加总。
+  const script3 = () => scripted([call("c1", "lookup", { q: "a" }, 1_000), call("c2", "lookup", { q: "b" }, 1_000), answer("x")]);
+  const priced = script3();
+  const byCost = await runLoop({ prompt: "q", tools: tools(), budget: { maxSteps: 9, maxCostUsd: 0.001 }, costUsdOf: (usage) => (usage.totalTokens ?? 0) * 6e-7, callStep: priced.callStep });
+  const overCost = byCost.events.find((event) => event.type === "budget_exceeded");
+  assert.equal(overCost?.type === "budget_exceeded" && overCost.limit, "cost");
+  assert.equal(overCost?.type === "budget_exceeded" && Number(overCost.used.toFixed(6)), 0.0012);
+  assert.equal(byCost.steps, 3, "两步花了 0.0012 美元，第三步是结论");
+  assert.equal(priced.seen[2].toolChoice, "none");
+
+  // 模型不在价格表里（折算返回 null）：这一档形同没设，不能凭空把循环掐断。
+  const unpriced = script3();
+  const noPrice = await runLoop({ prompt: "q", tools: tools(), budget: { maxSteps: 9, maxCostUsd: 0.001 }, costUsdOf: () => null, callStep: unpriced.callStep });
+  assert.equal(noPrice.events.some((event) => event.type === "budget_exceeded"), false);
+  assert.equal(noPrice.steps, 3, "第三步是模型自己给的结论，不是触顶换来的");
 });
 
 test("hook：beforeTool 能拒绝（原因作为工具结果回给模型）；未知工具与执行抛错都变成失败的工具结果，循环不断", async () => {

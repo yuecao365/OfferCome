@@ -14,6 +14,7 @@
     "boss:login": "tsx scripts/boss-login.ts",
     "boss:sync": "tsx scripts/boss-sync.ts",
     "agent:runs": "tsx scripts/agent-runs.ts",
+    "probe": "tsx --conditions=react-server scripts/provider-probe.ts",
     "eval": "tsx --conditions=react-server scripts/eval.ts",
     "simulate": "tsx --conditions=react-server scripts/simulate.ts",
     "replay": "tsx --conditions=react-server scripts/replay.ts",

@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import type { AiTaskConfig } from "./config";
 import { runLoop, stepsOf, toolCallsOf, type Budget, type LoopEvent, type LoopHooks, type LoopResume, type LoopToolSet, type ToolCall } from "./agent-loop";
 import { coerceToJsonSchema } from "./coerce";
+import { costOf } from "./pricing";
 import { createTextModel, lowReasoningOptions } from "./providers";
 import { findStrictSchemaViolation } from "./strict-schema";
 
@@ -247,7 +248,7 @@ export type AgentRunOptions<T> = {
   providerOptions?: Parameters<typeof generateText>[0]["providerOptions"];
   /** 工具（每个带档位 read / write / confirm）；由循环执行，不交给 SDK。 */
   tools?: LoopToolSet;
-  /** 预算：调工具的步数（有工具时缺省 3）、token、时长；超了不抛错，给模型一步直接结论。 */
+  /** 预算：调工具的步数（有工具时缺省 3）、token、时长、美元；超了不抛错，给模型一步直接结论。 */
   budget?: Partial<Budget>;
   hooks?: LoopHooks;
   /** 续跑：上次挂起 / 中断时的事件，与对挂起调用的决定。 */
@@ -350,8 +351,10 @@ const REPAIR_RAW_CHARS = 6_000;
 /** 有工具的 agent 缺省最多调 3 步工具，之后一步直接结论。 */
 const DEFAULT_TOOL_STEPS = 3;
 
-function loopMetrics(events: LoopEvent[]): Record<string, number> {
-  return { steps: stepsOf(events), toolCalls: toolCallsOf(events).length };
+/** 记账行的指标：走了几步、调了几次工具、这次花了多少钱（模型不在价格表里就没有 costUsd 这一项，不猜）。 */
+function loopMetrics(config: AiTaskConfig, events: LoopEvent[], usage: LanguageModelUsage | undefined): Record<string, number> {
+  const costUsd = costOf(config, usage);
+  return { steps: stepsOf(events), toolCalls: toolCallsOf(events).length, ...(costUsd === null ? {} : { costUsd }) };
 }
 
 function sumUsage(events: LoopEvent[]): LanguageModelUsage | undefined {
@@ -527,6 +530,8 @@ export async function runAgent<T>(
       prompt: options.messages ?? JSON.stringify(options.payload),
       tools,
       budget: { maxSteps: hasTools ? DEFAULT_TOOL_STEPS : 1, ...options.budget },
+      // 价格表在这一层：循环只管"花了多少 / 还能花多少"，认配置的是 runAgent。
+      costUsdOf: (stepUsage) => costOf(config, stepUsage),
       hooks: {
         ...options.hooks,
         onEvent: (event) => {
@@ -576,7 +581,7 @@ export async function runAgent<T>(
       durationMs,
       finishReason,
       usage,
-      metrics: loopMetrics(events),
+      metrics: loopMetrics(config, events, usage),
       payload: options.messages ?? options.payload,
       output,
       rawText,
@@ -598,7 +603,7 @@ export async function runAgent<T>(
   } catch (error) {
     const durationMs = Date.now() - startedAt;
     if (isAgentRunError(error) && error.kind === "interrupted") {
-      logAgentRun({ ...logBase, status: "partial", durationMs, errorKind: "interrupted", metrics: loopMetrics(events), payload: options.payload });
+      logAgentRun({ ...logBase, status: "partial", durationMs, errorKind: "interrupted", metrics: loopMetrics(config, events, sumUsage(events)), payload: options.payload });
       throw error;
     }
     const noObject = NoObjectGeneratedError.isInstance(error) ? error : null;
@@ -616,7 +621,7 @@ export async function runAgent<T>(
         durationMs,
         finishReason,
         usage,
-        metrics: loopMetrics(events),
+        metrics: loopMetrics(config, events, usage),
         payload: options.messages ?? options.payload,
         output: rescued,
         rawText,
@@ -644,6 +649,8 @@ export async function runAgent<T>(
       durationMs,
       finishReason,
       usage,
+      // 失败的调用照样花了钱，记账行里一样要有 costUsd。
+      metrics: loopMetrics(config, events, usage),
       errorKind: kind,
       payload: options.messages ?? options.payload,
       rawText,

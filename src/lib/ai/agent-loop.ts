@@ -29,7 +29,7 @@ export type LoopEvent =
   | { type: "step_finished"; step: number; text: string; toolCalls: ToolCall[]; finishReason?: string; usage?: LanguageModelUsage; durationMs: number }
   | { type: "tool_called"; step: number; call: ToolCall; access: ToolAccess }
   | { type: "tool_result"; step: number; call: ToolCall; access: ToolAccess; ok: boolean; output: unknown; durationMs: number }
-  | { type: "budget_exceeded"; step: number; limit: "steps" | "tokens" | "duration"; used: number; max: number }
+  | { type: "budget_exceeded"; step: number; limit: "steps" | "tokens" | "duration" | "cost"; used: number; max: number }
   | { type: "interrupted"; step: number; call: ToolCall }
   | { type: "resumed"; step: number; call: ToolCall; approved: boolean };
 
@@ -38,6 +38,8 @@ export type Budget = {
   maxSteps: number;
   maxTokens?: number;
   maxDurationMs?: number;
+  /** 这次调用最多花多少美元；折算交给 costUsdOf，循环本身不认识价格表，也不认识配置。 */
+  maxCostUsd?: number;
 };
 
 export type LoopHooks = {
@@ -60,6 +62,8 @@ export type LoopOptions = {
   hooks?: LoopHooks;
   /** 调一次模型：消息是从事件投影出来的；toolChoice none 表示这一步不许调工具。 */
   callStep: (messages: ModelMessage[], toolChoice: "auto" | "none") => Promise<StepResult>;
+  /** 一步用量值多少美元；价格表在调用方（run-agent 用 pricing.costOf），返回 null 表示这个模型折算不出来。 */
+  costUsdOf?: (usage: LanguageModelUsage) => number | null;
   resume?: LoopResume;
 };
 
@@ -111,12 +115,18 @@ function durationOf(events: LoopEvent[]): number {
   return events.reduce((sum, event) => sum + (event.type === "step_finished" || event.type === "tool_result" ? event.durationMs : 0), 0);
 }
 
-function exceeded(budget: Budget, events: LoopEvent[]): Extract<LoopEvent, { type: "budget_exceeded" }> | null {
+/** 已经花掉的美元：折算不出来的步（模型不在价格表里）算 0，这一档就等于没设，不会凭空把循环掐断。 */
+function spentOf(events: LoopEvent[], costUsdOf: NonNullable<LoopOptions["costUsdOf"]>): number {
+  return events.reduce((sum, event) => sum + (event.type === "step_finished" && event.usage ? costUsdOf(event.usage) ?? 0 : 0), 0);
+}
+
+function exceeded(budget: Budget, events: LoopEvent[], costUsdOf: LoopOptions["costUsdOf"]): Extract<LoopEvent, { type: "budget_exceeded" }> | null {
   const step = stepsOf(events);
   const checks: [Extract<LoopEvent, { type: "budget_exceeded" }>["limit"], number, number | undefined][] = [
     ["steps", step, budget.maxSteps],
     ["tokens", tokensOf(events), budget.maxTokens],
     ["duration", durationOf(events), budget.maxDurationMs],
+    ["cost", costUsdOf ? spentOf(events, costUsdOf) : 0, budget.maxCostUsd],
   ];
   for (const [limit, used, max] of checks) {
     if (max !== undefined && used >= max) return { type: "budget_exceeded", step, limit, used, max };
@@ -229,7 +239,7 @@ export async function runLoop(options: LoopOptions): Promise<LoopResult> {
   const hasTools = Object.keys(tools).length > 0;
   let closing = !hasTools;
   for (;;) {
-    const over = !closing ? exceeded(budget, events) : null;
+    const over = !closing ? exceeded(budget, events, options.costUsdOf) : null;
     if (over) {
       emit(over);
       closing = true;

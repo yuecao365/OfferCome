@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import type { ProfileDimension } from "@/lib/candidate-profile/types";
 import { isVerbatimEvidence } from "@/lib/text/evidence";
-import { normalizedText } from "@/lib/text/similarity";
+import { denseText, normalizedText } from "@/lib/text/similarity";
 
 import { QUOTA } from "@/lib/interview/progress";
 
@@ -13,7 +13,7 @@ import type { MockInterviewJobBlueprint } from "../types";
  *
  * 一场面试 = 开场 → 项目深挖 → 基础快问 → 场景题 → 收尾。材料只备三类，每类一道就是一份材料：
  * 每个项目一份（一句切入问法 + 最多 3 条要验证的线索；简历假设挂在项目上）、基础题按配额几道
- * （问什么由模型按这份 JD 与这份简历定，每道带锚点：简历或 JD 的逐字片段，代码只验逐字）、场景题带三级引导阶梯。
+ * （问什么由模型按这份 JD 与这份简历定，每道带依据：引用原文，或落差 / 模式这类推断）、场景题带三级引导阶梯。
  * 何时转题、追几句由面试中的状态与约束定，不在材料里。评分表按种类固定，简历假设逐字引用简历原文（硬门）。
  *
  * 旧简报（每个项目五个面）仍能读：area.angle 非空时按面的标签显示。
@@ -84,15 +84,27 @@ export function quickTarget(pace: InterviewPace, projectCount: number): number {
 }
 const MAX_QUICK = Math.max(...INTERVIEW_PACES.map((pace) => quickTarget(pace, 0)));
 
-export const ANCHOR_KINDS = ["resume", "jd"] as const;
-export type AnchorKind = (typeof ANCHOR_KINDS)[number];
-/** 一道基础题落在哪：简历里他用过的那句，或 JD 里的一条要求，逐字。 */
-export type QuestionAnchor = { kind: AnchorKind; quote: string };
+export const BASIS_KINDS = ["resume", "jd", "gap", "pattern"] as const;
+export type BasisKind = (typeof BASIS_KINDS)[number];
+export const BASIS_LABELS: Record<BasisKind, string> = {
+  resume: "简历原话",
+  jd: "JD 原话",
+  gap: "岗位与简历的落差",
+  pattern: "从几段经历里看出来的",
+};
 
-/** 锚点合格：quote 逐字出自它声明的来源。返回来源文本，不合格为 null。 */
-export function anchorSource(anchor: QuestionAnchor, sources: { resumeText: string; jobDescription: string }): string | null {
-  const source = anchor.kind === "resume" ? sources.resumeText : sources.jobDescription;
-  return isVerbatimEvidence(source, anchor.quote) ? source : null;
+/**
+ * 一道基础题的依据：这题为什么落在这个人、这个岗位上。
+ * resume / jd 引得出原文；gap（岗位要的他没有）与 pattern（几段经历里看出来的模式或缺失）引不出——
+ * 最值得问的题常常是推出来的，不该被"必须逐字引用"挡掉（2026-09-18 用户指出）。
+ */
+export type QuestionBasis = { kind: BasisKind; quote: string | null; note: string };
+
+/** 依据成不成立：写了 quote 就必须能在原文里找到（忽略空格换行）；推断类可以不给 quote。 */
+export function basisAccepted(basis: QuestionBasis, sources: { resumeText: string; jobDescription: string }): boolean {
+  const quote = basis.quote?.trim() ?? "";
+  if (!quote) return basis.kind === "gap" || basis.kind === "pattern";
+  return isVerbatimEvidence(basis.kind === "resume" ? sources.resumeText : sources.jobDescription, quote);
 }
 
 export type RubricItem = { name: string; description: string; weight: number };
@@ -170,8 +182,12 @@ export const briefOutputSchema = z.object({
         /** 题的主题名（不带简历项目名）。 */
         name: z.string().min(1).max(80),
         question: z.string().min(1).max(400),
-        /** 这道题落在简历还是 JD 上，quote 逐字。 */
-        anchor: z.object({ kind: z.enum(ANCHOR_KINDS), quote: z.string().min(1).max(240) }),
+        /** 这题为什么落在这个人 / 这个岗位上：引用类给 quote（逐字），推断类给 note。 */
+        basis: z.object({
+          kind: z.enum(BASIS_KINDS),
+          quote: z.string().min(1).max(240).nullable(),
+          note: z.string().min(4).max(200),
+        }),
         /** 最贴的技能包名（载荷 skillPacks 之一）；拿不准为 null。 */
         skill: z.string().min(1).max(64).nullable(),
         /** 答得实质时唯一的一层追问往哪问。 */
@@ -221,8 +237,8 @@ export type InterviewArea = {
   /** 场景题绑定的岗位能力与 JD 原句；基础题与项目题为空。 */
   competencyIds: string[];
   jdEvidence: string | null;
-  /** 基础题落在简历 / JD 的哪句上（逐字）；没有合格锚点为 null。项目与场景题为 null（场景题看 jdEvidence）。 */
-  anchor: QuestionAnchor | null;
+  /** 基础题的依据（引用或推断）；不成立为 null。项目与场景题为 null（场景题看 jdEvidence）。 */
+  basis: QuestionBasis | null;
   /** 面试中问到这份材料前可查的技能包；没有为 null。 */
   skill: string | null;
   entryQuestion: string;
@@ -250,11 +266,6 @@ export type InterviewBrief = {
   /** 简报是模型产出还是代码兜底。 */
   source: "model" | "fallback";
 };
-
-function isEvidence(haystack: string, excerpt: string): boolean {
-  const needle = normalizedText(excerpt);
-  return needle.length >= 4 && haystack.includes(needle);
-}
 
 /** 可量化的成果：带单位的数字，或成果动词。日期里的数字不算。 */
 const METRIC_PATTERN = /\d+(\.\d+)?\s*(%|％|倍|x|ms|毫秒|秒|万|亿|条|次|天|qps|tps|k\b)/i;
@@ -330,7 +341,7 @@ function projectArea(project: Project, rank: number, round: string | null, writt
     angle: null,
     competencyIds: [],
     jdEvidence: null,
-    anchor: null,
+    basis: null,
     skill: null,
     entryQuestion: written?.question ?? PROJECT_ANGLES.overview.question(project.name),
     guides: written && written.leads.length > 0 ? written.leads : PROJECT_LEADS,
@@ -344,7 +355,7 @@ function projectAreas(ranked: Project[], round: string | null, written: (project
   return ranked.slice(0, MAX_PROJECTS).map((project, rank) => projectArea(project, rank, round, written(project)));
 }
 
-type QuickInput = { name: string; question: string; anchor: QuestionAnchor | null; skill: string | null; followUp: string; expectedSignals: string[] };
+type QuickInput = { name: string; question: string; basis: QuestionBasis | null; skill: string | null; followUp: string; expectedSignals: string[] };
 
 function quickArea(written: QuickInput, id: string, round: string | null): InterviewArea {
   return {
@@ -355,7 +366,7 @@ function quickArea(written: QuickInput, id: string, round: string | null): Inter
     angle: null,
     competencyIds: [],
     jdEvidence: null,
-    anchor: written.anchor,
+    basis: written.basis,
     skill: written.skill,
     entryQuestion: written.question,
     guides: [written.followUp],
@@ -364,9 +375,9 @@ function quickArea(written: QuickInput, id: string, round: string | null): Inter
   };
 }
 
-/** 模型没写够基础题时的兜底：从领域包的常考主题清单里按顺序补，没有锚点（面试官会先问他碰过没有）。 */
+/** 模型没写够基础题时的兜底：从领域包的常考主题清单里按顺序补，没有依据（面试官会先问他碰过没有）。 */
 function fallbackQuick(name: string): QuickInput {
-  return { name, question: `聊聊${name}：它解决什么问题、最关键的一个机制是什么？`, anchor: null, skill: null, followUp: "追问它的边界与出问题时怎么查", expectedSignals: ["机制准确", "说得出边界"] };
+  return { name, question: `聊聊${name}：它解决什么问题、最关键的一个机制是什么？`, basis: null, skill: null, followUp: "追问它的边界与出问题时怎么查", expectedSignals: ["机制准确", "说得出边界"] };
 }
 
 function quickAreas(written: QuickInput[], topicNames: string[], target: number, round: string | null): InterviewArea[] {
@@ -388,7 +399,7 @@ function fallbackScenarioArea(blueprint: MockInterviewJobBlueprint, id: string, 
     angle: null,
     competencyIds: competency ? [competency.id] : [],
     jdEvidence: competency?.origin === "jd" ? competency.jdEvidence : null,
-    anchor: null,
+    basis: null,
     skill: null,
     entryQuestion: competency
       ? `如果你加入后第一个任务是${competency.description || competency.name}，先要弄清楚哪几件事，你会怎么排优先级？`
@@ -399,12 +410,15 @@ function fallbackScenarioArea(blueprint: MockInterviewJobBlueprint, id: string, 
   };
 }
 
-/** 模型没挂项目的假设：证据句落在简历里哪个项目的段落（最近一个在它前面出现的项目名），就挂到那个项目上。 */
+/**
+ * 模型没挂项目的假设：证据句落在简历里哪个项目的段落（最近一个在它前面出现的项目名），就挂到那个项目上。
+ * 两边都按去空白的文本找位置——排版空格不该影响归属，去空白后相对顺序不变。
+ */
 function attachHypothesis(resume: string, evidence: string, projects: Project[]): string | null {
-  const at = resume.indexOf(normalizedText(evidence));
+  const at = resume.indexOf(denseText(evidence));
   let owner: { projectId: string; start: number } | null = null;
   for (const project of projects) {
-    const name = normalizedText(project.name);
+    const name = denseText(project.name);
     const start = name.length >= 2 ? resume.lastIndexOf(name, at) : -1;
     if (start >= 0 && start < at && (!owner || start > owner.start)) owner = { projectId: project.id, start };
   }
@@ -415,7 +429,7 @@ function attachHypothesis(resume: string, evidence: string, projects: Project[])
 /**
  * 模型产出 → 冻结的简报。规则全部由代码把关：
  * - 项目：projectId 必须存在；先出现的项目排前面，最多 MAX_PROJECTS 个，每个项目一份材料，模型没写的用兜底问法；
- * - 基础题：模型按 JD 与简历定，取配额那么多道；锚点必须逐字出自它声明的来源（不合格标为无锚点）；skill 必须是备课用的包名；不够的从领域包主题清单补；
+ * - 基础题：模型按 JD 与简历定，取配额那么多道；依据写了 quote 就必须逐字出自来源（不合格标为无依据）；skill 必须是备课用的包名；不够的从领域包主题清单补；
  * - 场景题数按节奏，JD 原句必须逐字，能力 id 必须在蓝图里；不够时代码兜底；
  * - 假设的简历证据必须逐字出现在简历里，挂到项目上；每个被问的项目至少一条，没有就从简历里兜底。
  */
@@ -436,7 +450,7 @@ export function buildBriefFromOutput(input: {
   const scenarioCount = SCENARIOS_PER_PACE[input.pace];
   const competencyIds = new Set(input.blueprint.competencies.map((item) => item.id));
   const projectsById = new Map(input.projects.map((project) => [project.id, project]));
-  const resume = normalizedText(input.resumeText);
+  const resume = denseText(input.resumeText);
 
   // 项目顺序：模型先写到的排前面；没写到的按简历顺序排在后面。
   const ranked: Project[] = [];
@@ -452,7 +466,7 @@ export function buildBriefFromOutput(input: {
 
   const sources = { resumeText: input.resumeText, jobDescription: input.jobDescription };
   const quick = quickAreas(
-    output.quick.map((item) => ({ ...item, anchor: anchorSource(item.anchor, sources) ? item.anchor : null, skill: item.skill && input.skillPacks.includes(item.skill) ? item.skill : null })),
+    output.quick.map((item) => ({ ...item, basis: basisAccepted(item.basis, sources) ? item.basis : null, skill: item.skill && input.skillPacks.includes(item.skill) ? item.skill : null })),
     input.topicNames,
     quickTarget(input.pace, ranked.slice(0, MAX_PROJECTS).length),
     round,
@@ -468,7 +482,7 @@ export function buildBriefFromOutput(input: {
       angle: null,
       competencyIds: raw.competencyIds.filter((id) => competencyIds.has(id)),
       jdEvidence,
-      anchor: null,
+      basis: null,
     skill: null,
       entryQuestion: raw.question,
       guides: raw.guides,
@@ -480,7 +494,7 @@ export function buildBriefFromOutput(input: {
 
   // 假设挂到项目上：该项目的任何角度里都能验。
   const hypotheses: InterviewHypothesis[] = output.hypotheses
-    .filter((item) => isEvidence(resume, item.evidence))
+    .filter((item) => isVerbatimEvidence(input.resumeText, item.evidence))
     .map((item) => ({
       id: item.id,
       text: item.text,

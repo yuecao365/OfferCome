@@ -6,10 +6,12 @@ import { flushAgentRunPersistence, installAgentRunPersistence, setAgentRunTag } 
 import { prisma } from "../src/lib/db";
 import { EVAL_DIR, loadJdFixture, loadResumeText } from "../src/lib/evals/fixtures";
 import { ensureFixtureResume } from "../src/lib/evals/resume-row";
+import { checkExpectations, informationGain, type Expectation } from "../src/lib/interview/eval/expectations";
 import { loadSessionFacts } from "../src/lib/interview/eval/facts";
 import { renderSummaryTable, sessionMetrics, summarize, type SessionMetrics } from "../src/lib/interview/eval/metrics";
 import { ARCHETYPE_LABELS, ARCHETYPES, PERTURBATIONS, sampleAbilities, simulateReply, type Archetype, type Perturbation, type SyntheticCandidate } from "../src/lib/interview/eval/simulator";
 import type { TranscriptLine } from "../src/lib/interview/events";
+import { parseStoredBrief } from "../src/lib/mock-interviews/brief/brief";
 import { competenciesOf } from "../src/lib/mock-interviews/context";
 import { getAiTaskConfig } from "../src/lib/settings/ai";
 
@@ -42,7 +44,17 @@ function parseArgs(argv: string[]): Args {
 const text = (args: Args, key: string, fallback: string): string => (typeof args[key] === "string" ? (args[key] as string) : fallback);
 
 type Case = { id: string; archetype: Archetype; seed: number; perturbations: Perturbation[] };
-type CaseResult = Case & { sessionId: string; abilities: SyntheticCandidate["abilities"]; turns: number; error: string | null; metrics: SessionMetrics | null };
+type CaseResult = Case & {
+  sessionId: string;
+  abilities: SyntheticCandidate["abilities"];
+  turns: number;
+  error: string | null;
+  metrics: SessionMetrics | null;
+  /** 扰动应有行为与通用项的判定（纯代码，不调模型）；这一列才是消融表要看的。 */
+  expectations: Expectation[];
+  /** 每次追问带来多少新信息：没有真值时的质量代理。 */
+  gainPerProbe: number | null;
+};
 
 type WireTurn = { replay: boolean; messages?: { role: string; kind: string; content: string }[]; payload?: { phase: string; newMessages: { role: string; kind: string; content: string }[] } };
 
@@ -135,7 +147,7 @@ async function runCase(base: string, item: Case, config: { jd: string; resume: s
   const jd = loadJdFixture(config.jd);
   const resumeText = loadResumeText(config.resume);
   const sessionId = await createSession(base, { jd: config.jd, resumeDbId: config.resumeDbId, pace: config.pace, label: `模拟 ${item.id}`, tag: config.tag });
-  const result: CaseResult = { ...item, sessionId, abilities: [], turns: 0, error: null, metrics: null };
+  const result: CaseResult = { ...item, sessionId, abilities: [], turns: 0, error: null, metrics: null, expectations: [], gainPerProbe: null };
   try {
     await waitReady(base, sessionId);
     const candidate: SyntheticCandidate = { archetype: item.archetype, seed: item.seed, abilities: sampleAbilities(await loadCompetencies(sessionId), item.archetype, item.seed), perturbations: item.perturbations };
@@ -167,7 +179,17 @@ async function runCase(base: string, item: Case, config: { jd: string; resume: s
     console.error(`  [${item.id}] 失败：${result.error}`);
   }
   result.metrics = sessionMetrics(await loadSessionFacts(sessionId, truthOf(result.abilities)));
+  Object.assign(result, await judge(sessionId, item.perturbations));
   return result;
+}
+
+/** 从落库的事件与简报算行为判定；跑完与 --recompute 共用。 */
+async function judge(sessionId: string, perturbations: Perturbation[]): Promise<{ expectations: Expectation[]; gainPerProbe: number | null }> {
+  const facts = await loadSessionFacts(sessionId, []);
+  const session = await prisma.mockInterviewSession.findUnique({ where: { id: sessionId }, select: { briefJson: true } });
+  const brief = parseStoredBrief(session?.briefJson ?? null);
+  if (!brief) return { expectations: [], gainPerProbe: null };
+  return { expectations: checkExpectations({ brief, events: facts.events, perturbations }), gainPerProbe: informationGain(facts.events).perProbe };
 }
 
 async function pool<T, R>(items: T[], size: number, worker: (item: T) => Promise<R>): Promise<R[]> {
@@ -194,7 +216,19 @@ async function recompute(tag: string): Promise<CaseResult[]> {
     const seed = Number(match?.[2] ?? 0);
     // 真值按 seed 重采（采样是确定的），重算时也能对照估计器。
     const abilities = match ? sampleAbilities(competenciesOf(session.contextSnapshotJson), archetype, seed) : [];
-    results.push({ id: match ? `${match[1]}-${match[2]}` : session.id, archetype, seed, perturbations: [], sessionId: session.id, abilities, turns: 0, error: null, metrics: sessionMetrics(await loadSessionFacts(session.id, truthOf(abilities))) });
+    results.push({
+      id: match ? `${match[1]}-${match[2]}` : session.id,
+      archetype,
+      seed,
+      perturbations: [],
+      sessionId: session.id,
+      abilities,
+      turns: 0,
+      error: null,
+      metrics: sessionMetrics(await loadSessionFacts(session.id, truthOf(abilities))),
+      // 重算时不知道当时上了哪些扰动，只判通用项。
+      ...(await judge(session.id, [])),
+    });
   }
   return results;
 }
@@ -206,7 +240,28 @@ function report(results: CaseResult[]): string {
     const group = done.filter((item) => item.archetype === archetype);
     if (group.length > 0) columns.push({ name: ARCHETYPE_LABELS[archetype], summary: summarize(group.map((item) => item.metrics!)) });
   }
-  return renderSummaryTable(columns);
+  return renderSummaryTable(columns) + "\n\n" + renderExpectations(results);
+}
+
+/** 行为判定汇总：一行一条，分母只算触发了条件的场次。 */
+function renderExpectations(results: CaseResult[]): string {
+  const byId = new Map<string, { label: string; passed: number; total: number; misses: string[] }>();
+  for (const result of results) {
+    for (const item of result.expectations) {
+      if (!item.applies || item.passed === null) continue;
+      const row = byId.get(item.id) ?? { label: item.label, passed: 0, total: 0, misses: [] };
+      row.total += 1;
+      if (item.passed) row.passed += 1;
+      else if (row.misses.length < 3) row.misses.push(`${result.id}：${item.detail}`);
+      byId.set(item.id, row);
+    }
+  }
+  if (byId.size === 0) return "行为判定：没有可判的场次。";
+  const gains = results.map((item) => item.gainPerProbe).filter((value): value is number => value !== null);
+  const lines = ["行为判定（分母只算触发了条件的场次）", "| 条目 | 通过 | 不通过的例子 |", "|---|---|---|"];
+  for (const row of byId.values()) lines.push(`| ${row.label} | ${row.passed} / ${row.total} | ${row.misses.join("；") || "—"} |`);
+  if (gains.length > 0) lines.push(`| 每次追问的新信息量 | ${(gains.reduce((sum, value) => sum + value, 0) / gains.length).toFixed(1)} | 越高说明追问越有效 |`);
+  return lines.join("\n");
 }
 
 async function main() {

@@ -2,6 +2,14 @@ export function normalizedText(value: string): string {
   return value.normalize("NFKC").toLocaleLowerCase().replace(/\s+/g, " ").trim();
 }
 
+/**
+ * 归一化后再去掉全部空白。PDF 抽出来的简历会在换行处插进空格（"回传给 LLM自纠"），
+ * 逐字引用必须对这类差异免疫，否则模型照抄原文也对不上（2026-09-18 真实场次 10 条引用全被误杀）。
+ */
+export function denseText(value: string): string {
+  return normalizedText(value).replace(/\s+/g, "");
+}
+
 export function characterNgrams(value: string): Set<string> {
   const normalized = normalizedText(value).replace(/[^\p{L}\p{N}+#]/gu, "");
   const result = new Set<string>();

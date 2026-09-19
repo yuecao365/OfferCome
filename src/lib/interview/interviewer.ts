@@ -4,7 +4,7 @@ import { z } from "zod";
 import type { LoopToolSet } from "@/lib/ai/agent-loop";
 import type { AiTaskConfig } from "@/lib/ai/config";
 import { runAgent, type AgentRunResult } from "@/lib/ai/run-agent";
-import type { InterviewArea, InterviewBrief } from "@/lib/mock-interviews/brief/brief";
+import { BASIS_LABELS, type InterviewArea, type InterviewBrief } from "@/lib/mock-interviews/brief/brief";
 import { createSkillTools } from "@/lib/mock-interviews/skills/tools";
 import type { SkillPack } from "@/lib/mock-interviews/skills/types";
 import { createResumeLookupTool } from "@/lib/mock-interviews/tools/resume-lookup";
@@ -94,8 +94,12 @@ function renderProject(area: InterviewArea, brief: InterviewBrief): string {
 /** 议程：项目、基础题、场景题，每份带材料 id。整场不变。 */
 export function renderAgenda(brief: InterviewBrief): string {
   const projects = brief.areas.filter((area) => area.kind === "project").map((area) => renderProject(area, brief)).join("\n");
-  const anchorOf = (area: InterviewArea) => (area.anchor ? `（落在${area.anchor.kind === "resume" ? "简历" : "JD"}这句上：「${area.anchor.quote.replace(/\s+/g, " ")}」）` : "（没有锚点：先问他碰过没有，没碰过就换）");
-  const quick = brief.areas.filter((area) => area.kind === "quick").map((area) => `- [${area.id}] 基础题「${area.name}」${anchorOf(area)}：${area.entryQuestion}（答得实可追：${area.guides[0] ?? ""}）`).join("\n");
+  const basisOf = (area: InterviewArea) => {
+    if (!area.basis) return "（没有依据：先问他碰过没有，没碰过就换）";
+    const quote = area.basis.quote ? `「${area.basis.quote.replace(/\s+/g, " ")}」` : "";
+    return `（依据·${BASIS_LABELS[area.basis.kind]}${quote}：${area.basis.note}）`;
+  };
+  const quick = brief.areas.filter((area) => area.kind === "quick").map((area) => `- [${area.id}] 基础题「${area.name}」${basisOf(area)}：${area.entryQuestion}（答得实可追：${area.guides[0] ?? ""}）`).join("\n");
   const scenarios = brief.areas.filter((area) => area.kind === "scenario").map((area) => `- [${area.id}] 场景题「${area.name}」：${area.entryQuestion}\n  引导阶梯：${area.guides.join(" → ")}${area.jdEvidence ? `\n  来自 JD：「${area.jdEvidence}」` : ""}`).join("\n");
   return `${projects || "- 简历上没有识别出项目。"}\n${quick || "- （没有基础题）"}\n${scenarios || "- （没有场景题）"}`;
 }
