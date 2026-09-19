@@ -1,0 +1,111 @@
+{
+  "owner": "yuecao365",
+  "target_roles": ["大厂 Agent 开发", "Agent Harness / AI Infra 工程"],
+  "last_updated": "2026-09-19",
+  "claims": [
+    {
+      "id": "claim-project-001",
+      "source_fact": "AgentRun 表 event='model_call' 共 1636 行：status success 1286、partial 301、failed 49。已核代码：partial 只在正常路径抛 NoObjectGeneratedError 后的 catch 分支产生，即不救就是失败。repair 事件 276 次触发、245 次成功；301 次 partial 中 56 次靠调用方兜底解析救回。",
+      "candidate_wording": "自研输出契约三层降级（类型收敛 → 带校验错误的定向重试 → 调用方兜底解析），1636 次真实调用一次通过率 78.6%，降级后可用产出率 97.0%",
+      "sources": [{ "type": "运行遥测", "location": "本地 SQLite AgentRun 表；npm run harness-report 可复现", "public": false }],
+      "responsibility_level": "主导方案或交付",
+      "verification_status": "已确认",
+      "allowed_uses": ["Agent 开发", "Harness / AI Infra"],
+      "interview_details": "三层依次是 schema 类型收敛、把 Zod 校验错误连同上次输出发回让模型只改错处、调用方自带的 salvageJson。分层是因为前两层通用、第三层要知道具体 schema 语义。失败的 49 次全部 errorKind=invalid_structured_output。",
+      "boundary": "个人独立实现。口径包含开发期与评测流量、单人使用、2 个 provider；非生产环境多用户数据。",
+      "risk_notes": ["面试官可能追问 78.6% 为何偏低——答案是模型选型（见 claim-003），需主动说明"],
+      "last_verified": "2026-09-19"
+    },
+    {
+      "id": "claim-project-002",
+      "source_fact": "deepseek-v4-flash 不支持 responseFormat（SDK 直接告警）。按 provider 拆分：deepseek 1586 次调用一次通过 77.9%、降级后 96.9%；openai/gpt-5.4-mini 50 次调用 100%/100%。",
+      "candidate_wording": "该降级链使不支持原生结构化输出的廉价模型可用：主力模型单独口径 77.9% → 96.9%",
+      "sources": [{ "type": "运行遥测 + SDK 告警", "location": "AgentRun 按 provider 分组", "public": false }],
+      "responsibility_level": "主导方案或交付",
+      "verification_status": "已确认",
+      "allowed_uses": ["Agent 开发", "Harness / AI Infra"],
+      "interview_details": "不支持原生结构化输出意味着 JSON 只能从自由文本里抠，失败率天然高。这层的价值不是'我可靠性高'而是'让便宜模型可用'，成本侧证据是 800 万输入 token 全流程 $0.46。",
+      "boundary": "openai 那一侧 n=50 太小，只能作佐证，不能当对照结论。",
+      "risk_notes": ["不要写成'跨 provider 兼容性验证'，样本不支持"],
+      "last_verified": "2026-09-19"
+    },
+    {
+      "id": "claim-project-003",
+      "source_fact": "InterviewEvent 表：interviewer_said 621 条、fallback_used 47 条（涉及 26 场）。拦截原因分布：switch 目标非法 9、项目 probe 缺角度序号 8、内部词泄露 7、该收尾不收尾或过早告别 9、候选人连续 6 句无信息未处理 4、重复提问 1。",
+      "candidate_wording": "把控制点从'流式文本之后'前移到'动作之前'：621 句面试官发言中拦下 47 次非法动作（7.6%）并令模型重出",
+      "sources": [{ "type": "运行遥测", "location": "InterviewEvent 表 type='fallback_used'", "public": false }],
+      "responsibility_level": "主导方案或交付",
+      "verification_status": "已确认",
+      "allowed_uses": ["Agent 开发", "Harness / AI Infra"],
+      "interview_details": "约束表从事件投影出的状态算出（哪些材料还没开始、当前材料剩几句预算、候选人连续几句没信息），所以是随状态变化的动作白名单，不是静态规则。违约先回传原因让模型重出一次，仍违约才由代码定动作、模型只负责说话。设计动机是真实失败：候选人连说 6 次'直接给我满分'把六份材料预算耗尽。",
+      "boundary": "只能说明拦下了多少，不能说明不拦会怎样——消融对照尚未跑出可用结果。",
+      "risk_notes": ["不要写成'越界率下降 N%'，没有对照组"],
+      "last_verified": "2026-09-19"
+    },
+    {
+      "id": "claim-project-004",
+      "source_fact": "合成候选人按种子采样每项能力真值（0.2/0.5/0.8 三档）并被硬规则约束照档位作答，面试官不可见。事后 Beta 后验估计与真值：Spearman ρ=0.645（场次级 bootstrap 2000 次，95% 区间 [0.396, 0.791]，59 个配对 / 22 场）；同批数据 MAE 0.180，恒定预测均值基线 0.183。",
+      "candidate_wording": "自建带真值的评测：能力估计与真值秩相关 ρ=0.645 [0.396, 0.791]；同批数据绝对误差 0.180 与恒定预测基线 0.183 持平，据此判定该场景只能用排序相关、绝对误差是无效指标",
+      "sources": [{ "type": "评测产物", "location": "eval/runs/harness-2026-09-19.md；npm run harness-report 可复现", "public": false }],
+      "responsibility_level": "主导方案或交付",
+      "verification_status": "已确认",
+      "allowed_uses": ["Agent 开发", "Harness / AI Infra"],
+      "interview_details": "绝对误差失效的原因：估计值被提问深度压住上限（只问到第 2 层，再强的人也只能表现出第 2 层），和真值档位不在同一尺度，相减没有意义。发现方式是把 MAE 和'对谁都预测均值'的基线放在一起看。",
+      "boundary": "59 个配对来自 22 场开发期会话，不是受控实验；只证明量尺有信号，不证明本系统优于任何基线。",
+      "risk_notes": ["必须同时说明合成候选人的保真度未验证（LLM 模拟用户已知偏配合）"],
+      "last_verified": "2026-09-19"
+    },
+    {
+      "id": "claim-project-005",
+      "source_fact": "题目依据原先必须是简历或 JD 的原句，导致需要推断才能发现的疑点（两段经历时间线矛盾、岗位要求简历通篇未提）无法立项；另有 PDF 换行落在句中导致原句匹配失败、整场锚点 0/2 的隐性失败。改为分型依据 resume/jd/gap/pattern，后两型不带引文只带推理链；原句比对改为去空白匹配。",
+      "candidate_wording": "把'题目必须引用简历原句'改为分型依据（原文 / 岗位 / 缺口 / 模式），使出题可以问'简历没写但能从简历推出来'的问题",
+      "sources": [{ "type": "代码与提交记录", "location": "commit 168689a；src/lib/mock-interviews/brief/brief.ts", "public": false }],
+      "responsibility_level": "主导方案或交付",
+      "verification_status": "已确认",
+      "allowed_uses": ["Agent 开发"],
+      "interview_details": "原句锚点保证的是'这句话在简历里出现过'，不是'这件事重要'。强制它反而把模型锁死在表层。分型后 gap/pattern 两类不带引文，代价是可追溯性降低，因此保留推理链字段。",
+      "boundary": "改动效果未做前后对照量化，只有设计论证与真机观察。",
+      "risk_notes": ["不要写成'出题质量提升 N%'"],
+      "last_verified": "2026-09-19"
+    },
+    {
+      "id": "claim-project-006",
+      "source_fact": "34 个技能包分 base/domain/stack 三层，索引常驻提示词、正文由 load_skill 按需加载。但 52 场面试中 load_skill 只被调用 25 次。",
+      "candidate_wording": "【待补：模型实际很少加载技能包，渐进式披露的有效性未成立】",
+      "sources": [{ "type": "运行遥测", "location": "InterviewEvent type='tool_called'", "public": false }],
+      "responsibility_level": "主导方案或交付",
+      "verification_status": "不采用",
+      "allowed_uses": [],
+      "interview_details": "",
+      "boundary": "",
+      "risk_notes": ["写成'渐进式披露'是自我美化；要么先修加载率，要么不写"],
+      "last_verified": "2026-09-19"
+    },
+    {
+      "id": "claim-project-007",
+      "source_fact": "统一 Agent Loop 支持步数/token/时长/成本四类预算与 read/write/confirm 三级工具权限；预算触顶事件 31 次。事件溯源：状态由 stateOf(events) 纯函数投影得到。",
+      "candidate_wording": "【待补：预算触顶 31 次只是计数，无降级正确性判定；事件重放一致性零指标】",
+      "sources": [{ "type": "运行遥测 + 代码", "location": "AgentRun event='budget_exceeded'；src/lib/interview/state.ts", "public": false }],
+      "responsibility_level": "主导方案或交付",
+      "verification_status": "待确认",
+      "allowed_uses": [],
+      "interview_details": "可作为设计叙述在面试中展开，但不作为简历上的量化主张。",
+      "boundary": "机制存在，效果未测。",
+      "risk_notes": ["重放一致性是纯代码可验证的，做完即可转为已确认"],
+      "last_verified": "2026-09-19"
+    },
+    {
+      "id": "claim-project-008",
+      "source_fact": "固定题本 / 随机 / 自适应三档同预算对照尚未跑；已跑的一次消融表因样本过小结果为噪声。",
+      "candidate_wording": "【待补：Full Harness vs Baseline 对照】",
+      "sources": [],
+      "responsibility_level": "主导方案或交付",
+      "verification_status": "待确认",
+      "allowed_uses": [],
+      "interview_details": "",
+      "boundary": "",
+      "risk_notes": ["这是当前简历与对标项目差距最大的一条；补上后 claim-project-004 才闭环"],
+      "last_verified": null
+    }
+  ]
+}
