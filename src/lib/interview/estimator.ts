@@ -77,6 +77,30 @@ export function correlation(estimates: Estimate[], truth: { competencyId: string
   return pearson(estimatePairs(estimates, truth));
 }
 
+/**
+ * 秩相关（Spearman）：只看排序对不对，不受"估计值和真值不同尺度"影响。
+ * 估计值被提问深度压住上限（evidenceOf），跟真值档位不可直接相减，所以对照表用这个当主指标。
+ */
+export function spearman(pairs: [number, number][]): number | null {
+  if (pairs.length < 2) return null;
+  const rank = (values: number[]): number[] => {
+    const order = values.map((value, index) => ({ value, index })).sort((left, right) => left.value - right.value);
+    const ranks = new Array<number>(values.length);
+    for (let start = 0; start < order.length; ) {
+      // 并列取平均秩，否则大量同分（真值只有三档）会把相关算歪。
+      let end = start;
+      while (end + 1 < order.length && order[end + 1].value === order[start].value) end += 1;
+      const mean = (start + end) / 2 + 1;
+      for (let index = start; index <= end; index += 1) ranks[order[index].index] = mean;
+      start = end + 1;
+    }
+    return ranks;
+  };
+  const xs = rank(pairs.map(([x]) => x));
+  const ys = rank(pairs.map(([, y]) => y));
+  return pearson(xs.map((x, index) => [x, ys[index]] as [number, number]));
+}
+
 export function pearson(pairs: [number, number][]): number | null {
   if (pairs.length < 2) return null;
   const meanOf = (values: number[]) => values.reduce((sum, value) => sum + value, 0) / values.length;

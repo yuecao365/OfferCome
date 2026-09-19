@@ -4,6 +4,8 @@ import { assertAiConfigured, logAgentRun, runAgent } from "@/lib/ai/run-agent";
 import { salvageJson } from "@/lib/ai/salvage-json";
 import { getAiTaskConfig } from "@/lib/settings/ai";
 
+import { ablated } from "@/lib/interview/eval/switches";
+
 import type { MockInterviewContext } from "../context";
 import { loadSkillPacks } from "../skills/loader";
 import { SKILL_SECTIONS, skillSection, topicNames, topicOutline } from "../skills/sections";
@@ -64,7 +66,8 @@ export async function generateInterviewBrief(input: {
 }): Promise<InterviewBrief> {
   const config = await getAiTaskConfig("text");
   assertAiConfigured(config, "AI 模拟面试");
-  const packs = packsForPrep({ jobTitle: input.jobTitle, jobDescription: input.context.jobDescription }, await loadSkillPacks(), input.round);
+  // 消融"技能包"时备课一份方法书都不读，用来量它对题的方向有多大影响。
+  const packs = ablated("packs") ? [] : packsForPrep({ jobTitle: input.jobTitle, jobDescription: input.context.jobDescription }, await loadSkillPacks(), input.round);
   const domainPack = packs.find((pack) => pack.name !== PROJECT_METHOD_PACK) ?? null;
   const sources = { resumeText: input.context.resume.text, jobDescription: input.context.jobDescription };
   const target = quickTarget(input.pace, input.context.projects.length);
@@ -177,7 +180,7 @@ ${packs.map(renderPack).join("\n\n")}
     let { output } = await call(input.generationId, {});
     let retried = false;
     // 依据门禁：不成立的退回让模型改一次；仍不成立由 buildBriefFromOutput 标为无依据。
-    const rejected = rejectedBases(output, sources);
+    const rejected = ablated("basis") ? [] : rejectedBases(output, sources);
     if (rejected.length > 0) {
       retried = true;
       const fixed = await call(`${input.generationId}:basis`, {

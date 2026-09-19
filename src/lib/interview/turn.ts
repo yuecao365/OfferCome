@@ -3,6 +3,7 @@ import type { AgentRunResult } from "@/lib/ai/run-agent";
 import type { InterviewBrief } from "@/lib/mock-interviews/brief/brief";
 
 import { checkAction, checkReply, fallbackAction, type Proposal } from "./constraints";
+import { ablated } from "./eval/switches";
 import { event, stateEventsOf, type CandidateControl, type InterviewEvent, type NewEvent, type TranscriptLine } from "./events";
 import { runInterviewerTurn, type InterviewerCall, type InterviewerContext, type InterviewerOutput, renderCard } from "./interviewer";
 import { stateOf, type Action, type InterviewState, type Signal } from "./state";
@@ -110,14 +111,16 @@ export async function runTurn(input: { runId: string; config: AiTaskConfig; stat
   // 第一次：模型自己提；违约重出一次；仍违约代码定动作再说一次。文字只查内部词，同样重出一次。
   // 校验用的状态要算上模型对候选人这句的判断（连续几句没信息含这一句）；开场动作固定 probe、没有材料，不校验。
   const judgedBy = (output: InterviewerOutput) => (candidate ? stateOf(state.brief, stateEventsOf([...state.events, asEvent(candidateEvent(candidate, output.signal), state.events.length)])) : before);
-  const verdictOf = (judged: InterviewState, proposal: Proposal) => (before.phase === "opening" ? ({ ok: true } as const) : checkAction(judged, proposal));
+  // 消融"动作约束与重出"时一律判合规：模型说什么就是什么，用来量这一层挡住了多少越界。
+  const verdictOf = (judged: InterviewState, proposal: Proposal) =>
+    before.phase === "opening" || ablated("constraints") ? ({ ok: true } as const) : checkAction(judged, proposal);
   let result = await call(null, null);
   let judged = judgedBy(result.output);
   let proposal = proposalOf(result.output, before);
   let verdict = verdictOf(judged, proposal);
   const replyVerdict = () => checkReply(result.output.reply);
   const violations: string[] = [];
-  if (!verdict.ok || !replyVerdict().ok) {
+  if (!ablated("constraints") && (!verdict.ok || !replyVerdict().ok)) {
     const reason = !verdict.ok ? verdict.reason : (replyVerdict() as { reason: string }).reason;
     violations.push(reason);
     result = await call(reason, null);
@@ -130,7 +133,7 @@ export async function runTurn(input: { runId: string; config: AiTaskConfig; stat
     proposal = fallbackAction(judged);
     result = await call(null, proposal);
   }
-  if (!replyVerdict().ok) violations.push((replyVerdict() as { reason: string }).reason);
+  if (!ablated("constraints") && !replyVerdict().ok) violations.push((replyVerdict() as { reason: string }).reason);
 
   const output = result.output;
   const signal: Signal = candidate ? (candidate.control === "skip" ? "answered" : output.signal) : "answered";
@@ -150,7 +153,7 @@ export async function runTurn(input: { runId: string; config: AiTaskConfig; stat
   said.push({ role: "interviewer", kind, content: reply, topic: state.phase === "opening" ? null : materialId, facet, action: proposal.action, signal });
   const ledger = output.ledger.trim();
   const ledgerMaterial = before.currentId;
-  if (ledger && ledgerMaterial && candidate) events.push(event("ledger_written", { materialId: ledgerMaterial, text: ledger.slice(0, 200) }, result.runId));
+  if (ledger && ledgerMaterial && candidate && !ablated("ledger")) events.push(event("ledger_written", { materialId: ledgerMaterial, text: ledger.slice(0, 200) }, result.runId));
   const ended = proposal.action === "end";
   if (ended) events.push(event("ended", { by: "interviewer" }));
   const after = stateOf(state.brief, stateEventsOf([...state.events, ...events.map((item, index) => asEvent(item, state.events.length + index))]));

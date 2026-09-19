@@ -10,6 +10,7 @@ import type { SkillPack } from "@/lib/mock-interviews/skills/types";
 import { createResumeLookupTool } from "@/lib/mock-interviews/tools/resume-lookup";
 
 import { renderOptions } from "./constraints";
+import { ablated } from "./eval/switches";
 import { dossierExcerpt } from "./dossier-doc";
 import type { TranscriptLine } from "./events";
 import { ACTIONS, renderState, SIGNALS, type InterviewState } from "./state";
@@ -158,13 +159,15 @@ export function renderCard(state: InterviewState, options: { toolsUsed: string[]
   const load = options.loadSkill ? `\n下一份基础题所属的技能包「${options.loadSkill}」这场还没查过：换过去之前先用 load_skill 查它。` : "";
   const retry = options.retry ? `\n上一次的动作被退回：${options.retry}。重新给出动作与话。` : "";
   if (state.phase === "opening") return `[状态卡]\n开场：候选人已就座。这回合 action=probe、target=null、facet=null，signal=answered，ledger 留空；请问候并请候选人用一两分钟介绍与这个岗位相关的经历，不问别的。${retry}`;
+  // 消融"状态卡"时只留议程与历史，不告诉模型聊到哪了：用来量这份投影到底顶不顶用。
+  if (ablated("statecard")) return `[状态卡]\n轮到你说话，照常输出 signal / action / target / facet / why / ledger / reply。${retry}`;
   return `[状态卡]\n${renderState(state)}\n${renderOptions(state)}${tools}${load}${retry}\n候选人刚说的话在上一条。`;
 }
 
 export function buildTools(context: InterviewerContext): LoopToolSet {
   return {
     ...(context.resumeText.length > MAX_RESUME_CHARS ? { lookup_resume: createResumeLookupTool(context.resumeText) } : {}),
-    ...((context.skillPacks ?? []).length > 0 ? createSkillTools(context.skillPacks!).tools : {}),
+    ...((context.skillPacks ?? []).length > 0 && !ablated("packs") ? createSkillTools(context.skillPacks!).tools : {}),
   };
 }
 

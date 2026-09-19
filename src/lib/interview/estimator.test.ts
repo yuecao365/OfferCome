@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { correlation, estimate, evidenceOf, type Competency } from "./estimator";
+import { correlation, estimate, evidenceOf, spearman, type Competency } from "./estimator";
 
 const competencies: Competency[] = [
   { id: "c1", name: "系统可靠性", priority: "core" },
@@ -41,4 +41,17 @@ test("相关：只算测过的能力；不足两项为 null", () => {
   const truth = [{ competencyId: "c1", level: 0.8 }, { competencyId: "c2", level: 0.2 }, { competencyId: "c3", level: 0.5 }];
   assert.ok((correlation(estimates, truth) ?? 0) > 0.9);
   assert.equal(correlation(estimates.slice(0, 1), truth), null);
+});
+
+test("秩相关只看排序，不受估计值与真值尺度不同的影响", () => {
+  // 估计值被提问深度压住上限，跟真值档位不可直接相减；只要排序对，秩相关就是 1。
+  assert.equal(spearman([[0.26, 0.2], [0.41, 0.5], [0.55, 0.8]]), 1);
+  assert.equal(spearman([[0.55, 0.2], [0.41, 0.5], [0.26, 0.8]]), -1);
+});
+
+test("真值只有三档，并列取平均秩", () => {
+  const value = spearman([[0.5, 0.5], [0.6, 0.5], [0.9, 0.8], [0.2, 0.2]]);
+  assert.ok(value !== null && value > 0.8, `期望强正相关，实得 ${value}`);
+  assert.equal(spearman([[1, 0.5], [2, 0.5]]), null, "真值没有方差时为 null");
+  assert.equal(spearman([[1, 0.5]]), null, "不足两点为 null");
 });
