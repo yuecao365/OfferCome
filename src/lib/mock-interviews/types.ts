@@ -87,22 +87,8 @@ export const storedJobBlueprintSchema = mockInterviewJobBlueprintSchema.extend({
 export type MockInterviewJobBlueprint = z.infer<
   typeof mockInterviewJobBlueprintSchema
 >;
-/** 报告页"这道题在考察什么"：这段所属阶段与来源、期望信号、问过的角度。 */
-export type MockInterviewQuestionTeaching = {
-  areaName: string | null;
-  /** jd：JD 明确要求（场景题）；baseline：技能包里的岗位常见考点（基础题）。 */
-  competencyOrigin: "jd" | "baseline" | null;
-  /** 候选人在这条线程里的作答总时长（秒），只作辅助信号；没有记录为 null。 */
-  answerSeconds: number | null;
-  expectedSignals: string[];
-  /** 这段属于哪个阶段（project / quick / scenario）。 */
-  sourceKind: string;
-  /** 面试官问过的角度、材料的全部角度（§10.6 起）；旧场次为空。 */
-  facets: string[];
-  facetsAll: string[];
-  /** 切段 / 评分写的判断（skipped / failed / thin / answered）；旧数据为 null。 */
-  verdict: string | null;
-};
+/** 报告页逐段折叠行要的：这段是哪份材料、什么阶段（project / quick / scenario）、切段时的判断（skipped / failed / answered）。 */
+export type MockInterviewSegmentInfo = { areaName: string | null; kind: string; verdict: string | null };
 
 export type MockInterviewConversation = Conversation;
 
@@ -137,18 +123,16 @@ export type MockInterviewView = {
     category: string;
     sortOrder: number;
     skipped: boolean;
-    teaching?: MockInterviewQuestionTeaching;
+    segment?: MockInterviewSegmentInfo;
     evaluation: null | {
       score: number | null;
       dimensions: { name: string; score: number; evidence: string; gap: string | null }[];
       strengths: EvaluationStrength[];
       weaknesses: EvaluationWeakness[];
-      advice: string[];
-      feedback: string;
-      /** 简历核对（评分 v5）；旧记录与旧的体验版数据没有。 */
+      /** 一句结论（旧记录是原来的长评语）。 */
+      verdict: string;
+      /** 简历核对；旧记录与旧的体验版数据没有。 */
       resumeChecks?: ResumeCheck[];
-      /** 同段两次采样分歧大：报告里标"评分置信度低"。 */
-      lowConfidence?: boolean;
       exemplar: AnswerExemplar | null;
     };
   }[];

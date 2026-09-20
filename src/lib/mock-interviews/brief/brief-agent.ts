@@ -149,7 +149,7 @@ ${renderSkillIndex(packs.filter((pack) => pack.layer !== "detail"), { keywords: 
 3. scenarios：${scenarioCount} 道场景题。从 JD 里团队做的系统或职责里挑一个具体场景（jobBlueprint.business 非空时优先落在它的 systems 之一上，product 是这个团队做什么；jdEvidence 逐字复制 JD 原文中最能代表它的一句，不得改写；competencyIds 绑定蓝图能力），question 先铺一句场景再问一个点；guides 是三级引导阶梯（候选人卡住或答到一层时下一步往哪引）。场景题不要与项目角度考同一件事。
 4. hypotheses（最多 6 条）：要在项目阶段验证的具体点——写了数字的成果、只写框架名的经历、时间线的空洞。每个被问的项目至少一条，projectId 指向它；text 写成"面试里问什么才能验证"；evidence 必须逐字复制简历原文片段，不得改写；没有依据的假设不要写。candidateDossier 是同一份简历上几场的档案（可信）：其中"没讲清的说法"优先写进 hypotheses 并在 text 里注明"上次没讲清"；"反复出现的短板"与本岗位相关的在对应的题里复测；"问过的项目角度"里已问过的角度在 leads 里往后排或换掉。
 
-问法规则（候选人要一听就知道往哪个方向答）：开题可以宽，但必须给一个抓手——一个角度、一个例子或一个约束；其余的题落到一个点——一个机制、一个数字或一个决策。一句只问一个要点：一个问号，不要"A、B、C 分别怎么"并列，不要"先说 X 再说 Y"；要问的后续要点放到 leads / followUp / guides 里。
+问法规则（候选人要一听就知道往哪个方向答）：开题可以宽，但必须给一个抓手——一个角度、一个例子或一个约束；其余的题落到一个点——一个机制、一个数字或一个决策。一句只问一个要点：一个问号，不要"A、B、C 分别怎么"并列，不要"先说 X 再说 Y"；要问的后续要点放到 leads / followUp / guides 里。写 question / note / text 时称候选人为"候选人"或"你"，不用他 / 她。
 ${retestRule}${historyRule}
 ${packRule}写了 quote 的依据必须逐字出自简历或岗位描述，不成立会被退回让你改一次。`;
   // 载荷只放系统提示词里没有的：岗位名、简历都在系统提示词里；项目的 description 是简历原文的一段，

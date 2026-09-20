@@ -44,9 +44,9 @@ test("复盘：回答分类与超长、面试官的四种违规（含超预算�
 test("轨迹（G6）：没有记账为 null；带着工具一次没调、无效调用、触顶各一句", () => {
   const base = { events: [], brief: null, ready: true };
   assert.equal(postmortem(base).trajectory, null);
-  const quiet = postmortem({ ...base, trajectory: { evaluation: [{ steps: 1, toolCalls: 0, invalidCalls: 0, budgetHit: false, resumeInconsistent: 0, toolShift: null }], interviewerLookups: 0 } });
+  const quiet = postmortem({ ...base, trajectory: { evaluation: [{ steps: 1, toolCalls: 0, invalidCalls: 0, budgetHit: false, resumeInconsistent: 0 }], interviewerLookups: 0 } });
   assert.deepEqual(quiet.trajectory, { evaluationSteps: 1, evaluationToolCalls: 0, invalidToolCalls: 0, budgetHits: 0, interviewerLookups: 0 });
   assert.ok(quiet.summary.some((line) => line.includes("一次都没调")));
-  const busy = postmortem({ ...base, trajectory: { evaluation: [{ steps: 3, toolCalls: 2, invalidCalls: 1, budgetHit: true, resumeInconsistent: 0, toolShift: 2 }], interviewerLookups: 1 } });
+  const busy = postmortem({ ...base, trajectory: { evaluation: [{ steps: 3, toolCalls: 2, invalidCalls: 1, budgetHit: true, resumeInconsistent: 0 }], interviewerLookups: 1 } });
   assert.ok(busy.summary.some((line) => line.includes("1 次无效工具调用")) && busy.summary.some((line) => line.includes("1 段触顶预算")));
 });

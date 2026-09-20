@@ -18,18 +18,17 @@ import type { EvaluationRunFact, RunFact, SegmentFact, SessionFacts } from "./me
 function unansweredFact(
   thread: { competencyId: string | null; difficulty: number | null; questionId: string | null; areaId: string | null; verdict: string | null },
   competencyOf: Map<string, string | null>,
-  evaluationOf: Map<string, { score: number | null; lowConfidence: boolean }>,
-): Pick<SegmentFact, "competencyId" | "difficulty" | "score" | "lowConfidence"> {
+  evaluationOf: Map<string, { score: number | null }>,
+): Pick<SegmentFact, "competencyId" | "difficulty" | "score"> {
   const evaluation = thread.questionId ? evaluationOf.get(thread.questionId) : undefined;
   const score = evaluation?.score ?? null;
   if (score !== null || thread.verdict !== "failed") {
-    return { competencyId: thread.competencyId, difficulty: thread.difficulty, score, lowConfidence: evaluation?.lowConfidence ?? false };
+    return { competencyId: thread.competencyId, difficulty: thread.difficulty, score };
   }
   return {
     competencyId: thread.competencyId ?? (thread.areaId ? (competencyOf.get(thread.areaId) ?? null) : null),
     difficulty: 1,
     score: 0,
-    lowConfidence: false,
   };
 }
 
@@ -48,7 +47,7 @@ export async function loadSessionFacts(sessionId: string, truth?: { competencyId
   const events = session.events.map(parseEventRow).filter((item): item is InterviewEvent => item !== null);
   const evaluations = await prisma.interviewQuestionEvaluation.findMany({
     where: { interviewQuestionId: { in: session.threads.flatMap((thread) => (thread.questionId ? [thread.questionId] : [])) } },
-    select: { interviewQuestionId: true, score: true, lowConfidence: true },
+    select: { interviewQuestionId: true, score: true },
   });
   const evaluationOf = new Map(evaluations.map((item) => [item.interviewQuestionId, item]));
   const segments: SegmentFact[] = session.threads.map((thread) => ({
@@ -72,7 +71,7 @@ export async function loadSessionFacts(sessionId: string, truth?: { competencyId
   return { sessionId, turnsTotal: null, events, segments, runs, evaluationRuns, competencies: competenciesOf(session.contextSnapshotJson), ...(truth ? { truth } : {}) };
 }
 
-/** 每段评分的轨迹：带工具那次采样的 runId 是 eval:<questionId>（对照采样带 :b，不算）；步数与工具调用数在 selection 行的指标里，无效调用与触顶从循环事件行数。 */
+/** 每段评分的轨迹：runId 是 eval:<questionId>；步数与工具调用数在 selection 行的指标里，无效调用与触顶从循环事件行数。 */
 export async function loadEvaluationRuns(questionIds: string[]): Promise<EvaluationRunFact[]> {
   if (questionIds.length === 0) return [];
   const rows = await prisma.agentRun.findMany({
@@ -91,7 +90,6 @@ export async function loadEvaluationRuns(questionIds: string[]): Promise<Evaluat
       invalidCalls: group.filter((row) => row.event === "tool_result" && row.status === "failed").length,
       budgetHit: group.some((row) => row.event === "budget_exceeded"),
       resumeInconsistent: metrics.resumeInconsistent ?? 0,
-      toolShift: metrics.toolShift === undefined || metrics.toolShift < 0 ? null : metrics.toolShift,
     }];
   });
 }

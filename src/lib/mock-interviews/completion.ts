@@ -64,7 +64,7 @@ async function collectEvaluations(answered: QuestionRow[]): Promise<void> {
   for (const question of answered) {
     const status = statusById.get(question.id);
     if (status === "pending" || status === "failed")
-      await evaluatePersistedMockInterviewQuestion(question.id);
+      await evaluatePersistedMockInterviewQuestion(question.id, { withTools: status === "pending" });
   }
   const refreshed = await prisma.interviewQuestionEvaluation.findMany({
     where: { interviewQuestionId: { in: questionIds } },
@@ -72,7 +72,6 @@ async function collectEvaluations(answered: QuestionRow[]): Promise<void> {
       interviewQuestionId: true,
       evaluationStatus: true,
       score: true,
-      feedback: true,
     },
   });
   // 还在跑的等下一次；补跑后仍失败的段不再卡整份报告（§12.3）：报告里该段标"评分失败"，总分不计它。

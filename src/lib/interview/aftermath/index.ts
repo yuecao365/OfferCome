@@ -65,8 +65,7 @@ async function persistSegments(sessionId: string, interviewId: string, brief: Aw
     async (tx) => {
       for (const [index, segment] of segments.entries()) {
         const area = areas.get(segment.areaId)!;
-        const probes = transcript.filter((line) => line.role === "interviewer" && line.kind === "say" && line.seq > segment.startSeq && line.seq <= segment.endSeq).map((line) => line.content);
-        const record = segmentRecord(area, segment, probes);
+        const record = segmentRecord(area, segment);
         const question = await tx.interviewQuestion.create({
           data: {
             interviewId,

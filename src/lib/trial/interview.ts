@@ -32,11 +32,10 @@ export type TrialJobInput = {
   jobDescription: string;
 };
 
-/** 评分 v3 全量 + 单段总分 + 示范；与本地版 InterviewQuestionEvaluation 的已完成行同形。 */
+/** 评分全量 + 单段总分 + 示范；与本地版 InterviewQuestionEvaluation 的已完成行同形。 */
 export type TrialEvaluation = MockInterviewQuestionEvaluation & {
   score: number;
   exemplar: AnswerExemplar | null;
-  lowConfidence?: boolean;
 };
 
 export type TrialEvaluationStatus = "pending" | "running" | "completed" | "failed";

@@ -23,7 +23,7 @@ import { ACTIONS, renderState, SIGNALS, type InterviewState } from "./state";
  * 候选人这句单独一条；状态卡是最后一条用户消息。
  */
 
-export const INTERVIEWER_PROMPT_VERSION = "interviewer-v9";
+export const INTERVIEWER_PROMPT_VERSION = "interviewer-v10";
 export const REPLY_MAX_CHARS = 500;
 /** 简历超过这个长度才节选，并给 lookup_resume 工具查全文。 */
 export const MAX_RESUME_CHARS = 6_000;
@@ -81,7 +81,7 @@ const METHOD = `怎么面：
 - 先规划再面试：这场还没有议程时，先按规划卡里的技能包索引用 load_skill 读这场要用的方法书，再用 write_plan 写议程。议程写好后作为 write_plan 的结果留在对话里，整场照它走，不要再写第二份。
 - 每回合用 ask_candidate 工具说这句话：signal / action / target / facet / why / ledger / reply 是它的入参；被退回就看原因改一次再调，一回合只调它一次。没有这个工具时按同样的字段直接输出 JSON。
 - 每回合你自己决定下一步（action）：probe 接着追当前材料（项目要带角度序号 facet），switch 换到一份没聊的材料并用它的切入问法起头（措辞可顺着上下文调），clarify 把上一句说具体或降一层（不占预算），end 收尾告别。状态卡列出了可选动作与余额，越界的动作会被退回让你重出。
-- 先判候选人刚才那句是什么（signal）：answered 答实了、thin 答了但空、dont_know 答不上、help 要求说具体或没听懂、not_mine 说不是自己做的、refuse 不作答或要分、wants_end 要结束。连续几句没有信息就换材料或收尾，不纠缠。
+- 先判候选人刚才那句是什么（signal）：answered 答实了、thin 答了但空、dont_know 答不上、help 要求说具体或没听懂、not_mine 说不是自己做的、refuse 不作答或要分、wants_end 要结束。按内容判，不按开头判："这个我没做过，只能说思路：…"后面给了机制、例子或做法的，是 answered 或 thin，不是 dont_know；只有整句没有实质内容才是 dont_know。连续几句没有信息就换材料或收尾，不纠缠。
 - 每个追问验证一件事：是不是他做的、懂不懂为什么、数字是不是真的。不重复问过的；同一角度最多追两句。
 - 开题给一个抓手（角度、例子或约束）；追问落到一个机制、数字或决策；一句只问一个要点、一个问号；先用半句接住候选人刚说的（引用他的话或点出问题），再问；不复述、不总结、不用"好的""明白"开头。
 - 与简历矛盾就当面问，逐字引用简历那句并用「」括起；说错或跑题先一两句指出来再问。

@@ -93,7 +93,7 @@ test("切段的评分状态迁移与交卷", () => {
   assert.equal(segmentsToEvaluate(interview).length, 1);
   const running = setSegmentEvaluation(interview, "s1", { evaluationStatus: "running" });
   assert.equal(segmentsToEvaluate(running).length, 0);
-  const done = completeTrialInterview(running, { version: 2, totalScore: 80, summary: "总结", strengths: [], weaknesses: [], advice: [], hypotheses: [] });
+  const done = completeTrialInterview(running, { version: 3, totalScore: 80, summary: "总结", strengths: [], weaknesses: [], hypotheses: [] });
   assert.equal(done.status, "completed");
   assert.ok(done.completedAt);
 });

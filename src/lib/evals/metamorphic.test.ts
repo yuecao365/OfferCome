@@ -10,7 +10,7 @@ import { judgeScorerCase, locatesWrongClaim, summarizeScorer, textsOverlap, type
 const CLAIM = "RabbitMQ 的 ack 机制保证消息只会被消费一次，不需要做幂等";
 
 function evaluation(overrides: Partial<MockInterviewQuestionEvaluation> = {}): MockInterviewQuestionEvaluation {
-  return { dimensions: [], strengths: [], weaknesses: [], advice: [], feedback: "", resumeChecks: [], ...overrides };
+  return { dimensions: [], strengths: [], weaknesses: [], verdict: "", resumeChecks: [], ...overrides };
 }
 
 function run(score: number, evaluationValue = evaluation(), quoteMissing = 0): VariantRun {
@@ -37,17 +37,17 @@ test("textsOverlap ignores punctuation and quotes and needs a shared run of char
 });
 
 test("locatesWrongClaim accepts an error quote, a weakness point or a dimension gap that names the claim", () => {
-  assert.ok(locatesWrongClaim(evaluation({ weaknesses: [{ point: "对 ack 语义理解有误", quote: "ack 机制保证消息只会被消费一次", kind: "error" }] }), CLAIM));
+  assert.ok(locatesWrongClaim(evaluation({ weaknesses: [{ point: "对 ack 语义理解有误", quote: "ack 机制保证消息只会被消费一次", kind: "error", practice: "" }] }), CLAIM));
   assert.ok(locatesWrongClaim(evaluation({ dimensions: [{ name: "技术正确性", score: 40, evidence: "", gap: "认为 ack 保证消息只会被消费一次，不需要做幂等，这是错的" }] }), CLAIM));
-  assert.ok(!locatesWrongClaim(evaluation({ weaknesses: [{ point: "没讲清重试策略", quote: null, kind: "missing" }] }), CLAIM));
+  assert.ok(!locatesWrongClaim(evaluation({ weaknesses: [{ point: "没讲清重试策略", quote: null, kind: "missing", practice: "" }] }), CLAIM));
   // missing 类短板即使引用了错句也不算"指出错误"，除非文字本身点名。
-  assert.ok(!locatesWrongClaim(evaluation({ weaknesses: [{ point: "追问没答", quote: "ack 机制保证消息只会被消费一次", kind: "missing" }] }), CLAIM));
+  assert.ok(!locatesWrongClaim(evaluation({ weaknesses: [{ point: "追问没答", quote: "ack 机制保证消息只会被消费一次", kind: "missing", practice: "" }] }), CLAIM));
 });
 
 test("judgeScorerCase checks ordering, paraphrase tolerance, error location and retest spread", () => {
   const good = result(
     { base: [80, 82, 78], drop: [60, 62, 58], fluff: [30, 32, 28], para: [76, 79, 81], offtopic: [15, 12, 18], err: [65, 63, 66] },
-    evaluation({ weaknesses: [{ point: "错误", quote: CLAIM, kind: "error" }] }),
+    evaluation({ weaknesses: [{ point: "错误", quote: CLAIM, kind: "error", practice: "" }] }),
   );
   const verdict = judgeScorerCase(scorerCase, good);
   assert.equal(verdict.ordering, true);
@@ -71,7 +71,7 @@ test("judgeScorerCase checks ordering, paraphrase tolerance, error location and 
 test("summarizeScorer aggregates rates, unstable variants and quote metrics", () => {
   const good = result(
     { base: [80, 82], drop: [60, 61], fluff: [30, 31], para: [79, 80], offtopic: [10, 12], err: [50, 52] },
-    evaluation({ weaknesses: [{ point: "错误", quote: CLAIM, kind: "error" }] }),
+    evaluation({ weaknesses: [{ point: "错误", quote: CLAIM, kind: "error", practice: "" }] }),
   );
   const shaky = result({ base: [80, 50], drop: [60, 61], fluff: [30, 31], para: [79, 80], offtopic: [10, 12], err: [50, 52] });
   shaky.caseId = "c2";

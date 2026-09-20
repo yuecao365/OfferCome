@@ -23,7 +23,7 @@ import {
   type ResumeCheck,
 } from "./question-evaluation";
 import { parseStoredReport } from "./report";
-import { buildQuestionTeaching } from "./teaching";
+import { buildSegmentInfo } from "./segment-info";
 import {
   isMockInterviewMode,
   type MockInterviewTrace,
@@ -35,7 +35,7 @@ function parseArray<T>(value: string | null): T[] {
   return parseJsonArray(value) as T[];
 }
 
-/** 评分 v2 的视图；旧记录的 strengths 是字符串数组、没有 gap / 短板 / 示范，读出时补齐。 */
+/** 评分的视图；旧记录的 strengths 是字符串数组、短板没有练法、结论是长评语，读出时补齐。 */
 function buildEvaluationView(
   evaluation: NonNullable<SessionWithConversation["interview"]["questions"][number]["evaluation"]>,
 ): NonNullable<MockInterviewView["questions"][number]["evaluation"]> {
@@ -48,11 +48,10 @@ function buildEvaluationView(
       point,
       quote: null,
       kind: "missing",
-    })),
-    advice: parseArray<string>(evaluation.adviceJson),
+      practice: "",
+    })).map((item) => ({ ...item, practice: typeof item.practice === "string" ? item.practice : "" })),
     resumeChecks: parseArray<ResumeCheck>(evaluation.resumeChecksJson).filter((item) => typeof item?.claim === "string" && typeof item.resumeSays === "string"),
-    feedback: evaluation.feedback ?? "",
-    lowConfidence: evaluation.lowConfidence,
+    verdict: evaluation.verdict ?? "",
     exemplar: (parseJsonValue(evaluation.exemplarJson) as AnswerExemplar | null) ?? null,
   };
 }
@@ -78,7 +77,7 @@ function loadSessionForView(id: string) {
   });
 }
 
-/** 事后的能力估计：整理员的分段（能力、答到第几层）+ 双采样评分（低置信的段只算半次），与面试中同一个估计器。 */
+/** 事后的能力估计：分段（能力、答到第几层）+ 评分，与评测同一个估计器。 */
 function buildEstimates(session: SessionWithConversation): Estimate[] {
   const competencies = competenciesOf(session.contextSnapshotJson);
   if (session.status !== "completed" || competencies.length === 0) return [];
@@ -86,7 +85,7 @@ function buildEstimates(session: SessionWithConversation): Estimate[] {
   const observations: Observation[] = session.threads.flatMap((thread) => {
     const evaluation = thread.questionId ? scoreOf.get(thread.questionId) : null;
     if (!thread.competencyId || thread.difficulty === null || !evaluation || evaluation.score === null) return [];
-    return [{ competencyId: thread.competencyId, difficulty: thread.difficulty, score: evaluation.score, confidence: evaluation.lowConfidence ? 0.5 : 1 }];
+    return [{ competencyId: thread.competencyId, difficulty: thread.difficulty, score: evaluation.score, confidence: 1 }];
   });
   return estimate(competencies, observations);
 }
@@ -149,15 +148,7 @@ export async function getMockInterviewView(id: string): Promise<MockInterviewVie
         category: question.category,
         sortOrder: question.sortOrder,
         skipped: Boolean(question.skippedAt),
-        ...(completedEvaluation
-          ? {
-              teaching: buildQuestionTeaching({
-                metadata: parseJsonValue(completedEvaluation.generationMetadataJson),
-                expectedSignals: parseJsonValue(completedEvaluation.expectedSignalsJson),
-                sourceKind: completedEvaluation.sourceKind,
-              }),
-            }
-          : {}),
+        ...(completedEvaluation ? { segment: buildSegmentInfo({ metadata: parseJsonValue(completedEvaluation.generationMetadataJson), sourceKind: completedEvaluation.sourceKind }) } : {}),
         evaluation: completedEvaluation ? buildEvaluationView(completedEvaluation) : null,
       };
     }),
@@ -200,7 +191,7 @@ export async function getMockInterviewTrace(id: string): Promise<MockInterviewTr
       OR: [
         { runId: { startsWith: `turn:${id}:` } },
         { runId: `dossier:${id}` },
-        ...(questionIds.length > 0 ? [{ runId: { in: questionIds.flatMap((questionId) => [`eval:${questionId}`, `eval:${questionId}:b`, `exemplar:${questionId}`]) } }] : []),
+        ...(questionIds.length > 0 ? [{ runId: { in: questionIds.flatMap((questionId) => [`eval:${questionId}`, `exemplar:${questionId}`]) } }] : []),
       ],
     },
     orderBy: { createdAt: "asc" },

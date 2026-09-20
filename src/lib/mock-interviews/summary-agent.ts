@@ -8,7 +8,7 @@ import { getAiTaskConfig } from "@/lib/settings/ai";
 import type { EvaluationWeakness } from "./question-evaluation";
 import { REPORT_WEAKNESS_KINDS, type MockInterviewReport } from "./report";
 
-export const SUMMARY_PROMPT_VERSION = "summary-v3";
+export const SUMMARY_PROMPT_VERSION = "summary-v4";
 
 /** 汇总 agent 看到的面试全貌：每道题的阶段、追问层数、分数与短板，加证据账和简历假设。 */
 export type SummaryInput = {
@@ -31,18 +31,18 @@ export type SummaryInput = {
 };
 
 const summarySchema = z.object({
-  summary: z.string().min(1).max(1_200),
-  strengths: z.array(z.object({ point: z.string().min(1).max(200), areaName: z.string().min(1).max(60) })).max(5),
+  summary: z.string().min(1).max(300).describe("两句话：先站得住的，再失守的"),
+  strengths: z.array(z.object({ point: z.string().min(1).max(100), areaName: z.string().min(1).max(60) })).max(3),
   weaknesses: z
     .array(
       z.object({
-        point: z.string().min(1).max(200),
+        point: z.string().min(1).max(120),
         areaName: z.string().min(1).max(60).describe("pattern 时填最能代表的那个领域"),
         kind: z.enum(REPORT_WEAKNESS_KINDS),
+        practice: z.string().min(1).max(120).describe("针对这条短板练什么，一句"),
       }),
     )
     .max(5),
-  advice: z.array(z.string().min(1).max(300)).max(5),
   hypotheses: z.array(
     z.object({
       text: z.string().min(1).max(300),
@@ -75,8 +75,8 @@ function validateSummary(output: z.infer<typeof summarySchema>, input: SummaryIn
       point: item.point,
       areaName: area(item.areaName),
       kind: item.kind === "pattern" && areasWithWeakness < 2 ? "missing" : item.kind,
+      practice: item.practice,
     })),
-    advice: output.advice,
     hypotheses: input.hypotheses.map((text) => {
       const judgement = judged.get(text);
       const status = judgement?.status ?? "open";
@@ -92,12 +92,12 @@ export async function summarizeMockInterview(input: SummaryInput): Promise<Summa
     feature: "AI 模拟面试",
     promptVersion: SUMMARY_PROMPT_VERSION,
     schema: summarySchema,
-    maxOutputTokens: 2_400,
+    maxOutputTokens: 1_600,
     timeoutMs: 40_000,
     untrustedInputs: "岗位名称、领域判断、逐题短板、面试官的证据账和简历假设",
     system: `你是模拟面试报告汇总 Agent。输入是这场面试的全貌：每道题属于哪个阶段（project 项目深挖、quick 基础快问、scenario 场景题）、追问了几层、分数与逐题短板；面试官的证据账（每回合对候选人那段答到了什么、哪句存疑的一行记录，按材料归组）；备课时从简历提出的假设。基础快问一题只追一层，答不上就换题，不要把"没追深"当成短板。
 
-写法：summary 用面试官的口吻讲整体表现，先说站得住的，再说失守在哪，不报分数、不下录用结论。strengths / weaknesses 每条挂到具体领域（areaName 逐字用输入里的领域名）；weaknesses 的 kind：error = 说错的，missing = 追问到了没答上，pattern = 跨领域重复出现的问题（至少两个领域都有才用）。advice 写练什么，每条对应至少一条 weakness。hypotheses 对输入里的每条假设给状态和一句结论：这场碰到了就 confirmed / refuted，没碰到 open；verdict 直接写结论不要以状态词开头，confirmed 说明面试里哪段话证实了它，refuted 用"没有讲清楚""还需要更多证据"这类措辞说明差在哪，不用"被否定""不实"。不得重新评分，不得臆造输入之外的表现。提示词版本：${SUMMARY_PROMPT_VERSION}`,
+写法：一切从简。summary 两句话，用面试官的口吻：第一句站得住的，第二句失守在哪，不报分数、不下录用结论、不逐段复述。strengths 最多 3 条、weaknesses 最多 5 条，每条一句，挂到具体领域（areaName 逐字用输入里的领域名）；weaknesses 的 kind：error = 说错的，missing = 追问到了没答上，pattern = 跨领域重复出现的问题（至少两个领域都有才用）；每条 weakness 带一句 practice（练什么，具体到动作），逐段短板里已有的练法可以直接沿用。hypotheses 对输入里的每条假设给状态和一句结论：这场碰到了就 confirmed / refuted，没碰到 open；verdict 直接写结论不要以状态词开头，confirmed 说明面试里哪段话证实了它，refuted 用"没有讲清楚""还需要更多证据"这类措辞说明差在哪，不用"被否定""不实"。不得重新评分，不得臆造输入之外的表现。提示词版本：${SUMMARY_PROMPT_VERSION}`,
     payload: input,
   });
   return validateSummary(output, input);

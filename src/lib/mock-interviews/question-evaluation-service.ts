@@ -28,18 +28,25 @@ export function threadContext(metadata: Record<string, unknown>): EvaluationThre
   };
 }
 
-/** 有短板才生成示范；失败不影响评分结果。 */
+/** 示范只给需要的段：分数不到 EXEMPLAR_BELOW 或有说错的；失败不影响评分结果。 */
+const EXEMPLAR_BELOW = 80;
+
+export function needsExemplar(score: number, weaknesses: EvaluationWeakness[]): boolean {
+  return weaknesses.length > 0 && (score < EXEMPLAR_BELOW || weaknesses.some((item) => item.kind === "error"));
+}
+
 async function attachExemplar(input: {
   evaluationId: string;
   runId: string;
   jobTitle: string;
   question: string;
   answer: string;
+  score: number;
   weaknesses: EvaluationWeakness[];
   resumeText: string;
   skillPackNames: string[];
 }): Promise<void> {
-  if (input.weaknesses.length === 0) return;
+  if (!needsExemplar(input.score, input.weaknesses)) return;
   try {
     const exemplar = await generateAnswerExemplar({
       runId: input.runId,
@@ -59,7 +66,8 @@ async function attachExemplar(input: {
   }
 }
 
-export async function evaluatePersistedMockInterviewQuestion(interviewQuestionId: string): Promise<boolean> {
+/** 补跑（交卷时对失败的段）不给只读工具，少一类失败面。 */
+export async function evaluatePersistedMockInterviewQuestion(interviewQuestionId: string, options: { withTools?: boolean } = {}): Promise<boolean> {
   const claimed = await prisma.interviewQuestionEvaluation.updateMany({
     where: { interviewQuestionId, evaluationStatus: { in: ["pending", "failed"] } },
     data: { evaluationStatus: "running", evaluationError: null },
@@ -92,6 +100,7 @@ export async function evaluatePersistedMockInterviewQuestion(interviewQuestionId
       resumeText: session.resumeTextSnapshot,
       skillPacks: packsForInterview(brief?.skillPacks ?? [], await loadSkillPacks(), 3),
       dossier: dossierOf(session.contextSnapshotJson)?.body ?? null,
+      withTools: options.withTools ?? true,
     });
     // 只允许仍持有 running 认领的调用写终态：交卷路径会把超时的评分强制置
     // failed 并重跑，旧调用迟到的结果必须被丢弃，不能覆盖重跑的结果。
@@ -104,11 +113,8 @@ export async function evaluatePersistedMockInterviewQuestion(interviewQuestionId
         dimensionsJson: JSON.stringify(result.evaluation.dimensions),
         strengthsJson: JSON.stringify(result.evaluation.strengths),
         weaknessesJson: JSON.stringify(result.evaluation.weaknesses),
-        adviceJson: JSON.stringify(result.evaluation.advice),
         resumeChecksJson: JSON.stringify(result.evaluation.resumeChecks),
-        feedback: result.evaluation.feedback,
-        secondScore: result.secondScore,
-        lowConfidence: result.lowConfidence,
+        verdict: result.evaluation.verdict,
         evaluatedAt: new Date(),
       },
     });
@@ -125,6 +131,7 @@ export async function evaluatePersistedMockInterviewQuestion(interviewQuestionId
       jobTitle: question.interview.jobTitle,
       question: question.question,
       answer,
+      score: result.score,
       weaknesses: result.evaluation.weaknesses,
       resumeText: session.resumeTextSnapshot,
       skillPackNames: brief?.skillPacks ?? [],

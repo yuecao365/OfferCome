@@ -132,3 +132,17 @@ test("通过率不把不适用的计入分母；信息增益按新出现的词�
   const repeated = informationGain([said("probe", null), answered("answered", "同样的话"), said("probe", "p1-overview", 0), answered("answered", "同样的话")]);
   assert.ok(repeated.perProbe < gain.perProbe, "重复回答的信息增益更低");
 });
+
+test("自谦开头但有内容：signal 判成没信息算不通过，按内容判算通过；短句不适用", () => {
+  const humble = "这个我没做过，只能说思路：用户模拟器最大的偏差是太配合，要验它像不像真人，我会拿真人逐字稿做 teacher forcing，比较它的下一句和真人的下一句差多远。";
+  seq = 0;
+  const wrong = checkExpectations({ brief, events: [said("probe", null), answered("answered"), said("switch", "q1"), answered("dont_know", humble), said("probe", "q1", 0)], perturbations: ["humble_lead"] });
+  assert.equal(find(wrong, "humble_lead_read_as_answer").applies, true);
+  assert.equal(find(wrong, "humble_lead_read_as_answer").passed, false);
+  seq = 0;
+  const right = checkExpectations({ brief, events: [said("probe", null), answered("answered"), said("switch", "q1"), answered("thin", humble), said("probe", "q1", 0)], perturbations: ["humble_lead"] });
+  assert.equal(find(right, "humble_lead_read_as_answer").passed, true);
+  seq = 0;
+  const short = checkExpectations({ brief, events: [said("probe", null), answered("answered"), said("switch", "q1"), answered("dont_know", "这个我没做过。"), said("switch", "q2")], perturbations: ["humble_lead"] });
+  assert.equal(find(short, "humble_lead_read_as_answer").applies, false, "真的只说没做过不适用");
+});

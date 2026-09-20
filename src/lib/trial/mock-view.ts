@@ -1,14 +1,14 @@
 import { planQuota } from "@/lib/interview/progress";
 import { renderLedger } from "@/lib/interview/state";
 import { conversationView, traceTurns } from "@/lib/interview/views";
-import { buildQuestionTeaching } from "@/lib/mock-interviews/teaching";
+import { buildSegmentInfo } from "@/lib/mock-interviews/segment-info";
 import type { MockInterviewTrace, MockInterviewView } from "@/lib/mock-interviews/types";
 
 import type { TrialInterview } from "./interview";
 
 /**
  * 把体验版的会话文档适配成本地版房间 / 报告 / trace 组件吃的视图。
- * 拼装函数与本地版 queries.ts 用的是同一批（interview/views.ts、teaching.ts），组件层感知不到数据来自浏览器还是数据库。
+ * 拼装函数与本地版 queries.ts 用的是同一批（interview/views.ts、segment-info.ts），组件层感知不到数据来自浏览器还是数据库。
  */
 
 export function trialInterviewToView(interview: TrialInterview): MockInterviewView {
@@ -42,7 +42,7 @@ export function trialInterviewToView(interview: TrialInterview): MockInterviewVi
       sortOrder: index,
       skipped: segment.skipped,
       ...(completed && segment.evaluation
-        ? { teaching: buildQuestionTeaching({ metadata: segment.metadata, expectedSignals: segment.expectedSignals, sourceKind: segment.sourceKind }), evaluation: segment.evaluation }
+        ? { segment: buildSegmentInfo({ metadata: segment.metadata, sourceKind: segment.sourceKind }), evaluation: segment.evaluation }
         : { evaluation: null }),
     })),
   };

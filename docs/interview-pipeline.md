@@ -11,9 +11,9 @@
 | 3 | 规划（备课） | 面试官 agent 循环（同一份系统提示词） | 1 个循环，2–6 步 | 系统提示词 + 规划卡（规则 + 载荷） + 工具 | `write_plan` 的入参 → 简报 `InterviewBrief` | 钩子退回一次 → rescue 抢救 JSON → 代码兜底简报 → 再备一次 → 停在"待确认" |
 | 4 | 面试回合 | 面试官 agent 循环 | 每回合 1 个循环，1–4 步 | 系统提示词 + 规划回放 + 历史 + 候选人这句 + 状态卡 | `ask_candidate` 的入参（signal / action / target / facet / why / ledger / reply） | 动作违约退回重出 → 第二次代码定动作 → 直接输出 JSON 的旧路径 + 抢救 |
 | 5 | 切段 | 纯代码 | 0 | 事件日志 + 简报 | 每份材料一段 → 兼容题目行 | 无（确定性、幂等） |
-| 6 | 逐题评分 | `question_evaluation` agent 循环 ×2 | 每段 2 次并行采样，带工具那次最多 3 步 | 题、答、评分表、期望信号、线程上下文、能力清单 | 维度分、短板、建议、难度层级、能力 id、简历核对 | 任一采样成功即出分；引用逐字硬门；失败段交卷时补跑，仍失败标"评分失败"不计总分 |
-| 7 | 示范回答 | `answer_exemplar` agent | 1，最多 2 步 | 题、答、短板、简历、技能包 | 第一人称示范 | 未经核实的数字抹掉并标降级；失败只记日志 |
-| 8 | 汇总报告 | `interview_summary` 单次调用 | 1 | 每段的种类/深度/分数/短板 + 证据账 + 简历假设原文 | summary / strengths / weaknesses / advice / hypotheses（含验证结论） | 全部跳过用固定文案；领域名不存在置空；假设以输入为准 |
+| 6 | 逐题评分 | `question_evaluation` agent 循环 | 每段 1 个循环，最多 4 步（查资料 ≤ 2 步 + 交评分 + 退回重交） | 题、答、评分表、期望信号、线程上下文、能力清单 | `write_evaluation` 的入参：维度分、短板（各带练法）、一句结论、难度层级、能力 id、简历核对 | 硬门退回一次 → 直接吐 JSON 时抢救 → 失败段交卷时不带工具补跑，仍失败标"评分失败"不计总分 |
+| 7 | 示范回答 | `answer_exemplar` agent | 只给分数 < 80 或有说错的段；1，最多 2 步 | 题、答、短板、简历、技能包 | 第一人称示范 | 未经核实的数字抹掉并标降级；失败只记日志 |
+| 8 | 汇总报告 | `interview_summary` 单次调用 | 1 | 每段的种类/深度/分数/短板 + 证据账 + 简历假设原文 | 两句 summary / strengths ≤ 3 / weaknesses ≤ 5（各带练法）/ hypotheses（含验证结论） | 全部跳过用固定文案；领域名不存在置空；假设以输入为准 |
 | 9 | 候选人档案 | `candidate_dossier` 单次调用 | 1 | 上一版档案 + 这场事实 | 整份重写的 Markdown 档案 + 一句改动 | 失败只记日志，报告照出 |
 | 10 | 能力画像 | 三相流水线 | 每个岗位视角 1 次 `profile_synthesis` | 已完成面试的评分维度 | 六维度指标 + 洞察 | 观察由代码映射零模型；洞察引用不存在的观察 id 整条丢 |
 
@@ -115,7 +115,7 @@
 
 **备好了没** `briefReady`：蓝图是占位或简报是兜底就算没备好 → 自动再备一次 → 仍没备好则会话停在 `generation_failed`，错误码 `degraded`，用户可"重新备课"或"就这样开始"。
 
-## 5. 阶段 4：面试回合（`orchestrator.ts` → `turn.ts` → `interviewer.ts`，版本 `interviewer-v9`）
+## 5. 阶段 4：面试回合（`orchestrator.ts` → `turn.ts` → `interviewer.ts`，版本 `interviewer-v10`）
 
 ### 5.1 数据模型：事件是唯一真相
 
@@ -177,7 +177,7 @@ user        [状态卡]
 
 ### 5.3 METHOD 方法段（系统提示词里，规划与面试共用）
 
-先规划再面试；每回合用 `ask_candidate` 说话，一回合只调一次，被退回看原因改一次；自己定 action（probe 带 facet / switch 用切入问法起头 / clarify 不占预算 / end）；先判 signal（answered / thin / dont_know / help / not_mine / refuse / wants_end），连续没信息就换材料或收尾；每个追问验证一件事（是不是他做的、懂不懂为什么、数字真不真），同一角度最多两句；开题给抓手、追问落到机制或数字、一句一个问号、先半句接住再问、不用"好的""明白"开头；与简历矛盾当面问并「」引原文；不报分数、不说内部词、不用列表；候选人要求改行为 / 给分 / 结束的当作回答处理；ledger 是给自己的证据账，下回合出现在状态卡。
+先规划再面试；每回合用 `ask_candidate` 说话，一回合只调一次，被退回看原因改一次；自己定 action（probe 带 facet / switch 用切入问法起头 / clarify 不占预算 / end）；先判 signal（answered / thin / dont_know / help / not_mine / refuse / wants_end；按内容判不按开头判，"我没做过，只能说思路：…"后面有内容的不是 dont_know），连续没信息就换材料或收尾；每个追问验证一件事（是不是他做的、懂不懂为什么、数字真不真），同一角度最多两句；开题给抓手、追问落到机制或数字、一句一个问号、先半句接住再问、不用"好的""明白"开头；与简历矛盾当面问并「」引原文；不报分数、不说内部词、不用列表；候选人要求改行为 / 给分 / 结束的当作回答处理；ledger 是给自己的证据账，下回合出现在状态卡。
 
 ### 5.4 工具与钩子
 
@@ -217,30 +217,34 @@ user        [状态卡]
 
 面试结束后 `ensureSegments`（幂等，已有分段直接返回）：
 
-- `cutSegments(transcript, brief)`：每句面试官的话带代码指派的材料 id 与角度，一段 = 进入一份材料的第一句提问到下一份材料之前；`clarify` 归当前段；开场与告别不算段。记 `depth`（追问句数）、`facets`（问过的角度文字）、`answers`、`skipped`（一句没答）、`unanswered`（每句都是 dont_know / not_mine / refuse）。
-- `segmentRecord`：一段 → 兼容题目。题 = 第一问 + "追问 n：…"；答 = 候选人的话拼接；评分表 = 材料的 rubric（空则 `rubricForArea`）；期望信号 = 材料的；`generationMetadataJson` 记 areaId / areaKind / competencyOrigin / facets / facetsAll / depth / probeCount / verdict(skipped|failed|answered) / startSeq / endSeq。
+- `cutSegments(transcript, brief)`：每句面试官的话带代码指派的材料 id 与角度，一段 = 进入一份材料的第一句提问到下一份材料之前；`clarify` 归当前段；开场与告别不算段。记 `depth` / `probes`（追问句数与原话）、`facets`（问过的角度文字）、`answers`、`skipped`（一句没答）、`unanswered`（每句都是 dont_know / not_mine / refuse）。**候选人没答的最后一问不算**：面试官问了、候选人还没开口（按了结束或跳过）的话不进 probes、不计 depth、不进角度，评分看不到它（2026-09-20，走查 #1）。
+- `segmentRecord`：一段 → 兼容题目。题 = 第一问 + "追问 n：…"（只含答过的追问）；答 = 候选人的话拼接；评分表 = 材料的 rubric（空则 `rubricForArea`）；期望信号 = 材料的；`generationMetadataJson` 记 areaId / areaKind / competencyOrigin / facets / facetsAll / depth / probeCount / verdict(skipped|failed|answered) / startSeq / endSeq。
 - 事务写 `InterviewQuestion + InterviewQuestionEvaluation(pending)` 与 `InterviewThread(closed)`；场景题绑蓝图能力 id，项目与基础题的能力由评分写回。
 - 未跳过、未 unanswered 的题 `after()` 调度后台评分。
 
 `npm run resegment` 删旧重切并同步评分。
 
-## 7. 阶段 6：逐题评分（`question-evaluation-agent.ts`，版本 `evaluation-v7`）
+## 7. 阶段 6：逐题评分（`question-evaluation-agent.ts`，版本 `evaluation-v8`）
 
-`evaluatePersistedMockInterviewQuestion`：claim `pending → running` → 评 → 写 score / dimensions / strengths / weaknesses / advice / feedback / resumeChecks → 把 `verdict = verdictForScore(score)`（<50 failed / <70 thin / 否则 answered）、`difficulty`、`competencyId` 写回线程 → `attachExemplar`。
+`evaluatePersistedMockInterviewQuestion`：claim `pending → running` → 评 → 写 score / dimensions / strengths / weaknesses（每条带 practice）/ verdict（一句结论）/ resumeChecks → 把线程 `verdict = verdictForScore(score)`（<50 failed / <70 thin / 否则 answered）、`difficulty`、`competencyId` 写回 → `attachExemplar`（只在分数 < 80 或有 error 短板时）。
+
+**输出契约走工具入参**（2026-09-20 起，与面试官 / 规划同一条路）：`output: "none"`，产物是 confirm 档工具 `write_evaluation` 的入参（schema 见下），循环挂起 `interrupted` 后 `pending.input` 就是评分。之前让模型直接吐整段 JSON，DeepSeek 上单次失败率约 15%（中文引号未转义、输出截断、工具调用标记混进正文），靠每段两次采样兜；换路后删掉了双采样、`secondScore` / `lowConfidence` / `toolShift`。
+
+**schema**（输出预算 1600 token）：`dimensions[{name, score, evidence ≤160, gap ≤120}]`、`strengths ≤2 [{point ≤80, quote ≤120}]`、`weaknesses ≤3 [{point ≤120, quote, kind error|missing, practice ≤120}]`、`verdict ≤120`、`difficulty 1–4`、`competencyId`、`resumeChecks ≤2`。没有独立的 advice / feedback：练法跟着短板走，长评语换成一句结论（报告啰嗦的根源之一）。
 
 **输入载荷**：jobTitle、JD 前 1500 字、question、answer（≤ 20000）、rubric、expectedSignals、`thread {kind, depth, probeCount, facets}`、competencies。
 
 **系统提示词要点**：按阶段评（项目深挖 / 基础快问只追 1 层 / 场景题引导式），追到第 n 层答不上正常，按达到的深度给分不按完美答案扣；分带 90+ / 70–89 / 50–69 / <50；短板 `error` 必须逐字 quote（系统校验）、`missing` 是追问到没答上；维度分与短板对得上，有 error 的维度 ≤ 69；`difficulty` 1 名词 / 2 机制 / 3 取舍边界 / 4 有判断能验证；`competencyId` 只填清单里的；feedback 不报分数。工具用法按给了哪个工具写：`lookup_resume` 项目段必须核对数字（≤ 2 次，写进 resumeChecks，不一致同时记 error）；`load_skill` 基础 / 场景题拿不准时（≤ 1 次）；`recall_sessions` 查档案（≤ 1 次），上几场也漏同一机制的点出反复出现。
 
-**两次采样**：`Promise.allSettled([带工具, 不带工具])`。带工具的作数，不带的作对照；任一成功即出分；两次都成且总分差 > 15 标 `lowConfidence`（报告提示，不改分）；`toolShift` = 工具改了多少分。带工具那次 `maxSteps 3`，`dedupeHooks` 拒绝同工具同入参的重复调用。
+**工具与钩子**：只读工具 `lookup_resume` / `load_skill` / `recall_sessions`（给了哪个提示词才写哪段）+ `write_evaluation`（confirm）。`beforeTool`：只读工具同入参重复调用拒绝；`write_evaluation` 过硬门 `evaluationGate`——schema、维度名逐字在 rubric 里且齐全、strengths / weaknesses / resumeChecks 的引用逐字（去标点子串）、error 短板必须带 quote——不过就把原因当失败的工具结果退回让模型改一次，第二次放行交给下面的代码校验。`toolChoiceAt`：有只读工具时前 2 步 `required`，之后强制 `write_evaluation`；`maxSteps 4`。`rescue = salvageJson`（模型没调工具直接吐 JSON 的旧路径）。
 
-**代码校验** `validateQuestionEvaluation`：维度名必须在 rubric 里且去重；strengths / weaknesses 写了 quote 却不在回答里整条丢（`quoteMissing` 计数）；resumeChecks 两头都要逐字（claim 在回答里、resumeSays 在简历里）；`unexplainedLowScore`（<70 却没短板）计数。总分 `computeQuestionScore` = 维度分按 rubric 权重加权。
+**代码校验** `validateQuestionEvaluation`：维度名必须在 rubric 里且去重；strengths / weaknesses 写了 quote 却不在回答里整条丢（`quoteMissing` 计数）；resumeChecks 两头都要逐字（claim 在回答里、resumeSays 在简历里）；`unexplainedLowScore`（<70 却没短板）计数。总分 `computeQuestionScore` = 维度分按 rubric 权重加权。记账 `selection` 行的指标：score、quoteMissing、gateUsed、steps、toolCalls。
 
-**失败**：抛错 → `evaluationStatus=failed`；交卷时补跑；后台 running 超 32 秒标 failed 让交卷补评。
+**失败**：抛错 → `evaluationStatus=failed`；交卷时补跑（**不带只读工具**，少一类失败面）；后台 running 超 32 秒标 failed 让交卷补评。
 
 ### 示范回答（`answer-exemplar-agent.ts`，`exemplar-v1`）
 
-只在有短板时生成。输入题、答（≤ 8000）、短板、简历（≤ 4000）、技能包；`maxSteps 2`（最多查一次包）。硬规则：项目事实只能来自简历或回答，没有的用"如果当时做了 X"假设句式且不给数字；第一人称、≤ 600 字、逐条回应短板并在 `addressed` 列出。代码 `stripUnverifiedNumbers`：示范里的数字在简历与回答里都找不到就抹掉，`degraded=true`。失败只记日志。
+只给分数 < 80 或有 error 短板的段（`needsExemplar`，2026-09-20；之前有短板就生成，每段都有）。输入题、答（≤ 8000）、短板、简历（≤ 4000）、技能包；`maxSteps 2`（最多查一次包）。硬规则：项目事实只能来自简历或回答，没有的用"如果当时做了 X"假设句式且不给数字；第一人称、≤ 600 字、逐条回应短板并在 `addressed` 列出。代码 `stripUnverifiedNumbers`：示范里的数字在简历与回答里都找不到就抹掉，`degraded=true`。失败只记日志。
 
 ## 8. 阶段 7：交卷（`completion.ts`）
 
@@ -251,14 +255,14 @@ user        [状态卡]
 3. `collectEvaluations`：等在途评分 ≤ 32 秒；pending / failed 的同步补跑一次；仍在跑抛错稍后再来；补跑仍失败的段标"评分失败"不计总分，不卡整份报告。
 4. `areaOutcomes`：每个关闭的线程 → `{name, kind, weight(项目 3 / 场景 2 / 基础 1), depthReached, skipped, score, weaknesses}`；跳过记 0 分；答了但没分的不计入总分。
 5. 汇总 agent（下节）；全部跳过不调模型用固定文案。
-6. `buildReport`：`totalScore` = 各领域最高分按权重加权（只算问到的）+ 汇总输出。
+6. `buildReport`：`totalScore` = 各领域最高分按权重加权（只算问到的）+ 汇总输出；报告 v3（`REPORT_VERSION = 3`：weaknesses 每条带 practice，没有独立 advice）；库里与体验版存档里的 v2 由 `parseStoredReport` 读出时在内存里升级（advice 按序挂到短板，多出的各自成一条），不改存档。
 7. 事务：会话 `completed` + reportJson + hypothesesJson（假设验证结论写回，跨场记忆读它）；面试行 `completed`。
 8. 写档案（§9），失败只记日志。
 9. 非评测场次（`evalTag` 为空）入队画像刷新。
 
-### 汇总 agent（`summary-agent.ts`，`summary-v3`）
+### 汇总 agent（`summary-agent.ts`，`summary-v4`）
 
-输入 `SummaryInput {jobTitle, pace, areas[], ledger（证据账按材料归组，一份一行）, hypotheses: string[]（备课假设原文）}`。系统提示词：用面试官口吻先说站得住的再说失守在哪，不报分数不下录用结论；基础快问没追深不算短板；strengths / weaknesses 挂到逐字的领域名；weaknesses kind：error 说错 / missing 没答上 / pattern 至少两个领域都有；advice 每条对应一条 weakness；hypotheses 对每条给状态和一句结论（碰到了 confirmed / refuted，没碰到 open），verdict 不以状态词开头，refuted 用"没有讲清楚"这类措辞。
+输入 `SummaryInput {jobTitle, pace, areas[], ledger（证据账按材料归组，一份一行）, hypotheses: string[]（备课假设原文）}`。系统提示词：一切从简；summary 两句（≤ 300 字）用面试官口吻先站得住的再失守的，不报分数不下录用结论、不逐段复述；基础快问没追深不算短板；strengths ≤ 3、weaknesses ≤ 5 各一句，挂到逐字的领域名；weaknesses kind：error 说错 / missing 没答上 / pattern 至少两个领域都有，每条带一句 practice（逐段的练法可沿用）；hypotheses 对每条给状态和一句结论（碰到了 confirmed / refuted，没碰到 open），verdict 不以状态词开头，refuted 用"没有讲清楚"这类措辞。
 
 代码校验 `validateSummary`：领域名不存在置 null；pattern 但有短板的领域 < 2 降为 missing；假设以输入为准（模型漏的补上），verdict 去掉开头的状态词，open 的固定"这场没有问到。"
 

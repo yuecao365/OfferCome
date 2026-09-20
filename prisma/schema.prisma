@@ -296,17 +296,14 @@ model InterviewQuestionEvaluation {
   evaluationError          String?
   dimensionsJson           String?
   score                    Int?
-  /// 评分 v2：strengths / weaknesses 带回答原话引用，advice 是练什么；exemplar 是示范回答（只在有短板时生成）。
+  /// strengths / weaknesses 带回答原话引用，weaknesses 每条带练法 practice；exemplar 是示范回答（分数不到 80 或有说错的段才生成）。
   strengthsJson            String?
   weaknessesJson           String?
-  adviceJson               String?
   exemplarJson             String?
-  /// 评分 v5（G2）：简历核对条目 [{ claim, resumeSays, consistent }]。
+  /// 简历核对条目 [{ claim, resumeSays, consistent }]。
   resumeChecksJson         String?
-  feedback                 String?
-  /// 同段第二次采样的总分；两次分歧大（> 15）时 lowConfidence 为真，报告里标低置信。
-  secondScore              Int?
-  lowConfidence            Boolean              @default(false)
+  /// 给候选人的一句结论（evaluation-v8 起；更早的记录是当时的长评语）。
+  verdict                  String?
   evaluatedAt              DateTime?
   createdAt                DateTime             @default(now())
   updatedAt                DateTime             @updatedAt

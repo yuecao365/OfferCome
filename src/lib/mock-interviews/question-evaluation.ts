@@ -6,7 +6,7 @@ import type { AreaKind } from "./brief/brief";
 
 /**
  * 逐题评分的纯逻辑：输入解析、输出校验、引用硬门。
- * 评分 v2：优点与短板都要落到候选人的原话上，练什么单独列；模型看得到线程深度与面试官的现场判断。
+ * 优点与短板都要落到候选人的原话上，每条短板带练法；模型看得到线程深度与问过的角度。
  */
 
 const rubricItemSchema = z.object({
@@ -19,7 +19,8 @@ export const WEAKNESS_KINDS = ["error", "missing"] as const;
 export type WeaknessKind = (typeof WEAKNESS_KINDS)[number];
 
 export type EvaluationStrength = { point: string; quote: string | null };
-export type EvaluationWeakness = { point: string; quote: string | null; kind: WeaknessKind };
+/** 一条短板带一条练法（evaluation-v8 起；旧记录 practice 为空串）。 */
+export type EvaluationWeakness = { point: string; quote: string | null; kind: WeaknessKind; practice: string };
 
 /** 简历核对（G2）：回答里的哪句话、简历原文怎么写、是否一致。两句都要逐字：claim 摘自回答，resumeSays 摘自简历。 */
 export type ResumeCheck = { claim: string; resumeSays: string; consistent: boolean };
@@ -28,8 +29,8 @@ export type MockInterviewQuestionEvaluation = {
   dimensions: { name: string; score: number; evidence: string; gap: string | null }[];
   strengths: EvaluationStrength[];
   weaknesses: EvaluationWeakness[];
-  advice: string[];
-  feedback: string;
+  /** 一句结论，给候选人看，不报分数（evaluation-v8 起；旧记录是原来的长评语）。 */
+  verdict: string;
   resumeChecks: ResumeCheck[];
 };
 
@@ -121,8 +122,7 @@ export function validateQuestionEvaluation(
     dimensions,
     strengths: output.strengths.filter(cited),
     weaknesses: output.weaknesses.filter(cited),
-    advice: output.advice,
-    feedback: output.feedback,
+    verdict: output.verdict,
     resumeChecks,
   };
   return {

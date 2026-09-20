@@ -72,9 +72,9 @@ test("一场的指标：覆盖、预算、求助、开销都从事件与分段�
       { runId: "r2", durationMs: 3000, inputTokens: 12_000, cachedTokens: 10_000, outputTokens: 400 },
     ],
     evaluationRuns: [
-      { steps: 3, toolCalls: 2, invalidCalls: 1, budgetHit: false, resumeInconsistent: 1, toolShift: 8 },
-      { steps: 1, toolCalls: 0, invalidCalls: 0, budgetHit: false, resumeInconsistent: 0, toolShift: null },
-      { steps: 4, toolCalls: 3, invalidCalls: 0, budgetHit: true, resumeInconsistent: 0, toolShift: 2 },
+      { steps: 3, toolCalls: 2, invalidCalls: 1, budgetHit: false, resumeInconsistent: 1 },
+      { steps: 1, toolCalls: 0, invalidCalls: 0, budgetHit: false, resumeInconsistent: 0 },
+      { steps: 4, toolCalls: 3, invalidCalls: 0, budgetHit: true, resumeInconsistent: 0 },
     ],
   };
   const metrics = sessionMetrics(facts);
@@ -84,7 +84,6 @@ test("一场的指标：覆盖、预算、求助、开销都从事件与分段�
   assert.equal(metrics.invalidToolCallRate, 1 / 5);
   assert.equal(metrics.budgetHitRate, 1 / 3);
   assert.equal(metrics.resumeInconsistencies, 1);
-  assert.equal(metrics.toolShift, 5);
   assert.equal(sessionMetrics({ ...facts, evaluationRuns: undefined }).evaluationSteps, null);
   assert.equal(metrics.interviewerTurns, 5);
   assert.equal(metrics.asides, 1);
@@ -114,7 +113,7 @@ test("答不上的段也是观测：记 0 分第 1 层，折成证据 0", () => 
   // 产品侧这类段不送评分（省一次模型调用），但测量侧丢掉它，估计器就只看得见答上来的部分。
   const segment = (over: Partial<SegmentFact>): SegmentFact => ({
     kind: "quick", areaId: "q1", projectId: null, depth: 0, answered: true,
-    startSeq: 0, endSeq: 1, competencyId: "c1", difficulty: 2, score: 70, lowConfidence: false, ...over,
+    startSeq: 0, endSeq: 1, competencyId: "c1", difficulty: 2, score: 70, ...over,
   });
   const observations = observationsOf({
     sessionId: "s", turnsTotal: null, events: [], runs: [], evaluationRuns: [], competencies: [],

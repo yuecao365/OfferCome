@@ -66,8 +66,7 @@ export function summaryInput(input: { jobTitle: string; brief: InterviewBrief; a
 export const ALL_SKIPPED_SUMMARY: SummaryOutput = {
   summary: "本场所有题目均已跳过，暂时没有可评分的回答。",
   strengths: [],
-  weaknesses: [],
-  advice: ["重新发起一场模拟面试，并尝试完整回答至少一道题。"],
+  weaknesses: [{ point: "没有作答的题目", areaName: null, kind: "missing", practice: "重新发起一场模拟面试，完整回答至少一道题。" }],
   hypotheses: [],
 };
 

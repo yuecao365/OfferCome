@@ -223,10 +223,7 @@ export async function completeTrialMockSession(id: string): Promise<void> {
       const brief = interview.brief;
       const transcript = interview.messages.map((message, seq) => ({ seq, role: message.role, content: message.content, kind: message.role === "interviewer" ? message.kind : null, control: null, topic: message.topic ?? null, facet: message.facet ?? null }));
       const areas = new Map(brief.areas.map((area) => [area.id, area]));
-      const segments = cutSegments(transcript, brief).map((segment) => {
-        const probes = transcript.filter((line) => line.role === "interviewer" && line.kind === "say" && line.seq > segment.startSeq && line.seq <= segment.endSeq).map((line) => line.content);
-        return { id: crypto.randomUUID(), ...segmentRecord(areas.get(segment.areaId)!, segment, probes), evaluationStatus: "pending" as const, evaluation: null };
-      });
+      const segments = cutSegments(transcript, brief).map((segment) => ({ id: crypto.randomUUID(), ...segmentRecord(areas.get(segment.areaId)!, segment), evaluationStatus: "pending" as const, evaluation: null }));
       mutateTrialInterview(id, (current) => ({ ...current, questions: segments }));
     }
     // 在途的评分等它跑完；失败与还没开始的当场补跑。

@@ -16,8 +16,10 @@ export type Segment = {
   label: string;
   /** 这段的第一问。 */
   entryQuestion: string;
-  /** 第一问之后又追问了几句（答疑不算）。 */
+  /** 第一问之后又追问了几句（答疑不算；候选人没答的最后一问不算）。 */
   depth: number;
+  /** 追问的原话（与 depth 同口径，按顺序）。 */
+  probes: string[];
   /** 问过的角度（材料 guides 的文字，按第一次问到的顺序）。 */
   facets: string[];
   /** 材料的全部角度（报告标哪些没问到）。 */
@@ -35,11 +37,27 @@ export function cutSegments(transcript: TranscriptLine[], brief: Pick<InterviewB
   const segments: Segment[] = [];
   let current: Segment | null = null;
   let lastSeq = -1;
+  // 面试官问了、候选人还没答的话：等到候选人开口才算进追问；段结束时还没答的（比如候选人按了结束）不算。
+  let pending: TranscriptLine[] = [];
+  const commitPending = () => {
+    if (!current) return;
+    const guides = areas.get(current.areaId)?.guides ?? [];
+    for (const line of pending) {
+      if (line.kind === "say") {
+        current.depth += 1;
+        current.probes.push(line.content);
+      }
+      const facet = typeof line.facet === "number" ? guides[line.facet] : undefined;
+      if (facet && !current.facets.includes(facet)) current.facets.push(facet);
+    }
+    pending = [];
+  };
   for (const line of transcript) {
     if (line.role === "interviewer" && line.kind === "closing") break;
     lastSeq = line.seq;
     if (line.role === "candidate") {
       if (!current || line.control) continue;
+      commitPending();
       current.answers.push(line.content);
       if (!isNoInfo(line)) current.unanswered = false;
       continue;
@@ -47,15 +65,13 @@ export function cutSegments(transcript: TranscriptLine[], brief: Pick<InterviewB
     const area = line.topic ? areas.get(line.topic) : undefined;
     if (area && line.kind === "say" && (!current || current.areaId !== area.id)) {
       if (current) current.endSeq = line.seq - 1;
-      current = { startSeq: line.seq, endSeq: line.seq, areaId: area.id, kind: area.kind, label: area.name, entryQuestion: line.content, depth: 0, facets: [], allFacets: area.guides, answers: [], skipped: true, unanswered: true };
+      pending = [];
+      current = { startSeq: line.seq, endSeq: line.seq, areaId: area.id, kind: area.kind, label: area.name, entryQuestion: line.content, depth: 0, probes: [], facets: [], allFacets: area.guides, answers: [], skipped: true, unanswered: true };
       segments.push(current);
       continue;
     }
     if (!current) continue;
-    if (line.kind === "say") current.depth += 1;
-    const guides = areas.get(current.areaId)?.guides ?? [];
-    const facet = typeof line.facet === "number" ? guides[line.facet] : undefined;
-    if (facet && !current.facets.includes(facet)) current.facets.push(facet);
+    pending.push(line);
   }
   if (current) current.endSeq = lastSeq;
   for (const segment of segments) {

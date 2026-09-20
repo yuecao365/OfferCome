@@ -21,13 +21,12 @@ export type SegmentFact = {
   competencyId?: string | null;
   difficulty?: number | null;
   score?: number | null;
-  lowConfidence?: boolean;
 };
 
 /** 一次模型调用的开销（AgentRun）。 */
 export type RunFact = { runId: string; durationMs: number; inputTokens: number; cachedTokens: number; outputTokens: number };
-/** 一段评分的轨迹（G2，从 AgentRun 行算）：走了几步、调了几次工具、几次无效（未知 / 失败 / 被 hook 拒绝）、有没有触顶预算、核对出几条不一致、工具改了多少分。 */
-export type EvaluationRunFact = { steps: number; toolCalls: number; invalidCalls: number; budgetHit: boolean; resumeInconsistent: number; toolShift: number | null };
+/** 一段评分的轨迹（从 AgentRun 行算）：走了几步、调了几次工具、几次无效（未知 / 失败 / 被 hook 拒绝）、有没有触顶预算、核对出几条不一致。 */
+export type EvaluationRunFact = { steps: number; toolCalls: number; invalidCalls: number; budgetHit: boolean; resumeInconsistent: number };
 
 export type SessionFacts = {
   sessionId: string;
@@ -81,7 +80,6 @@ export type SessionMetrics = {
   invalidToolCallRate: number | null;
   budgetHitRate: number | null;
   resumeInconsistencies: number | null;
-  toolShift: number | null;
   /** 事后的能力估计与真值的平均绝对误差（0–1；只有模拟器有真值，只算测过的能力；没测过为 null）。 */
   offlineError: number | null;
   /** （估计，真值）对：一场里真值常常相同（同一画像），相关要跨场合并算。 */
@@ -90,17 +88,15 @@ export type SessionMetrics = {
 
 const isMultiQuestion = (text: string) => (text.match(/[？?]/g) ?? []).length >= 2;
 
-export function evaluationTrajectoryMetrics(runs: EvaluationRunFact[]): Pick<SessionMetrics, "evaluationSteps" | "evaluationToolCalls" | "invalidToolCallRate" | "budgetHitRate" | "resumeInconsistencies" | "toolShift"> {
-  if (runs.length === 0) return { evaluationSteps: null, evaluationToolCalls: null, invalidToolCallRate: null, budgetHitRate: null, resumeInconsistencies: null, toolShift: null };
+export function evaluationTrajectoryMetrics(runs: EvaluationRunFact[]): Pick<SessionMetrics, "evaluationSteps" | "evaluationToolCalls" | "invalidToolCallRate" | "budgetHitRate" | "resumeInconsistencies"> {
+  if (runs.length === 0) return { evaluationSteps: null, evaluationToolCalls: null, invalidToolCallRate: null, budgetHitRate: null, resumeInconsistencies: null };
   const calls = runs.reduce((sum, run) => sum + run.toolCalls, 0);
-  const shifts = runs.flatMap((run) => (run.toolShift === null ? [] : [run.toolShift]));
   return {
     evaluationSteps: runs.reduce((sum, run) => sum + run.steps, 0) / runs.length,
     evaluationToolCalls: calls / runs.length,
     invalidToolCallRate: calls === 0 ? 0 : runs.reduce((sum, run) => sum + run.invalidCalls, 0) / calls,
     budgetHitRate: runs.filter((run) => run.budgetHit).length / runs.length,
     resumeInconsistencies: runs.reduce((sum, run) => sum + run.resumeInconsistent, 0),
-    toolShift: shifts.length === 0 ? null : shifts.reduce((sum, value) => sum + value, 0) / shifts.length,
   };
 }
 
@@ -109,7 +105,7 @@ export function evaluationTrajectoryMetrics(runs: EvaluationRunFact[]): Pick<Ses
 export function observationsOf(facts: SessionFacts): Observation[] {
   return facts.segments.flatMap((segment) =>
     segment.competencyId && segment.difficulty != null && segment.score != null
-      ? [{ competencyId: segment.competencyId, difficulty: segment.difficulty, score: segment.score, confidence: segment.lowConfidence ? 0.5 : 1 }]
+      ? [{ competencyId: segment.competencyId, difficulty: segment.difficulty, score: segment.score, confidence: 1 }]
       : [],
   );
 }
@@ -241,7 +237,6 @@ const SUMMARY_KEYS = [
   "invalidToolCallRate",
   "budgetHitRate",
   "resumeInconsistencies",
-  "toolShift",
 ] as const;
 
 export function summarize(list: SessionMetrics[]): MetricSummary {
@@ -283,7 +278,6 @@ const LABELS: Record<string, string> = {
   invalidToolCallRate: "评分无效工具调用率",
   budgetHitRate: "评分预算触顶率",
   resumeInconsistencies: "简历核对不一致条数",
-  toolShift: "工具改分的平均绝对值",
   offlineCorrelation: "事后估计与真值的相关（跨场合并）",
   timeShare_project: "时间占比：项目",
   timeShare_quick: "时间占比：基础题",

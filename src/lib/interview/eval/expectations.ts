@@ -23,6 +23,9 @@ export type Expectation = {
   detail: string;
 };
 
+/** "这个我没做过 / 不太熟 / 没接触过"一类的自谦开头。 */
+const HUMBLE_LEAD = /^(这个|这块|这方面|这一块)?我(没做过|不太熟|没接触过|不太懂|没怎么做过)/;
+
 /** 面试官说的每一句，带它之前的状态；判定与重放共用。 */
 type Turn = { seq: number; index: number; state: InterviewState; action: string | null; topic: string | null; facet: number | null; content: string };
 
@@ -182,6 +185,24 @@ const RULES: Partial<Record<Perturbation, Rule>> = {
       applies: events.some((item) => item.type === "candidate_said" && (item.payload.signal ?? null) === "not_mine"),
       passed: bad.length === 0,
       detail: bad.length === 0 ? "都转了向" : `[${bad.join(", ")}] 仍在同一角度`,
+    };
+  },
+  // 自谦开头（"这个我没做过，只能说思路：…"）后面有实质内容：signal 要按内容判，不能被开头带成 dont_know，否则整段按没答上记 0 分。
+  humble_lead: (brief, events) => {
+    const bad: number[] = [];
+    let applies = false;
+    for (const item of events) {
+      if (item.type !== "candidate_said" || item.payload.control) continue;
+      if (!HUMBLE_LEAD.test(item.payload.content) || item.payload.content.length < 60) continue;
+      applies = true;
+      if (isNoInfo({ role: "candidate", control: null, signal: item.payload.signal ?? null })) bad.push(item.seq);
+    }
+    return {
+      id: "humble_lead_read_as_answer",
+      label: "自谦开头但有内容的回答不算答不上",
+      applies,
+      passed: bad.length === 0,
+      detail: bad.length === 0 ? "都按内容判了" : `[${bad.join(", ")}] 被判成没信息`,
     };
   },
   // 每句都说没懂：答疑不占预算，但同一份材料上连续答疑超过上限就该换材料。

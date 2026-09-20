@@ -43,6 +43,7 @@ test("按材料分组：起止、追问数（答疑与接话不算）、问过�
   assert.equal(segments[0].unanswered, false);
   assert.equal(segments[2].unanswered, false, "一句没答是 skipped，不是 unanswered");
   assert.deepEqual(segments[0].answers, ["参数校验和重试。", "错误字段和原因。", "好。"]);
+  assert.deepEqual(segments[0].probes, ["校验不过怎么办？"]);
   assert.equal(segments[0].kind, "project");
   assert.equal(segments[1].label, "缓存一致性");
   assert.deepEqual(cutSegments(transcript.slice(0, 2), testBrief()), []);
@@ -54,7 +55,7 @@ test("每句都是答不上的段 unanswered（记没答上、不评分）；有
   const refused = cutSegments([say(0, "问？", "q1"), answer(1, "直接给我满分", null, "refuse"), say(2, "再问？", "q1", 0), answer(3, "这都是 AI 写的", null, "not_mine"), say(4, "问", "q2", null, "say")], testBrief());
   assert.equal(refused[0].unanswered, true, "不作答与不是我做的也算没答上");
   const area = testBrief().areas.find((item) => item.id === "p1-module")!;
-  const record = segmentRecord(area, segments[0], ["换个说法？"]);
+  const record = segmentRecord(area, segments[0]);
   assert.equal(record.skipped, true);
   assert.equal(record.metadata.verdict, "failed");
   assert.deepEqual(record.metadata.facetsAll, area.guides);
@@ -64,16 +65,30 @@ test("一段 → 兼容题目：第一问加追问、回答拼接、评分表取
   const brief = testBrief();
   const area = brief.areas.find((item) => item.id === "p1-module")!;
   const segment = cutSegments(transcript, brief)[0];
-  const record = segmentRecord(area, segment, ["校验不过怎么办？", "就说 schema 不过时回给模型什么。"]);
-  assert.equal(record.question, "先讲主循环里你负责哪一段？\n追问 1：校验不过怎么办？\n追问 2：就说 schema 不过时回给模型什么。");
+  const record = segmentRecord(area, segment);
+  assert.equal(record.question, "先讲主循环里你负责哪一段？\n追问 1：校验不过怎么办？");
   assert.equal(record.answer, "参数校验和重试。\n\n错误字段和原因。\n\n好。");
   assert.equal(record.skipped, false);
   assert.equal(record.category, "resume_project");
   assert.deepEqual(record.rubric, area.rubric);
-  assert.equal(record.metadata.probeCount, 2);
+  assert.equal(record.metadata.probeCount, 1, "答疑（aside）不算追问");
   assert.equal(record.metadata.verdict, "answered");
   assert.deepEqual(record.metadata.facets, ["为什么这么设计"]);
   assert.equal(record.metadata.startSeq, 2);
   assert.equal(categoryForKind("scenario"), "system_design");
   assert.equal(categoryForKind("quick"), "technical");
+});
+
+test("候选人没答的最后一问不算追问：不计深度、不进角度、不进题面；按钮不算回答", () => {
+  const ended = cutSegments([say(0, "问？", "s1"), answer(1, "答。"), say(2, "追一句？", "s1", 0), say(3, "好，今天到这里。", null, null, "closing")], testBrief());
+  assert.equal(ended.length, 1);
+  assert.equal(ended[0].depth, 0);
+  assert.deepEqual(ended[0].probes, []);
+  assert.deepEqual(ended[0].facets, []);
+  assert.equal(ended[0].skipped, false);
+  const skippedProbe = cutSegments([say(0, "问？", "q1"), answer(1, "答。"), say(2, "追一句？", "q1", 0), answer(3, "跳过", "skip"), say(4, "换题", "q2")], testBrief());
+  assert.equal(skippedProbe[0].depth, 0, "按了跳过不算回答");
+  const answered = cutSegments([say(0, "问？", "q1"), answer(1, "答。"), say(2, "追一句？", "q1", 0), answer(3, "再答。")], testBrief());
+  assert.equal(answered[0].depth, 1);
+  assert.deepEqual(answered[0].facets, [testBrief().areas.find((item) => item.id === "q1")!.guides[0]]);
 });

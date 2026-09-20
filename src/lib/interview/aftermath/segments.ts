@@ -40,8 +40,8 @@ export function categoryForKind(kind: AreaKind): string {
   return kind === "scenario" ? "system_design" : "technical";
 }
 
-export function segmentRecord(area: InterviewArea, segment: Segment, probes: string[]): SegmentRecord {
-  const question = [segment.entryQuestion, ...probes.map((probe, index) => `追问 ${index + 1}：${probe}`)].join("\n");
+export function segmentRecord(area: InterviewArea, segment: Segment): SegmentRecord {
+  const question = [segment.entryQuestion, ...segment.probes.map((probe, index) => `追问 ${index + 1}：${probe}`)].join("\n");
   const answer = segment.answers.join("\n\n").trim();
   return {
     question,
@@ -60,7 +60,7 @@ export function segmentRecord(area: InterviewArea, segment: Segment, probes: str
       facets: segment.facets,
       facetsAll: segment.allFacets,
       depth: segment.depth,
-      probeCount: probes.length,
+      probeCount: segment.probes.length,
       verdict: segment.skipped || !answer ? "skipped" : segment.unanswered ? "failed" : "answered",
       startSeq: segment.startSeq,
       endSeq: segment.endSeq,

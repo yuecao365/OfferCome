@@ -91,7 +91,7 @@ test("upsertInterview 以 id 更新时保留 kind/评分", () => {
       { question: "Q", answer: "A", category: "technical", evaluation: null },
     ],
     totalScore: 80,
-    report: { version: 2, totalScore: 80, summary: "总结", strengths: [], weaknesses: [], advice: [], hypotheses: [] },
+    report: { version: 3, totalScore: 80, summary: "总结", strengths: [], weaknesses: [], hypotheses: [] },
   });
   const id = workspace.interviews[0].id;
   workspace = upsertInterview(workspace, formValue(), id);
@@ -138,7 +138,7 @@ test("模拟面试记录以自身 id 充当会话 id", () => {
       { question: "Q", answer: null, category: "general", evaluation: null },
     ],
     totalScore: 72,
-    report: { version: 2, totalScore: 80, summary: "总结", strengths: [], weaknesses: [], advice: [], hypotheses: [] },
+    report: { version: 3, totalScore: 80, summary: "总结", strengths: [], weaknesses: [], hypotheses: [] },
   });
   const item = queryInterviews(workspace, baseFilters).interviews[0];
   assert.equal(item.kind, "mock");
@@ -153,7 +153,7 @@ test("interviewStats 只统计真实面试", () => {
     jobTitle: "后端开发工程师",
     questions: [],
     totalScore: 90,
-    report: { version: 2, totalScore: 80, summary: "总结", strengths: [], weaknesses: [], advice: [], hypotheses: [] },
+    report: { version: 3, totalScore: 80, summary: "总结", strengths: [], weaknesses: [], hypotheses: [] },
   });
   const stats = interviewStats(workspace);
   assert.equal(stats.total, 2);
@@ -167,7 +167,7 @@ test("interviewWorkspaceOverview 汇总模拟均分与轮次分布", () => {
     jobTitle: "后端开发工程师",
     questions: [],
     totalScore: 81,
-    report: { version: 2, totalScore: 80, summary: "总结", strengths: [], weaknesses: [], advice: [], hypotheses: [] },
+    report: { version: 3, totalScore: 80, summary: "总结", strengths: [], weaknesses: [], hypotheses: [] },
   });
   const overview = interviewWorkspaceOverview(workspace);
   assert.equal(overview.completedMockCount, 1);

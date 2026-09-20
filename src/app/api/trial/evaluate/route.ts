@@ -1,5 +1,5 @@
 import { generateAnswerExemplar } from "@/lib/mock-interviews/answer-exemplar-agent";
-import { threadContext } from "@/lib/mock-interviews/question-evaluation-service";
+import { needsExemplar, threadContext } from "@/lib/mock-interviews/question-evaluation-service";
 import type { TrialSegment } from "@/lib/trial/interview";
 import { evaluateMockInterviewQuestion } from "@/lib/mock-interviews/question-evaluation-agent";
 import { loadSkillPacks } from "@/lib/mock-interviews/skills/loader";
@@ -22,13 +22,13 @@ type Body = {
 
 /**
  * 一段的评分与示范，与本地版 evaluatePersistedMockInterviewQuestion 同一条路：
- * 评分 v3 全量 + 有短板时生成示范；示范失败不影响评分。
+ * 评分全量 + 需要时生成示范；示范失败不影响评分。
  */
 export const POST = withTrialAi<Body>(async (body) => {
   const metadata = body.segment.metadata;
   const answer = body.segment.answer?.trim();
   if (!answer || body.segment.skipped) throw new Error("题目没有可评分的回答。");
-  const { evaluation, score, lowConfidence } = await evaluateMockInterviewQuestion({
+  const { evaluation, score } = await evaluateMockInterviewQuestion({
     question: body.segment.question,
     answer,
     rubric: body.segment.rubric,
@@ -42,7 +42,7 @@ export const POST = withTrialAi<Body>(async (body) => {
   });
 
   let exemplar: TrialEvaluation["exemplar"] = null;
-  if (evaluation.weaknesses.length > 0) {
+  if (needsExemplar(score, evaluation.weaknesses)) {
     try {
       exemplar = await generateAnswerExemplar({
         runId: `trial-exemplar:${Date.now()}`,
@@ -57,6 +57,6 @@ export const POST = withTrialAi<Body>(async (body) => {
       console.error("示范回答生成失败，评分照常。", error);
     }
   }
-  const result: TrialEvaluation = { ...evaluation, score, exemplar, lowConfidence };
+  const result: TrialEvaluation = { ...evaluation, score, exemplar };
   return { evaluation: result };
 });

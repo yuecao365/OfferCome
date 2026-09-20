@@ -60,7 +60,7 @@ function toEvaluatedQuestion(row: QuestionRow): EvaluatedQuestion {
     areaName: typeof metadata.areaName === "string" ? metadata.areaName : null,
     areaKind: isAreaKind(metadata.areaKind) ? metadata.areaKind : null,
     strengths: parseStoredEvaluationList<{ point: string }>(parseJsonValue(evaluation?.strengthsJson ?? null), (point) => ({ point })).map((item) => item.point),
-    weaknesses: parseStoredEvaluationList<EvaluationWeakness>(parseJsonValue(evaluation?.weaknessesJson ?? null), (point) => ({ point, quote: null, kind: "missing" })),
+    weaknesses: parseStoredEvaluationList<EvaluationWeakness>(parseJsonValue(evaluation?.weaknessesJson ?? null), (point) => ({ point, quote: null, kind: "missing", practice: "" })),
   };
 }
 

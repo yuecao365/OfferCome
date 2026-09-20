@@ -23,11 +23,10 @@ const output: MockInterviewQuestionEvaluation = {
     { point: "引用不在回答里", quote: "我们用了 Kafka" },
   ],
   weaknesses: [
-    { point: "重试上限说错", quote: "最多重试两次", kind: "error" },
-    { point: "第二层追问没答", quote: null, kind: "missing" },
+    { point: "重试上限说错", quote: "最多重试两次", kind: "error", practice: "查一遍重试上限的配置" },
+    { point: "第二层追问没答", quote: null, kind: "missing", practice: "练一遍工具协议的失败路径" },
   ],
-  advice: ["练一遍工具协议的失败路径"],
-  feedback: "主干清楚。",
+  verdict: "主干清楚。",
   resumeChecks: [],
 };
 

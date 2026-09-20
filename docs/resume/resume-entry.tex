@@ -1,0 +1,13 @@
+% OfferCome 简历条目（2026-09-20，数字来源：eval/runs/harness-2026-09-20.md、
+% eval/runs/ablation-constraints-2026-09-20.md、docs/interview-merge-plan.md §D）
+\resumeProjectHeading
+{OfferCome：岗位定向的自适应模拟面试 Agent（自研 Agent 运行时与评测框架）}{2026年8月 -- 至今}\vspace{-8pt}
+
+\resumeProjectSubline{独立开发，TypeScript / Next.js / Vercel AI SDK / Prisma，约 10 万行、457 个单测；输入 JD 与简历，面试官 Agent 自主备课并进行约 35 分钟的自适应追问，面试后由独立 Agent 逐段评分、产出能力估计}
+\vspace{-3pt}
+\resumeItemListStart
+\resumeItem{\textbf{Agent 运行时（Harness）：}实现统一 Agent Loop：\textbf{工具三级权限}（read 放行 / write 记账 / confirm 挂起待审）、步数--token--时长--成本\textbf{四类预算}、\textbf{beforeTool 钩子}（校验失败作为工具结果回传，模型在同一循环内自行改正）、\textbf{输出契约三级降级}（schema 收敛 $\to$ 携校验错误定向重试 $\to$ 调用方兜底解析）。1636 次真实调用一次通过率 \textbf{78.6\%}、降级后可用产出率 \textbf{97.0\%}，使不支持原生结构化输出的低价模型能跑全流程，800 万 token 总成本 \textbf{\$0.46}。}
+\resumeItem{\textbf{动作层控制与事件溯源：}面试官每回合先产出结构化动作（signal / action / target / facet）再产出话术；面试状态由\textbf{事件日志纯函数投影}得到（可重放），代码据此算出\textbf{随状态变化的动作白名单}，违约退回重出，再违约由代码定动作、模型只负责措辞。消息布局按前缀缓存设计（系统提示词整场不变、状态卡置末），缓存命中 \textbf{84\%}。\textbf{消融}：关闭动作约束后行为判定通过率由 \textbf{70\% 降至 37\%}（10 对配对 9 劣 0 优）；相对固定题本基线，每次追问信息量（新词量口径）\textbf{高 39\%}（配对 9/10）。}
+\resumeItem{\textbf{上下文工程与记忆分层：}备课与面试合并为同一 Agent 循环（规划卡 $\to$ 状态卡，系统提示词共享）；编写 \textbf{42 个 Agent Skills 方法书}（base / domain / detail 两级多对多），模型看 14 个顶层索引自选，细节包读完领域包后按需披露；记忆分\textbf{场内}（状态卡 + 模型自写证据账）、\textbf{跨场}（Agent 整份重写的候选人档案、假设验证结论）、\textbf{长期}（六维能力画像）；评分 Agent 与面试 Agent 相互独立，保证评测不自证。}
+\resumeItem{\textbf{无人工标注的评测框架：}合成候选人按种子采样三档\textbf{能力真值}并受硬规则约束作答（面试官不可见）；\textbf{8 类行为扰动}各自定义应有行为，构成纯代码判定集；评分器用同题六变体做\textbf{蜕变测试}（排序成立、复述不变、错误定位）；LLM 裁判只答是非题并在冻结合成集上自校准（准确率 0.966）；5 个运行时机制做成开关支持逐项消融。能力估计与真值 Spearman $\rho$=\textbf{0.631}（95\% CI [0.41, 0.77]，76 对，场次级 bootstrap），分半信度 0.916；同批 MAE 0.180 与恒定均值基线 0.181 持平，据此判定该场景下绝对误差是无效指标、只用秩相关。}
+\resumeItemListEnd
