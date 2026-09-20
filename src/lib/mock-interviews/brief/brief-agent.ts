@@ -14,7 +14,9 @@ import { createSkillTools } from "../skills/tools";
 import { createResumeLookupTool } from "../tools/resume-lookup";
 import { packsForPrep, PROJECT_METHOD_PACK } from "../skills/selector";
 import type { MockInterviewJobBlueprint } from "../types";
-import { basisAccepted, briefOutputSchema, buildBriefFromOutput, fallbackBrief, HR_ROUND, MAX_PROJECTS, quickTarget, SCENARIOS_PER_PACE, type BriefOutput, type InterviewBrief, type InterviewPace } from "./brief";
+import { QUOTA } from "@/lib/interview/progress";
+
+import { basisAccepted, briefOutputSchema, buildBriefFromOutput, fallbackBrief, HR_ROUND, quickTarget, SCENARIOS_PER_PACE, type BriefOutput, type InterviewBrief, type InterviewPace } from "./brief";
 
 const BRIEF_TIMEOUT_MS = 90_000;
 /** 备课提示词版本，独立于面试官提示词；变更备课规则时升级。 */
@@ -106,7 +108,7 @@ export async function generateInterviewBrief(input: {
   const projectRule =
     input.context.projects.length === 0
       ? "候选人简历上没有识别出项目：projects 留空，面试从基础题开始。"
-      : `最多 ${MAX_PROJECTS} 个项目，先写与岗位最相关的；每个项目只写一条。`;
+      : `这场只聊 ${QUOTA[input.pace].project} 个项目（节奏 ${input.pace}）：只写最相关的 ${QUOTA[input.pace].project} 个，多写的问不到；每个项目只写一条。`;
   const retestRule =
     input.context.recentWeaknesses.length > 0
       ? "候选人最近几场失守的考点在 recentWeaknesses 里（来自上几场的逐段评分）：与本岗位相关的，在对应的基础题或场景题里复测，并在该题的 expectedSignals 里以\"复测：<失守的点>\"注明；与本岗位无关的忽略。"
@@ -118,7 +120,7 @@ export async function generateInterviewBrief(input: {
   // 规划卡：备课规则 + 载荷，作为规划阶段的第一条用户消息。系统提示词与面试阶段同一份（buildSystem），议程不进系统提示词。
   const rules = `你正在为这场面试备课。这场面试由你临场走：先聊项目、再几道基础题、最后一道场景题。你准备的是自己手边的材料，不是题目清单。方向由你定：这份 JD 最在意什么、这份简历哪里最值得挖，就往哪问；技能包是方法书，告诉你这个方向的面试官在意什么、项目怎么深挖、常见失守在哪，不是题库，不要从里面抄题。
 
-1. projects：${projectRule}每个项目写一句切入的 question（一个问题，给一个抓手——从简历上他负责的模块或写了数字的那一行切入，禁止"谈谈你对 X 的理解"）和最多 3 条 leads——面试里要追问的角度，各落在不同的面上（最难的问题怎么定位解决、效果与预期怎么量的、取舍与重做会改哪里），按岗位最关心的排前。
+1. projects：${projectRule}项目的原文在系统提示词的简历里，按 projectId 对应的名称去找。每个项目写一句切入的 question（一个问题，给一个抓手——从简历上他负责的模块或写了数字的那一行切入，禁止"谈谈你对 X 的理解"）和最多 3 条 leads——面试里要追问的角度，各落在不同的面上（最难的问题怎么定位解决、效果与预期怎么量的、取舍与重做会改哪里），按岗位最关心的排前。
 2. quick：${target} 道基础题。每道题都要落在这个人或这个岗位上，basis 说明凭什么问他这道题，四类：
    - kind=resume：简历里他写过、用过的一句。quote 一字不差地复制那句（空格与换行不用对齐），note 写这句里哪个点值得验。题从他用到的这个东西出发问原理、边界或替代方案，不问他项目里怎么实现的——那是 projects 的事。
    - kind=jd：JD 里的一条要求。quote 逐字复制那句，note 写这条要求背后要会什么。题考这条要求背后的原理或判断。
@@ -133,12 +135,13 @@ export async function generateInterviewBrief(input: {
 ${retestRule}${historyRule}
 先用 load_skill 读这几个技能包：${requiredPacks.map((pack) => pack.name).join("、") || "（本场没有）"}；读完再用 write_plan 写议程。写了 quote 的依据必须逐字出自简历或岗位描述，不成立会被退回让你改一次。
 备课提示词版本：${BRIEF_PROMPT_VERSION}`;
+  // 载荷只放系统提示词里没有的：岗位名、轮次、简历都在系统提示词里；项目的 description 是简历原文的一段，
+  // 只在简历被节选（超长）时才带上，否则模型按 id / 名称回简历里找。JD 全文要留：基础题的 jd 依据必须逐字引自全文，系统提示词里只有节选。
+  const resumeTruncated = input.context.resume.text.length > MAX_RESUME_CHARS;
   const payload = {
-    jobTitle: input.jobTitle,
-    round: input.round ?? "未指定",
     jobDescription: input.context.jobDescription,
     jobBlueprint: input.blueprint,
-    projects: input.context.projects,
+    projects: input.context.projects.map(({ id, name, type, organization, description }) => (resumeTruncated ? { id, name, type, organization, description } : { id, name, type, organization })),
     skillPacks: packs.map((pack) => pack.name),
     recentWeaknesses: input.context.recentWeaknesses,
     recentQuestions: input.context.recentQuestions,
