@@ -42,7 +42,7 @@ const resumeText = "项目经历\nStudy Assistant ——基于 LLM Agent 的本�
 const topicNames = ["缓存一致性", "MySQL 索引", "消息队列可靠投递", "接口幂等"];
 
 const projectOut = (projectId: string, question = "你负责哪一段？"): BriefOutput["projects"][number] => ({ projectId, question, leads: ["边界"], expectedSignals: ["职责"] });
-const quickOut = (name: string, extra: Partial<BriefOutput["quick"][number]> = {}): BriefOutput["quick"][number] => ({ name, question: `${name}怎么保证？`, basis: { kind: "resume", quote: "库存超卖排查", note: "简历里做过" }, skill: "backend", followUp: "边界条件", expectedSignals: ["机制"], ...extra });
+const quickOut = (name: string, extra: Partial<BriefOutput["quick"][number]> = {}): BriefOutput["quick"][number] => ({ name, question: `${name}怎么保证？`, basis: { kind: "resume", quote: "库存超卖排查", note: "简历里做过" }, followUp: "边界条件", expectedSignals: ["机制"], ...extra });
 const scenarioOut = (overrides: Partial<BriefOutput["scenarios"][number]> = {}): BriefOutput["scenarios"][number] => ({
   name: "场景：接口限流",
   competencyIds: ["api", "ghost"],
@@ -91,7 +91,7 @@ test("基础题：取配额那么多道；引用类验逐字（空格换行不�
   const brief = build({
     quick: [
       quickOut("缓存一致性"),
-      quickOut("MySQL 索引", { basis: { kind: "jd", quote: "参与 API 设计与自动化测试", note: "JD 要接口设计" }, skill: "frontend" }),
+      quickOut("MySQL 索引", { basis: { kind: "jd", quote: "参与 API 设计与自动化测试", note: "JD 要接口设计" } }),
       quickOut("消息队列", { basis: { kind: "resume", quote: "改写过的一句", note: "简历里有" } }),
       quickOut("多余的第四道"),
     ],
@@ -100,9 +100,7 @@ test("基础题：取配额那么多道；引用类验逐字（空格换行不�
   assert.equal(quick.length, quickTarget("standard", 2), "标准档 3 道");
   assert.deepEqual(quick.map((area) => [area.id, area.name]), [["q1", "缓存一致性"], ["q2", "MySQL 索引"], ["q3", "消息队列"]]);
   assert.deepEqual(quick[0].basis, { kind: "resume", quote: "库存超卖排查", note: "简历里做过" });
-  assert.equal(quick[0].skill, "backend");
   assert.equal(quick[1].basis?.kind, "jd");
-  assert.equal(quick[1].skill, null, "不是备课用的包");
   assert.equal(quick[2].basis, null, "改写过的引用不算依据");
   assert.deepEqual(quick[0].rubric.map((item) => item.name), ["准确性", "原理深度", "表达结构"]);
   // 模型只写了一道：从领域包的主题清单按顺序补到配额，补的没有依据、不与已有的重名。

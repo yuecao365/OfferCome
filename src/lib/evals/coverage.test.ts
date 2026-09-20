@@ -32,7 +32,6 @@ function brief(areas: Partial<InterviewArea>[]): InterviewBrief {
       competencyIds: [],
       jdEvidence: null,
       basis: null,
-      skill: null,
       entryQuestion: "切入",
       guides: ["一", "二"],
       expectedSignals: ["信号"],

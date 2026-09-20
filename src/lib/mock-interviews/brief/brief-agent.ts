@@ -18,7 +18,7 @@ import { basisAccepted, briefOutputSchema, buildBriefFromOutput, fallbackBrief, 
 
 const BRIEF_TIMEOUT_MS = 90_000;
 /** 备课提示词版本，独立于面试官提示词；变更备课规则时升级。 */
-export const BRIEF_PROMPT_VERSION = "brief-v20";
+export const BRIEF_PROMPT_VERSION = "brief-v21";
 
 const rescueBrief = salvageJson(briefOutputSchema, {
   accept: (output) => output.quick.length > 0 || output.projects.length > 0,
@@ -125,7 +125,7 @@ export async function generateInterviewBrief(input: {
    - kind=gap：岗位要的东西，简历里找不到对应经历（JD 第一条是质量保障，他整份简历都是模型应用）。quote 填 JD 那句，note 写清他缺的是什么。题先问他碰没碰过，再问他会怎么把手上的东西接过去。
    - kind=pattern：从几段经历里看出来的模式或缺失，引不出某一句原文（三个项目都是一个人做的、没提过评审与协作；写了多步循环却没写预算和终止条件；两处数字都没交代口径）。quote 留空，note 写清你从哪几处看出来的。
    最值得问的往往是后两类：落差和缺失决定他能不能干这个活，原话类只能验他写的是不是真的。${target} 道不要全挑原话类。
-   name 是题的主题名（不带简历项目名）；skill 填这道题最贴的技能包名（载荷 skillPacks 之一），拿不准填 null；question 一句话一个问题，落到具体机制或小场景，带边界条件，难度按 JD 写的经验要求定（实习 / 应届问原理与小场景，有经验的问排查与取舍）；followUp 是答得实质时唯一一层追问的方向；expectedSignals 是好回答会出现的要点。${target} 道之间不重复考同一件事，也不要与 projects 的切入点问同一个实现细节。
+   name 是题的主题名（不带简历项目名）；question 一句话一个问题，落到具体机制或小场景，带边界条件，难度按 JD 写的经验要求定（实习 / 应届问原理与小场景，有经验的问排查与取舍）；followUp 是答得实质时唯一一层追问的方向；expectedSignals 是好回答会出现的要点。${target} 道之间不重复考同一件事，也不要与 projects 的切入点问同一个实现细节。
 3. scenarios：${scenarioCount} 道场景题。从 JD 里团队做的系统或职责里挑一个具体场景（jobBlueprint.business 非空时优先落在它的 systems 之一上，product 是这个团队做什么；jdEvidence 逐字复制 JD 原文中最能代表它的一句，不得改写；competencyIds 绑定蓝图能力），question 先铺一句场景再问一个点；guides 是三级引导阶梯（候选人卡住或答到一层时下一步往哪引）。场景题不要与项目角度考同一件事。
 4. hypotheses（最多 6 条）：要在项目阶段验证的具体点——写了数字的成果、只写框架名的经历、时间线的空洞。每个被问的项目至少一条，projectId 指向它；text 写成"面试里问什么才能验证"；evidence 必须逐字复制简历原文片段，不得改写；没有依据的假设不要写。candidateDossier 是同一份简历上几场的档案（可信）：其中"没讲清的说法"优先写进 hypotheses 并在 text 里注明"上次没讲清"；"反复出现的短板"与本岗位相关的在对应的题里复测；"问过的项目角度"里已问过的角度在 leads 里往后排或换掉。
 

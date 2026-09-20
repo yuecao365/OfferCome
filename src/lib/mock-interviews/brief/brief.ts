@@ -188,8 +188,6 @@ export const briefOutputSchema = z.object({
           quote: z.string().min(1).max(240).nullable(),
           note: z.string().min(4).max(200),
         }),
-        /** 最贴的技能包名（载荷 skillPacks 之一）；拿不准为 null。 */
-        skill: z.string().min(1).max(64).nullable(),
         /** 答得实质时唯一的一层追问往哪问。 */
         followUp: z.string().min(1).max(200),
         expectedSignals: signals,
@@ -239,8 +237,6 @@ export type InterviewArea = {
   jdEvidence: string | null;
   /** 基础题的依据（引用或推断）；不成立为 null。项目与场景题为 null（场景题看 jdEvidence）。 */
   basis: QuestionBasis | null;
-  /** 面试中问到这份材料前可查的技能包；没有为 null。 */
-  skill: string | null;
   entryQuestion: string;
   /** project：想验证的线索；quick：唯一一层追问的方向；scenario：引导阶梯。 */
   guides: string[];
@@ -342,7 +338,6 @@ function projectArea(project: Project, rank: number, round: string | null, writt
     competencyIds: [],
     jdEvidence: null,
     basis: null,
-    skill: null,
     entryQuestion: written?.question ?? PROJECT_ANGLES.overview.question(project.name),
     guides: written && written.leads.length > 0 ? written.leads : PROJECT_LEADS,
     expectedSignals: written?.expectedSignals ?? ["能讲清自己负责的部分与关键决策"],
@@ -355,7 +350,7 @@ function projectAreas(ranked: Project[], round: string | null, written: (project
   return ranked.slice(0, MAX_PROJECTS).map((project, rank) => projectArea(project, rank, round, written(project)));
 }
 
-type QuickInput = { name: string; question: string; basis: QuestionBasis | null; skill: string | null; followUp: string; expectedSignals: string[] };
+type QuickInput = { name: string; question: string; basis: QuestionBasis | null; followUp: string; expectedSignals: string[] };
 
 function quickArea(written: QuickInput, id: string, round: string | null): InterviewArea {
   return {
@@ -367,7 +362,6 @@ function quickArea(written: QuickInput, id: string, round: string | null): Inter
     competencyIds: [],
     jdEvidence: null,
     basis: written.basis,
-    skill: written.skill,
     entryQuestion: written.question,
     guides: [written.followUp],
     expectedSignals: written.expectedSignals,
@@ -377,7 +371,7 @@ function quickArea(written: QuickInput, id: string, round: string | null): Inter
 
 /** 模型没写够基础题时的兜底：从领域包的常考主题清单里按顺序补，没有依据（面试官会先问他碰过没有）。 */
 function fallbackQuick(name: string): QuickInput {
-  return { name, question: `聊聊${name}：它解决什么问题、最关键的一个机制是什么？`, basis: null, skill: null, followUp: "追问它的边界与出问题时怎么查", expectedSignals: ["机制准确", "说得出边界"] };
+  return { name, question: `聊聊${name}：它解决什么问题、最关键的一个机制是什么？`, basis: null, followUp: "追问它的边界与出问题时怎么查", expectedSignals: ["机制准确", "说得出边界"] };
 }
 
 function quickAreas(written: QuickInput[], topicNames: string[], target: number, round: string | null): InterviewArea[] {
@@ -400,7 +394,6 @@ function fallbackScenarioArea(blueprint: MockInterviewJobBlueprint, id: string, 
     competencyIds: competency ? [competency.id] : [],
     jdEvidence: competency?.origin === "jd" ? competency.jdEvidence : null,
     basis: null,
-    skill: null,
     entryQuestion: competency
       ? `如果你加入后第一个任务是${competency.description || competency.name}，先要弄清楚哪几件事，你会怎么排优先级？`
       : "如果你接手一个刚上线就频繁出问题的系统，你会从哪里开始排查，怎么决定先修什么？",
@@ -466,7 +459,7 @@ export function buildBriefFromOutput(input: {
 
   const sources = { resumeText: input.resumeText, jobDescription: input.jobDescription };
   const quick = quickAreas(
-    output.quick.map((item) => ({ ...item, basis: basisAccepted(item.basis, sources) ? item.basis : null, skill: item.skill && input.skillPacks.includes(item.skill) ? item.skill : null })),
+    output.quick.map((item) => ({ ...item, basis: basisAccepted(item.basis, sources) ? item.basis : null })),
     input.topicNames,
     quickTarget(input.pace, ranked.slice(0, MAX_PROJECTS).length),
     round,
@@ -483,7 +476,6 @@ export function buildBriefFromOutput(input: {
       competencyIds: raw.competencyIds.filter((id) => competencyIds.has(id)),
       jdEvidence,
       basis: null,
-    skill: null,
       entryQuestion: raw.question,
       guides: raw.guides,
       expectedSignals: raw.expectedSignals,

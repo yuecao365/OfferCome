@@ -175,6 +175,17 @@ B 段验收通过。C 段剩余：删 `InterviewArea.skill` 字段与提示词�
 
 **验收**：单测全绿 + 一场真机；`load_skill` 的调用不再依赖提示触发。
 
+**C 段结果（2026-09-20）**
+
+- 删 `InterviewArea.skill`：schema、类型、`QuickInput`、四处兜底、`buildBriefFromOutput` 里对着 `skillPacks` 的校验、备课提示词里"skill 填最贴的技能包名，拿不准填 null"那句、切段写进题目元数据的 `skillPack`（置空）、三个测试文件里的 `skill:` 行。`briefJson` 少一个字段；旧会话里残留的 `skill` 被 zod 静默丢弃。
+- 状态卡的查包提示（`skillToLoad` / `lookupFirst`）已在 B 段删除（见上）。
+- 选包打平改按分数 + 包名稳定排序：此前 test-qa 与 ai-llm 同分时谁排前取决于 `readdir`。
+- **`packsForInterview` 没删。** 查引用发现它实际是"按名取包（带父级）"，评分 agent、体验版的 turn / evaluate 路由、面试官回放都在用；删掉只是把同一段逻辑抄到五处。施工图里"合并后没有挑给面试官的包这件事"这一判断仍成立——它不挑，只查；注释已改成这个意思。
+
+冒烟 1 场 quick：1/1 跑通、越界 0、内部词 0、缓存 84%；简报 6 份材料、基础题 2（pattern / gap），`briefJson` 不含 `skill`；备课走工具路径（`load_skill` → `write_plan`，1 次依据门禁退回）；面试官 16/16 走 `ask_candidate`，0 失败。457 单测。
+
+A / B / C 三段完成。D 段（合并前后对照 + `packs` 消融复测）待用户决定跑不跑。
+
 ### D. 验证
 
 - 合并前后各跑一轮：行为判定、能力估计与真值的秩相关 ρ、每回合输入 token、缓存命中率、每场成本

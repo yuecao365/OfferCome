@@ -47,7 +47,8 @@ export function packsForPrep(input: SkillSelectionInput, packs: SkillPack[], rou
         .filter((pack) => pack.layer === "domain")
         .map((pack) => ({ pack, score: jobScore(pack, input) }))
         .filter((item) => item.score > 0)
-        .sort((left, right) => right.score - left.score)[0]?.pack ?? byName.get(FALLBACK_DOMAIN);
+        // 打平按包名，不靠目录加载顺序：此前 test-qa 与 ai-llm 同分时谁排前取决于 readdir。
+        .sort((left, right) => right.score - left.score || left.pack.name.localeCompare(right.pack.name))[0]?.pack ?? byName.get(FALLBACK_DOMAIN);
     if (domain) picked.push(domain);
     const stack = stackPackNamedByJob(input, packs);
     if (stack) picked.push(stack);
@@ -56,7 +57,7 @@ export function packsForPrep(input: SkillSelectionInput, packs: SkillPack[], rou
   return picked;
 }
 
-/** 面试中可查的包：备课时用过的包及其父级领域包，按备课顺序，最多 limit 个。 */
+/** 按名取包（备课记下的名字 → 包，带上父级领域包），面试官回放、评分 agent 都用它；不做任何挑选。 */
 export function packsForInterview(names: string[], packs: SkillPack[], limit = 6): SkillPack[] {
   const byName = new Map(packs.map((pack) => [pack.name, pack]));
   const picked: SkillPack[] = [];

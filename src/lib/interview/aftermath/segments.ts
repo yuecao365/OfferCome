@@ -61,7 +61,7 @@ export function segmentRecord(area: InterviewArea, segment: Segment, probes: str
       areaName: segment.label,
       areaKind: segment.kind,
       competencyOrigin: area.jdEvidence ? "jd" : "baseline",
-      skillPack: area.skill ?? null,
+      skillPack: null,
       note: null,
       facets: segment.facets,
       facetsAll: segment.allFacets,
