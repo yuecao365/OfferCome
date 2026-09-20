@@ -116,6 +116,8 @@ async function main(): Promise<void> {
   const jd = arg(argv, "jd", "tencent-hunyuan-agent-harness-engineer");
   const resume = arg(argv, "resume", "synthetic-ai-llm");
   const reuse = arg(argv, "reuse", "");
+  // 一档内部并发跑几场：SQLite 单写者，落库事务超时已为并发评测加长；2 稳，再高会等锁。
+  const concurrency = arg(argv, "concurrency", "2");
   const stamp = reuse || new Date().toISOString().slice(0, 10);
   const subject = policy ? `固定题本` : ABLATION_LABELS[off];
   const arms = policy
@@ -145,7 +147,7 @@ async function main(): Promise<void> {
       await new Promise((resolve) => setTimeout(resolve, 2_500)); // 服务端开关缓存 2 秒
       console.log(`
 ========== ${arm.label} ==========`);
-      await run(["--tag", tag, "--archetypes", archetypes, "--seeds", seeds, "--pace", pace, "--jd", jd, "--resume", resume]);
+      await run(["--tag", tag, "--archetypes", archetypes, "--seeds", seeds, "--pace", pace, "--jd", jd, "--resume", resume, "--concurrency", concurrency]);
     }
     byArm.set(arm.id, await readRun(tag));
     console.log(`读到 ${arm.label}：${byArm.get(arm.id)!.length} 场`);
