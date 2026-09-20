@@ -15,12 +15,12 @@ test("系统提示词不含议程：议程是 write_plan 的工具结果，规�
   assert.match(system, /先规划再面试/);
 });
 
-test("规划回放：用户一句 → load_skill 与包正文 → write_plan 摘要 → 议程全文；同一输入两次逐字相同", () => {
+test("规划回放：用户一句 → write_plan 摘要 → 议程全文，不带技能包正文；同一输入两次逐字相同", () => {
   const brief = { ...testBrief(), skillPacks: ["agent-harness", "project-deep-dive"] };
-  const head = planningHead(brief, [pack]);
-  assert.deepEqual(head.map((message) => message.role), ["user", "assistant", "tool", "assistant", "tool"]);
+  const head = planningHead(brief);
+  assert.deepEqual(head.map((message) => message.role), ["user", "assistant", "tool"]);
   const last = head[head.length - 1];
   assert.ok(last.role === "tool" && JSON.stringify(last.content).includes("议程已写"));
-  assert.ok(JSON.stringify(head[2].content).includes("答实的标志"), "包正文（含答实的标志）在回放里");
-  assert.deepEqual(head, planningHead(brief, [pack]));
+  assert.ok(!JSON.stringify(head).includes("答实的标志"), "包正文不回放：消融显示它对面试阶段零差异，只多付 token");
+  assert.deepEqual(head, planningHead(brief));
 });

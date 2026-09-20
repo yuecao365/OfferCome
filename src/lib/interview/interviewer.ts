@@ -6,8 +6,7 @@ import type { AiTaskConfig } from "@/lib/ai/config";
 import { isAgentRunError, runAgent, type AgentRunResult } from "@/lib/ai/run-agent";
 import { salvageJson } from "@/lib/ai/salvage-json";
 import { BASIS_LABELS, briefOutputSchema, type InterviewArea, type InterviewBrief } from "@/lib/mock-interviews/brief/brief";
-import { PROJECT_METHOD_PACK } from "@/lib/mock-interviews/skills/selector";
-import { createSkillTools, loadSkillText } from "@/lib/mock-interviews/skills/tools";
+import { createSkillTools } from "@/lib/mock-interviews/skills/tools";
 import type { SkillPack } from "@/lib/mock-interviews/skills/types";
 import { createResumeLookupTool } from "@/lib/mock-interviews/tools/resume-lookup";
 
@@ -40,7 +39,7 @@ const TOOL_STEPS_WITH_ASK = 4;
 export const ASK_TOOL = "ask_candidate";
 export const PLAN_TOOL = "write_plan";
 /** 规划回放的第一条：让"助手先调工具"前面有一条用户消息，服务商都接受。 */
-const PLANNING_OPENER = "先规划这场面试：读状态卡点名的技能包，然后用 write_plan 写议程。";
+const PLANNING_OPENER = "先规划这场面试，用 write_plan 写议程。";
 
 export const interviewerOutputSchema = z.object({
   /** 候选人刚才那句是什么；开场（还没人说话）填 answered。 */
@@ -119,7 +118,7 @@ export function renderAgenda(brief: InterviewBrief): string {
 function renderSkillSection(packs: SkillPack[]): string {
   if (packs.length === 0) return "";
   const index = packs.map((pack) => `- ${pack.name}：${pack.description.split(/[。；;]/)[0].slice(0, 60)}`).join("\n");
-  return `\n技能包索引（领域包在规划时已读、全文在对话里；其它包需要时用 load_skill 读，一回合最多一次）：\n${index}\n`;
+  return `\n技能包索引（规划时已按它写好议程；面试中确实要看某个方向的阶梯或危险信号时再用 load_skill 读，一回合最多一次）：\n${index}\n`;
 }
 
 /**
@@ -225,17 +224,11 @@ function planDigest(brief: InterviewBrief): unknown {
 
 /**
  * 规划阶段的回放（历史开头，整场不变，紧跟系统提示词是缓存前缀的一部分）：
- * 用户一句"先规划" → 助手逐个 load_skill → 包正文 → 助手 write_plan(摘要) → 议程全文。
- * 全部从 briefJson 与包投影出来，不另存一份；两回合之间字节相同，缓存才吃得到。
+ * 用户一句"先规划" → 助手 write_plan(摘要) → 议程全文。全部从 briefJson 投影出来，不另存一份；两回合之间字节相同，缓存才吃得到。
+ * 技能包正文**不回放**：它在规划时读过、已经变成了议程；消融（施工图 §5.D）显示正文跟着每回合走对面试阶段零差异，只多付 43% token。
  */
-export function planningHead(brief: InterviewBrief, packs: SkillPack[]): ModelMessage[] {
-  const loaded = packs.filter((pack) => brief.skillPacks.includes(pack.name) && pack.name !== PROJECT_METHOD_PACK);
+export function planningHead(brief: InterviewBrief): ModelMessage[] {
   const messages: ModelMessage[] = [{ role: "user", content: PLANNING_OPENER }];
-  for (const pack of loaded) {
-    const toolCallId = `plan-load-${pack.name}`;
-    messages.push({ role: "assistant", content: [{ type: "tool-call", toolCallId, toolName: "load_skill", input: { name: pack.name } }] });
-    messages.push({ role: "tool", content: [{ type: "tool-result", toolCallId, toolName: "load_skill", output: { type: "text", value: loadSkillText(pack.name, packs) } }] });
-  }
   messages.push({ role: "assistant", content: [{ type: "tool-call", toolCallId: "plan-write", toolName: PLAN_TOOL, input: planDigest(brief) }] });
   messages.push({ role: "tool", content: [{ type: "tool-result", toolCallId: "plan-write", toolName: PLAN_TOOL, output: { type: "text", value: `议程已写（备课产出；可信）：\n${renderAgenda(brief)}` } }] });
   return messages;
@@ -281,7 +274,7 @@ export async function runInterviewerTurn(input: InterviewerCall): Promise<AgentR
   const tools = buildTools(input.context);
   const hasAsk = ASK_TOOL in tools;
   const messages: ModelMessage[] = [
-    ...planningHead(input.brief, input.context.skillPacks ?? []),
+    ...planningHead(input.brief),
     ...buildHistory(input.transcript, { json: !hasAsk }),
     ...(content ? [{ role: "user" as const, content }] : []),
     { role: "user" as const, content: input.card },
