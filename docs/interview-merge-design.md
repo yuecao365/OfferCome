@@ -235,6 +235,15 @@ function candidateAsToolResult(c: CandidateInput) {
 2. 仍不合 → 作为工具错误返回校验信息，模型改一次
 3. 再不合 → 这一步记 `invalid_structured_output`，走 §6 的兜底
 
+### 3.4a 基座无关
+
+用户可以随意换基座，所以 loop、工具、hook 都不感知服务商。差异只在两处被吸收（都是现有代码）：
+
+- **输出契约**：`coerceToJsonSchema` 把不按 schema 约束输出的服务商写偏的类型收敛回来，再校验、再重试
+- **服务商参数**：`providerOptionsFor` 按配置给缓存 key、推理强度等，调用方拼进去，循环看不见
+
+设计里唯一依赖服务商能力的点是 §6.3 第 3 层「强制 `toolChoice` 指向某个工具」。不支持指定工具的服务商退化为 `toolChoice: none` + 提示词要求调 `ask_candidate`；再不成走第 4 层代码定动作。兜底链本身就覆盖了这个差异，不需要按模型分支。
+
 ### 3.5 怎么避免选错工具
 
 五道，从便宜到贵：
@@ -367,7 +376,7 @@ function turnHooks(state): LoopHooks {
 
 1. hook 去重：同名同参第二次直接拒
 2. hook 限次：一回合非 ask 工具 > 2 次拒
-3. `callStep` 强制：第 3 步起 `toolChoice = { type: "tool", toolName: "ask_candidate" }`（AI SDK 支持指定工具）
+3. `callStep` 强制：第 3 步起 `toolChoice = { type: "tool", toolName: "ask_candidate" }`；服务商不支持指定工具时退化为 `toolChoice: none` + 提示词要求（§3.4a）
 4. 仍没调 → 代码 `fallbackAction` + 一次「只写这句话」的受限调用（现有 forced 路径）
 5. 整场 `maxSteps` / `maxCostUsd`：超了降级为一步结论并收尾
 6. 挂起 24 小时无人唤醒：定时任务标记结束
@@ -391,7 +400,7 @@ function turnHooks(state): LoopHooks {
 | 3 | 历史只追加；裁剪按 4000 字块从最旧开始 | 前缀每长 4000 字才变一次 |
 | 4 | 规划阶段的工具结果钉住不裁 | 它们紧跟前缀，一动整段失效 |
 | 5 | 状态卡是每回合重新渲染的**尾部**消息 | 变动部分放最后，不污染前缀 |
-| 6 | `promptCacheKey = session id`（现有 `cacheKeyOf` 去掉回合后缀） | OpenAI 按 key 路由；DeepSeek 自动前缀缓存不需要 key |
+| 6 | 缓存参数按服务商由 `providerOptionsFor` 给（现有）：需要 key 的给 `promptCacheKey = session id`（`cacheKeyOf` 去掉回合后缀），自动前缀缓存的什么都不给 | 循环与工具不感知服务商；换基座不改这里以外的任何代码 |
 
 ### 7.3 状态卡为什么不进事件
 
@@ -495,7 +504,7 @@ parent: backend                         # 仅 stack 层，加载时自动带上
 
 ## 12. 需要验证的假设（A 段第一批要量的）
 
-1. deepseek-v4-flash 的 **tool calling** 可靠性——现有代码走的是 JSON 模式，合并后走工具调用，这是不同的路径
+1. **工具调用走契约层的可靠性**——现有代码走的是 JSON 模式，合并后走工具调用，是不同路径。要在至少两家服务商上各跑一遍（一家原生支持严格 schema、一家不支持），确认 §3.4 的收敛 → 重试 → 兜底对工具入参同样成立。不为任何一个具体模型单独设计
 2. 每回合输入 token 与命中率：预计 6.4k / ≥70%，超 8k 或跌破 70% 回退
 3. 首次动作合规率不劣于 95.0%
 4. 一个 agent 同时规划与追问，行为判定（`expectations`）不劣于现基线
