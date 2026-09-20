@@ -159,7 +159,7 @@ export type MockInterviewView = {
   }[];
 };
 
-export const MOCK_INTERVIEW_PROMPT_VERSION = "mock-interview-v6-strict-first";
+export const MOCK_INTERVIEW_PROMPT_VERSION = "mock-interview-v7-inferred-origin";
 
 export const MOCK_INTERVIEW_GENERATION_TIMEOUT_MS = 60_000;
 

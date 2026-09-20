@@ -158,7 +158,7 @@ export async function analyzeMockInterviewJob(input: {
       timeoutMs: MOCK_INTERVIEW_GENERATION_TIMEOUT_MS,
       rescue: rescueBlueprint,
       untrustedInputs: "岗位名称和岗位描述",
-      system: `你是岗位分析 Agent。只根据 JD 原文建立岗位能力蓝图，不得使用或猜测候选人的简历、历史面试和画像。区分核心能力与邻近能力；团队介绍中提到、但岗位职责没有明确要求的技术通常标记为 secondary。jdEvidence 尽量从 JD 原文逐字截取。所有能力都填写 origin=jd、sourceUrl=null。business：从团队介绍与职责里整理业务——product 是团队做什么产品、给谁用，systems 是核心系统或链路（最多 5 条，短语），constraints 是规模 / 合规 / 延迟这类约束；JD 没写的字段置 null、整段没写就 business=null，不要猜。若 JD 缺少任职要求或内容不完整，如实设置 completeness 和 missingInformation。提示词版本：${MOCK_INTERVIEW_PROMPT_VERSION}`,
+      system: `你是岗位分析 Agent。只根据 JD 原文建立岗位能力蓝图，不得使用或猜测候选人的简历、历史面试和画像。区分核心能力与邻近能力；团队介绍中提到、但岗位职责没有明确要求的技术通常标记为 secondary。每条能力的来源分两类：JD 明写的填 origin=jd，jdEvidence 从 JD 原文逐字截取那句；JD 没有明写、但从职责或团队业务推得出这个岗位显然要考的，填 origin=inferred，jdEvidence 写一句推断依据（从哪几处推出来的），不要伪造原文。sourceUrl=null。business：从团队介绍与职责里整理业务——product 是团队做什么产品、给谁用，systems 是核心系统或链路（最多 5 条，短语），constraints 是规模 / 合规 / 延迟这类约束；JD 没写的字段置 null、整段没写就 business=null，不要猜。若 JD 缺少任职要求或内容不完整，如实设置 completeness 和 missingInformation。提示词版本：${MOCK_INTERVIEW_PROMPT_VERSION}`,
       payload,
     });
     if (output.competencies.length > 0) {
