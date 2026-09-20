@@ -24,29 +24,40 @@ export const ABLATION_LABELS: Record<Ablation, string> = {
 const FILE = path.join(process.cwd(), "eval", "ablation.json");
 /** 每回合都会问一次，缓存一下别每次读盘；评测脚本改完文件后下一场才生效，够用。 */
 const TTL_MS = 2_000;
-let cache: { at: number; off: Set<string> } = { at: 0, off: new Set() };
+/** 面试官策略：agent（缺省）或 script（固定题本，不调模型；同预算对照用）。 */
+export const POLICIES = ["agent", "script"] as const;
+export type EvalPolicy = (typeof POLICIES)[number];
 
-function current(): Set<string> {
+let cache: { at: number; off: Set<string>; policy: EvalPolicy } = { at: 0, off: new Set(), policy: "agent" };
+
+function current(): { off: Set<string>; policy: EvalPolicy } {
   const now = Date.now();
-  if (now - cache.at < TTL_MS) return cache.off;
+  if (now - cache.at < TTL_MS) return cache;
   let off = new Set<string>();
+  let policy: EvalPolicy = "agent";
   try {
-    const parsed = JSON.parse(readFileSync(FILE, "utf8")) as { off?: unknown };
+    const parsed = JSON.parse(readFileSync(FILE, "utf8")) as { off?: unknown; policy?: unknown };
     if (Array.isArray(parsed.off)) off = new Set(parsed.off.filter((item): item is string => typeof item === "string"));
+    if (parsed.policy === "script") policy = "script";
   } catch {
     // 文件不存在或坏了就是全开，这是真实使用时的唯一路径。
   }
-  cache = { at: now, off };
-  return off;
+  cache = { at: now, off, policy };
+  return cache;
+}
+
+/** 评测指定的面试官策略；真实使用恒为 agent。 */
+export function evalPolicy(): EvalPolicy {
+  return current().policy;
 }
 
 /** 这个机制被关掉了吗。 */
 export function ablated(name: Ablation): boolean {
-  return current().has(name);
+  return current().off.has(name);
 }
 
 /** 这一轮关掉了哪些（写进产物，便于对照表标注）。 */
 export function ablationsOff(): Ablation[] {
-  const off = current();
+  const { off } = current();
   return ABLATIONS.filter((name) => off.has(name));
 }

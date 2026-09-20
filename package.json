@@ -19,6 +19,7 @@
     "simulate": "tsx --conditions=react-server scripts/simulate.ts",
     "harness-report": "tsx --conditions=react-server scripts/harness-report.ts",
     "ablate": "tsx --conditions=react-server scripts/ablate.ts",
+    "compare-runs": "tsx --conditions=react-server scripts/compare-runs.ts",
     "replay": "tsx --conditions=react-server scripts/replay.ts",
     "resegment": "tsx --conditions=react-server scripts/resegment.ts",
     "recall": "tsx --conditions=react-server scripts/recall.ts",

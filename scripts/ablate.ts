@@ -106,6 +106,10 @@ function bootstrapRho(rows: CaseRow[]): { rho: number | null; ci: [number, numbe
 async function main(): Promise<void> {
   const argv = process.argv.slice(2);
   const off = arg(argv, "off", "packs") as Ablation;
+  // --policy script：对照档不是关某个开关，而是换成固定题本策略（不调模型）。
+  const policy = arg(argv, "policy", "");
+  // --on <run 文件>：基线档直接用已有的一批（同配置），只新跑对照档，省一半钱。
+  const reuseOn = arg(argv, "on", "");
   const seeds = arg(argv, "seeds", "2");
   const pace = arg(argv, "pace", "standard");
   const archetypes = arg(argv, "archetypes", "solid,shaky,rambling,needy,adversarial");
@@ -113,18 +117,31 @@ async function main(): Promise<void> {
   const resume = arg(argv, "resume", "synthetic-ai-llm");
   const reuse = arg(argv, "reuse", "");
   const stamp = reuse || new Date().toISOString().slice(0, 10);
-  const arms = [
-    { id: "on", label: `${ABLATION_LABELS[off]}·开`, off: [] as Ablation[] },
-    { id: "off", label: `${ABLATION_LABELS[off]}·关`, off: [off] },
-  ];
-  console.log(`消融「${ABLATION_LABELS[off]}」：2 档 × ${archetypes.split(",").length} 画像 × ${seeds} 种子，节奏 ${pace}\n`);
+  const subject = policy ? `固定题本` : ABLATION_LABELS[off];
+  const arms = policy
+    ? [
+        { id: "on", label: "自适应（agent）", off: [] as Ablation[], policy: "agent" },
+        { id: "off", label: "固定题本", off: [] as Ablation[], policy },
+      ]
+    : [
+        { id: "on", label: `${ABLATION_LABELS[off]}·开`, off: [] as Ablation[], policy: "agent" },
+        { id: "off", label: `${ABLATION_LABELS[off]}·关`, off: [off], policy: "agent" },
+      ];
+  const key = policy || off;
+  console.log(`对照「${subject}」：2 档 × ${archetypes.split(",").length} 画像 × ${seeds} 种子，节奏 ${pace}${reuseOn ? `；基线复用 ${reuseOn}` : ""}\n`);
 
   const byArm = new Map<string, CaseRow[]>();
   for (const arm of arms) {
-    const tag = `ablate-${off}-${arm.id}-${stamp}`;
+    const tag = `ablate-${key}-${arm.id}-${stamp}`;
+    if (arm.id === "on" && reuseOn) {
+      const parsed = JSON.parse(await fs.readFile(path.resolve(reuseOn), "utf8")) as { results?: CaseRow[] };
+      byArm.set(arm.id, parsed.results ?? []);
+      console.log(`基线档复用 ${reuseOn}：${byArm.get(arm.id)!.length} 场`);
+      continue;
+    }
     if (!reuse) {
-      if (arm.off.length === 0) await fs.rm(ABLATION_FILE, { force: true });
-      else await fs.writeFile(ABLATION_FILE, JSON.stringify({ off: arm.off }, null, 2), "utf8");
+      if (arm.off.length === 0 && arm.policy === "agent") await fs.rm(ABLATION_FILE, { force: true });
+      else await fs.writeFile(ABLATION_FILE, JSON.stringify({ off: arm.off, ...(arm.policy !== "agent" ? { policy: arm.policy } : {}) }, null, 2), "utf8");
       await new Promise((resolve) => setTimeout(resolve, 2_500)); // 服务端开关缓存 2 秒
       console.log(`
 ========== ${arm.label} ==========`);
@@ -188,11 +205,11 @@ async function main(): Promise<void> {
     开：${map.get("on")!.names.join(" ") || "—"}
     关：${map.get("off")!.names.join(" ") || "—"}`)];
 
-  const report = [`# 消融「${ABLATION_LABELS[off]}」（${stamp}，节奏 ${pace}）`, "", ...lines, "", ...paired, ...names, ""].join("\n");
+  const report = [`# 对照「${subject}」（${stamp}，节奏 ${pace}）`, "", ...lines, "", ...paired, ...names, ""].join("\n");
   console.log(`\n${report}`);
-  const out = path.join(RUNS_DIR, `ablation-${off}-${stamp}.md`);
+  const out = path.join(RUNS_DIR, `ablation-${key}-${stamp}.md`);
   await fs.writeFile(out, report, "utf8");
-  await fs.writeFile(out.replace(/\.md$/, ".json"), JSON.stringify({ off, pace, seeds, arms, summaries: Object.fromEntries(summaries), pairs: pairs.map(([id, map]) => [id, Object.fromEntries(map)]) }, null, 2) + "\n", "utf8");
+  await fs.writeFile(out.replace(/\.md$/, ".json"), JSON.stringify({ subject: key, pace, seeds, arms, summaries: Object.fromEntries(summaries), pairs: pairs.map(([id, map]) => [id, Object.fromEntries(map)]) }, null, 2) + "\n", "utf8");
   console.log(`产物：${out}`);
   await prisma.$disconnect();
 }

@@ -7,6 +7,7 @@ import { testBrief } from "@/lib/test-support/interview-brief";
 import { END_ALLOWED_AFTER } from "./constraints";
 import type { InterviewEvent } from "./events";
 import type { InterviewerCall, InterviewerOutput } from "./interviewer";
+import { scriptInterviewer } from "./eval/script-policy";
 import { runTurn, toolUsesOf, type CandidateInput, type Interviewer, type TurnState } from "./turn";
 
 /**
@@ -146,4 +147,17 @@ test("提问工具路径：违约在同一回合内被钩子退回，第二次�
   assert.ok(spoken?.type === "interviewer_said" && spoken.payload.action === "probe" && spoken.payload.facet === 0, "记的是代码定的动作");
   assert.deepEqual(result.events.filter((item) => item.type === "fallback_used").map((item) => item.type === "fallback_used" && item.payload.reason.slice(0, 8)), ["重出：还不能收尾", "重出：还不能收尾"]);
   assert.equal(result.events.filter((item) => item.type === "tool_called").length, 0, "提问工具不进工具账");
+});
+
+test("固定题本策略：不调模型、动作按状态推、不听回答；开场问介绍，项目按角度追，全部合法不触发重出", async () => {
+  const opening = await runTurn({ runId: "s:1", config, state: state([]), candidate: null, context, interviewer: scriptInterviewer });
+  const first = opening.events.find((item) => item.type === "interviewer_said");
+  assert.ok(first?.type === "interviewer_said" && first.payload.action === "probe" && /介绍/.test(first.payload.content));
+  const probe = await runTurn({ runId: "s:2", config, state: state(inProject()), candidate: candidate("我不会"), context, interviewer: scriptInterviewer });
+  const spoken = probe.events.find((item) => item.type === "interviewer_said");
+  assert.ok(spoken?.type === "interviewer_said" && spoken.payload.action === "probe" && spoken.payload.facet === 0, "项目材料按第一个角度追");
+  const said = probe.events.find((item) => item.type === "candidate_said");
+  assert.equal(said?.type === "candidate_said" && said.payload.signal, "answered", "固定题本不听回答：signal 永远 answered");
+  assert.equal(probe.events.filter((item) => item.type === "fallback_used").length, 0, "按状态推的动作天然合法");
+  assert.equal(probe.runId, "s:2");
 });

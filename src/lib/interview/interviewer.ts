@@ -265,6 +265,8 @@ export type InterviewerCall = {
   transcript: TranscriptLine[];
   candidateContent: string | null;
   card: string;
+  /** 这回合开始前的面试状态（状态卡就是它的渲染）；不调模型的策略靠它决策。 */
+  state: InterviewState;
   /** 提问工具的判决；不给就只按 schema 收。 */
   judge?: AskJudge;
 };

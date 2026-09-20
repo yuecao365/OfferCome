@@ -3,7 +3,8 @@ import type { AgentRunResult } from "@/lib/ai/run-agent";
 import type { InterviewBrief } from "@/lib/mock-interviews/brief/brief";
 
 import { checkAction, checkReply, fallbackAction, type Proposal } from "./constraints";
-import { ablated } from "./eval/switches";
+import { scriptInterviewer } from "./eval/script-policy";
+import { ablated, evalPolicy } from "./eval/switches";
 import { event, stateEventsOf, type CandidateControl, type InterviewEvent, type NewEvent, type TranscriptLine } from "./events";
 import { ASK_TOOL, runInterviewerTurn, type InterviewerCall, type InterviewerContext, type InterviewerOutput, renderCard } from "./interviewer";
 import { stateOf, type Action, type InterviewState, type Signal } from "./state";
@@ -69,7 +70,8 @@ function candidateEvent(candidate: CandidateInput, signal: Signal | null): NewEv
 
 export async function runTurn(input: { runId: string; config: AiTaskConfig; state: TurnState; candidate: CandidateInput | null; context: InterviewerContext; interviewer?: Interviewer }): Promise<TurnResult> {
   const { state, candidate } = input;
-  const interviewer = input.interviewer ?? runInterviewerTurn;
+  // 评测可指定固定题本策略（不调模型），真实使用恒为 agent；显式注入的（测试桩）优先。
+  const interviewer = input.interviewer ?? (evalPolicy() === "script" ? scriptInterviewer : runInterviewerTurn);
   const transcript = transcriptOfEvents(state.events);
   const toolsUsed = state.events.flatMap((item) => (item.type === "tool_called" ? [item.payload.argument ? `${item.payload.name}(${item.payload.argument})` : item.payload.name] : [])).slice(-TOOLS_USED_SHOWN);
 
@@ -100,6 +102,7 @@ export async function runTurn(input: { runId: string; config: AiTaskConfig; stat
       transcript,
       candidateContent: candidate?.content ?? null,
       card: renderCard(before, { toolsUsed, retry: forced ? `代码已定这回合的动作：${describe(forced)}；action / target / facet 照填，只写这句话` : retry }),
+      state: before,
       judge,
     });
 

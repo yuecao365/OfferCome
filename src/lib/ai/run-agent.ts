@@ -577,8 +577,9 @@ export async function runAgent<T>(
         try {
           result = await generate(choice);
         } catch (error) {
-          // 服务商不支持指定工具：退化为 auto（提示词仍要求调工具），再不成由调用方的兜底接。
-          if (typeof choice === "object" && error instanceof Error && /tool[_ ]?choice/i.test(error.message)) result = await generate("auto");
+          // 指定工具没生效——服务商不支持 tool_choice，或模型无视指定没调（SDK 报 "did not contain a call to the required tool"）：
+          // 退化为 auto（提示词仍要求调工具），再不成由调用方的兜底接。
+          if (typeof choice === "object" && error instanceof Error && /tool[_ ]?choice|required tool/i.test(error.message)) result = await generate("auto");
           else throw error;
         }
         readOutput = contractInTool
