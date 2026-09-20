@@ -60,14 +60,6 @@ function progressOf(state: InterviewState): { covered: number; quota: number } {
   return { covered: state.materials.filter((item) => item.status !== "untouched").length, quota: state.materials.length };
 }
 
-/** 换到哪份基础题前要先查哪个包：第一份没聊的基础题备课标的包，且这场还没查过。 */
-function skillToLoad(state: InterviewState, brief: InterviewBrief, context: InterviewerContext, toolsUsed: string[]): string | null {
-  const next = state.materials.find((item) => item.status === "untouched" && item.kind === "quick");
-  const skill = next ? brief.areas.find((area) => area.id === next.id)?.skill : null;
-  if (!skill || !(context.skillPacks ?? []).some((pack) => pack.name === skill)) return null;
-  return toolsUsed.includes(`load_skill(${skill})`) ? null : skill;
-}
-
 export type Interviewer = (input: InterviewerCall) => Promise<AgentRunResult<InterviewerOutput>>;
 
 /** 候选人这句先落事件（signal 由模型判，事后补进 candidate_said）。 */
@@ -107,9 +99,8 @@ export async function runTurn(input: { runId: string; config: AiTaskConfig; stat
       context: input.context,
       transcript,
       candidateContent: candidate?.content ?? null,
-      card: renderCard(before, { toolsUsed, loadSkill: skillToLoad(before, state.brief, input.context, toolsUsed), retry: forced ? `代码已定这回合的动作：${describe(forced)}；action / target / facet 照填，只写这句话` : retry }),
+      card: renderCard(before, { toolsUsed, retry: forced ? `代码已定这回合的动作：${describe(forced)}；action / target / facet 照填，只写这句话` : retry }),
       judge,
-      lookupFirst: skillToLoad(before, state.brief, input.context, toolsUsed) !== null,
     });
 
   // 校验用的状态要算上模型对候选人这句的判断（连续几句没信息含这一句）；开场动作固定 probe、没有材料，不校验。

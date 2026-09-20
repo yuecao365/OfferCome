@@ -28,10 +28,19 @@ export type SkillTools = {
  * load_skill 工具。加载 stack 包时自动附带其父级 domain 包，架构方法论不缺席。
  * 返回值就是包的正文，agent 读完自己决定要不要再加载别的。
  */
+/** 加载一个包时模型看到的文本：stack 包自动带上父级。规划回放（planningHead）与 load_skill 共用，保证两处逐字一致。 */
+export function loadSkillText(name: string, packs: SkillPack[]): string {
+  const byName = new Map(packs.map((pack) => [pack.name, pack]));
+  const pack = byName.get(name);
+  if (!pack) return `技能包 ${name} 不存在。可用：${[...byName.keys()].join(", ")}`;
+  const render = (item: SkillPack) => `### 技能包：${item.name}\n${item.body}`;
+  const parent = pack.parent ? byName.get(pack.parent) : null;
+  return [...(parent ? [render(parent)] : []), render(pack)].join("\n\n");
+}
+
 export function createSkillTools(packs: SkillPack[]): SkillTools {
   const byName = new Map(packs.map((pack) => [pack.name, pack]));
   const loaded: string[] = [];
-  const render = (pack: SkillPack) => `### 技能包：${pack.name}\n${pack.body}`;
 
   const load_skill = {
     access: "read" as const,
@@ -41,18 +50,11 @@ export function createSkillTools(packs: SkillPack[]): SkillTools {
     inputSchema: z.object({ name: z.string().min(1).max(64) }),
     execute: async ({ name }) => {
       const pack = byName.get(name);
-      if (!pack) {
-        return `技能包 ${name} 不存在。可用：${[...byName.keys()].join(", ")}`;
+      if (pack) {
+        if (pack.parent && !loaded.includes(pack.parent)) loaded.push(pack.parent);
+        if (!loaded.includes(pack.name)) loaded.push(pack.name);
       }
-      const parts: string[] = [];
-      const parent = pack.parent ? byName.get(pack.parent) : null;
-      if (parent && !loaded.includes(parent.name)) {
-        loaded.push(parent.name);
-        parts.push(render(parent));
-      }
-      if (!loaded.includes(pack.name)) loaded.push(pack.name);
-      parts.push(render(pack));
-      return parts.join("\n\n");
+      return loadSkillText(name, packs);
     },
   }),
   };

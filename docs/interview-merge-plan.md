@@ -148,6 +148,25 @@ A 段验收通过。`asktool` 消融开关关掉即回旧路径。§12 假设 1 
 
 **验收**：同一份 JD + 简历，产出的材料数、配额、依据分型分布与现在等价；下游零改动跑通。
 
+**B 段结果（2026-09-20，已落代码，457 单测）**
+
+- `generateInterviewBrief` 不再有自己的系统提示词：用面试官的 `buildSystem`（规划与面试同一份前缀），备课规则 + 载荷作为规划阶段的第一条用户消息。`load_skill` 由 `toolChoiceAt` 强制在前几步读齐领域包（钩子拒绝未读齐就写议程）；`write_plan` 是 confirm 档，钩子里过 schema 与依据门禁（退回一次）后挂起，调用方拿入参 `buildBriefFromOutput` 落 `briefJson`——结构一字未改，`generation.ts` / 体验版路由 / 下游零改动。模型不调工具直接吐 JSON 时 `rescue` 接住（旧路径）。
+- 议程搬出系统提示词：`planningHead(brief, packs)` 从 `briefJson` 与包投影出历史开头的「先规划 → load_skill / 包正文 → write_plan(摘要) / 议程全文」，每回合逐字相同（单测锁定），紧跟前缀成为缓存的一部分。`loadSkillText` 抽成纯函数，`load_skill` 与回放共用，两处逐字一致。
+- 顺手做了 C 段第一条：删掉面试中的"换到基础题前先 load_skill"提示（`skillToLoad` / `lookupFirst`）。B 段之后领域包正文整场在回放里，这句提示只会把模型推去查已在手上的东西；第一轮冒烟的 2 次失败正是它留的 auto 步——模型在 auto 步写裸文本或吐 JSON 而不调工具。删掉后面试回合从第 1 步起强制 `ask_candidate`（只有简历超长要 `lookup_resume` 时第 1 步留 auto）。
+
+第二轮冒烟（2 场 quick）：
+
+| 指标 | 结果 | A 段 |
+|---|---|---|
+| 备课走工具路径 | 2/2（`load_skill` → `write_plan` 挂起；其中 1 场触发依据门禁退回一次） | — |
+| 简报结构 | 6 份材料、2 道基础题（依据 resume/gap/pattern 均有）、假设 5 | 等价 |
+| 跑通 / 越界 / 内部词 | 2/2、2/2、2/2 | 同 |
+| 提问工具采用率 | **30/30 = 100%**，退回 0，失败 0 | 100%（第一轮 B 冒烟 84%、2 失败） |
+| 每次调用输入 token | 10.6k | 8.4k（+26%，回放头带包正文与议程；设计 v2 回退线 1.8×） |
+| 缓存命中 | **84%** | 77% |
+
+B 段验收通过。C 段剩余：删 `InterviewArea.skill` 字段与提示词那句、删 `packsForInterview`、选包打平改稳定排序。
+
 ### C. 删交接产物
 
 - 删 `InterviewArea.skill`（schema、提示词那句「拿不准填 null」、兜底、状态卡里的 load 提示）
