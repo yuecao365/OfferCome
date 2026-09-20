@@ -3,8 +3,8 @@ import path from "node:path";
 
 import { EVAL_DIR } from "../src/lib/evals/fixtures";
 import { loadSessionFacts } from "../src/lib/interview/eval/facts";
-import { estimatorMetrics } from "../src/lib/interview/eval/metrics";
-import { pearson, spearman } from "../src/lib/interview/estimator";
+import { estimatorMetrics, observationsOf } from "../src/lib/interview/eval/metrics";
+import { estimate, pearson, spearman } from "../src/lib/interview/estimator";
 import { prisma } from "../src/lib/db";
 
 /**
@@ -89,6 +89,21 @@ async function harnessSection(): Promise<{ text: string; data: unknown }> {
   return { text, data: { totals, byAgent: rows, input, cached, cost, real, models } };
 }
 
+/**
+ * 分半：把一场的观测按奇偶劈开，各估一次，取两半都测到的能力项配成对。
+ * 奇偶劈（不是前后劈）是为了让两半在面试进程上可比——前半和后半问的深度本来就不同。
+ */
+function splitHalf(facts: Parameters<typeof observationsOf>[0]): [number, number][] {
+  const all = observationsOf(facts);
+  if (all.length < 2) return [];
+  const odd = all.filter((_, index) => index % 2 === 0);
+  const even = all.filter((_, index) => index % 2 === 1);
+  const competencies = facts.competencies ?? [];
+  const left = new Map(estimate(competencies, odd).filter((item) => item.samples > 0).map((item) => [item.competencyId, item.mean]));
+  const right = new Map(estimate(competencies, even).filter((item) => item.samples > 0).map((item) => [item.competencyId, item.mean]));
+  return [...left].flatMap(([id, mean]) => (right.has(id) ? [[mean, right.get(id)!] as [number, number]] : []));
+}
+
 /** B. 估计器预检：已有场次里（估计, 真值）的相关与动态范围，决定值不值得再花钱跑对照表。 */
 async function estimatorSection(): Promise<{ text: string; data: unknown }> {
   // run 文件只顺手存了一部分配对；真值（abilities）和 sessionId 都在里面，直接回库重算，样本能大三倍。
@@ -109,19 +124,26 @@ async function estimatorSection(): Promise<{ text: string; data: unknown }> {
 
   const pairs: [number, number][] = [];
   const perSession: number[] = [];
+  const halves: [number, number][] = [];
   let sessions = 0;
   let withPairs = 0;
   for (const [sessionId, truth] of truthOf) {
     sessions += 1;
     try {
-      const mine = estimatorMetrics(await loadSessionFacts(sessionId, truth)).estimatePairs;
+      const facts = await loadSessionFacts(sessionId, truth);
+      const mine = estimatorMetrics(facts).estimatePairs;
       if (mine.length > 0) withPairs += 1;
       perSession.push(mine.length);
       pairs.push(...mine);
+      halves.push(...splitHalf(facts));
     } catch {
       // 会话已被清掉的跳过。
     }
   }
+
+  // 天花板：同一场的测量劈两半各估一次，两半之间的相关就是当前噪声下 ρ 的上限（经 Spearman-Brown 校正到全长）。
+  const halfRho = spearman(halves);
+  const reliability = halfRho === null ? null : (2 * halfRho) / (1 + halfRho);
 
   const estimates = pairs.map(([estimate]) => estimate);
   const truths = pairs.map(([, truth]) => truth);
@@ -161,11 +183,16 @@ async function estimatorSection(): Promise<{ text: string; data: unknown }> {
     ["Spearman ρ（主指标候选）", `${(spearman(pairs) ?? NaN).toFixed(3)}${ci ? `  95% 区间 [${ci[0].toFixed(3)}, ${ci[1].toFixed(3)}]` : ""}`],
     ["MAE（估计 vs 真值）", mae.toFixed(3)],
     ["MAE 下限（恒定预测均值）", floorMae.toFixed(3)],
+    ["分半信度（天花板）", reliability === null ? "—" : `${reliability.toFixed(3)}（${halves.length} 对）`],
   ];
 
   const rho = spearman(pairs) ?? 0;
   const range = pairs.length === 0 ? 0 : Math.max(...estimates) - Math.min(...estimates);
+  const ceilingBlocked = reliability !== null && reliability < 0.5;
   const verdict =
+    ceilingBlocked
+      ? `**分半信度只有 ${reliability!.toFixed(3)}（< 0.5）：测量噪声会吃掉档间差异，n=20/档 下任何对照都检不出来。先修测量，别花这笔钱。**`
+      :
     pairs.length < 30
       ? `配对只有 ${pairs.length} 个，样本不足以判断，先扩样本。`
       : range < 0.25

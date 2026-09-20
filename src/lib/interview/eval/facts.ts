@@ -9,6 +9,30 @@ import type { EvaluationRunFact, RunFact, SegmentFact, SessionFacts } from "./me
  * 从库里装一场的事实：事件日志 + 分段投影（带事后评分）+ 面试官的模型开销 + 岗位能力清单。指标只看这些。
  * 分段来自整理员写的线程投影（阶段 C 起）；truth 是模拟候选人的能力真值（阶段 D 的估计器对照）。
  */
+/**
+ * 一段的测量。产品侧"每句都是我不会"的段不送评分（省一次模型调用，报告里也不该给分），
+ * 但测量侧这是最有信息量的一段——被问到这项能力答不上来，正是低水平最强的证据。
+ * 丢掉它，估计器就只看得见答上来的部分，会把所有人压向中间。
+ * 所以这里补一条零分观测：能力项取备课里这份材料的主能力，层数记 1（连切入那一问都没过去）。不加任何模型调用。
+ */
+function unansweredFact(
+  thread: { competencyId: string | null; difficulty: number | null; questionId: string | null; areaId: string | null; verdict: string | null },
+  competencyOf: Map<string, string | null>,
+  evaluationOf: Map<string, { score: number | null; lowConfidence: boolean }>,
+): Pick<SegmentFact, "competencyId" | "difficulty" | "score" | "lowConfidence"> {
+  const evaluation = thread.questionId ? evaluationOf.get(thread.questionId) : undefined;
+  const score = evaluation?.score ?? null;
+  if (score !== null || thread.verdict !== "failed") {
+    return { competencyId: thread.competencyId, difficulty: thread.difficulty, score, lowConfidence: evaluation?.lowConfidence ?? false };
+  }
+  return {
+    competencyId: thread.competencyId ?? (thread.areaId ? (competencyOf.get(thread.areaId) ?? null) : null),
+    difficulty: 1,
+    score: 0,
+    lowConfidence: false,
+  };
+}
+
 export async function loadSessionFacts(sessionId: string, truth?: { competencyId: string; level: number }[]): Promise<SessionFacts> {
   const session = await prisma.mockInterviewSession.findUnique({
     where: { id: sessionId },
@@ -20,6 +44,7 @@ export async function loadSessionFacts(sessionId: string, truth?: { competencyId
   if (!session) throw new Error(`会话 ${sessionId} 不存在`);
   const brief = parseStoredBrief(session.briefJson);
   const projectOf = new Map(brief?.areas.map((area) => [area.id, area.projectId] as const) ?? []);
+  const competencyOf = new Map(brief?.areas.map((area) => [area.id, area.competencyIds[0] ?? null] as const) ?? []);
   const events = session.events.map(parseEventRow).filter((item): item is InterviewEvent => item !== null);
   const evaluations = await prisma.interviewQuestionEvaluation.findMany({
     where: { interviewQuestionId: { in: session.threads.flatMap((thread) => (thread.questionId ? [thread.questionId] : [])) } },
@@ -34,10 +59,7 @@ export async function loadSessionFacts(sessionId: string, truth?: { competencyId
     answered: thread.verdict !== "skipped",
     startSeq: thread.startSeq,
     endSeq: thread.endSeq,
-    competencyId: thread.competencyId,
-    difficulty: thread.difficulty,
-    score: thread.questionId ? (evaluationOf.get(thread.questionId)?.score ?? null) : null,
-    lowConfidence: thread.questionId ? (evaluationOf.get(thread.questionId)?.lowConfidence ?? false) : false,
+    ...unansweredFact(thread, competencyOf, evaluationOf),
   }));
   const runs: RunFact[] = (
     await prisma.agentRun.findMany({

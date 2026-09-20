@@ -105,10 +105,17 @@ export function evaluationTrajectoryMetrics(runs: EvaluationRunFact[]): Pick<Ses
 }
 
 /** 事后能力估计准不准：切段与评分折成测量，估计与模拟器真值比。 */
-export function estimatorMetrics(facts: SessionFacts): Pick<SessionMetrics, "offlineError" | "estimatePairs"> {
-  const offline: Observation[] = facts.segments.flatMap((segment) =>
-    segment.competencyId && segment.difficulty != null && segment.score != null ? [{ competencyId: segment.competencyId, difficulty: segment.difficulty, score: segment.score, confidence: segment.lowConfidence ? 0.5 : 1 }] : [],
+/** 能折成测量的段 → 观测。分半信度与估计共用，别在别处重写一遍。 */
+export function observationsOf(facts: SessionFacts): Observation[] {
+  return facts.segments.flatMap((segment) =>
+    segment.competencyId && segment.difficulty != null && segment.score != null
+      ? [{ competencyId: segment.competencyId, difficulty: segment.difficulty, score: segment.score, confidence: segment.lowConfidence ? 0.5 : 1 }]
+      : [],
   );
+}
+
+export function estimatorMetrics(facts: SessionFacts): Pick<SessionMetrics, "offlineError" | "estimatePairs"> {
+  const offline = observationsOf(facts);
   const pairs = facts.truth ? estimatePairs(estimate(facts.competencies ?? [], offline), facts.truth) : [];
   return { offlineError: pairs.length === 0 ? null : pairs.reduce((sum, [mean, level]) => sum + Math.abs(mean - level), 0) / pairs.length, estimatePairs: pairs };
 }

@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { evidenceOf } from "../estimator";
 import { event, parseEventRow, transcriptOf, type InterviewEvent, type NewEvent } from "../events";
-import { helpHandling, repeatedQuestionCount, sessionMetrics, summarize, type SegmentFact } from "./metrics";
+import { helpHandling, observationsOf, repeatedQuestionCount, sessionMetrics, summarize, type SegmentFact } from "./metrics";
 
 function events(list: NewEvent[]): InterviewEvent[] {
   return list.map((item, seq) => parseEventRow({ seq, type: item.type, payloadJson: JSON.stringify(item.payload), runId: item.runId ?? null, createdAt: new Date() })!);
@@ -107,4 +108,19 @@ test("一场的指标：覆盖、预算、求助、开销都从事件与分段�
   assert.equal(summary.scenarioAsked, 0.5);
   assert.equal(summary.helpHandledRate, 1);
   assert.equal(summary.inputTokensPerSession, 22_000);
+});
+
+test("答不上的段也是观测：记 0 分第 1 层，折成证据 0", () => {
+  // 产品侧这类段不送评分（省一次模型调用），但测量侧丢掉它，估计器就只看得见答上来的部分。
+  const segment = (over: Partial<SegmentFact>): SegmentFact => ({
+    kind: "quick", areaId: "q1", projectId: null, depth: 0, answered: true,
+    startSeq: 0, endSeq: 1, competencyId: "c1", difficulty: 2, score: 70, lowConfidence: false, ...over,
+  });
+  const observations = observationsOf({
+    sessionId: "s", turnsTotal: null, events: [], runs: [], evaluationRuns: [], competencies: [],
+    segments: [segment({}), segment({ difficulty: 1, score: 0 }), segment({ competencyId: null })],
+  });
+  assert.equal(observations.length, 2, "缺能力项的段仍然进不来");
+  assert.deepEqual(observations[1], { competencyId: "c1", difficulty: 1, score: 0, confidence: 1 });
+  assert.equal(evidenceOf(observations[1]), 0, "连切入那一问都没过去，证据应为 0");
 });
