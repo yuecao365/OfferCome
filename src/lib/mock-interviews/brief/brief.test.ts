@@ -160,7 +160,7 @@ test("兜底简报：基础题从主题清单按配额取、没有依据；蓝�
   const brief = fallbackBrief({ blueprint, jobDescription, resumeText, projects, topicNames, skillPacks: ["backend"], pace: "quick", round: null, askIntro: true });
   assert.equal(brief.source, "fallback");
   assert.equal(brief.product, null);
-  assert.equal(projectAreas(brief).length, 2);
+  assert.equal(projectAreas(brief).length, 1, "项目材料只建到节奏配额（快速档 1 个），多建的问不到还会跟着议程回放");
   assert.equal(brief.areas.filter((area) => area.kind === "scenario").length, 1);
   assert.deepEqual(brief.areas.filter((area) => area.kind === "quick").map((area) => [area.name, area.basis]), [["缓存一致性", null], ["MySQL 索引", null]]);
   const withBusiness = fallbackBrief({ blueprint: { ...blueprint, business: { product: "社交 App 的后端", systems: ["消息链路"], constraints: null } }, jobDescription, resumeText, projects, topicNames, skillPacks: ["backend"], pace: "quick", round: null, askIntro: true });

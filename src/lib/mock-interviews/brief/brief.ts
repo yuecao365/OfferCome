@@ -346,8 +346,9 @@ function projectArea(project: Project, rank: number, round: string | null, writt
 }
 
 /** 项目材料：每个项目（最多 MAX_PROJECTS 个）一份；模型写了的用模型的问法与线索，没写的用兜底。 */
-function projectAreas(ranked: Project[], round: string | null, written: (project: Project) => ProjectAreaInput): InterviewArea[] {
-  return ranked.slice(0, MAX_PROJECTS).map((project, rank) => projectArea(project, rank, round, written(project)));
+/** 只建这场要聊的那几份项目材料（按节奏配额）：多建的永远问不到，却会跟着议程每回合回放给模型。 */
+function projectAreas(ranked: Project[], limit: number, round: string | null, written: (project: Project) => ProjectAreaInput): InterviewArea[] {
+  return ranked.slice(0, limit).map((project, rank) => projectArea(project, rank, round, written(project)));
 }
 
 type QuickInput = { name: string; question: string; basis: QuestionBasis | null; followUp: string; expectedSignals: string[] };
@@ -452,7 +453,7 @@ export function buildBriefFromOutput(input: {
     if (project && !ranked.includes(project)) ranked.push(project);
   }
   for (const project of input.projects) if (!ranked.includes(project)) ranked.push(project);
-  const projects = projectAreas(ranked, round, (project) => {
+  const projects = projectAreas(ranked, QUOTA[input.pace].project, round, (project) => {
     const raw = output.projects.find((item) => item.projectId === project.id);
     return raw ? { question: raw.question, leads: raw.leads, expectedSignals: raw.expectedSignals } : null;
   });
@@ -461,7 +462,7 @@ export function buildBriefFromOutput(input: {
   const quick = quickAreas(
     output.quick.map((item) => ({ ...item, basis: basisAccepted(item.basis, sources) ? item.basis : null })),
     input.topicNames,
-    quickTarget(input.pace, ranked.slice(0, MAX_PROJECTS).length),
+    quickTarget(input.pace, projects.length),
     round,
   );
 
@@ -528,7 +529,7 @@ export function fallbackBrief(input: {
   askIntro: boolean;
 }): InterviewBrief {
   const scenarioCount = SCENARIOS_PER_PACE[input.pace];
-  const projects = projectAreas(input.projects, input.round, () => null);
+  const projects = projectAreas(input.projects, QUOTA[input.pace].project, input.round, () => null);
   const quick = quickAreas([], input.topicNames, quickTarget(input.pace, projects.length), input.round);
   const scenarios = Array.from({ length: scenarioCount }, (_, index) => fallbackScenarioArea(input.blueprint, `s${index + 1}`, input.round));
   return {
