@@ -88,7 +88,6 @@ export async function evaluatePersistedMockInterviewQuestion(interviewQuestionId
       jobTitle: question.interview.jobTitle,
       jobDescription: session.jdTextSnapshot,
       thread: threadContext(metadata),
-      round: brief?.round ?? null,
       competencies: competenciesOf(session.contextSnapshotJson).map((item) => ({ id: item.id, name: item.name })),
       resumeText: session.resumeTextSnapshot,
       skillPacks: packsForInterview(brief?.skillPacks ?? [], await loadSkillPacks(), 3),

@@ -17,8 +17,8 @@ import {
 const INFERRED_EVIDENCE_NOTE = "该岗位的通用要求，非用户提供";
 
 /**
- * 证据校验从"硬拒"改为"降级"：jdEvidence 不是 JD 原文逐字子串的能力保留，
- * 但降为 secondary——意译的证据仍可能对应真实职责，丢弃它只会让出题更偏。
+ * 证据校验不硬拒：说是 JD 原文（origin=jd）却对不上逐字的能力保留，按推断（inferred）处理——
+ * 意译的证据仍可能对应真实职责，丢弃它只会让出题更偏。
  */
 function cleanBlueprint(
   blueprint: MockInterviewJobBlueprint,
@@ -28,21 +28,13 @@ function cleanBlueprint(
   const competencies = blueprint.competencies.flatMap((competency) => {
     if (seenIds.has(competency.id)) return [];
     seenIds.add(competency.id);
-    if (
-      competency.origin !== "jd" ||
-      isVerbatimEvidence(jobDescription, competency.jdEvidence)
-    ) {
-      return [competency];
-    }
-    return [{ ...competency, priority: "secondary" as const }];
+    if (competency.origin !== "jd" || isVerbatimEvidence(jobDescription, competency.jdEvidence)) return [competency];
+    return [{ ...competency, origin: "inferred" as const }];
   });
   return { ...blueprint, competencies };
 }
 
-/**
- * 简化重试用的宽松 schema：结构越简单，小模型的结构化成功率越高。
- * 字段全部 required 但可空——严格模式不接受 optional/nullish。
- */
+/** 抢救残缺 JSON 用的宽松 schema：模型没按严格 schema 出、但文本里有能力清单时，按这个形状收。 */
 const simplifiedBlueprintSchema = z.object({
   summary: z.string().max(2_000).nullable(),
   competencies: z
@@ -50,7 +42,6 @@ const simplifiedBlueprintSchema = z.object({
       z.object({
         name: z.string().min(1).max(200),
         description: z.string().max(2_000).nullable(),
-        priority: z.string().nullable(),
         jdEvidence: z.string().max(2_000).nullable(),
       }),
     )
@@ -72,7 +63,6 @@ function normalizeLooseBlueprint(
       id: `bp-${index + 1}`,
       name: item.name.trim().slice(0, 100),
       description: item.description?.trim().slice(0, 400) || item.name.trim().slice(0, 400),
-      priority: item.priority === "secondary" ? ("secondary" as const) : ("core" as const),
       jdEvidence: item.jdEvidence?.trim().slice(0, 240) || INFERRED_EVIDENCE_NOTE,
       origin: "jd" as const,
       sourceUrl: null,
@@ -86,7 +76,7 @@ const rescueBlueprint = salvageJson(mockInterviewJobBlueprintSchema, {
 });
 
 /**
- * 兜底蓝图：模型两轮都没能产出结构化结果时，按岗位名生成通用能力，
+ * 兜底蓝图：模型没能产出结构化结果时，按岗位名生成通用能力，
  * 走 origin=inferred 的既有标注语义（出题时全部允许 general_role）。
  * 蓝图环节从此不再有失败路径——降级产出，但绝不把"请重试"丢给用户。
  */
@@ -96,7 +86,6 @@ function fallbackJobBlueprint(jobTitle: string): MockInterviewJobBlueprint {
     id,
     name,
     description,
-    priority: "core" as const,
     jdEvidence: INFERRED_EVIDENCE_NOTE,
     origin: "inferred" as const,
     sourceUrl: null,
@@ -128,12 +117,12 @@ export async function analyzeMockInterviewJob(input: {
   const startedAt = Date.now();
 
   // 走到第几级是可观察指标：兜底率升高说明上游在坏，而不是降级链在"正常工作"。
-  const finish = (level: 1 | 2 | 3, blueprint: MockInterviewJobBlueprint) => {
+  const finish = (level: 1 | 2, blueprint: MockInterviewJobBlueprint) => {
     logAgentRun({
       runId: input.generationId,
       agent: "job_blueprint",
       event: "selection",
-      status: level === 3 ? "partial" : "success",
+      status: level === 2 ? "partial" : "success",
       provider: config.provider,
       model: config.model,
       promptVersion: MOCK_INTERVIEW_PROMPT_VERSION,
@@ -143,7 +132,7 @@ export async function analyzeMockInterviewJob(input: {
     return blueprint;
   };
 
-  // 第一级：严格 schema + 残缺 JSON 抢救。
+  // 第一级：严格 schema，输出契约（收敛 / 修一次 / 抢救）在 runAgent 里。
   try {
     const { output } = await runAgent({
       agent: "job_blueprint",
@@ -158,36 +147,15 @@ export async function analyzeMockInterviewJob(input: {
       timeoutMs: MOCK_INTERVIEW_GENERATION_TIMEOUT_MS,
       rescue: rescueBlueprint,
       untrustedInputs: "岗位名称和岗位描述",
-      system: `你是岗位分析 Agent。只根据 JD 原文建立岗位能力蓝图，不得使用或猜测候选人的简历、历史面试和画像。区分核心能力与邻近能力；团队介绍中提到、但岗位职责没有明确要求的技术通常标记为 secondary。每条能力的来源分两类：JD 明写的填 origin=jd，jdEvidence 从 JD 原文逐字截取那句；JD 没有明写、但从职责或团队业务推得出这个岗位显然要考的，填 origin=inferred，jdEvidence 写一句推断依据（从哪几处推出来的），不要伪造原文。sourceUrl=null。business：从团队介绍与职责里整理业务——product 是团队做什么产品、给谁用，systems 是核心系统或链路（最多 5 条，短语），constraints 是规模 / 合规 / 延迟这类约束；JD 没写的字段置 null、整段没写就 business=null，不要猜。若 JD 缺少任职要求或内容不完整，如实设置 completeness 和 missingInformation。提示词版本：${MOCK_INTERVIEW_PROMPT_VERSION}`,
+      system: `你是岗位分析 Agent。只根据 JD 原文建立岗位能力蓝图，不得使用或猜测候选人的简历、历史面试和画像。每条能力的来源分两类：JD 明写的填 origin=jd，jdEvidence 从 JD 原文逐字截取那句；JD 没有明写、但从职责或团队业务推得出这个岗位显然要考的，填 origin=inferred，jdEvidence 写一句推断依据（从哪几处推出来的），不要伪造原文。sourceUrl=null。business：从团队介绍与职责里整理业务——product 是团队做什么产品、给谁用，systems 是核心系统或链路（最多 5 条，短语），constraints 是规模 / 合规 / 延迟这类约束；JD 没写的字段置 null、整段没写就 business=null，不要猜。若 JD 缺少任职要求或内容不完整，如实设置 completeness 和 missingInformation。提示词版本：${MOCK_INTERVIEW_PROMPT_VERSION}`,
       payload,
     });
     if (output.competencies.length > 0) {
       return finish(1, cleanBlueprint(output, input.jobDescription));
     }
   } catch {
-    // 进入简化重试。失败细节已由 runAgent 记录。
+    // 进入兜底蓝图。失败细节已由 runAgent 记录。曾有"换简化 schema 再调一次"的第二级：真实记账 29 次只救回 3 次，失败多是服务商不可用，已删。
   }
 
-  // 第二级：扁平宽松 schema 重试一次。
-  try {
-    const { output } = await runAgent({
-      agent: "job_blueprint_simplified",
-      runId: input.generationId,
-      config,
-      feature: "AI 模拟面试",
-      promptVersion: MOCK_INTERVIEW_PROMPT_VERSION,
-      schema: simplifiedBlueprintSchema,
-      maxOutputTokens: 2_000,
-      timeoutMs: MOCK_INTERVIEW_GENERATION_TIMEOUT_MS,
-      untrustedInputs: "岗位名称和岗位描述",
-      system: `你是岗位分析 Agent。从 JD 中列出这个岗位考察的能力（最多 8 条），每条给名称和一句描述。提示词版本：${MOCK_INTERVIEW_PROMPT_VERSION}`,
-      payload,
-    });
-    const normalized = normalizeLooseBlueprint(output);
-    if (normalized) return finish(2, cleanBlueprint(normalized, input.jobDescription));
-  } catch {
-    // 进入兜底蓝图。
-  }
-
-  return finish(3, fallbackJobBlueprint(input.jobTitle));
+  return finish(2, fallbackJobBlueprint(input.jobTitle));
 }

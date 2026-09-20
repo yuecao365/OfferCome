@@ -1,6 +1,6 @@
 ---
 name: mobile
-description: 移动端领域出题（平台无关）：应用生命周期与状态、UI 渲染与性能、网络与缓存、离线与同步、包体与启动、发布与灰度、跨端选型。目标岗位是移动端/客户端/App 开发时加载；Android/iOS/Flutter 细节交给对应 stack 包。
+description: 移动端怎么面（平台无关）：生命周期、渲染性能、网络缓存、离线同步、包体启动、发布。客户端岗读。
 keywords: [移动端, 客户端, app开发, mobile, 客户端开发, android, ios, flutter, react native, 跨端, 启动优化, 包体积, 灰度发布, 移动开发]
 layer: domain
 ---

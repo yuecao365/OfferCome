@@ -259,7 +259,7 @@ export type AgentRunOptions<T> = {
    */
   output?: "object" | "none";
   /** 按步指定工具选择（覆盖循环的 auto）：比如第 2 步起强制指向提问工具。返回 undefined 用循环的。 */
-  toolChoiceAt?: (step: number) => "auto" | { type: "tool"; toolName: string } | undefined;
+  toolChoiceAt?: (step: number) => "auto" | "required" | { type: "tool"; toolName: string } | undefined;
   /** 复用已创建的模型实例，避免同一次生成里重复构造 */
   model?: LanguageModel;
   /** 结构化输出失败时，从原始文本里抢救可用结果 */
@@ -579,7 +579,7 @@ export async function runAgent<T>(
         } catch (error) {
           // 指定工具没生效——服务商不支持 tool_choice，或模型无视指定没调（SDK 报 "did not contain a call to the required tool"）：
           // 退化为 auto（提示词仍要求调工具），再不成由调用方的兜底接。
-          if (typeof choice === "object" && error instanceof Error && /tool[_ ]?choice|required tool/i.test(error.message)) result = await generate("auto");
+          if (choice !== "auto" && choice !== "none" && error instanceof Error && /tool[_ ]?choice|required tool/i.test(error.message)) result = await generate("auto");
           else throw error;
         }
         readOutput = contractInTool

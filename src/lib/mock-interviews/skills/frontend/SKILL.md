@@ -1,7 +1,7 @@
 ---
 name: frontend
-description: 前端领域出题（框架无关）：浏览器渲染与性能、JS/TS 语言机制、工程化与构建、网络与安全、可访问性与监控。目标岗位是前端/Web/大前端/客户端 Web 方向时加载；React/Vue 细节交给对应 stack 包。
-keywords: [前端, frontend, web前端, 前端开发, web developer, javascript, typescript, 浏览器, vite, webpack, http, 性能优化, 大前端, h5]
+description: 前端怎么面（框架无关）：浏览器渲染、JS/TS 机制、构建、HTTP 缓存、Web 安全。前端与全栈岗读。
+keywords: [前端, frontend, web前端, 前端开发, web developer, javascript, typescript, 浏览器, vite, webpack, http, 性能优化, 大前端, h5, 全栈, fullstack, bff, next.js, ssr, graphql]
 layer: domain
 ---
 
@@ -16,6 +16,8 @@ layer: domain
 - 性能与体积题必须要求给出测量手段与前后数字，"感觉快了"不算答案；追问的下一句永远是"你怎么证明"。
 - 工程化题结合候选人项目规模：个人项目问打包产物分析与缓存策略，团队项目问构建提速、规范落地与多人协作下的依赖治理。
 - 不考工具时效：不问"Vite 最新版本改了什么"，考的是构建原理与选型判断；框架特有考点（Hooks、响应式）交给 stack 包，这里只考框架无关的部分。
+- 全栈岗用一个跨端故障场景逼候选人选边深挖：先问"你先查前端还是后端、为什么"，再顺着他选的那一侧追到排查层；后端一侧的深挖用 backend 包，这里只管 BFF、渲染策略与契约。
+- 2026 年框架层的分水岭是服务端组件与编译器：React 19 的 Server Components、Actions 与 React Compiler，Vue 3.5 的响应式重写与 Vapor 模式。这些在 react / vue 细节包里；这里只考框架无关的浏览器与语言机制，但会追候选人"什么该在服务端渲染、什么该在客户端"的判断。
 
 ## 项目 / 实习怎么深挖
 
@@ -29,6 +31,9 @@ layer: domain
 - 简历出现 TypeScript 迁移 → 追渐进策略、any 占比怎么降、类型检查时长、最难的类型是什么
 - 简历出现 H5 / WebView / 跨端 → 追兼容问题的定位手段、JSBridge 怎么设计、低端机的性能数据
 - 简历出现组件库 / 设计系统 → 追按需加载与 tree shaking 怎么保证、主题定制方案、可访问性做到什么程度、版本升级怎么不 break 业务
+- 简历出现 BFF / 中间层 → 追它聚合了几个下游、有没有超时熔断、最慢的接口是哪个、为什么不让前端直接调
+- 简历出现 Next.js / Nuxt / Remix → 追哪些页面 SSR 哪些 CSR、hydration 报过什么错、部署在哪、服务端渲染的成本谁付
+- 简历出现 GraphQL / monorepo / 共享类型 → 追为什么选它、N+1 怎么解决、共享了什么、一次改动影响面怎么控制
 
 ## 常见失守与危险信号
 
@@ -38,13 +43,8 @@ layer: domain
 - 原型、类与模块系统：说不出 ESM 静态分析与 CJS 动态 require 的本质区别；不知道 package.json 的 exports 字段
 - TypeScript 类型系统与工程实践：把 TS 当"带类型注释的 JS"，到处 any；不知道 unknown 和 any 的区别；说不出类型体操在业务里解决了什么真实问题
 - 构建工具与产物治理：只会说"配置一下 splitChunks"；不知道 browserslist 影响 polyfill 与语法降级；从没看过打包分析报告
-- 状态管理与数据流（框架无关）：所有状态一律扔进全局 store；分不清服务器状态和 UI 状态；没意识到 URL 也是状态源
 - HTTP、缓存与网络优化：说不出 Cache-Control 各指令；认为"加时间戳参数"是缓存治理；不知道 HTML 不能强缓存的原因
 - 跨域、鉴权与 Web 安全：认为"前端做了转义就没 XSS"；说 CSRF 时讲不出 SameSite 的作用；把 JWT 放 localStorage 却不知道 XSS 后果
-- 性能度量与线上监控：只知道 Lighthouse 跑分；不知道 source map 怎么在监控平台还原；上报没有采样也没有合并
-- 可访问性与国际化：认为可访问性就是"给图片加 alt"；用 div 做按钮却不加键盘事件与 role；不知道 Intl API
-- CSS 布局与视觉稳定：说不出为什么 transform 动画比 top/left 便宜；把 will-change 到处加；不知道 aspect-ratio 与 font-display
-- 跨端与 WebView 兼容：不知道 browserslist 与降级的关系；说不出 JSBridge 的通信方式；把所有问题归结为"兼容性"而不做定位
 
 ## 常考主题清单
 
@@ -74,10 +74,6 @@ layer: domain
 - 阶梯：Vite 开发态为什么快、生产态为什么还是 Rollup 打包 → ESBuild/SWC/Rolldown 与 Babel/Terser 在编译与压缩两端的分工，代码分割的边界怎么定 → 打包产物 3MB 怎么治理：分析工具找大头、重复依赖、polyfill 过量、图片与字体、按路由分割、动态导入 → 微前端/Monorepo 场景下构建缓存、依赖版本统一、CI 构建时间的取舍
 - 答实的标志：会用 rollup-plugin-visualizer 或 webpack-bundle-analyzer；提到 HTTP/2 下拆包粒度的变化；理解 modulepreload 与 chunk 加载瀑布；知道 CI 里构建缓存怎么做
 
-### 状态管理与数据流（框架无关）
-- 阶梯：为什么要把状态从组件里抽出来 → 单向数据流、不可变更新、派生状态与缓存的关系 → 页面上同一份数据在多处不一致（列表与详情、缓存与服务器）怎么定位与设计（服务器状态与客户端状态分开）→ 全局 store、URL 状态、服务端缓存库三者各管什么，过度全局化的代价
-- 答实的标志：区分 server state / client state / URL state；提到请求去重、缓存失效、乐观更新；能说出选择性订阅避免无关重渲染
-
 ### HTTP、缓存与网络优化
 - 阶梯：强缓存与协商缓存、状态码 200/304/206 → HTTP/2 多路复用解决了什么、HTTP/3 又解决了什么，CDN 缓存键与 Vary → 用户报"发版后页面还是旧的"怎么定位（HTML 被 CDN 缓存、Service Worker 缓存、hash 没变）→ 缓存策略与发布回滚、灰度的配合，长缓存 + 内容哈希的边界情况
 - 答实的标志：HTML no-cache + 静态资源 immutable 的组合；发布时保留旧版本资源；提到 SW 的更新策略与 skipWaiting 风险；知道 preconnect/dns-prefetch 的适用场景
@@ -85,19 +81,3 @@ layer: domain
 ### 跨域、鉴权与 Web 安全
 - 阶梯：同源策略与 CORS 的简单请求/预检 → Cookie 属性（SameSite、HttpOnly、Secure）、token 存哪里、CSRF 的原理 → 线上出现 XSS：从富文本、URL 参数、第三方脚本哪条路进来的，怎么定位与止血 → CSP 上线的收益与业务改造成本，token 放 localStorage 与 Cookie 的取舍
 - 答实的标志：区分存储型/反射型/DOM 型 XSS；提到 CSP、SRI、sandbox iframe；能说出 SameSite=Lax 默认值带来的变化；对 token 存放有权衡而非教条
-
-### 性能度量与线上监控
-- 阶梯：Core Web Vitals 各指标含义 → 实验室数据与真实用户数据（RUM）的差异，PerformanceObserver、web-vitals 库怎么采集 → 线上 LCP P75 突然从 2.1s 涨到 3.5s，怎么按版本、地域、机型、页面下钻归因 → 采样率、上报时机（sendBeacon、visibilitychange）、监控 SDK 自身的性能开销
-- 答实的标志：区分 lab 与 field 数据；知道 INP 取代 FID；提到 source map 上传与访问控制；有按维度下钻的经验
-
-### 可访问性与国际化
-- 阶梯：语义化标签、alt、label 的作用 → ARIA 的角色与状态、键盘可操作、焦点管理 → 自定义下拉/弹窗在读屏软件里不可用怎么修，焦点陷阱怎么做 → 无障碍改造的投入与合规要求（出海、政企项目）之间的取舍，国际化时文本长度、RTL、日期数字格式的坑
-- 答实的标志：焦点管理、Esc 关闭、aria-modal、背景 inert；提到 prefers-reduced-motion；国际化用 ICU 消息格式而不是字符串拼接
-
-### CSS 布局与视觉稳定
-- 阶梯：Flex 与 Grid 的适用场景、BFC → 层叠上下文、合成层与 GPU 加速的条件与代价 → 页面 CLS 高：图片没占位、字体切换、动态插入横幅，怎么定位与修 → CSS 方案选型（原子化、CSS Modules、CSS-in-JS 的运行时成本）在团队规模下的取舍
-- 答实的标志：能用 Layout Shift 面板定位；提到容器查询、逻辑属性；对 CSS-in-JS 运行时开销与 SSR 兼容性有认识
-
-### 跨端与 WebView 兼容
-- 阶梯：移动端适配单位与视口、1px 问题 → WebView 与浏览器的差异（内核版本、缓存、JSBridge）→ 页面在某品牌 Android 低端机白屏但其他机型正常怎么排查（语法降级、API 不支持、内存杀）→ H5、小程序、原生、跨端框架的选型依据与维护成本
-- 答实的标志：有远程调试（chrome://inspect、vConsole）经验；知道差异化打包（modern/legacy）；理解 WebView 缓存与离线包机制

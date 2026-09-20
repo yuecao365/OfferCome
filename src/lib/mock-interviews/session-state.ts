@@ -16,7 +16,6 @@ export type GenerationSnapshot = {
   jobBlueprint?: unknown;
   generationRequest?: {
     difficulty?: unknown;
-    round?: unknown;
     seedQuestionId?: unknown;
   };
   generationErrorContext?: unknown;

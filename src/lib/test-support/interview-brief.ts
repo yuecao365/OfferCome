@@ -5,8 +5,6 @@ import { rubricForArea, type InterviewArea, type InterviewBrief, type InterviewP
  * reducer / 对话窗口 / 服务层 / 体验版的测试共用同一份，形状变了只改这里。
  */
 
-const round = "first_interview";
-
 export const TEST_AREAS: InterviewArea[] = [
   {
     id: "p1-overview",
@@ -20,7 +18,7 @@ export const TEST_AREAS: InterviewArea[] = [
     entryQuestion: "先整体讲讲 Study Assistant：解决什么问题、架构是怎样的、你负责哪一块？",
     guides: ["工具链路", "安全链路"],
     expectedSignals: ["模块划分", "个人职责"],
-    rubric: rubricForArea("project", round),
+    rubric: rubricForArea("project"),
   },
   {
     id: "p1-module",
@@ -34,7 +32,7 @@ export const TEST_AREAS: InterviewArea[] = [
     entryQuestion: "先聊项目：主循环里你负责哪一段？",
     guides: ["你负责的边界", "为什么这么设计", "怎么量的"],
     expectedSignals: ["个人职责", "取舍"],
-    rubric: rubricForArea("project", round),
+    rubric: rubricForArea("project"),
   },
   ...["缓存一致性", "MySQL 索引", "消息队列可靠投递", "HTTP 缓存"].map((name, index): InterviewArea => ({
     id: `q${index + 1}`,
@@ -48,7 +46,7 @@ export const TEST_AREAS: InterviewArea[] = [
     entryQuestion: `${name}：最关键的一个机制是什么？`,
     guides: ["追问它的边界条件"],
     expectedSignals: ["机制准确"],
-    rubric: rubricForArea("quick", round),
+    rubric: rubricForArea("quick"),
   })),
   {
     id: "s1",
@@ -62,7 +60,7 @@ export const TEST_AREAS: InterviewArea[] = [
     entryQuestion: "秒杀系统偶发超卖，你会先看哪一步？",
     guides: ["追问为什么先看这里", "追问条件变了怎么办", "追问怎么验证"],
     expectedSignals: ["排查顺序", "验证方式"],
-    rubric: rubricForArea("scenario", round),
+    rubric: rubricForArea("scenario"),
   },
 ];
 
@@ -71,7 +69,6 @@ export function testBrief(overrides: Partial<InterviewBrief> & { pace?: Intervie
   return {
     version: 8,
     pace,
-    round,
     product: null,
     askIntro: true,
     areas: TEST_AREAS,

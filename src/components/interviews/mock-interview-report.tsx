@@ -90,7 +90,7 @@ function Estimates({ items }: { items: MockInterviewView["estimates"] }) {
               <>
                 <Badge tone={item.mean >= 0.7 ? "success" : item.mean >= 0.4 ? "neutral" : "warning"}>估计 {levelLabel(item.mean)}</Badge>
                 <MetaText>
-                  置信 {levelLabel(item.confidence)} · {item.samples} 段{item.weight >= 1 ? " · 核心" : ""}
+                  置信 {levelLabel(item.confidence)} · {item.samples} 段
                 </MetaText>
               </>
             )}
@@ -127,8 +127,7 @@ function Teaching({ question }: { question: Question }) {
           <div className="rounded-control border border-border bg-surface p-3">
             <p className="font-medium text-foreground">岗位常见考点</p>
             <p className="mt-1">
-              这道题来自这个岗位通常会考的基础题
-              {teaching.skillPack ? "（技能包 " + teaching.skillPack + "）" : ""}，不是你提供的岗位描述里写明的。
+              这道题来自这个岗位通常会考的基础题，不是你提供的岗位描述里写明的。
             </p>
           </div>
         ) : null}
@@ -157,12 +156,6 @@ function Teaching({ question }: { question: Question }) {
               ))}
             </ul>
           </div>
-        ) : null}
-        {teaching.note ? (
-          <p>
-            <span className="font-medium text-foreground">面试官的判断：</span>
-            {teaching.note}
-          </p>
         ) : null}
       </div>
     </details>

@@ -15,7 +15,6 @@ export type OutcomeThread = {
   label: string;
   status: string;
   depth: number;
-  note: string | null;
   questionId: string | null;
 };
 
@@ -27,7 +26,7 @@ export type OutcomeQuestion = {
 
 export type AreaOutcome = { summary: SummaryInput["areas"][number]; scores: number[] };
 
-/** 每个聊过的话题：种类、追问轮数、面试官判断、分数与短板；跳过的记 0 分；答了但评分失败的不计入总分。权重按种类（项目 3、场景 2、基础 1）。 */
+/** 每个聊过的话题：种类、追问轮数、分数与短板；跳过的记 0 分；答了但评分失败的不计入总分。权重按种类（项目 3、场景 2、基础 1）。 */
 export function areaOutcomes(_brief: InterviewBrief, threads: OutcomeThread[], questions: OutcomeQuestion[]): AreaOutcome[] {
   const questionById = new Map(questions.map((question) => [question.id, question]));
   return threads.flatMap((thread) => {
@@ -44,7 +43,6 @@ export function areaOutcomes(_brief: InterviewBrief, threads: OutcomeThread[], q
           kind,
           weight: KIND_WEIGHT[kind],
           depthReached: thread.depth,
-          threadNote: thread.note,
           skipped: !answered,
           score: answered ? (question.evaluation?.score ?? null) : null,
           weaknesses: question?.evaluation?.weaknesses ?? [],
@@ -54,25 +52,13 @@ export function areaOutcomes(_brief: InterviewBrief, threads: OutcomeThread[], q
   });
 }
 
-export function summaryInput(input: {
-  jobTitle: string;
-  brief: InterviewBrief;
-  areas: AreaOutcome[];
-  ledger: string;
-  /** 整理员对简历假设的判断；没有（旧会话）按 open。 */
-  hypotheses: { id: string; status: "open" | "confirmed" | "refuted"; note: string | null }[];
-}): SummaryInput {
-  const judged = new Map(input.hypotheses.map((item) => [item.id, item]));
+export function summaryInput(input: { jobTitle: string; brief: InterviewBrief; areas: AreaOutcome[]; ledger: string }): SummaryInput {
   return {
     jobTitle: input.jobTitle,
-    round: input.brief.round,
     pace: input.brief.pace,
     areas: input.areas.map((area) => area.summary),
     ledger: input.ledger,
-    hypotheses: input.brief.hypotheses.map((hypothesis) => {
-      const item = judged.get(hypothesis.id);
-      return { text: hypothesis.text, status: item?.status ?? "open", note: item?.note ?? null };
-    }),
+    hypotheses: input.brief.hypotheses.map((hypothesis) => hypothesis.text),
   };
 }
 

@@ -136,10 +136,10 @@ export function renderLedger(brief: Pick<InterviewBrief, "areas">, entries: { ma
   return [...grouped].map(([id, texts]) => `「${names.get(id) ?? id}」：${texts.join("；")}`).join("\n");
 }
 
-/** 模型每回合看到的状态卡正文：每份材料一段，候选人一段。整场只追加、不重写。 */
+/** 模型每回合看到的状态卡正文：每份材料一段，候选人一段。只写进度，不重印议程里已有的切入问法与阶梯（那些在缓存前缀里）。 */
 export function renderState(state: InterviewState): string {
   const materials = state.materials.map((material) => {
-    const head = `- [${material.id}] ${KIND_LABELS[material.kind]}「${material.name}」：${STATUS_LABELS[material.status]}${material.status === "open" || material.status === "done" ? `，问了 ${material.asked} / ${material.budget} 句` : `，可问 ${material.budget} 句`}${material.status === "untouched" ? `。切入问法：${material.entryQuestion}` : ""}`;
+    const head = `- [${material.id}] ${KIND_LABELS[material.kind]}「${material.name}」：${STATUS_LABELS[material.status]}${material.status === "open" || material.status === "done" ? `，问了 ${material.asked} / ${material.budget} 句` : `，可问 ${material.budget} 句`}`;
     const facets = material.facets.length > 0 && material.status !== "untouched" ? `\n  角度：${material.facets.map((facet, index) => `${index + 1}. ${facet.text}（${facet.status === "done" ? "讲透了" : facet.status === "asked" ? `追了 ${facet.probes} 句` : "没问"}）`).join("；")}` : "";
     const ledger = material.ledger.length > 0 ? `\n  证据账：${material.ledger.map((item) => item.text).join("；")}` : "";
     return head + facets + ledger;

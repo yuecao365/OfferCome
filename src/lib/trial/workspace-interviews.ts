@@ -96,7 +96,6 @@ export function addCompletedMockInterview(
     id: string;
     companyName: string;
     jobTitle: string;
-    round: string | null;
     questions: {
       question: string;
       answer: string | null;
@@ -113,7 +112,8 @@ export function addCompletedMockInterview(
     kind: "mock",
     companyName: input.companyName,
     jobTitle: input.jobTitle,
-    round: input.round,
+    // 模拟面试不分轮次；轮次只是真实面试记录的字段。
+    round: null,
     status: "completed",
     interviewedAt: now,
     note: "AI 模拟面试",

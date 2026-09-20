@@ -35,7 +35,6 @@ const jobCompetencySchema = z.object({
   id: z.string().min(1).max(40),
   name: z.string().min(1).max(100),
   description: z.string().min(1).max(400),
-  priority: z.enum(["core", "secondary"]),
   jdEvidence: z
     .string()
     .min(1)
@@ -88,18 +87,14 @@ export const storedJobBlueprintSchema = mockInterviewJobBlueprintSchema.extend({
 export type MockInterviewJobBlueprint = z.infer<
   typeof mockInterviewJobBlueprintSchema
 >;
-/** 报告页"这道题在考察什么"：这段所属阶段与来源、期望信号、面试官关线程时的判断。 */
+/** 报告页"这道题在考察什么"：这段所属阶段与来源、期望信号、问过的角度。 */
 export type MockInterviewQuestionTeaching = {
   areaName: string | null;
   /** jd：JD 明确要求（场景题）；baseline：技能包里的岗位常见考点（基础题）。 */
   competencyOrigin: "jd" | "baseline" | null;
-  /** baseline 来源时是哪个技能包。 */
-  skillPack: string | null;
   /** 候选人在这条线程里的作答总时长（秒），只作辅助信号；没有记录为 null。 */
   answerSeconds: number | null;
   expectedSignals: string[];
-  /** 面试官关线程时的判断；代码被迫关线程时为 null。 */
-  note: string | null;
   /** 这段属于哪个阶段（project / quick / scenario）。 */
   sourceKind: string;
   /** 面试官问过的角度、材料的全部角度（§10.6 起）；旧场次为空。 */
@@ -159,7 +154,7 @@ export type MockInterviewView = {
   }[];
 };
 
-export const MOCK_INTERVIEW_PROMPT_VERSION = "mock-interview-v7-inferred-origin";
+export const MOCK_INTERVIEW_PROMPT_VERSION = "mock-interview-v8-no-priority";
 
 export const MOCK_INTERVIEW_GENERATION_TIMEOUT_MS = 60_000;
 

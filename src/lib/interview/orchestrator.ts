@@ -67,7 +67,7 @@ export async function startTurn(input: { sessionId: string; candidate: Candidate
   const state = turnState(loaded);
   const turnIndex = loaded.messages.filter((message) => message.role === "interviewer").length;
   const config = await getAiTaskConfig("text");
-  const context = { jobTitle: loaded.interview.jobTitle, jobDescription: loaded.jdTextSnapshot, resumeText: loaded.resumeTextSnapshot, skillPacks: packsForInterview(state.brief.skillPacks ?? [], await loadSkillPacks(), 3), dossier: dossierOf(loaded.contextSnapshotJson)?.body ?? null };
+  const context = { jobTitle: loaded.interview.jobTitle, jobDescription: loaded.jdTextSnapshot, resumeText: loaded.resumeTextSnapshot, skillPacks: packsForInterview(state.brief.skillPacks ?? [], await loadSkillPacks(), 3), dossier: dossierOf(loaded.contextSnapshotJson)?.body ?? null, product: state.brief.product };
   return {
     replay: false,
     finalize: async () => {
@@ -136,7 +136,7 @@ export async function replayMockInterviewTurn(sessionId: string, turnIndex: numb
   const state: TurnState = { brief, events: prefix, phase: prefix.some((item) => item.type === "interviewer_said") ? "running" : "opening" };
   const candidateEvent = boundary.candidateIndex === null ? null : events[boundary.candidateIndex];
   const candidate: CandidateInput | null = candidateEvent?.type === "candidate_said" ? { clientId: `replay:${turnIndex}`, content: candidateEvent.payload.content, control: candidateEvent.payload.control ?? null, composeMs: candidateEvent.payload.composeMs ?? null } : null;
-  const context = { jobTitle: loaded.interview.jobTitle, jobDescription: loaded.jdTextSnapshot, resumeText: loaded.resumeTextSnapshot, skillPacks: packsForInterview(brief.skillPacks ?? [], await loadSkillPacks(), 3), dossier: dossierOf(loaded.contextSnapshotJson)?.body ?? null };
+  const context = { jobTitle: loaded.interview.jobTitle, jobDescription: loaded.jdTextSnapshot, resumeText: loaded.resumeTextSnapshot, skillPacks: packsForInterview(brief.skillPacks ?? [], await loadSkillPacks(), 3), dossier: dossierOf(loaded.contextSnapshotJson)?.body ?? null, product: brief.product };
   const startedAt = Date.now();
   const result = await runTurn({ runId: `replay:${sessionId}:${turnIndex}:${Date.now()}`, config: await getAiTaskConfig("text"), state, candidate, context });
   const spoken = result.said.find((line) => line.role === "interviewer");

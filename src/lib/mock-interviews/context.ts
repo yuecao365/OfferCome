@@ -47,10 +47,10 @@ export function businessOf(contextSnapshotJson: string | null | undefined): JobB
 
 export function competenciesOf(contextSnapshotJson: string | null | undefined): Competency[] {
   try {
-    const parsed = JSON.parse(contextSnapshotJson ?? "{}") as { jobBlueprint?: { competencies?: { id?: unknown; name?: unknown; priority?: unknown; description?: unknown }[] } | null };
+    const parsed = JSON.parse(contextSnapshotJson ?? "{}") as { jobBlueprint?: { competencies?: { id?: unknown; name?: unknown; description?: unknown }[] } | null };
     return (parsed.jobBlueprint?.competencies ?? []).flatMap((item) =>
       typeof item.id === "string" && typeof item.name === "string"
-        ? [{ id: item.id, name: item.name, priority: item.priority === "secondary" ? ("secondary" as const) : ("core" as const), ...(typeof item.description === "string" ? { description: item.description } : {}) }]
+        ? [{ id: item.id, name: item.name, ...(typeof item.description === "string" ? { description: item.description } : {}) }]
         : [],
     );
   } catch {

@@ -53,16 +53,12 @@ async function loadGeneratingSession(sessionId: string) {
   return { ...session, pace: session.pace };
 }
 
-type GenerationRequest = {
-  round: string | null;
-  seedQuestionId: string | null;
-};
+type GenerationRequest = { seedQuestionId: string | null };
 
 /** 创建会话时写进快照的生成参数。历史数据字段可能缺失，逐个兜底。 */
 function readGenerationRequest(snapshot: GenerationSnapshot): GenerationRequest {
   const request = snapshot.generationRequest ?? {};
   return {
-    round: typeof request.round === "string" ? request.round : null,
     seedQuestionId:
       typeof request.seedQuestionId === "string" ? request.seedQuestionId : null,
   };
@@ -196,7 +192,7 @@ export async function prepareMockInterview(sessionId: string): Promise<void> {
       const advanced = await claimSession(prisma, { where: { id: sessionId, status: "generating" }, data: { generationPhase: "brief" } });
       if (!advanced) return;
       // generateInterviewBrief 自带兜底简报，不会抛出"没有简报"这种终态。
-      brief = await generateInterviewBrief({ generationId, jobTitle: session.interview.jobTitle, blueprint, context, pace: session.pace, round: request.round, dossier: dossier?.body ?? null });
+      brief = await generateInterviewBrief({ generationId, jobTitle: session.interview.jobTitle, blueprint, context, pace: session.pace, dossier: dossier?.body ?? null });
       if (briefReady(blueprint, brief)) break;
     }
     await persistBrief(session, snapshot, context, blueprint!, brief!, dossier ? { version: dossier.version, body: dossier.body } : null, briefReady(blueprint!, brief!));

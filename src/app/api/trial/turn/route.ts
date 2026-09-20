@@ -37,7 +37,7 @@ export const POST = withTrialAiResponse<Body>(async (body) => {
   const messages = Array.isArray(body.state.messages) ? body.state.messages : [];
   // 体验版没有事件日志：从消息合成状态需要的事件（工具账因此每回合为空，面试官可能重复查）。
   const state: TurnState = { brief: body.state.brief, events: eventsOfMessages(messages), phase: messages.length === 0 ? "opening" : "running" };
-  const context = { ...body.context, skillPacks: packsForInterview(Array.isArray(body.context?.skillPacks) ? body.context.skillPacks : [], await loadSkillPacks(), 3) };
+  const context = { ...body.context, product: body.state.brief.product ?? null, skillPacks: packsForInterview(Array.isArray(body.context?.skillPacks) ? body.context.skillPacks : [], await loadSkillPacks(), 3) };
   try {
     const turnIndex = messages.filter((message) => message.role === "interviewer").length;
     const config = await getAiTaskConfig("text");

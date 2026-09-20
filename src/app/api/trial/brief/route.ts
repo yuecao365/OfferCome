@@ -16,7 +16,6 @@ type Body = {
   resume: TrialResumeInput;
   blueprint: MockInterviewJobBlueprint;
   pace: InterviewPace;
-  round: string | null;
   /** 浏览器从最近的模拟面试算好带上（与本地版 context.ts 同口径）：短板、问过的题。 */
   recentWeaknesses: RecentWeakness[];
   recentQuestions: string[];
@@ -39,7 +38,6 @@ export const POST = withTrialAi<Body>(async (body) => {
       recentQuestions: strings(body.recentQuestions),
     },
     pace,
-    round: body.round,
   });
   return { brief };
 });

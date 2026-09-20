@@ -22,7 +22,7 @@ import type { SkillPack } from "./skills/types";
 import { createRecallTool } from "./tools/recall";
 import { createResumeLookupTool } from "./tools/resume-lookup";
 
-export const EVALUATION_PROMPT_VERSION = "evaluation-v6";
+export const EVALUATION_PROMPT_VERSION = "evaluation-v7";
 /** 最多调 3 步工具，之后一步直接出分。 */
 const EVALUATION_TOOL_STEPS = 3;
 
@@ -59,12 +59,6 @@ const questionEvaluationSchema = z.object({
     .max(3),
 });
 
-const ROUND_LABELS: Record<string, string> = {
-  first_interview: "技术一面",
-  second_interview: "技术二面",
-  hr_interview: "HR 面",
-};
-
 /** 工具的用法写进提示词：代码不替它选。哪个工具给了才写哪段。 */
 function toolGuide(tools: { resume: boolean; skills: SkillPack[]; recall: boolean }): string {
   const lines: string[] = [];
@@ -74,12 +68,12 @@ function toolGuide(tools: { resume: boolean; skills: SkillPack[]; recall: boolea
   return lines.length === 0 ? "" : `\n\n只读工具（查完直接出分）：\n${lines.join("\n")}`;
 }
 
-function systemPrompt(round: string | null, tools: { resume: boolean; skills: SkillPack[]; recall: boolean }): string {
+function systemPrompt(tools: { resume: boolean; skills: SkillPack[]; recall: boolean }): string {
   return `你是模拟面试逐题评分 Agent：只按 rubric 维度和候选人的实际回答评分，不下录用结论。
 
 怎么评：thread.kind 是这段的阶段（project 项目深挖、quick 基础快问只追 1 层、scenario 场景题引导式），probeCount 是追问句数，facets 是问过的角度。追到第 n 层答不上属于正常，按实际达到的深度给分，不按完美答案扣；基础快问一两句回答正常，不因没展开扣分；expectedSignals 只是参考，换个角度答到位同样给分。difficulty 是答到阶梯第几层（1 名词，2 机制，3 取舍与边界，4 有判断且说得出怎么验证）；competencyId 只填 competencies 里的 id，对不上 null。
 
-分带（${ROUND_LABELS[round ?? ""] ?? "技术面"}）：90+ 准确、有取舍、能迁移；70–89 主干正确、细节或取舍有欠缺；50–69 有尝试但关键点缺失；50 以下关键内容错误或基本没答。
+分带：90+ 准确、有取舍、能迁移；70–89 主干正确、细节或取舍有欠缺；50–69 有尝试但关键点缺失；50 以下关键内容错误或基本没答。
 
 短板：error = 回答里有一句技术上站不住的具体陈述，quote 必须原样复制那句（系统逐字校验，改写的会被丢弃）；missing = 追问到了没答上、答偏，或该讲的关键机制没出现，point 写清哪一层缺什么。笼统、不严谨、缺细节缺数字都不是 error。维度分要和短板对得上：关键机制没讲的维度要在 gap 和分数上体现；出现 error 的维度不超过 69。
 
@@ -111,7 +105,6 @@ export async function evaluateMockInterviewQuestion(input: {
   jobTitle: string;
   jobDescription: string;
   thread: EvaluationThreadContext | null;
-  round: string | null;
   /** 岗位能力清单：评分挑这段主要考的那项。 */
   competencies: { id: string; name: string }[];
   /** 简历原文：给 lookup_resume 核对用；空串不给工具。 */
@@ -150,7 +143,7 @@ export async function evaluateMockInterviewQuestion(input: {
     timeoutMs: withTools ? 60_000 : 40_000,
     ...(withTools && Object.keys(tools).length > 0 ? { tools, budget: { maxSteps: EVALUATION_TOOL_STEPS }, hooks: dedupeHooks() } : {}),
     untrustedInputs: "岗位描述、问题、回答、评分标准和面试官备注",
-    system: systemPrompt(input.round, withTools ? { resume: Boolean(resumeText), skills: skillPacks, recall: recall !== null } : { resume: false, skills: [], recall: false }),
+    system: systemPrompt(withTools ? { resume: Boolean(resumeText), skills: skillPacks, recall: recall !== null } : { resume: false, skills: [], recall: false }),
     payload: {
       jobTitle: input.jobTitle,
       // 评分不需要整份 JD：岗位重点已在 competencies 里，JD 只留个头给分带定位。

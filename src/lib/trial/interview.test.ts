@@ -26,7 +26,6 @@ function fresh() {
   return createTrialInterview({
     job: { companyName: "示例公司", jobTitle: "后端工程师", jobDescription: "负责服务端开发。" },
     resume: { text: "简历正文", projects: [] },
-    round: "first_interview",
     pace: "standard",
   });
 }

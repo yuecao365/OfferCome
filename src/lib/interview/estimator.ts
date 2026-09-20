@@ -3,7 +3,7 @@
  * 纯函数；面试后用切段与评分算（queries.buildEstimates）。面试中的在线估计、跨场先验与现场卡提示已随实验层删除（重建 v5 §7）。
  */
 
-export type Competency = { id: string; name: string; priority: "core" | "secondary"; /** 蓝图里的一句描述（模拟器按它对题）。 */ description?: string };
+export type Competency = { id: string; name: string; /** 蓝图里的一句描述（模拟器按它对题）。 */ description?: string };
 
 export type Observation = {
   competencyId: string;
@@ -18,8 +18,6 @@ export type Observation = {
 export type Estimate = {
   competencyId: string;
   name: string;
-  /** 岗位权重：core 1、secondary 0.6。 */
-  weight: number;
   /** 0–1 的能力估计（Beta 后验均值；没有测量也没有先验时 0.5）。 */
   mean: number;
   /** 0–1：n / (n + 2)，n 是置信加权的测量数。 */
@@ -30,7 +28,6 @@ export type Estimate = {
 export const DIFFICULTY_LEVELS = 4;
 /** 置信到这里算"足够确定"（约三段有效问答）。 */
 export const CONFIDENT = 0.6;
-const WEIGHT: Record<Competency["priority"], number> = { core: 1, secondary: 0.6 };
 const PRIOR = { alpha: 1, beta: 1 };
 
 const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value));
@@ -56,7 +53,7 @@ export function estimate(competencies: Competency[], observations: Observation[]
       weight += confidence;
       samples += 1;
     }
-    return { competencyId: competency.id, name: competency.name, weight: WEIGHT[competency.priority], mean: alpha / (alpha + beta), confidence: weight / (weight + 2), samples };
+    return { competencyId: competency.id, name: competency.name, mean: alpha / (alpha + beta), confidence: weight / (weight + 2), samples };
   });
 }
 

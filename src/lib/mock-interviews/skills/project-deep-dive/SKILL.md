@@ -1,6 +1,6 @@
 ---
 name: project-deep-dive
-description: 项目与实习深挖追问法：职责边界、技术决策还原、数字来源、失败与复盘、条件变了怎么办。所有面试都加载，出简历项目题或需要判断经历真实性时必用。
+description: 项目与实习深挖追问法：职责边界、决策还原、数字来源、复盘。每场都读。
 keywords: [项目经历, 实习经历, 项目深挖, 简历追问, 技术选型, 量化结果, 复盘, 难点, 毕设, 开源, project, internship, deep dive, 实习生]
 layer: base
 ---

@@ -144,7 +144,6 @@ export async function completeMockInterview(
               brief,
               areas,
               ledger: renderLedger(brief, ledgerOf(session.events.map(parseEventRow).filter((item): item is InterviewEvent => item !== null))),
-              hypotheses: brief.hypotheses.map((item) => ({ id: item.id, status: "open" as const, note: null })),
             }),
           )
         : ALL_SKIPPED_SUMMARY;

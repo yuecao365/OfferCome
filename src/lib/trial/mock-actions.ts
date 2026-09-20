@@ -113,7 +113,6 @@ export async function createTrialMockSession(formData: FormData, resume: TrialRe
   const interview = createTrialInterview({
     job: { companyName, jobTitle, jobDescription },
     resume,
-    round: field(formData, "round") || null,
     pace: isInterviewPace(pace) ? pace : "standard",
   });
   writeTrialInterview(interview);
@@ -139,7 +138,6 @@ export async function runGeneration(id: string, seedQuestionId: string | null = 
       resume: interview.resume,
       blueprint: interview.blueprint!,
       pace: interview.pace,
-      round: interview.round,
       ...recentHistory(interview.job.jobTitle, seedQuestionId),
     });
     mutateTrialInterview(id, (current) => withBrief(current, brief));
@@ -197,7 +195,6 @@ async function evaluateTrialSegment(id: string, segmentId: string): Promise<void
     mutateTrialInterview(id, (current) => setSegmentEvaluation(current, segmentId, { evaluationStatus: "running" }));
     const evaluation = await evaluateSegment({
       segment,
-      round: interview.round,
       jobTitle: interview.job.jobTitle,
       jobDescription: interview.job.jobDescription,
       resumeText: interview.resume.text,
@@ -228,9 +225,9 @@ export async function completeTrialMockSession(id: string): Promise<void> {
       const areas = new Map(brief.areas.map((area) => [area.id, area]));
       const segments = cutSegments(transcript, brief).map((segment) => {
         const probes = transcript.filter((line) => line.role === "interviewer" && line.kind === "say" && line.seq > segment.startSeq && line.seq <= segment.endSeq).map((line) => line.content);
-        return { id: crypto.randomUUID(), ...segmentRecord(areas.get(segment.areaId)!, segment, probes, interview.round), evaluationStatus: "pending" as const, evaluation: null };
+        return { id: crypto.randomUUID(), ...segmentRecord(areas.get(segment.areaId)!, segment, probes), evaluationStatus: "pending" as const, evaluation: null };
       });
-      mutateTrialInterview(id, (current) => ({ ...current, questions: segments, hypotheses: brief.hypotheses.map((item) => ({ id: item.id, status: "open" as const, note: null })) }));
+      mutateTrialInterview(id, (current) => ({ ...current, questions: segments }));
     }
     // 在途的评分等它跑完；失败与还没开始的当场补跑。
     while (requireInterview(id).questions.some((segment) => segment.evaluationStatus === "running")) {
@@ -244,14 +241,12 @@ export async function completeTrialMockSession(id: string): Promise<void> {
       jobTitle: current.job.jobTitle,
       brief,
       ledger: renderLedger(brief, current.ledger),
-      hypotheses: current.hypotheses,
       threads: current.questions.map((segment) => ({
         areaId: typeof segment.metadata.areaId === "string" ? segment.metadata.areaId : null,
         kind: segment.sourceKind,
         label: typeof segment.metadata.areaName === "string" ? segment.metadata.areaName : segment.question.split("\n")[0],
         status: "closed",
         depth: typeof segment.metadata.depth === "number" ? segment.metadata.depth : 0,
-        note: typeof segment.metadata.note === "string" ? segment.metadata.note : null,
         questionId: segment.id,
       })),
       questions: current.questions.map((segment) => ({
@@ -268,7 +263,6 @@ export async function completeTrialMockSession(id: string): Promise<void> {
         id: completed.id,
         companyName: completed.job.companyName,
         jobTitle: completed.job.jobTitle,
-        round: completed.round,
         questions: completed.questions.map((segment) => ({
           question: segment.question,
           answer: segment.answer,

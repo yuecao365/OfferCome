@@ -85,7 +85,6 @@ test("upsertInterview 按面试时间推导状态", () => {
 test("upsertInterview 以 id 更新时保留 kind/评分", () => {
   let workspace = addCompletedMockInterview(createEmptyWorkspace(), {
     id: crypto.randomUUID(),
-    round: null,
     companyName: "云帆科技",
     jobTitle: "后端开发工程师",
     questions: [
@@ -133,7 +132,6 @@ test("queryInterviews 支持关键词、轮次与问题类型筛选", () => {
 test("模拟面试记录以自身 id 充当会话 id", () => {
   const workspace = addCompletedMockInterview(createEmptyWorkspace(), {
     id: crypto.randomUUID(),
-    round: null,
     companyName: "云帆科技",
     jobTitle: "后端开发工程师",
     questions: [
@@ -151,7 +149,6 @@ test("interviewStats 只统计真实面试", () => {
   let workspace = seeded();
   workspace = addCompletedMockInterview(workspace, {
     id: crypto.randomUUID(),
-    round: null,
     companyName: "云帆科技",
     jobTitle: "后端开发工程师",
     questions: [],
@@ -166,7 +163,6 @@ test("interviewWorkspaceOverview 汇总模拟均分与轮次分布", () => {
   let workspace = seeded();
   workspace = addCompletedMockInterview(workspace, {
     id: crypto.randomUUID(),
-    round: null,
     companyName: "云帆科技",
     jobTitle: "后端开发工程师",
     questions: [],

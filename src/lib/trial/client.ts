@@ -8,7 +8,7 @@ import type { MockInterviewReport } from "@/lib/mock-interviews/report";
 import type { MockInterviewJobBlueprint } from "@/lib/mock-interviews/types";
 
 import { readAiToken } from "./browser-store";
-import type { TrialEvaluation, TrialInterview, TrialJobInput, TrialResumeInput, TrialSegment } from "./interview";
+import type { TrialEvaluation, TrialJobInput, TrialResumeInput, TrialSegment } from "./interview";
 import { TRIAL_AI_HEADER } from "./protocol";
 import { readTrialResponse, TrialRequestError, isTrialRequestError } from "./response";
 import type { TrialResumeParseResult } from "./resume";
@@ -124,7 +124,6 @@ export async function requestBrief(input: {
   resume: TrialResumeInput;
   blueprint: MockInterviewJobBlueprint;
   pace: InterviewPace;
-  round: string | null;
   recentWeaknesses: RecentWeakness[];
   recentQuestions: string[];
 }): Promise<{ brief: InterviewBrief }> {
@@ -162,7 +161,6 @@ export function createTrialTurnTransport(input: {
 
 export async function evaluateSegment(input: {
   segment: TrialSegment;
-  round: string | null;
   jobTitle: string;
   jobDescription: string;
   resumeText: string;
@@ -176,7 +174,6 @@ export async function requestReport(input: {
   jobTitle: string;
   brief: InterviewBrief;
   ledger: string;
-  hypotheses: TrialInterview["hypotheses"];
   threads: OutcomeThread[];
   questions: OutcomeQuestion[];
 }): Promise<MockInterviewReport> {

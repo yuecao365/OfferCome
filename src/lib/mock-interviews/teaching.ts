@@ -6,8 +6,6 @@ import type { MockInterviewQuestionTeaching } from "./types";
 const metadataSchema = z.object({
   areaName: z.string().nullable().optional(),
   competencyOrigin: z.enum(["jd", "baseline"]).nullable().optional(),
-  skillPack: z.string().nullable().optional(),
-  note: z.string().nullable().optional(),
   answerSeconds: z.number().nullable().optional(),
   facets: z.array(z.string()).optional(),
   facetsAll: z.array(z.string()).optional(),
@@ -16,7 +14,7 @@ const metadataSchema = z.object({
 
 const expectedSignalsSchema = z.array(z.string());
 
-/** 报告页"这道题在考察什么"：领域、来源、期望信号、面试官关线程时的判断。 */
+/** 报告页"这道题在考察什么"：领域、来源、期望信号、问过的角度。 */
 export function buildQuestionTeaching(input: {
   metadata: unknown;
   expectedSignals: unknown;
@@ -28,10 +26,8 @@ export function buildQuestionTeaching(input: {
   return {
     areaName: data.areaName ?? null,
     competencyOrigin: data.competencyOrigin ?? null,
-    skillPack: data.skillPack ?? null,
     answerSeconds: data.answerSeconds ?? null,
     expectedSignals: expectedSignals.success ? expectedSignals.data : [],
-    note: data.note ?? null,
     sourceKind: input.sourceKind,
     facets: data.facets ?? [],
     facetsAll: data.facetsAll ?? [],

@@ -125,7 +125,6 @@ async function createSession(base: string, input: { jd: string; resumeDbId: stri
   form.set("jobTitle", jd.title);
   form.set("resumeId", input.resumeDbId);
   form.set("pace", input.pace);
-  form.set("round", "first_interview");
   form.set("jobDescriptionText", jd.jobDescription);
   // 标签随创建一起写：备课在创建请求里就开始，事后补写会让备课把这场当真实使用（读不到评测写的档案与记忆）。
   form.set("evalTag", input.tag);

@@ -1,6 +1,6 @@
 ---
 name: security
-description: 安全工程怎么面：Web 安全与漏洞原理、身份与权限、密码学应用、安全开发流程、渗透与应急响应、云与供应链安全。岗位或简历出现安全工程师、安全开发、渗透测试、应用安全、SDL、红蓝队、云安全时加载。
+description: 安全工程怎么面：Web 漏洞原理、身份权限、密码学应用、SDL、渗透与应急、云与供应链。安全岗读。
 keywords: [安全, security, 安全工程师, 应用安全, appsec, 渗透测试, pentest, 红队, 应急响应, sdl, owasp, xss, 密码学, 云安全, 供应链安全]
 layer: domain
 ---

@@ -66,7 +66,7 @@ async function persistSegments(sessionId: string, interviewId: string, brief: Aw
       for (const [index, segment] of segments.entries()) {
         const area = areas.get(segment.areaId)!;
         const probes = transcript.filter((line) => line.role === "interviewer" && line.kind === "say" && line.seq > segment.startSeq && line.seq <= segment.endSeq).map((line) => line.content);
-        const record = segmentRecord(area, segment, probes, brief.round);
+        const record = segmentRecord(area, segment, probes);
         const question = await tx.interviewQuestion.create({
           data: {
             interviewId,
@@ -96,7 +96,6 @@ async function persistSegments(sessionId: string, interviewId: string, brief: Aw
             status: "closed",
             depth: segment.depth,
             verdict: record.metadata.verdict,
-            note: null,
             startSeq: segment.startSeq,
             endSeq: segment.endSeq,
             // 场景题绑定了蓝图能力；项目与基础题的能力由评分写回。

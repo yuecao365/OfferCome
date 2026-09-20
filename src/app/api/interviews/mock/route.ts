@@ -43,7 +43,6 @@ export async function POST(request: Request) {
       resumeId: stringValue(formData, "resumeId"),
       jobDescription: jobDescription.text,
       jdOriginalName: jobDescription.originalName,
-      round: stringValue(formData, "round") || null,
       interactionMode: "text",
       pace: stringValue(formData, "pace"),
       seedQuestionId: stringValue(formData, "seedQuestionId") || null,

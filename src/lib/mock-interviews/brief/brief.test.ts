@@ -27,8 +27,8 @@ const blueprint: MockInterviewJobBlueprint = {
   missingInformation: [],
   business: null,
   competencies: [
-    { id: "api", name: "API 设计", description: "设计并维护对外接口", priority: "core", jdEvidence: "参与 API 设计与自动化测试", origin: "jd", sourceUrl: null },
-    { id: "ai", name: "智能对话集成", description: "", priority: "core", jdEvidence: "将智能对话能力融入产品", origin: "jd", sourceUrl: null },
+    { id: "api", name: "API 设计", description: "设计并维护对外接口", jdEvidence: "参与 API 设计与自动化测试", origin: "jd", sourceUrl: null },
+    { id: "ai", name: "智能对话集成", description: "", jdEvidence: "将智能对话能力融入产品", origin: "jd", sourceUrl: null },
   ],
 };
 
@@ -63,7 +63,6 @@ function build(output: Partial<BriefOutput>, extra: { pace?: "quick" | "standard
     topicNames,
     skillPacks: ["backend", "project-deep-dive"],
     pace: extra.pace ?? "standard",
-    round: null,
     askIntro: true,
   });
 }
@@ -78,7 +77,7 @@ test("项目：模型先写到的排前面，每个项目一份材料，没写�
   assert.deepEqual(kept[0].guides, ["边界"]);
   assert.equal(kept[1].entryQuestion, "主循环怎么做的？");
   assert.equal(kept[0].name, "校园二手平台");
-  assert.deepEqual(kept[0].rubric.map((item) => item.name), ["事实与细节", "岗位关联", "复盘与表达"]);
+  assert.deepEqual(kept[0].rubric.map((item) => item.name), ["事实与细节", "取舍与复盘", "表达结构"]);
   // 模型一个都没给：按简历顺序，每个项目一份，兜底问法与通用线索。
   const fallback = projectAreas(build({}));
   assert.equal(fallback.length, 2);
@@ -157,13 +156,13 @@ test("简历假设：证据逐字、按 projectId 或简历段落挂到项目；
 });
 
 test("兜底简报：基础题从主题清单按配额取、没有依据；蓝图的业务带进简报", () => {
-  const brief = fallbackBrief({ blueprint, jobDescription, resumeText, projects, topicNames, skillPacks: ["backend"], pace: "quick", round: null, askIntro: true });
+  const brief = fallbackBrief({ blueprint, jobDescription, resumeText, projects, topicNames, skillPacks: ["backend"], pace: "quick", askIntro: true });
   assert.equal(brief.source, "fallback");
   assert.equal(brief.product, null);
   assert.equal(projectAreas(brief).length, 1, "项目材料只建到节奏配额（快速档 1 个），多建的问不到还会跟着议程回放");
   assert.equal(brief.areas.filter((area) => area.kind === "scenario").length, 1);
   assert.deepEqual(brief.areas.filter((area) => area.kind === "quick").map((area) => [area.name, area.basis]), [["缓存一致性", null], ["MySQL 索引", null]]);
-  const withBusiness = fallbackBrief({ blueprint: { ...blueprint, business: { product: "社交 App 的后端", systems: ["消息链路"], constraints: null } }, jobDescription, resumeText, projects, topicNames, skillPacks: ["backend"], pace: "quick", round: null, askIntro: true });
+  const withBusiness = fallbackBrief({ blueprint: { ...blueprint, business: { product: "社交 App 的后端", systems: ["消息链路"], constraints: null } }, jobDescription, resumeText, projects, topicNames, skillPacks: ["backend"], pace: "quick", askIntro: true });
   assert.equal(withBusiness.product, "社交 App 的后端");
 });
 

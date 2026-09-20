@@ -31,7 +31,7 @@ const stubs = {
 };
 
 function competency(id: string) {
-  return { id, name: `能力 ${id}`, description: "描述", priority: "core" as const, jdEvidence: "JD 原文片段", origin: "jd" as const, sourceUrl: null };
+  return { id, name: `能力 ${id}`, description: "描述", jdEvidence: "JD 原文片段", origin: "jd" as const, sourceUrl: null };
 }
 
 function defaultBlueprint() {
@@ -153,7 +153,7 @@ async function seedGeneratingSession(overrides: { jdTextSnapshot?: string; snaps
           resumeId: "resume-1",
           jdTextSnapshot: overrides.jdTextSnapshot ?? LONG_JD,
           resumeTextSnapshot: "简历正文",
-          contextSnapshotJson: JSON.stringify(overrides.snapshot ?? { generationRequest: { round: "first_interview" } }),
+          contextSnapshotJson: JSON.stringify(overrides.snapshot ?? { generationRequest: {} }),
           status: overrides.status ?? "generating",
           generationPhase: overrides.generationPhase === undefined ? "job_blueprint" : overrides.generationPhase,
           pace: "standard",

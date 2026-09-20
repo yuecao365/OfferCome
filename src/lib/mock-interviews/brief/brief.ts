@@ -110,38 +110,26 @@ export function basisAccepted(basis: QuestionBasis, sources: { resumeText: strin
 export type RubricItem = { name: string; description: string; weight: number };
 
 /**
- * 评分表维度 → 能力画像维度。评分表按名称固定（rubricForArea），画像从逐段评分推导观察时按此表归属；
- * "岗位关联"是项目与岗位的匹配度，不是候选人的稳定能力，不进画像。
+ * 评分表维度 → 能力画像维度。评分表按名称固定（rubricForArea），是跨场可比的测量口径；画像从逐段评分推导观察时按此表归属。
+ * 每个现行维度名都有归属；旧简报里的名字（岗位关联、复盘与表达、HR 面的两项）不再认，那些段的观察在重算画像时不计。
  */
-export const PROFILE_DIMENSION_BY_RUBRIC: Record<string, ProfileDimension | null> = {
+export const PROFILE_DIMENSION_BY_RUBRIC: Record<string, ProfileDimension> = {
   技术正确性: "knowledge_accuracy",
   准确性: "knowledge_accuracy",
   分析与取舍: "reasoning_depth",
   原理深度: "reasoning_depth",
-  表达结构: "communication_clarity",
-  复盘与表达: "communication_clarity",
+  取舍与复盘: "reflection_growth",
   事实与细节: "experience_evidence",
-  证据充分性: "experience_evidence",
-  判断与反思: "reflection_growth",
-  岗位关联: null,
+  表达结构: "communication_clarity",
 };
 
-export const HR_ROUND = "hr_interview";
-
-/** 领域评分表：按阶段固定；HR 面的基础题与场景题考软素质，用行为评分表。 */
-export function rubricForArea(kind: AreaKind, round: string | null): RubricItem[] {
+/** 评分表：按材料种类固定。每道题的特异性在模型写的 expectedSignals / guides 里，不在这里。 */
+export function rubricForArea(kind: AreaKind): RubricItem[] {
   if (kind === "project") {
     return [
       { name: "事实与细节", description: "回答包含可核验的个人职责、技术决策和实施细节。", weight: 40 },
-      { name: "岗位关联", description: "能将项目经验映射到目标岗位的实际职责。", weight: 35 },
-      { name: "复盘与表达", description: "结构清晰，并能说明结果、取舍和改进。", weight: 25 },
-    ];
-  }
-  if (round === HR_ROUND) {
-    return [
-      { name: "证据充分性", description: "使用具体情境、行动和结果支持回答。", weight: 45 },
-      { name: "判断与反思", description: "说明决策依据、协作方式和复盘改进。", weight: 30 },
-      { name: "表达结构", description: "回答重点明确、逻辑连贯。", weight: 25 },
+      { name: "取舍与复盘", description: "说得出为什么这么做、放弃了什么、效果怎么量、重做会改哪里。", weight: 35 },
+      { name: "表达结构", description: "回答层次清楚，结论有依据。", weight: 25 },
     ];
   }
   if (kind === "quick") {
@@ -250,7 +238,6 @@ export type InterviewHypothesis = { id: string; text: string; evidence: string; 
 export type InterviewBrief = {
   version: typeof BRIEF_VERSION;
   pace: InterviewPace;
-  round: string | null;
   /** 这个团队做什么（蓝图的业务；JD 没写为 null）：面试官人设里带一句。 */
   product: string | null;
   askIntro: boolean;
@@ -328,7 +315,7 @@ const PROJECT_LEADS = ["最难的问题：现象、根因、排查顺序", "效�
 
 type ProjectAreaInput = { question: string; leads: string[]; expectedSignals: string[] } | null;
 
-function projectArea(project: Project, rank: number, round: string | null, written: ProjectAreaInput): InterviewArea {
+function projectArea(project: Project, rank: number, written: ProjectAreaInput): InterviewArea {
   return {
     id: `p${rank + 1}`,
     kind: "project",
@@ -341,19 +328,19 @@ function projectArea(project: Project, rank: number, round: string | null, writt
     entryQuestion: written?.question ?? PROJECT_ANGLES.overview.question(project.name),
     guides: written && written.leads.length > 0 ? written.leads : PROJECT_LEADS,
     expectedSignals: written?.expectedSignals ?? ["能讲清自己负责的部分与关键决策"],
-    rubric: rubricForArea("project", round),
+    rubric: rubricForArea("project"),
   };
 }
 
 /** 项目材料：每个项目（最多 MAX_PROJECTS 个）一份；模型写了的用模型的问法与线索，没写的用兜底。 */
 /** 只建这场要聊的那几份项目材料（按节奏配额）：多建的永远问不到，却会跟着议程每回合回放给模型。 */
-function projectAreas(ranked: Project[], limit: number, round: string | null, written: (project: Project) => ProjectAreaInput): InterviewArea[] {
-  return ranked.slice(0, limit).map((project, rank) => projectArea(project, rank, round, written(project)));
+function projectAreas(ranked: Project[], limit: number, written: (project: Project) => ProjectAreaInput): InterviewArea[] {
+  return ranked.slice(0, limit).map((project, rank) => projectArea(project, rank, written(project)));
 }
 
 type QuickInput = { name: string; question: string; basis: QuestionBasis | null; followUp: string; expectedSignals: string[] };
 
-function quickArea(written: QuickInput, id: string, round: string | null): InterviewArea {
+function quickArea(written: QuickInput, id: string): InterviewArea {
   return {
     id,
     kind: "quick",
@@ -366,7 +353,7 @@ function quickArea(written: QuickInput, id: string, round: string | null): Inter
     entryQuestion: written.question,
     guides: [written.followUp],
     expectedSignals: written.expectedSignals,
-    rubric: rubricForArea("quick", round),
+    rubric: rubricForArea("quick"),
   };
 }
 
@@ -375,17 +362,17 @@ function fallbackQuick(name: string): QuickInput {
   return { name, question: `聊聊${name}：它解决什么问题、最关键的一个机制是什么？`, basis: null, followUp: "追问它的边界与出问题时怎么查", expectedSignals: ["机制准确", "说得出边界"] };
 }
 
-function quickAreas(written: QuickInput[], topicNames: string[], target: number, round: string | null): InterviewArea[] {
+function quickAreas(written: QuickInput[], topicNames: string[], target: number): InterviewArea[] {
   const picked = written.slice(0, target);
   for (const name of topicNames) {
     if (picked.length >= target) break;
     if (!picked.some((item) => normalizedText(item.name) === normalizedText(name))) picked.push(fallbackQuick(name));
   }
-  return picked.map((item, index) => quickArea(item, `q${index + 1}`, round));
+  return picked.map((item, index) => quickArea(item, `q${index + 1}`));
 }
 
-function fallbackScenarioArea(blueprint: MockInterviewJobBlueprint, id: string, round: string | null): InterviewArea {
-  const competency = blueprint.competencies.find((item) => item.priority === "core") ?? blueprint.competencies[0] ?? null;
+function fallbackScenarioArea(blueprint: MockInterviewJobBlueprint, id: string): InterviewArea {
+  const competency = blueprint.competencies[0] ?? null;
   return {
     id,
     kind: "scenario",
@@ -400,7 +387,7 @@ function fallbackScenarioArea(blueprint: MockInterviewJobBlueprint, id: string, 
       : "如果你接手一个刚上线就频繁出问题的系统，你会从哪里开始排查，怎么决定先修什么？",
     guides: ["追问它为什么先做这件事", "追问如果条件变了（规模、时间、人手）怎么取舍", "追问怎么验证做对了"],
     expectedSignals: ["有明确的排查或推进顺序", "说得出取舍依据", "有验证方式"],
-    rubric: rubricForArea("scenario", round),
+    rubric: rubricForArea("scenario"),
   };
 }
 
@@ -437,10 +424,9 @@ export function buildBriefFromOutput(input: {
   topicNames: string[];
   skillPacks: string[];
   pace: InterviewPace;
-  round: string | null;
   askIntro: boolean;
 }): InterviewBrief {
-  const { output, round } = input;
+  const { output } = input;
   const scenarioCount = SCENARIOS_PER_PACE[input.pace];
   const competencyIds = new Set(input.blueprint.competencies.map((item) => item.id));
   const projectsById = new Map(input.projects.map((project) => [project.id, project]));
@@ -453,7 +439,7 @@ export function buildBriefFromOutput(input: {
     if (project && !ranked.includes(project)) ranked.push(project);
   }
   for (const project of input.projects) if (!ranked.includes(project)) ranked.push(project);
-  const projects = projectAreas(ranked, QUOTA[input.pace].project, round, (project) => {
+  const projects = projectAreas(ranked, QUOTA[input.pace].project, (project) => {
     const raw = output.projects.find((item) => item.projectId === project.id);
     return raw ? { question: raw.question, leads: raw.leads, expectedSignals: raw.expectedSignals } : null;
   });
@@ -463,7 +449,6 @@ export function buildBriefFromOutput(input: {
     output.quick.map((item) => ({ ...item, basis: basisAccepted(item.basis, sources) ? item.basis : null })),
     input.topicNames,
     quickTarget(input.pace, projects.length),
-    round,
   );
 
   const scenarios: InterviewArea[] = output.scenarios.slice(0, scenarioCount).map((raw, index) => {
@@ -480,10 +465,10 @@ export function buildBriefFromOutput(input: {
       entryQuestion: raw.question,
       guides: raw.guides,
       expectedSignals: raw.expectedSignals,
-      rubric: rubricForArea("scenario", round),
+      rubric: rubricForArea("scenario"),
     };
   });
-  while (scenarios.length < scenarioCount) scenarios.push(fallbackScenarioArea(input.blueprint, `s${scenarios.length + 1}`, round));
+  while (scenarios.length < scenarioCount) scenarios.push(fallbackScenarioArea(input.blueprint, `s${scenarios.length + 1}`));
 
   // 假设挂到项目上：该项目的任何角度里都能验。
   const hypotheses: InterviewHypothesis[] = output.hypotheses
@@ -503,7 +488,6 @@ export function buildBriefFromOutput(input: {
   return {
     version: BRIEF_VERSION,
     pace: input.pace,
-    round,
     product: input.blueprint.business?.product ?? null,
     askIntro: input.askIntro,
     areas: [...projects, ...quick, ...scenarios],
@@ -525,17 +509,15 @@ export function fallbackBrief(input: {
   topicNames: string[];
   skillPacks: string[];
   pace: InterviewPace;
-  round: string | null;
   askIntro: boolean;
 }): InterviewBrief {
   const scenarioCount = SCENARIOS_PER_PACE[input.pace];
-  const projects = projectAreas(input.projects, QUOTA[input.pace].project, input.round, () => null);
-  const quick = quickAreas([], input.topicNames, quickTarget(input.pace, projects.length), input.round);
-  const scenarios = Array.from({ length: scenarioCount }, (_, index) => fallbackScenarioArea(input.blueprint, `s${index + 1}`, input.round));
+  const projects = projectAreas(input.projects, QUOTA[input.pace].project, () => null);
+  const quick = quickAreas([], input.topicNames, quickTarget(input.pace, projects.length));
+  const scenarios = Array.from({ length: scenarioCount }, (_, index) => fallbackScenarioArea(input.blueprint, `s${index + 1}`));
   return {
     version: BRIEF_VERSION,
     pace: input.pace,
-    round: input.round,
     product: input.blueprint.business?.product ?? null,
     askIntro: input.askIntro,
     areas: [...projects, ...quick, ...scenarios],

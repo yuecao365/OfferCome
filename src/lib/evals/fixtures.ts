@@ -87,7 +87,6 @@ export const scorerCaseSchema = z.object({
   role: z.string().min(1).default("backend"),
   jobTitle: z.string().min(1),
   jobDescription: z.string().min(1),
-  round: z.string().nullable(),
   question: z.string().min(1),
   rubric: z.array(z.object({ name: z.string().min(1), description: z.string().optional(), weight: z.number().positive() })).min(1),
   expectedSignals: z.array(z.string()),

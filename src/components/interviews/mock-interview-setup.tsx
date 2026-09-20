@@ -15,7 +15,6 @@ import {
   Select,
   Textarea,
 } from "@/components/ui/form-controls";
-import { INTERVIEW_ROUND_LABELS, INTERVIEW_ROUNDS } from "@/lib/interviews/types";
 import { QUOTA } from "@/lib/interview/progress";
 
 const quotaLabel = (pace: keyof typeof QUOTA) => `${QUOTA[pace].project} 个项目 + ${QUOTA[pace].quick} 道基础 + ${QUOTA[pace].scenario} 道场景`;
@@ -197,7 +196,7 @@ export function MockInterviewSetup({
               {resumes.find((resume) => resume.isDefault)?.name ?? resumes[0]?.name} · 第一轮 · {INTERVIEW_PACE_LABELS[DEFAULT_INTERVIEW_PACE]}节奏（{quotaLabel(DEFAULT_INTERVIEW_PACE)}）· 文字作答（可用麦克风输入）
             </span>
             <span className="text-xs text-muted-foreground group-open:hidden">调整</span>
-            <span className="w-full text-[0.8125rem] text-muted-foreground group-open:block hidden">选择面试使用的简历、轮次、节奏和作答方式。节奏定这场聊几份材料，长短由聊完为止，不按时间。作答打字或按麦克风说话都行，转写后可以改再发。面试官会根据岗位和简历备课，题目在对话中临场提出。</span>
+            <span className="w-full text-[0.8125rem] text-muted-foreground group-open:block hidden">选择面试使用的简历、节奏和作答方式。节奏定这场聊几份材料，长短由聊完为止，不按时间。作答打字或按麦克风说话都行，转写后可以改再发。面试官会根据岗位和简历备课，题目在对话中临场提出。</span>
           </summary>
           <div className="mt-5 border-t border-border pt-4">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -208,14 +207,6 @@ export function MockInterviewSetup({
                 <option key={resume.id} value={resume.id}>
                   {resume.name}{resume.isDefault ? "（默认）" : ""}
                 </option>
-              ))}
-            </Select>
-          </FieldLabel>
-          <FieldLabel>
-            面试轮次
-            <Select defaultValue="first_interview" name="round">
-              {INTERVIEW_ROUNDS.map((round) => (
-                <option key={round} value={round}>{INTERVIEW_ROUND_LABELS[round]}</option>
               ))}
             </Select>
           </FieldLabel>

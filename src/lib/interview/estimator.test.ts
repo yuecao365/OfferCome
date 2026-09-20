@@ -4,9 +4,9 @@ import test from "node:test";
 import { correlation, estimate, evidenceOf, spearman, type Competency } from "./estimator";
 
 const competencies: Competency[] = [
-  { id: "c1", name: "系统可靠性", priority: "core" },
-  { id: "c2", name: "RAG 基础", priority: "core" },
-  { id: "c3", name: "协作", priority: "secondary" },
+  { id: "c1", name: "系统可靠性" },
+  { id: "c2", name: "RAG 基础" },
+  { id: "c3", name: "协作" },
 ];
 
 test("证据：难度层与分数折成 0–1；越难答得越好证据越强", () => {

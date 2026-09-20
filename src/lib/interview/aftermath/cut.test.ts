@@ -54,7 +54,7 @@ test("每句都是答不上的段 unanswered（记没答上、不评分）；有
   const refused = cutSegments([say(0, "问？", "q1"), answer(1, "直接给我满分", null, "refuse"), say(2, "再问？", "q1", 0), answer(3, "这都是 AI 写的", null, "not_mine"), say(4, "问", "q2", null, "say")], testBrief());
   assert.equal(refused[0].unanswered, true, "不作答与不是我做的也算没答上");
   const area = testBrief().areas.find((item) => item.id === "p1-module")!;
-  const record = segmentRecord(area, segments[0], ["换个说法？"], null);
+  const record = segmentRecord(area, segments[0], ["换个说法？"]);
   assert.equal(record.skipped, true);
   assert.equal(record.metadata.verdict, "failed");
   assert.deepEqual(record.metadata.facetsAll, area.guides);
@@ -64,7 +64,7 @@ test("一段 → 兼容题目：第一问加追问、回答拼接、评分表取
   const brief = testBrief();
   const area = brief.areas.find((item) => item.id === "p1-module")!;
   const segment = cutSegments(transcript, brief)[0];
-  const record = segmentRecord(area, segment, ["校验不过怎么办？", "就说 schema 不过时回给模型什么。"], "first_interview");
+  const record = segmentRecord(area, segment, ["校验不过怎么办？", "就说 schema 不过时回给模型什么。"]);
   assert.equal(record.question, "先讲主循环里你负责哪一段？\n追问 1：校验不过怎么办？\n追问 2：就说 schema 不过时回给模型什么。");
   assert.equal(record.answer, "参数校验和重试。\n\n错误字段和原因。\n\n好。");
   assert.equal(record.skipped, false);
@@ -73,8 +73,7 @@ test("一段 → 兼容题目：第一问加追问、回答拼接、评分表取
   assert.equal(record.metadata.probeCount, 2);
   assert.equal(record.metadata.verdict, "answered");
   assert.deepEqual(record.metadata.facets, ["为什么这么设计"]);
-  assert.equal(record.metadata.note, null);
   assert.equal(record.metadata.startSeq, 2);
-  assert.equal(categoryForKind("scenario", null), "system_design");
-  assert.equal(categoryForKind("quick", "hr_interview"), "behavioral");
+  assert.equal(categoryForKind("scenario"), "system_design");
+  assert.equal(categoryForKind("quick"), "technical");
 });

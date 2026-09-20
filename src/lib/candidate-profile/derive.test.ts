@@ -7,12 +7,12 @@ import { deriveObservationsFromEvaluation, profileLevelForScore } from "./derive
 
 test("every rubric dimension has a profile mapping", () => {
   const names = [
-    ...rubricForArea("quick", null),
-    ...rubricForArea("scenario", null),
-    ...rubricForArea("project", null),
-    ...rubricForArea("quick", "hr_interview"),
+    ...rubricForArea("quick"),
+    ...rubricForArea("scenario"),
+    ...rubricForArea("project"),
   ].map((item) => item.name);
-  for (const name of names) assert.ok(name in PROFILE_DIMENSION_BY_RUBRIC, `${name} 没有画像归属`);
+  for (const name of names) assert.ok(PROFILE_DIMENSION_BY_RUBRIC[name], `${name} 没有画像归属`);
+  assert.equal(PROFILE_DIMENSION_BY_RUBRIC["取舍与复盘"], "reflection_growth", "项目表给反思成长维度供观察");
 });
 
 test("score bands line up with the evaluation prompt", () => {

@@ -143,7 +143,6 @@ async function scorerSources(limit: number, existing: Set<string>, evalTag: stri
       questionId: question.id,
       jobTitle: question.interview.jobTitle,
       jobDescription: question.interview.mockSession.jdTextSnapshot,
-      round: question.interview.round,
       question: question.question,
       rubric,
       expectedSignals: (parseJsonValue(question.evaluation.expectedSignalsJson) as string[] | null) ?? [],
@@ -188,7 +187,6 @@ async function scorerSourcesFromBriefs(existing: Set<string>, limit: number): Pr
           role,
           jobTitle: jd.title,
           jobDescription: jd.jobDescription,
-          round: "first_interview",
           question: [area.entryQuestion.trim(), ...area.guides.map((guide, index) => `追问 ${index + 1}：${guide.trim()}`)].join("\n"),
           rubric: area.rubric,
           expectedSignals: area.expectedSignals,
@@ -370,7 +368,6 @@ async function generateEvalBrief(jdId: string, resumeId: string, runLabel: strin
     },
     // 深入节奏：看备课最多能规划出什么；真实面试按用户节奏裁剪，是另一回事。
     pace: "deep",
-    round: "first_interview",
   });
   // 备课 agent 失败时会退回代码兜底的简报；评测里那不是被测对象，当失败处理。
   if (brief.source === "fallback") throw new Error(`备课失败，退回了兜底简报（${jdId}）`);
@@ -511,7 +508,6 @@ async function scorerSmokeGate(cases: ScorerCase[]): Promise<void> {
         jobTitle: item.jobTitle,
         jobDescription: item.jobDescription,
         thread: { kind: item.thread.kind, depth: item.thread.depth, probeCount: item.thread.probeCount, facets: item.thread.facets },
-        round: item.round,
         competencies: [],
       });
       scores[variant] = result.score;
@@ -567,7 +563,6 @@ async function commandScorer(models: EvalModels): Promise<void> {
             jobTitle: item.jobTitle,
             jobDescription: item.jobDescription,
             thread: { kind: item.thread.kind, depth: item.thread.depth, probeCount: item.thread.probeCount, facets: item.thread.facets },
-            round: item.round,
             competencies: [],
           });
           runs[variant].push({ score: result.score, evaluation: result.evaluation, metrics: result.metrics, durationMs: Date.now() - startedAt, totalTokens: null });

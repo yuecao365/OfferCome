@@ -137,7 +137,6 @@ export type ScorerCaseSource = {
   questionId: string;
   jobTitle: string;
   jobDescription: string;
-  round: string | null;
   question: string;
   rubric: ScorerCase["rubric"];
   expectedSignals: string[];

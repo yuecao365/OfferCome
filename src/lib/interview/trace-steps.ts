@@ -54,7 +54,6 @@ export const AGENT_LABELS: Record<string, string> = {
   interviewer: "面试官",
   question_evaluation: "评分",
   answer_exemplar: "示范回答",
-  critic: "评论员",
   candidate_dossier: "候选人档案",
   interview_summary: "报告汇总",
   interview_brief: "备课简报",

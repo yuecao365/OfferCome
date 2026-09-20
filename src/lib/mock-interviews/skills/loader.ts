@@ -15,6 +15,15 @@ const SKILLS_DIR = path.join(
  * 解析 SKILL.md 的 YAML frontmatter。字段是封闭集合且全部平铺
  * （字符串或字符串数组），手写解析即可，不值得为此引依赖。
  */
+/** frontmatter 里 `[a, b, c]` 形式的列表字段。 */
+function listField(raw: string | undefined): string[] {
+  return (raw ?? "[]")
+    .replace(/^\[|\]$/g, "")
+    .split(",")
+    .map((item) => item.trim().replace(/^["']|["']$/g, ""))
+    .filter(Boolean);
+}
+
 export function parseSkillMarkdown(raw: string): SkillPack | null {
   const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
   if (!match) return null;
@@ -35,17 +44,13 @@ export function parseSkillMarkdown(raw: string): SkillPack | null {
   if (!/^[a-z0-9-]{1,64}$/.test(name) || !description || !isSkillLayer(layer)) {
     return null;
   }
-  const parent = fields.get("parent") || undefined;
-  if (layer === "stack" && !parent) return null;
+  const domains = listField(fields.get("domains"));
+  if (layer === "detail" && domains.length === 0) return null;
+  if (layer !== "detail" && domains.length > 0) return null;
 
-  const keywordsRaw = fields.get("keywords") ?? "[]";
-  const keywords = keywordsRaw
-    .replace(/^\[|\]$/g, "")
-    .split(",")
-    .map((item) => item.trim().replace(/^["']|["']$/g, ""))
-    .filter(Boolean);
+  const keywords = listField(fields.get("keywords"));
 
-  return { name, description, keywords, layer, parent, body: match[2]!.trim() };
+  return { name, description, keywords, layer, domains, body: match[2]!.trim() };
 }
 
 let cachedPacks: SkillPack[] | null = null;
@@ -74,8 +79,9 @@ export async function loadSkillPacks(): Promise<SkillPack[]> {
   // parent 必须真实存在，否则上溯会断链。
   const names = new Set(packs.map((pack) => pack.name));
   cachedPacks = packs.filter((pack) => {
-    if (pack.parent && !names.has(pack.parent)) {
-      console.warn(`[skills] 技能包 ${pack.name} 的 parent 不存在：${pack.parent}`);
+    const missing = pack.domains.find((domain) => !names.has(domain));
+    if (missing) {
+      console.warn(`[skills] 技能包 ${pack.name} 声明的领域不存在：${missing}`);
       return false;
     }
     return true;

@@ -68,7 +68,6 @@ export type TrialInterview = {
   completedAt: string | null;
   job: TrialJobInput;
   resume: TrialResumeInput;
-  round: string | null;
   pace: InterviewPace;
   status: TrialInterviewStatus;
   generationPhase: "job_blueprint" | "brief" | null;
@@ -79,12 +78,10 @@ export type TrialInterview = {
   ledger: { materialId: string; text: string }[];
   messages: ConversationMessage[];
   questions: TrialSegment[];
-  /** 整理员对简历假设的判断（交卷时切段一并给出）。 */
-  hypotheses: { id: string; status: "open" | "confirmed" | "refuted"; note: string | null }[];
   report: MockInterviewReport | null;
 };
 
-export function createTrialInterview(input: { job: TrialJobInput; resume: TrialResumeInput; round: string | null; pace: InterviewPace }): TrialInterview {
+export function createTrialInterview(input: { job: TrialJobInput; resume: TrialResumeInput; pace: InterviewPace }): TrialInterview {
   return {
     version: TRIAL_INTERVIEW_VERSION,
     id: crypto.randomUUID(),
@@ -93,7 +90,6 @@ export function createTrialInterview(input: { job: TrialJobInput; resume: TrialR
     completedAt: null,
     job: input.job,
     resume: input.resume,
-    round: input.round,
     pace: input.pace,
     status: "generating",
     generationPhase: "job_blueprint",
@@ -103,7 +99,6 @@ export function createTrialInterview(input: { job: TrialJobInput; resume: TrialR
     ledger: [],
     messages: [],
     questions: [],
-    hypotheses: [],
     report: null,
   };
 }

@@ -194,12 +194,11 @@ export async function getMockInterviewTrace(id: string): Promise<MockInterviewTr
   const brief = parseStoredBrief(session.briefJson);
   if (!brief) return null;
   const questionIds = session.interview.questions.map((question) => question.id);
-  // 这场所有 agent 的记账行：面试官每回合、评分（带工具的那次与对照）、示范、评论员、档案。按 runId 归链，每链按步。
+  // 这场所有 agent 的记账行：面试官每回合、评分（带工具的那次与对照）、示范、档案。按 runId 归链，每链按步。
   const rows = await prisma.agentRun.findMany({
     where: {
       OR: [
         { runId: { startsWith: `turn:${id}:` } },
-        { runId: { startsWith: `critic:${id}:` } },
         { runId: `dossier:${id}` },
         ...(questionIds.length > 0 ? [{ runId: { in: questionIds.flatMap((questionId) => [`eval:${questionId}`, `eval:${questionId}:b`, `exemplar:${questionId}`]) } }] : []),
       ],

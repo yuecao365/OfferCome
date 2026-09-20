@@ -32,7 +32,8 @@ test("状态：开场 → 进材料变 open，追问计数、角度计数与讲�
   assert.match(rendered, /\[p1-overview\] 项目「[^」]+」：聊完了，问了 3 \/ 4 句/);
   assert.match(rendered, /角度：1\. 工具链路（讲透了）；2\. 安全链路（没问）/);
   assert.match(rendered, /证据账：整体架构讲清了/);
-  assert.match(rendered, /\[q2\] 基础题「[^」]+」：还没聊，可问 2 句。切入问法：/);
+  assert.match(rendered, /\[q2\] 基础题「[^」]+」：还没聊，可问 2 句$/m);
+  assert.doesNotMatch(rendered, /切入问法/, "切入问法在议程里，状态卡不重印");
 });
 
 test("候选人信号：没信息的三类连续计数，答上了归零；跳过让当前材料 skipped；要结束记 wantsToEnd", () => {

@@ -13,7 +13,6 @@ export const maxDuration = 60;
 
 type Body = {
   segment: TrialSegment;
-  round: string | null;
   jobTitle: string;
   jobDescription: string;
   resumeText: string;
@@ -37,7 +36,6 @@ export const POST = withTrialAi<Body>(async (body) => {
     jobTitle: body.jobTitle,
     jobDescription: body.jobDescription,
     thread: threadContext(metadata),
-    round: body.round,
     competencies: [],
     resumeText: typeof body.resumeText === "string" ? body.resumeText : "",
     skillPacks: packsForInterview(Array.isArray(body.skillPacks) ? body.skillPacks : [], await loadSkillPacks(), 3),
