@@ -115,3 +115,35 @@ test("工具调用 → 事件形状：取关键词或包名，截 60 字", () =>
     { name: "x", argument: null },
   ]);
 });
+
+/** 桩（工具路径）：像循环里的钩子那样把每个产出交给 judge，被退回就取下一个，合法的那个作为 ask_candidate 的挂起调用返回。 */
+function stubViaTool(outputs: InterviewerOutput[]) {
+  const calls: InterviewerCall[] = [];
+  const rejected: string[] = [];
+  const interviewer: Interviewer = async (input) => {
+    calls.push(input);
+    for (;;) {
+      const output = outputs.shift();
+      if (!output) throw new Error("模型没有产出");
+      const reason = input.judge?.(output) ?? null;
+      if (reason) {
+        rejected.push(reason);
+        continue;
+      }
+      return { output, partial: false, runId: input.runId, provider: "openai", model: "gpt-test", durationMs: 0, steps: 1, toolCalls: [{ toolCallId: "ask-1", toolName: "ask_candidate", input: output }], events: [] };
+    }
+  };
+  return { interviewer, calls, rejected };
+}
+
+test("提问工具路径：违约在同一回合内被钩子退回，第二次起代码定动作；只调一次、账与直接输出路径一致", async () => {
+  const { interviewer, calls, rejected } = stubViaTool([out("今天就到这里。", { action: "end" }), out("再见。", { action: "end" }), out("那我们聊聊模块拆分。", { action: "switch", target: "p1-module" })]);
+  const result = await runTurn({ runId: "t:7", config, state: state(inProject()), candidate: candidate("我负责主循环"), context, interviewer });
+  assert.equal(calls.length, 1, "工具路径在循环内重试，不再重新调用面试官");
+  assert.match(rejected[0], /还不能收尾/);
+  assert.match(rejected[1], /代码已定这回合的动作：probe，材料 p1-overview，角度 0/);
+  const spoken = result.events.find((item) => item.type === "interviewer_said");
+  assert.ok(spoken?.type === "interviewer_said" && spoken.payload.action === "probe" && spoken.payload.facet === 0, "记的是代码定的动作");
+  assert.deepEqual(result.events.filter((item) => item.type === "fallback_used").map((item) => item.type === "fallback_used" && item.payload.reason.slice(0, 8)), ["重出：还不能收尾", "重出：还不能收尾"]);
+  assert.equal(result.events.filter((item) => item.type === "tool_called").length, 0, "提问工具不进工具账");
+});

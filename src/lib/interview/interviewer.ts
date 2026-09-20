@@ -1,9 +1,10 @@
-import type { ModelMessage } from "ai";
+import { tool, type ModelMessage } from "ai";
 import { z } from "zod";
 
-import type { LoopToolSet } from "@/lib/ai/agent-loop";
+import { stepsOf, toolCallsOf, type LoopTool, type LoopToolSet } from "@/lib/ai/agent-loop";
 import type { AiTaskConfig } from "@/lib/ai/config";
-import { runAgent, type AgentRunResult } from "@/lib/ai/run-agent";
+import { isAgentRunError, runAgent, type AgentRunResult } from "@/lib/ai/run-agent";
+import { salvageJson } from "@/lib/ai/salvage-json";
 import { BASIS_LABELS, type InterviewArea, type InterviewBrief } from "@/lib/mock-interviews/brief/brief";
 import { createSkillTools } from "@/lib/mock-interviews/skills/tools";
 import type { SkillPack } from "@/lib/mock-interviews/skills/types";
@@ -22,7 +23,7 @@ import { ACTIONS, renderState, SIGNALS, type InterviewState } from "./state";
  * 候选人这句单独一条；状态卡是最后一条用户消息。
  */
 
-export const INTERVIEWER_PROMPT_VERSION = "interviewer-v5";
+export const INTERVIEWER_PROMPT_VERSION = "interviewer-v6";
 export const REPLY_MAX_CHARS = 500;
 /** 简历超过这个长度才节选，并给 lookup_resume 工具查全文。 */
 export const MAX_RESUME_CHARS = 6_000;
@@ -32,8 +33,10 @@ const MAX_INLINE_CHARS = 120;
 const HISTORY_KEEP_TURNS = 20;
 const HISTORY_BLOCK_CHARS = 4_000;
 const TIMEOUT_MS = 60_000;
-/** 一回合最多 1 步工具，之后一步出话。 */
+/** 没有提问工具时只有一步；有的话一回合最多 4 步：查资料、提问被退回后重出、最后一次提问，再多就强制直接输出。 */
 const TOOL_STEPS = 1;
+const TOOL_STEPS_WITH_ASK = 4;
+export const ASK_TOOL = "ask_candidate";
 
 export const interviewerOutputSchema = z.object({
   /** 候选人刚才那句是什么；开场（还没人说话）填 answered。 */
@@ -52,6 +55,8 @@ export const interviewerOutputSchema = z.object({
   reply: z.string().min(1).max(REPLY_MAX_CHARS),
 });
 export type InterviewerOutput = z.infer<typeof interviewerOutputSchema>;
+/** 模型没走工具、直接吐了 JSON 时从文本里抢救（旧路径的兜底）。 */
+const rescueOutput = salvageJson(interviewerOutputSchema);
 
 export type InterviewerContext = {
   jobTitle: string;
@@ -79,6 +84,7 @@ function persona(round: string | null): string {
 }
 
 const METHOD = `怎么面：
+- 每回合用 ask_candidate 工具说这句话：signal / action / target / facet / why / ledger / reply 是它的入参；被退回就看原因改一次再调，一回合只调它一次。没有这个工具时按同样的字段直接输出 JSON。
 - 每回合你自己决定下一步（action）：probe 接着追当前材料（项目要带角度序号 facet），switch 换到一份没聊的材料并用它的切入问法起头（措辞可顺着上下文调），clarify 把上一句说具体或降一层（不占预算），end 收尾告别。状态卡列出了可选动作与余额，越界的动作会被退回让你重出。
 - 先判候选人刚才那句是什么（signal）：answered 答实了、thin 答了但空、dont_know 答不上、help 要求说具体或没听懂、not_mine 说不是自己做的、refuse 不作答或要分、wants_end 要结束。连续几句没有信息就换材料或收尾，不纠缠。
 - 每个追问验证一件事：是不是他做的、懂不懂为什么、数字是不是真的。不重复问过的；同一角度最多追两句。
@@ -137,8 +143,9 @@ ${excerpt ? `\n候选人档案（同一份简历上几场的记录，可信；�
  * 对话历史：双方说过的话，只追加；前 20 回合不裁，超过才按 4 千字一块裁（前缀每长 4 千字才变一次）。
  * 面试官的话写成它当时的输出形状 `{"reply": …}`：历史是裸文本时 DeepSeek 在 JSON 模式下整回合只吐空白。
  */
-export function buildHistory(transcript: TranscriptLine[]): ModelMessage[] {
-  const lines = transcript.map((line) => ({ role: line.role === "candidate" ? ("user" as const) : ("assistant" as const), content: line.role === "candidate" ? line.content : JSON.stringify({ reply: line.content }) }));
+export function buildHistory(transcript: TranscriptLine[], options: { json: boolean } = { json: true }): ModelMessage[] {
+  // 走提问工具时不在 JSON 模式，面试官的话按裸文本给：JSON 形状的历史会让模型照抄成 {"reply"} 而不调工具。
+  const lines = transcript.map((line) => ({ role: line.role === "candidate" ? ("user" as const) : ("assistant" as const), content: line.role === "candidate" || !options.json ? line.content : JSON.stringify({ reply: line.content }) }));
   const turns = transcript.filter((line) => line.role === "interviewer").length;
   if (turns <= HISTORY_KEEP_TURNS) return lines;
   const total = lines.reduce((sum, line) => sum + line.content.length, 0);
@@ -168,13 +175,40 @@ export function buildTools(context: InterviewerContext): LoopToolSet {
   return {
     ...(context.resumeText.length > MAX_RESUME_CHARS ? { lookup_resume: createResumeLookupTool(context.resumeText) } : {}),
     ...((context.skillPacks ?? []).length > 0 && !ablated("packs") ? createSkillTools(context.skillPacks!).tools : {}),
+    // 消融"提问工具"时不给它：模型退回直接输出 JSON 的旧路径，两条路径对照用。
+    ...(ablated("asktool") ? {} : { [ASK_TOOL]: createAskTool() }),
   };
+}
+
+/**
+ * 提问工具（合并施工图 A 段）：面试官对候选人说话的唯一动作。confirm 档——合法就挂起等候选人回答，
+ * 这句话本身就是回合的产物。它没有 execute：动作合法性在 beforeTool 钩子里判，非法当失败的工具结果退回让模型改。
+ */
+export function createAskTool(): LoopTool {
+  return {
+    access: "confirm",
+    ...tool({
+      description: "对候选人说这回合的话：先判他刚才那句是什么（signal），决定这回合的动作（action / target / facet），一行证据账（ledger），然后是对他说的话（reply）。一回合只能调一次；被退回就按原因改一次再调。",
+      inputSchema: interviewerOutputSchema,
+    }),
+  };
+}
+
+/** 对提问工具入参的判决：先按 schema 收，再交给回合的判决函数；任一不过就退回原因。 */
+function askVerdict(input: unknown, judge: AskJudge | undefined): { allow: false; reason: string } | { allow: true } {
+  const parsed = interviewerOutputSchema.safeParse(input);
+  if (!parsed.success) return { allow: false, reason: `入参不合规：${parsed.error.issues.map((issue) => `${issue.path.join(".")} ${issue.message}`).join("；").slice(0, 300)}` };
+  const reason = judge?.(parsed.data) ?? null;
+  return reason ? { allow: false, reason } : { allow: true };
 }
 
 /** 同一场的请求路由到同一缓存分片（OpenAI prompt_cache_key）：runId 去掉回合序号。 */
 export function cacheKeyOf(runId: string): string {
   return runId.replace(/:\d+(:\d+)?$/, "");
 }
+
+/** 回合对一次提议的判决：合法返回 null，否则返回退回原因（原话给模型）。 */
+export type AskJudge = (output: InterviewerOutput) => string | null;
 
 export type InterviewerCall = {
   runId: string;
@@ -184,12 +218,42 @@ export type InterviewerCall = {
   transcript: TranscriptLine[];
   candidateContent: string | null;
   card: string;
+  /** 提问工具的判决；不给就只按 schema 收。 */
+  judge?: AskJudge;
+  /** 状态卡这回合明确要求先查技能包：给第 1 步留 auto，否则从第 1 步起就强制说话。 */
+  lookupFirst?: boolean;
 };
 
-/** 一次调用：返回模型的结构化产出与工具调用。 */
+/**
+ * 一次调用：返回模型的结构化产出与工具调用。
+ * 模型经 ask_candidate 说话时循环会挂起（confirm 档），runAgent 把它抛成 interrupted——那不是失败，那句话就是产物，接住变成正常返回。
+ * 模型不调工具而直接输出 JSON 时（服务商工具调用弱，或消融关了工具）走原来的路。
+ */
 export async function runInterviewerTurn(input: InterviewerCall): Promise<AgentRunResult<InterviewerOutput>> {
   const content = input.candidateContent?.trim() ?? "";
-  const messages: ModelMessage[] = [...buildHistory(input.transcript), ...(content ? [{ role: "user" as const, content }] : []), { role: "user" as const, content: input.card }];
+  const tools = buildTools(input.context);
+  const hasAsk = ASK_TOOL in tools;
+  const messages: ModelMessage[] = [...buildHistory(input.transcript, { json: !hasAsk }), ...(content ? [{ role: "user" as const, content }] : []), { role: "user" as const, content: input.card }];
+  try {
+    return await runInterviewerCall(input, messages, tools, hasAsk);
+  } catch (error) {
+    if (!isAgentRunError(error) || error.kind !== "interrupted" || error.pending?.toolName !== ASK_TOOL) throw error;
+    return {
+      output: interviewerOutputSchema.parse(error.pending.input),
+      partial: false,
+      runId: error.runId,
+      provider: input.config.provider,
+      model: input.config.model,
+      durationMs: error.durationMs,
+      usage: error.usage,
+      steps: stepsOf(error.events),
+      toolCalls: toolCallsOf(error.events),
+      events: error.events,
+    };
+  }
+}
+
+function runInterviewerCall(input: InterviewerCall, messages: ModelMessage[], tools: LoopToolSet, hasAsk: boolean): Promise<AgentRunResult<InterviewerOutput>> {
   return runAgent({
     agent: "interviewer",
     runId: input.runId,
@@ -202,8 +266,18 @@ export async function runInterviewerTurn(input: InterviewerCall): Promise<AgentR
     system: buildSystem(input.brief, input.context),
     untrustedInputs: "候选人的回答、简历和岗位描述",
     messages,
-    tools: buildTools(input.context),
-    budget: { maxSteps: TOOL_STEPS },
+    tools,
+    budget: { maxSteps: hasAsk ? TOOL_STEPS_WITH_ASK : TOOL_STEPS },
+    hooks: { beforeTool: (call) => (call.toolName === ASK_TOOL ? askVerdict(call.input, input.judge) : undefined) },
+    // 有提问工具时契约在工具上：状态卡这回合要查资料就给第 1 步 auto，否则从第 1 步起就强制说话；第 2 步起一律强制。
+    // 模型若仍直接吐 JSON（服务商不支持指定工具时退化为 auto），rescue 按旧路径接住。
+    ...(hasAsk
+      ? {
+          output: "none" as const,
+          toolChoiceAt: (step: number) => (step >= 2 || !(input.lookupFirst || input.context.resumeText.length > MAX_RESUME_CHARS) ? ({ type: "tool", toolName: ASK_TOOL } as const) : "auto"),
+          rescue: rescueOutput,
+        }
+      : {}),
     providerOptions: { openai: { promptCacheKey: cacheKeyOf(input.runId) } },
     maxOutputTokens: 900,
     timeoutMs: TIMEOUT_MS,

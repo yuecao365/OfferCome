@@ -5,7 +5,7 @@ import type { InterviewBrief } from "@/lib/mock-interviews/brief/brief";
 import { checkAction, checkReply, fallbackAction, type Proposal } from "./constraints";
 import { ablated } from "./eval/switches";
 import { event, stateEventsOf, type CandidateControl, type InterviewEvent, type NewEvent, type TranscriptLine } from "./events";
-import { runInterviewerTurn, type InterviewerCall, type InterviewerContext, type InterviewerOutput, renderCard } from "./interviewer";
+import { ASK_TOOL, runInterviewerTurn, type InterviewerCall, type InterviewerContext, type InterviewerOutput, renderCard } from "./interviewer";
 import { stateOf, type Action, type InterviewState, type Signal } from "./state";
 
 /**
@@ -45,7 +45,8 @@ const FIXED_CLOSING = "好的，今天的面试就到这里，感谢你的时间
 
 /** 模型的工具调用 → 事件里记的形状。 */
 export function toolUsesOf(calls: { toolName: string; input: unknown }[]): { name: string; argument: string | null }[] {
-  return calls.map((call) => {
+  // 提问工具是"说话"本身，不是查资料，不进工具账。
+  return calls.filter((call) => call.toolName !== ASK_TOOL).map((call) => {
     const input = call.input as Record<string, unknown> | null;
     const argument = input && typeof input === "object" ? (typeof input.keyword === "string" ? input.keyword : typeof input.name === "string" ? input.name : JSON.stringify(input)) : null;
     return { name: call.toolName, argument: argument ? argument.slice(0, 60) : null };
@@ -97,6 +98,7 @@ export async function runTurn(input: { runId: string; config: AiTaskConfig; stat
   // 状态里先算上候选人这句（signal 还不知道，先按 null；跳过按钮的效果立刻生效）。
   const pending = candidate ? [asEvent(candidateEvent(candidate, null), state.events.length)] : [];
   const before = stateOf(state.brief, stateEventsOf([...state.events, ...pending]));
+  const describe = (forced: Proposal) => `${forced.action}${forced.target ? `，材料 ${forced.target}` : ""}${forced.facet !== null ? `，角度 ${forced.facet}` : ""}`;
   const call = (retry: string | null, forced: Proposal | null) =>
     interviewer({
       runId: forced ? `${input.runId}:forced` : retry ? `${input.runId}:retry` : input.runId,
@@ -105,35 +107,51 @@ export async function runTurn(input: { runId: string; config: AiTaskConfig; stat
       context: input.context,
       transcript,
       candidateContent: candidate?.content ?? null,
-      card: renderCard(before, { toolsUsed, loadSkill: skillToLoad(before, state.brief, input.context, toolsUsed), retry: forced ? `代码已定这回合的动作：${forced.action}${forced.target ? `，材料 ${forced.target}` : ""}${forced.facet !== null ? `，角度 ${forced.facet}` : ""}；action / target / facet 照填，只写这句话` : retry }),
+      card: renderCard(before, { toolsUsed, loadSkill: skillToLoad(before, state.brief, input.context, toolsUsed), retry: forced ? `代码已定这回合的动作：${describe(forced)}；action / target / facet 照填，只写这句话` : retry }),
+      judge,
+      lookupFirst: skillToLoad(before, state.brief, input.context, toolsUsed) !== null,
     });
 
-  // 第一次：模型自己提；违约重出一次；仍违约代码定动作再说一次。文字只查内部词，同样重出一次。
   // 校验用的状态要算上模型对候选人这句的判断（连续几句没信息含这一句）；开场动作固定 probe、没有材料，不校验。
   const judgedBy = (output: InterviewerOutput) => (candidate ? stateOf(state.brief, stateEventsOf([...state.events, asEvent(candidateEvent(candidate, output.signal), state.events.length)])) : before);
   // 消融"动作约束与重出"时一律判合规：模型说什么就是什么，用来量这一层挡住了多少越界。
   const verdictOf = (judged: InterviewState, proposal: Proposal) =>
     before.phase === "opening" || ablated("constraints") ? ({ ok: true } as const) : checkAction(judged, proposal);
-  let result = await call(null, null);
-  let judged = judgedBy(result.output);
-  let proposal = proposalOf(result.output, before);
-  let verdict = verdictOf(judged, proposal);
-  const replyVerdict = () => checkReply(result.output.reply);
+  const replyVerdict = (output: InterviewerOutput) => (ablated("constraints") ? ({ ok: true } as const) : checkReply(output.reply));
+
+  /**
+   * 一次判决，工具钩子与直接输出共用：合法返回 null；违约返回退回原因；第二次违约起由代码定动作，之后只负责说话。
+   * 模型经 ask_candidate 说话时，这个函数在循环内被钩子调用（退回 = 失败的工具结果，模型在同一回合里改）；
+   * 模型直接输出 JSON 时由下面的旧路径调用（退回 = 再调一次）。两条路的账都记在 violations。
+   */
   const violations: string[] = [];
-  if (!ablated("constraints") && (!verdict.ok || !replyVerdict().ok)) {
-    const reason = !verdict.ok ? verdict.reason : (replyVerdict() as { reason: string }).reason;
-    violations.push(reason);
-    result = await call(reason, null);
-    judged = judgedBy(result.output);
-    proposal = proposalOf(result.output, before);
-    verdict = verdictOf(judged, proposal);
+  let forced: Proposal | null = null;
+  function judge(output: InterviewerOutput): string | null {
+    if (forced) return null;
+    const judged = judgedBy(output);
+    const verdict = verdictOf(judged, proposalOf(output, before));
+    const reply = replyVerdict(output);
+    if (verdict.ok && reply.ok) return null;
+    violations.push(verdict.ok ? (reply as { reason: string }).reason : verdict.reason);
+    if (violations.length < 2) return violations[0];
+    forced = fallbackAction(judged);
+    return `代码已定这回合的动作：${describe(forced)}；action / target / facet 照填，只写这句话`;
   }
-  if (!verdict.ok) {
-    violations.push(verdict.reason);
-    proposal = fallbackAction(judged);
-    result = await call(null, proposal);
+  const askedByTool = (item: AgentRunResult<InterviewerOutput>) => item.toolCalls.some((toolCall) => toolCall.toolName === ASK_TOOL);
+
+  // 第一次：模型自己提。走工具时钩子已判完；直接输出时在这里判，违约再调一次，仍违约代码定动作再说一次。
+  let result = await call(null, null);
+  if (!askedByTool(result)) {
+    let reason = judge(result.output);
+    if (reason && !forced) {
+      result = await call(reason, null);
+      reason = askedByTool(result) ? null : judge(result.output);
+    }
+    if (forced && !askedByTool(result)) result = await call(null, forced);
   }
-  if (!ablated("constraints") && !replyVerdict().ok) violations.push((replyVerdict() as { reason: string }).reason);
+  const proposal = forced ?? proposalOf(result.output, before);
+  // 最终这句话再查一次内部词：只记账，不再重出。
+  if (!ablated("constraints") && !checkReply(result.output.reply).ok) violations.push((checkReply(result.output.reply) as { reason: string }).reason);
 
   const output = result.output;
   const signal: Signal = candidate ? (candidate.control === "skip" ? "answered" : output.signal) : "answered";

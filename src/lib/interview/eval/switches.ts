@@ -9,7 +9,7 @@ import path from "node:path";
  * 文件不存在时（也就是真实使用时）恒为全开，所以产品路径上这几处判断永远走 false 分支。
  */
 
-export const ABLATIONS = ["packs", "constraints", "ledger", "statecard", "basis"] as const;
+export const ABLATIONS = ["packs", "constraints", "ledger", "statecard", "basis", "asktool"] as const;
 export type Ablation = (typeof ABLATIONS)[number];
 
 export const ABLATION_LABELS: Record<Ablation, string> = {
@@ -18,6 +18,7 @@ export const ABLATION_LABELS: Record<Ablation, string> = {
   ledger: "证据账",
   statecard: "状态卡",
   basis: "依据门禁",
+  asktool: "提问工具",
 };
 
 const FILE = path.join(process.cwd(), "eval", "ablation.json");

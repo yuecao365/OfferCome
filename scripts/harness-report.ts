@@ -51,13 +51,15 @@ async function harnessSection(): Promise<{ text: string; data: unknown }> {
   for (const agent of agents) {
     const mine = calls.filter((call) => call.agent === agent);
     const success = mine.filter((call) => call.status === "success").length;
-    const partial = mine.filter((call) => call.status === "partial").length;
+    // 挂起让出（提问工具的 confirm 档）记为 partial + errorKind=interrupted：那是正常产物，不是降级救回。
+    const partial = mine.filter((call) => call.status === "partial" && call.errorKind !== "interrupted").length;
+    const suspended = mine.filter((call) => call.status === "partial" && call.errorKind === "interrupted").length;
     const failed = mine.filter((call) => call.status === "failed").length;
     const durations = mine.map((call) => call.durationMs);
     rows.push([
       agent,
       String(mine.length),
-      pct(success + partial, mine.length),
+      pct(success + partial + suspended, mine.length),
       // 没能一次拿到合规结构化输出的调用里，最终救回来的比例：harness 三层降级的直接成绩。
       partial + failed === 0 ? "—" : pct(partial, partial + failed),
       String(subOf(agent, "repair")),
@@ -67,7 +69,13 @@ async function harnessSection(): Promise<{ text: string; data: unknown }> {
     ]);
   }
 
-  const totals = { calls: calls.length, success: calls.filter((call) => call.status === "success").length, partial: calls.filter((call) => call.status === "partial").length, failed: calls.filter((call) => call.status === "failed").length };
+  const totals = {
+    calls: calls.length,
+    success: calls.filter((call) => call.status === "success").length,
+    partial: calls.filter((call) => call.status === "partial" && call.errorKind !== "interrupted").length,
+    suspended: calls.filter((call) => call.status === "partial" && call.errorKind === "interrupted").length,
+    failed: calls.filter((call) => call.status === "failed").length,
+  };
   const input = calls.reduce((sum, call) => sum + (call.inputTokens ?? 0), 0);
   const cached = calls.reduce((sum, call) => sum + (call.cachedTokens ?? 0), 0);
   const cost = calls.reduce((sum, call) => {
@@ -82,7 +90,7 @@ async function harnessSection(): Promise<{ text: string; data: unknown }> {
     "",
     table(["agent", "调用数", "可用产出率", "降级救回率", "修补次数", "预算触顶", "工具返回", "延迟 p50/p95 ms"], rows),
     "",
-    `合计 ${totals.calls} 次模型调用：一次成功 ${totals.success}、降级救回 ${totals.partial}、失败 ${totals.failed}（可用产出率 ${pct(totals.success + totals.partial, totals.calls)}）。`,
+    `合计 ${totals.calls} 次模型调用：一次成功 ${totals.success}、降级救回 ${totals.partial}、挂起让出 ${totals.suspended}（提问工具，正常）、失败 ${totals.failed}（可用产出率 ${pct(totals.success + totals.partial + totals.suspended, totals.calls)}）。`,
     `其中真实使用 ${real} 次、评测 ${calls.length - real} 次。跨 ${models.length} 个 provider/model 组合：${models.join("、")}。`,
     `提示词缓存命中 ${pct(cached, input)}（${cached} / ${input} 输入 token），累计成本 $${cost.toFixed(2)}。`,
   ].join("\n");

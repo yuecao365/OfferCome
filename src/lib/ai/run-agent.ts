@@ -253,6 +253,13 @@ export type AgentRunOptions<T> = {
   hooks?: LoopHooks;
   /** 续跑：上次挂起 / 中断时的事件，与对挂起调用的决定。 */
   resume?: LoopResume;
+  /**
+   * 输出契约在哪：object（缺省）= 每一步都要求结构化输出；none = 不要求，工具的入参就是契约——
+   * 面试官用：产物是 ask_candidate 那次挂起调用，而不是一个最终对象。none 时模型没调工具就交给 rescue 从文本里抢救。
+   */
+  output?: "object" | "none";
+  /** 按步指定工具选择（覆盖循环的 auto）：比如第 2 步起强制指向提问工具。返回 undefined 用循环的。 */
+  toolChoiceAt?: (step: number) => "auto" | { type: "tool"; toolName: string } | undefined;
   /** 复用已创建的模型实例，避免同一次生成里重复构造 */
   model?: LanguageModel;
   /** 结构化输出失败时，从原始文本里抢救可用结果 */
@@ -521,7 +528,8 @@ export async function runAgent<T>(
   // 工具交给模型只有描述与入参 schema；执行归循环（档位、hook、审计都在那里）。
   const declaredTools = Object.fromEntries(Object.entries(tools).map(([name, loopTool]) => [name, { description: loopTool.description, inputSchema: loopTool.inputSchema }]));
   const model = options.model ?? createTextModel(config);
-  const system = buildSystemPrompt(options.system, options.untrustedInputs) + schemaInstruction(config, options.schema, hasTools);
+  const contractInTool = options.output === "none";
+  const system = buildSystemPrompt(options.system, options.untrustedInputs) + (contractInTool ? "" : schemaInstruction(config, options.schema, hasTools));
   // 最后一步的结构化结果：SDK 在读 output 时才校验并抛错，所以只存取法。
   let readOutput: (() => T) | null = null;
 
@@ -543,21 +551,43 @@ export async function runAgent<T>(
       },
       resume: options.resume,
       callStep: async (messages, toolChoice) => {
-        const result = await generateText({
-          model,
-          output: Output.object({
-            schema: options.schema,
-            ...(options.schemaName ? { name: options.schemaName } : {}),
-            ...(options.schemaDescription ? { description: options.schemaDescription } : {}),
-          }),
-          ...(hasTools ? { tools: declaredTools, toolChoice } : {}),
-          ...outputBudget(options.maxOutputTokens),
-          providerOptions: providerOptionsFor(config, options.providerOptions),
-          abortSignal: AbortSignal.timeout(options.timeoutMs),
-          system,
-          messages,
-        });
-        readOutput = () => result.output;
+        const step = stepsOf(events);
+        // 循环在收尾（预算超了）时给 none，不能再强制工具；其余步按调用方的意思。
+        const choice = toolChoice === "none" ? "none" : (options.toolChoiceAt?.(step) ?? toolChoice);
+        const generate = (chosen: typeof choice) =>
+          generateText({
+            model,
+            ...(contractInTool
+              ? {}
+              : {
+                  output: Output.object({
+                    schema: options.schema,
+                    ...(options.schemaName ? { name: options.schemaName } : {}),
+                    ...(options.schemaDescription ? { description: options.schemaDescription } : {}),
+                  }),
+                }),
+            ...(hasTools ? { tools: declaredTools, toolChoice: chosen } : {}),
+            ...outputBudget(options.maxOutputTokens),
+            providerOptions: providerOptionsFor(config, options.providerOptions),
+            abortSignal: AbortSignal.timeout(options.timeoutMs),
+            system,
+            messages,
+          });
+        let result: Awaited<ReturnType<typeof generate>>;
+        try {
+          result = await generate(choice);
+        } catch (error) {
+          // 服务商不支持指定工具：退化为 auto（提示词仍要求调工具），再不成由调用方的兜底接。
+          if (typeof choice === "object" && error instanceof Error && /tool[_ ]?choice/i.test(error.message)) result = await generate("auto");
+          else throw error;
+        }
+        readOutput = contractInTool
+          ? () => {
+              const rescued = options.rescue?.(result.text) ?? null;
+              if (rescued === null) throw new AgentRunError({ kind: "invalid_structured_output", agent: options.agent, runId, message: `agent ${options.agent} 既没调工具也没给出可用的最终答案。`, durationMs: Date.now() - startedAt, rawText: result.text, events });
+              return rescued;
+            }
+          : () => result.output;
         return {
           text: result.text,
           toolCalls: (result.toolCalls ?? []).map((call) => ({ toolCallId: call.toolCallId, toolName: call.toolName, input: call.input as unknown })),
@@ -603,7 +633,8 @@ export async function runAgent<T>(
   } catch (error) {
     const durationMs = Date.now() - startedAt;
     if (isAgentRunError(error) && error.kind === "interrupted") {
-      logAgentRun({ ...logBase, status: "partial", durationMs, errorKind: "interrupted", metrics: loopMetrics(config, events, sumUsage(events)), payload: options.payload });
+      // 挂起是正常让出，不是降级；用量照记，否则挂起路径的 token / 缓存指标会是空的。
+      logAgentRun({ ...logBase, status: "partial", durationMs, errorKind: "interrupted", usage: sumUsage(events), metrics: loopMetrics(config, events, sumUsage(events)), payload: options.messages ?? options.payload });
       throw error;
     }
     const noObject = NoObjectGeneratedError.isInstance(error) ? error : null;
