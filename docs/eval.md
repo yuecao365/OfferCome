@@ -342,6 +342,10 @@ topic 裁判校准 0.96–0.97（冻结集 80 条）。读法：噪声最高 0.1
 
 读法：k=1 的单次结果，排序与定位这类按"道"计的指标一道翻转 0.036，上面的差都在两道以上。要正式当基线再跑一遍 k=3。
 
+## 7.7 InterviewBench（2026-09-20 起）
+
+与上面"自己造数据自己评"的评测不同，InterviewBench 从真实面试的角度评"一个模型当面试官的基本功"，真值尽量外部：Beyond the Resumé（MBZUAI）的模拟面试与裁判测试、真实面经的提问链。设计与结果见 [interviewbench-plan.md](interviewbench-plan.md)、[eval/bench/README.md](../eval/bench/README.md)、[eval/bench/results.md](../eval/bench/results.md)。
+
 ## 8. 边界
 
 - **裁判会跨天漂移**：topic 裁判（deepseek-chat）一天之内把同一批简报的覆盖率从 0.15–0.21 判成 0.37–0.47（§7.5），校准集测不出来。跨天的数字不比，产物里存的简报全文就是为了能重判。

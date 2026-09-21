@@ -1,0 +1,50 @@
+{
+ "low_larry": {
+  "problem_framing": "low",
+  "data_judgement": "low",
+  "evaluation_design": "low",
+  "failure_analysis_and_iteration": "low",
+  "ml_system_delivery": "low",
+  "communication": "low"
+ },
+ "average_joe": {
+  "problem_framing": "medium",
+  "data_judgement": "medium",
+  "evaluation_design": "medium",
+  "failure_analysis_and_iteration": "medium",
+  "ml_system_delivery": "medium",
+  "communication": "medium"
+ },
+ "high_henry": {
+  "problem_framing": "high",
+  "data_judgement": "high",
+  "evaluation_design": "high",
+  "failure_analysis_and_iteration": "high",
+  "ml_system_delivery": "high",
+  "communication": "high"
+ },
+ "prototype_sprinter": {
+  "problem_framing": "medium",
+  "data_judgement": "low",
+  "evaluation_design": "low",
+  "failure_analysis_and_iteration": "medium",
+  "ml_system_delivery": "high",
+  "communication": "medium"
+ },
+ "research_purist": {
+  "problem_framing": "medium",
+  "data_judgement": "medium",
+  "evaluation_design": "high",
+  "failure_analysis_and_iteration": "high",
+  "ml_system_delivery": "low",
+  "communication": "low"
+ },
+ "production_hardener": {
+  "problem_framing": "high",
+  "data_judgement": "high",
+  "evaluation_design": "medium",
+  "failure_analysis_and_iteration": "low",
+  "ml_system_delivery": "high",
+  "communication": "low"
+ }
+}

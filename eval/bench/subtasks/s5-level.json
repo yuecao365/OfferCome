@@ -1,0 +1,966 @@
+{
+ "task": "s5-level",
+ "description": "英文 ML 面试一问一答 + 该能力的三档锚点：候选人在这项能力上是 low / medium / high。真值是模拟候选人的原型水平。",
+ "items": [
+  {
+   "id": "s5-ml_8:production_hardener-5",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "communication",
+   "anchors": {
+    "low": "Communicates primarily through artifacts (code/results) without clearly stating objectives, decision context, tradeoffs, or implications. Does not consistently document assumptions, risks, uncertainty, and limitations; these are surfaced late. Handoffs omit key context (intent, constraints, operational considerations) and do not specify decision criteria, ownership, or next steps needed to act on the work.",
+    "medium": "Explains approach and results clearly to technical audiences and summarizes decisions and tradeoffs for partners in a structured way. Surfaces major risks and limitations and provides actionable next steps. However, alignment is not consistently maintained across iterations: success criteria, decision points, and priority tradeoffs are not always explicitly tracked and refreshed as evidence changes.",
+    "high": "Maintains durable alignment by explicitly articulating objectives, options, tradeoffs, assumptions, and decision-relevant uncertainty throughout the project. Communicates in a way that enables action: clear recommendations with expected impacts, explicit risks/limitations, and defined next decisions. Proactively updates stakeholders when evidence changes the plan and produces handoff-quality documentation that preserves intent and operational context (interfaces, monitoring/guardrails, rollout/rollback plans) rather than only implementation details."
+   },
+   "question": "Great, thanks for that—sticking with Northwind where you collaborated with PMs on AI-driven features, how did you keep stakeholders aligned on objectives, risks, and go/no-go criteria as evidence evolved during the project?",
+   "answer": "I just gave quick updates in our weekly chats and pointed folks to the usual reports if something looked different. PMs handled the decision tracking and dashboards, and they told us whether to keep going or stop.",
+   "truth": {
+    "level": "low"
+   }
+  },
+  {
+   "id": "s5-ml_4:prototype_sprinter-2",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "evaluation_design",
+   "anchors": {
+    "low": "Uses a single headline metric or default split without an explicit argument that it reflects the desired outcome. Employs evaluation protocols that are vulnerable to leakage or unrepresentative splits (e.g., ignores time or entity boundaries when relevant). Does not routinely assess variance/uncertainty across runs or slices, and does not routinely run calibration checks or subgroup analyses as part of the default evaluation. Does not define or execute targeted checks designed to surface known failure modes early (e.g., key slices, stress cases, or guardrail metrics).",
+    "medium": "Defines metrics that are directionally aligned with the goal and uses standard evaluation practices (holdouts, cross-validation where appropriate, baseline comparisons). Includes some robustness checks (e.g., slice breakdowns, calibration checks, multiple seeds) and can interpret tradeoffs. However, the evaluation plan does not consistently mirror deployment conditions (e.g., temporal splits, policy-induced feedback, shifting mixtures), and guardrail metrics and uncertainty criteria are not consistently treated as first-class acceptance/rollback conditions.",
+    "high": "Designs evaluation to mirror the deployment environment and decision process, including leakage-resistant protocols and splits appropriate to the data-generating process (e.g., time-aware or entity-aware splits when relevant) and realistic mixture assumptions. Incorporates uncertainty-aware reasoning (e.g., variance across runs, confidence intervals or equivalent) and stress-tests claims using targeted ablations, slice analyses, and perturbation/counterfactual-style checks where relevant. Establishes guardrail metrics and explicitly defines acceptance thresholds and conditions that would invalidate the approach or trigger rollback."
+   },
+   "question": "Thanks for explaining that labeling process. For the RetailPulse model, how did you set up the evaluation split to mirror deployment—did you use any time- or retailer-aware partitioning—and what specific acceptance threshold or go/no‑go criteria did you use before enabling auto‑flagging?",
+   "answer": "We used a basic random 80/20 split. We enabled auto-flagging once it did better than the keyword rules on our test set and a quick spot check showed roughly 8/10 top flags were rude; otherwise we kept the rules.",
+   "truth": {
+    "level": "low"
+   }
+  },
+  {
+   "id": "s5-ml_3:low_larry-11",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "evaluation_design",
+   "anchors": {
+    "low": "Uses a single headline metric or default split without an explicit argument that it reflects the desired outcome. Employs evaluation protocols that are vulnerable to leakage or unrepresentative splits (e.g., ignores time or entity boundaries when relevant). Does not routinely assess variance/uncertainty across runs or slices, and does not routinely run calibration checks or subgroup analyses as part of the default evaluation. Does not define or execute targeted checks designed to surface known failure modes early (e.g., key slices, stress cases, or guardrail metrics).",
+    "medium": "Defines metrics that are directionally aligned with the goal and uses standard evaluation practices (holdouts, cross-validation where appropriate, baseline comparisons). Includes some robustness checks (e.g., slice breakdowns, calibration checks, multiple seeds) and can interpret tradeoffs. However, the evaluation plan does not consistently mirror deployment conditions (e.g., temporal splits, policy-induced feedback, shifting mixtures), and guardrail metrics and uncertainty criteria are not consistently treated as first-class acceptance/rollback conditions.",
+    "high": "Designs evaluation to mirror the deployment environment and decision process, including leakage-resistant protocols and splits appropriate to the data-generating process (e.g., time-aware or entity-aware splits when relevant) and realistic mixture assumptions. Incorporates uncertainty-aware reasoning (e.g., variance across runs, confidence intervals or equivalent) and stress-tests claims using targeted ablations, slice analyses, and perturbation/counterfactual-style checks where relevant. Establishes guardrail metrics and explicitly defines acceptance thresholds and conditions that would invalidate the approach or trigger rollback."
+   },
+   "question": "Thanks for explaining the demo fallbacks—on your Hybrid Anime recommender on GKE, what offline metric(s) and specific slices like cold-start users/items or long-tail titles did you evaluate before a deploy, and what bar did you set to greenlight a push?",
+   "answer": "I glanced at the overall score on a basic split and made sure the demo felt fast. If it inched past the last run, that was good enough for me to move ahead.",
+   "truth": {
+    "level": "low"
+   }
+  },
+  {
+   "id": "s5-ml_2:low_larry-8",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "ml_system_delivery",
+   "anchors": {
+    "low": "Delivers prototypes with unclear interfaces and brittle behavior under edge cases; changes frequently break downstream components. Operational constraints (latency, memory, cost), observability, and safe rollback/disable paths are not designed in from the start. Reliability depends on manual intervention due to missing safeguards, versioning, and predictable runtime behavior.",
+    "medium": "Delivers working components that integrate into an existing stack with acceptable reliability. Defines interfaces and includes basic operational safeguards (logging, simple monitors, fallback behavior) and some reproducibility practices. However, resilience to real operating conditions (traffic spikes, schema drift, dependency changes, partial outages) is not consistently designed and tested, and maintainability often degrades as complexity grows due to missing modularization, tests, and interface/version discipline.",
+    "high": "Delivers ML systems that remain operable and maintainable under realistic constraints: clear interfaces, reproducible builds, versioned artifacts, and predictable performance characteristics. Designs for safe deployment and operation (feature consistency, monitoring tied to anticipated failure modes, rollback/disable mechanisms, and graceful degradation). Anticipates operational risks and reduces them through design choices that keep the system understandable, testable, and resilient over time."
+   },
+   "question": "Appreciate that context. For the spam model you deployed from the tutorial, how did you define the Flask API contract and handle model or preprocessing updates so existing callers wouldn’t break?",
+   "answer": "I put up one simple API that took text and returned a result with a score. When I changed the model or the steps before it, I just swapped it in at the same URL and format so callers kept using it, with no separate versions.",
+   "truth": {
+    "level": "low"
+   }
+  },
+  {
+   "id": "s5-ml_2:prototype_sprinter-8",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "data_judgement",
+   "anchors": {
+    "low": "Treats available data as representative by default and proceeds without a documented account of what the dataset represents or how it is generated. Does not routinely check for leakage, shifting definitions, selection effects, or label noise until anomalies appear in results. Chooses labels and features primarily for convenience rather than for fidelity to the deployed system’s inputs, incentives, and measurement process.",
+    "medium": "Articulates basic dataset suitability and how labels/features relate to the task, including simple provenance and known limitations. Implements common checks and mitigations for obvious leakage and bias, and proposes practical improvements (sampling changes, cleaning steps, labeling guidelines). However, does not consistently test for subtler mismatches (e.g., proxy-label traps, delayed feedback loops, cohort effects) or specify how data validity will be preserved under deployment dynamics.",
+    "high": "Evaluates data using an explicit generative account: who/what produces it, under what incentives and constraints, and how the process can change after deployment. Proactively audits leakage paths, proxy-label traps, selection effects, and non-stationarity; designs data collection and labeling to preserve validity (sampling strategy, measurement definitions, auditability). Selects features and labels that remain robust under operational realities and documents dataset limitations in a way that directly shapes modeling, evaluation, and rollout decisions."
+   },
+   "question": "Thanks for sharing that. For the Codveda lead‑scoring work, how did you define the training signal, and when is that signal recorded relative to when a lead first arrives and SDRs start acting on it?",
+   "answer": "I’m using the CRM’s “meeting booked” status as the label based on what the system records. The timing of when that gets entered versus when reps act is handled by the CRM process, so I just use what’s there.",
+   "truth": {
+    "level": "low"
+   }
+  },
+  {
+   "id": "s5-ml_3:low_larry-9",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "evaluation_design",
+   "anchors": {
+    "low": "Uses a single headline metric or default split without an explicit argument that it reflects the desired outcome. Employs evaluation protocols that are vulnerable to leakage or unrepresentative splits (e.g., ignores time or entity boundaries when relevant). Does not routinely assess variance/uncertainty across runs or slices, and does not routinely run calibration checks or subgroup analyses as part of the default evaluation. Does not define or execute targeted checks designed to surface known failure modes early (e.g., key slices, stress cases, or guardrail metrics).",
+    "medium": "Defines metrics that are directionally aligned with the goal and uses standard evaluation practices (holdouts, cross-validation where appropriate, baseline comparisons). Includes some robustness checks (e.g., slice breakdowns, calibration checks, multiple seeds) and can interpret tradeoffs. However, the evaluation plan does not consistently mirror deployment conditions (e.g., temporal splits, policy-induced feedback, shifting mixtures), and guardrail metrics and uncertainty criteria are not consistently treated as first-class acceptance/rollback conditions.",
+    "high": "Designs evaluation to mirror the deployment environment and decision process, including leakage-resistant protocols and splits appropriate to the data-generating process (e.g., time-aware or entity-aware splits when relevant) and realistic mixture assumptions. Incorporates uncertainty-aware reasoning (e.g., variance across runs, confidence intervals or equivalent) and stress-tests claims using targeted ablations, slice analyses, and perturbation/counterfactual-style checks where relevant. Establishes guardrail metrics and explicitly defines acceptance thresholds and conditions that would invalidate the approach or trigger rollback."
+   },
+   "question": "Thanks for walking me through how you shared updates—on the WESEE YOLOv8 tracking work, when you evaluated it, what specific metrics or slice checks did you use and what acceptance bar did you set before considering it usable?",
+   "answer": "I mostly looked at one basic score on the validation set, did a rough speed check, and skimmed a few clips; if it seemed roughly in the right ballpark and looked stable in a short demo, I considered it usable.",
+   "truth": {
+    "level": "low"
+   }
+  },
+  {
+   "id": "s5-ml_3:prototype_sprinter-9",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "evaluation_design",
+   "anchors": {
+    "low": "Uses a single headline metric or default split without an explicit argument that it reflects the desired outcome. Employs evaluation protocols that are vulnerable to leakage or unrepresentative splits (e.g., ignores time or entity boundaries when relevant). Does not routinely assess variance/uncertainty across runs or slices, and does not routinely run calibration checks or subgroup analyses as part of the default evaluation. Does not define or execute targeted checks designed to surface known failure modes early (e.g., key slices, stress cases, or guardrail metrics).",
+    "medium": "Defines metrics that are directionally aligned with the goal and uses standard evaluation practices (holdouts, cross-validation where appropriate, baseline comparisons). Includes some robustness checks (e.g., slice breakdowns, calibration checks, multiple seeds) and can interpret tradeoffs. However, the evaluation plan does not consistently mirror deployment conditions (e.g., temporal splits, policy-induced feedback, shifting mixtures), and guardrail metrics and uncertainty criteria are not consistently treated as first-class acceptance/rollback conditions.",
+    "high": "Designs evaluation to mirror the deployment environment and decision process, including leakage-resistant protocols and splits appropriate to the data-generating process (e.g., time-aware or entity-aware splits when relevant) and realistic mixture assumptions. Incorporates uncertainty-aware reasoning (e.g., variance across runs, confidence intervals or equivalent) and stress-tests claims using targeted ablations, slice analyses, and perturbation/counterfactual-style checks where relevant. Establishes guardrail metrics and explicitly defines acceptance thresholds and conditions that would invalidate the approach or trigger rollback."
+   },
+   "question": "Thanks for walking through that. On your Hybrid Anime Recommender, how did you design offline evaluation to mirror how it would be used in prod—what split strategy and metrics did you use, and what explicit acceptance or rollback criteria did you set before promoting a model?",
+   "answer": "I did a basic random train/test split and watched a simple top-k style score; if it looked clearly better than what we had and didn’t seem slow, we pushed it. In production we had monitors and could quickly roll back to the last stable version if anomalies showed up.",
+   "truth": {
+    "level": "low"
+   }
+  },
+  {
+   "id": "s5-ml_5:prototype_sprinter-8",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "data_judgement",
+   "anchors": {
+    "low": "Treats available data as representative by default and proceeds without a documented account of what the dataset represents or how it is generated. Does not routinely check for leakage, shifting definitions, selection effects, or label noise until anomalies appear in results. Chooses labels and features primarily for convenience rather than for fidelity to the deployed system’s inputs, incentives, and measurement process.",
+    "medium": "Articulates basic dataset suitability and how labels/features relate to the task, including simple provenance and known limitations. Implements common checks and mitigations for obvious leakage and bias, and proposes practical improvements (sampling changes, cleaning steps, labeling guidelines). However, does not consistently test for subtler mismatches (e.g., proxy-label traps, delayed feedback loops, cohort effects) or specify how data validity will be preserved under deployment dynamics.",
+    "high": "Evaluates data using an explicit generative account: who/what produces it, under what incentives and constraints, and how the process can change after deployment. Proactively audits leakage paths, proxy-label traps, selection effects, and non-stationarity; designs data collection and labeling to preserve validity (sampling strategy, measurement definitions, auditability). Selects features and labels that remain robust under operational realities and documents dataset limitations in a way that directly shapes modeling, evaluation, and rollout decisions."
+   },
+   "question": "Got it, thanks for clarifying—on your Contextual Emotion-Cause Detection project, how did you set up your train/val/test splits and feature choices to avoid leakage across episodes/speakers and ensure the TF‑IDF and RoBERTa inputs reflected what the SemEval dataset actually provides at inference time?",
+   "answer": "I did a basic 80/10/10 random split and used the dataset as-is with the same inputs available at test time. I didn’t add special grouping or extra checks—if the same episode or speaker showed up across splits, I left it that way since a new line would still come with its nearby context.",
+   "truth": {
+    "level": "low"
+   }
+  },
+  {
+   "id": "s5-ml_5:low_larry-4",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "evaluation_design",
+   "anchors": {
+    "low": "Uses a single headline metric or default split without an explicit argument that it reflects the desired outcome. Employs evaluation protocols that are vulnerable to leakage or unrepresentative splits (e.g., ignores time or entity boundaries when relevant). Does not routinely assess variance/uncertainty across runs or slices, and does not routinely run calibration checks or subgroup analyses as part of the default evaluation. Does not define or execute targeted checks designed to surface known failure modes early (e.g., key slices, stress cases, or guardrail metrics).",
+    "medium": "Defines metrics that are directionally aligned with the goal and uses standard evaluation practices (holdouts, cross-validation where appropriate, baseline comparisons). Includes some robustness checks (e.g., slice breakdowns, calibration checks, multiple seeds) and can interpret tradeoffs. However, the evaluation plan does not consistently mirror deployment conditions (e.g., temporal splits, policy-induced feedback, shifting mixtures), and guardrail metrics and uncertainty criteria are not consistently treated as first-class acceptance/rollback conditions.",
+    "high": "Designs evaluation to mirror the deployment environment and decision process, including leakage-resistant protocols and splits appropriate to the data-generating process (e.g., time-aware or entity-aware splits when relevant) and realistic mixture assumptions. Incorporates uncertainty-aware reasoning (e.g., variance across runs, confidence intervals or equivalent) and stress-tests claims using targeted ablations, slice analyses, and perturbation/counterfactual-style checks where relevant. Establishes guardrail metrics and explicitly defines acceptance thresholds and conditions that would invalidate the approach or trigger rollback."
+   },
+   "question": "Gotcha on the fallbacks—switching to your Dynamic Transformers research at Fort Wayne, what was the core hypothesis you were testing, and what specific outcome would have led you to drop or rethink the dynamic-architecture idea?",
+   "answer": "I tried turning some parts of the model on and off during training to see if it seemed to reach our usual quality score faster. I compared it to our standard setup, and if after a few runs the score looked worse or it didn’t feel faster to reach the target, I would have dropped it.",
+   "truth": {
+    "level": "low"
+   }
+  },
+  {
+   "id": "s5-ml_6:low_larry-9",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "communication",
+   "anchors": {
+    "low": "Communicates primarily through artifacts (code/results) without clearly stating objectives, decision context, tradeoffs, or implications. Does not consistently document assumptions, risks, uncertainty, and limitations; these are surfaced late. Handoffs omit key context (intent, constraints, operational considerations) and do not specify decision criteria, ownership, or next steps needed to act on the work.",
+    "medium": "Explains approach and results clearly to technical audiences and summarizes decisions and tradeoffs for partners in a structured way. Surfaces major risks and limitations and provides actionable next steps. However, alignment is not consistently maintained across iterations: success criteria, decision points, and priority tradeoffs are not always explicitly tracked and refreshed as evidence changes.",
+    "high": "Maintains durable alignment by explicitly articulating objectives, options, tradeoffs, assumptions, and decision-relevant uncertainty throughout the project. Communicates in a way that enables action: clear recommendations with expected impacts, explicit risks/limitations, and defined next decisions. Proactively updates stakeholders when evidence changes the plan and produces handoff-quality documentation that preserves intent and operational context (interfaces, monitoring/guardrails, rollout/rollback plans) rather than only implementation details."
+   },
+   "question": "Thanks, that helps me picture the setup. On the 5G project, when you shared outputs with the network ops folks, how did you communicate the key takeaways, the limitations of your forecasts, and what concrete next decision you were asking them to make?",
+   "answer": "I sent over some basic charts and a list of towers that looked off, with brief notes where I saw drops. I mentioned it was just based on recent numbers and left it to their usual maintenance process to decide what to do.",
+   "truth": {
+    "level": "low"
+   }
+  },
+  {
+   "id": "s5-ml_5:research_purist-10",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "communication",
+   "anchors": {
+    "low": "Communicates primarily through artifacts (code/results) without clearly stating objectives, decision context, tradeoffs, or implications. Does not consistently document assumptions, risks, uncertainty, and limitations; these are surfaced late. Handoffs omit key context (intent, constraints, operational considerations) and do not specify decision criteria, ownership, or next steps needed to act on the work.",
+    "medium": "Explains approach and results clearly to technical audiences and summarizes decisions and tradeoffs for partners in a structured way. Surfaces major risks and limitations and provides actionable next steps. However, alignment is not consistently maintained across iterations: success criteria, decision points, and priority tradeoffs are not always explicitly tracked and refreshed as evidence changes.",
+    "high": "Maintains durable alignment by explicitly articulating objectives, options, tradeoffs, assumptions, and decision-relevant uncertainty throughout the project. Communicates in a way that enables action: clear recommendations with expected impacts, explicit risks/limitations, and defined next decisions. Proactively updates stakeholders when evidence changes the plan and produces handoff-quality documentation that preserves intent and operational context (interfaces, monitoring/guardrails, rollout/rollback plans) rather than only implementation details."
+   },
+   "question": "Thanks, that makes sense on the reproducibility front—on your AstraSoft solution briefs, how did you structure those conversations so non-technical clients could weigh options, risks, and tradeoffs, and what specific decision points did you tee up for them to make?",
+   "answer": "I usually send a short note restating the goal and a couple of broad options with rough timing and cost, then ask what budget and target date they have. Compliance, PII, and SLA details are handled by other teams, so I just check if they prefer a small trial first or to proceed once those pieces are sorted.",
+   "truth": {
+    "level": "low"
+   }
+  },
+  {
+   "id": "s5-ml_4:prototype_sprinter-7",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "data_judgement",
+   "anchors": {
+    "low": "Treats available data as representative by default and proceeds without a documented account of what the dataset represents or how it is generated. Does not routinely check for leakage, shifting definitions, selection effects, or label noise until anomalies appear in results. Chooses labels and features primarily for convenience rather than for fidelity to the deployed system’s inputs, incentives, and measurement process.",
+    "medium": "Articulates basic dataset suitability and how labels/features relate to the task, including simple provenance and known limitations. Implements common checks and mitigations for obvious leakage and bias, and proposes practical improvements (sampling changes, cleaning steps, labeling guidelines). However, does not consistently test for subtler mismatches (e.g., proxy-label traps, delayed feedback loops, cohort effects) or specify how data validity will be preserved under deployment dynamics.",
+    "high": "Evaluates data using an explicit generative account: who/what produces it, under what incentives and constraints, and how the process can change after deployment. Proactively audits leakage paths, proxy-label traps, selection effects, and non-stationarity; designs data collection and labeling to preserve validity (sampling strategy, measurement definitions, auditability). Selects features and labels that remain robust under operational realities and documents dataset limitations in a way that directly shapes modeling, evaluation, and rollout decisions."
+   },
+   "question": "Thanks for clarifying the Redwood setup. For that project, how did you construct the datasets for training the defense and for evaluating attacks, and what steps did you take to prevent leakage or circularity between the defended model and the attack evaluation data?",
+   "answer": "We used a straightforward train/holdout split and ran the attacks against the holdout outputs, following the standard setup. We kept the setup versioned but otherwise just used the usual process.",
+   "truth": {
+    "level": "low"
+   }
+  },
+  {
+   "id": "s5-ml_2:prototype_sprinter-1",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "evaluation_design",
+   "anchors": {
+    "low": "Uses a single headline metric or default split without an explicit argument that it reflects the desired outcome. Employs evaluation protocols that are vulnerable to leakage or unrepresentative splits (e.g., ignores time or entity boundaries when relevant). Does not routinely assess variance/uncertainty across runs or slices, and does not routinely run calibration checks or subgroup analyses as part of the default evaluation. Does not define or execute targeted checks designed to surface known failure modes early (e.g., key slices, stress cases, or guardrail metrics).",
+    "medium": "Defines metrics that are directionally aligned with the goal and uses standard evaluation practices (holdouts, cross-validation where appropriate, baseline comparisons). Includes some robustness checks (e.g., slice breakdowns, calibration checks, multiple seeds) and can interpret tradeoffs. However, the evaluation plan does not consistently mirror deployment conditions (e.g., temporal splits, policy-induced feedback, shifting mixtures), and guardrail metrics and uncertainty criteria are not consistently treated as first-class acceptance/rollback conditions.",
+    "high": "Designs evaluation to mirror the deployment environment and decision process, including leakage-resistant protocols and splits appropriate to the data-generating process (e.g., time-aware or entity-aware splits when relevant) and realistic mixture assumptions. Incorporates uncertainty-aware reasoning (e.g., variance across runs, confidence intervals or equivalent) and stress-tests claims using targeted ablations, slice analyses, and perturbation/counterfactual-style checks where relevant. Establishes guardrail metrics and explicitly defines acceptance thresholds and conditions that would invalidate the approach or trigger rollback."
+   },
+   "question": "Got it, thanks for clarifying. For that spam detection project, how did you set up the train/validation split, and what made you think that split matched how future incoming emails would differ from what the model saw during training?",
+   "answer": "We used a simple 80/20 random split with the usual tooling. The dataset looked like a good mix, so I assumed a random sample would be close to what we’d see later.",
+   "truth": {
+    "level": "low"
+   }
+  },
+  {
+   "id": "s5-ml_5:prototype_sprinter-7",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "evaluation_design",
+   "anchors": {
+    "low": "Uses a single headline metric or default split without an explicit argument that it reflects the desired outcome. Employs evaluation protocols that are vulnerable to leakage or unrepresentative splits (e.g., ignores time or entity boundaries when relevant). Does not routinely assess variance/uncertainty across runs or slices, and does not routinely run calibration checks or subgroup analyses as part of the default evaluation. Does not define or execute targeted checks designed to surface known failure modes early (e.g., key slices, stress cases, or guardrail metrics).",
+    "medium": "Defines metrics that are directionally aligned with the goal and uses standard evaluation practices (holdouts, cross-validation where appropriate, baseline comparisons). Includes some robustness checks (e.g., slice breakdowns, calibration checks, multiple seeds) and can interpret tradeoffs. However, the evaluation plan does not consistently mirror deployment conditions (e.g., temporal splits, policy-induced feedback, shifting mixtures), and guardrail metrics and uncertainty criteria are not consistently treated as first-class acceptance/rollback conditions.",
+    "high": "Designs evaluation to mirror the deployment environment and decision process, including leakage-resistant protocols and splits appropriate to the data-generating process (e.g., time-aware or entity-aware splits when relevant) and realistic mixture assumptions. Incorporates uncertainty-aware reasoning (e.g., variance across runs, confidence intervals or equivalent) and stress-tests claims using targeted ablations, slice analyses, and perturbation/counterfactual-style checks where relevant. Establishes guardrail metrics and explicitly defines acceptance thresholds and conditions that would invalidate the approach or trigger rollback."
+   },
+   "question": "Appreciate the detail—if you were to rerun the Dynamic Transformers study with the same compute budget, what concrete changes would you make to the eval protocol (splits, repeats, thresholds, or guardrails) so the BLEU/time claims are robust across reruns rather than a lucky seed?",
+   "answer": "I’d stick with the same split and just compare BLEU and run time against the baseline to see if it’s roughly on par but faster. I’d keep versions consistent and save what I ran so I can reproduce it, and if something looks off (like a sudden loss jump), I’d rerun to check.",
+   "truth": {
+    "level": "low"
+   }
+  },
+  {
+   "id": "s5-ml_0:prototype_sprinter-6",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "evaluation_design",
+   "anchors": {
+    "low": "Uses a single headline metric or default split without an explicit argument that it reflects the desired outcome. Employs evaluation protocols that are vulnerable to leakage or unrepresentative splits (e.g., ignores time or entity boundaries when relevant). Does not routinely assess variance/uncertainty across runs or slices, and does not routinely run calibration checks or subgroup analyses as part of the default evaluation. Does not define or execute targeted checks designed to surface known failure modes early (e.g., key slices, stress cases, or guardrail metrics).",
+    "medium": "Defines metrics that are directionally aligned with the goal and uses standard evaluation practices (holdouts, cross-validation where appropriate, baseline comparisons). Includes some robustness checks (e.g., slice breakdowns, calibration checks, multiple seeds) and can interpret tradeoffs. However, the evaluation plan does not consistently mirror deployment conditions (e.g., temporal splits, policy-induced feedback, shifting mixtures), and guardrail metrics and uncertainty criteria are not consistently treated as first-class acceptance/rollback conditions.",
+    "high": "Designs evaluation to mirror the deployment environment and decision process, including leakage-resistant protocols and splits appropriate to the data-generating process (e.g., time-aware or entity-aware splits when relevant) and realistic mixture assumptions. Incorporates uncertainty-aware reasoning (e.g., variance across runs, confidence intervals or equivalent) and stress-tests claims using targeted ablations, slice analyses, and perturbation/counterfactual-style checks where relevant. Establishes guardrail metrics and explicitly defines acceptance thresholds and conditions that would invalidate the approach or trigger rollback."
+   },
+   "question": "Thanks for that context. On the Aim-Trainer project, since you mentioned using the standard pipeline, for your 2,000-image set how did you ensure the train/val/test split respected gameplay session or player boundaries so near-duplicates or the same scenario skin didn’t land across splits?",
+   "answer": "I kept related gameplay together rather than splitting it up, mostly following how the data export already grouped things. When identifiers weren’t clear, I just used the available times to keep close events together.",
+   "truth": {
+    "level": "low"
+   }
+  },
+  {
+   "id": "s5-ml_7:low_larry-3",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "failure_analysis_and_iteration",
+   "anchors": {
+    "low": "Responds to disappointing results primarily with trial-and-error changes (e.g., architecture/hyperparameter tweaking) without isolating variables or forming testable hypotheses. Relies on aggregate metrics without systematic localization (e.g., slice-level errors, pipeline checks, or minimal reproductions). Does not consistently validate fixes across seeds, slices, and reruns, and experiment records are insufficient to reliably reproduce findings or prevent regressions.",
+    "medium": "Uses a mix of diagnostic tools (error analysis, ablations, qualitative inspections, and basic pipeline debugging) to identify plausible failure sources and propose targeted interventions. Can reproduce issues and maintains experiment tracking with reasonable hygiene. However, hypotheses and tests are not consistently structured to isolate the causal lever (especially when failures involve interactions across data, model, and system behavior), and validation of fixes across operating conditions is not consistently performed.",
+    "high": "Runs a hypothesis-driven iteration loop: isolates variables, constructs minimal reproductions, and uses targeted ablations and slice-focused probes to localize root causes. Validates fixes for robustness across seeds, slices, and reruns and articulates why the fix should generalize given observed evidence. Maintains clean experimental records (including datasets, configs, and evaluation protocols) that support fast iteration without accumulating unexamined complexity."
+   },
+   "question": "Thanks for explaining that—on your “1000% speed” distributed GPU training work, when a run underperformed or diverged, what was the first concrete step you took to localize the issue before making code or config changes?",
+   "answer": "I skimmed the logs for anything obvious and then just tried running it again to see if it was a one-off. If it still looked off, I’d kick off another run the same way before changing anything.",
+   "truth": {
+    "level": "low"
+   }
+  },
+  {
+   "id": "s5-ml_1:research_purist-10",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "ml_system_delivery",
+   "anchors": {
+    "low": "Delivers prototypes with unclear interfaces and brittle behavior under edge cases; changes frequently break downstream components. Operational constraints (latency, memory, cost), observability, and safe rollback/disable paths are not designed in from the start. Reliability depends on manual intervention due to missing safeguards, versioning, and predictable runtime behavior.",
+    "medium": "Delivers working components that integrate into an existing stack with acceptable reliability. Defines interfaces and includes basic operational safeguards (logging, simple monitors, fallback behavior) and some reproducibility practices. However, resilience to real operating conditions (traffic spikes, schema drift, dependency changes, partial outages) is not consistently designed and tested, and maintainability often degrades as complexity grows due to missing modularization, tests, and interface/version discipline.",
+    "high": "Delivers ML systems that remain operable and maintainable under realistic constraints: clear interfaces, reproducible builds, versioned artifacts, and predictable performance characteristics. Designs for safe deployment and operation (feature consistency, monitoring tied to anticipated failure modes, rollback/disable mechanisms, and graceful degradation). Anticipates operational risks and reduces them through design choices that keep the system understandable, testable, and resilient over time."
+   },
+   "question": "Got it, thanks for sharing that ritual—staying on Rover Club, during runs what was your concrete rollback or disable path for the vision/arm stack, and how was that exposed in the robot’s interface so an operator could trigger it quickly?",
+   "answer": "We had a simple toggle in the operator screen that stopped the automatic action, moved the arm to a safe spot, and let a person take over, which the controls team set up. If things acted up it did this on its own, and there was also the physical emergency stop on the panel.",
+   "truth": {
+    "level": "low"
+   }
+  },
+  {
+   "id": "s5-ml_6:low_larry-5",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "data_judgement",
+   "anchors": {
+    "low": "Treats available data as representative by default and proceeds without a documented account of what the dataset represents or how it is generated. Does not routinely check for leakage, shifting definitions, selection effects, or label noise until anomalies appear in results. Chooses labels and features primarily for convenience rather than for fidelity to the deployed system’s inputs, incentives, and measurement process.",
+    "medium": "Articulates basic dataset suitability and how labels/features relate to the task, including simple provenance and known limitations. Implements common checks and mitigations for obvious leakage and bias, and proposes practical improvements (sampling changes, cleaning steps, labeling guidelines). However, does not consistently test for subtler mismatches (e.g., proxy-label traps, delayed feedback loops, cohort effects) or specify how data validity will be preserved under deployment dynamics.",
+    "high": "Evaluates data using an explicit generative account: who/what produces it, under what incentives and constraints, and how the process can change after deployment. Proactively audits leakage paths, proxy-label traps, selection effects, and non-stationarity; designs data collection and labeling to preserve validity (sampling strategy, measurement definitions, auditability). Selects features and labels that remain robust under operational realities and documents dataset limitations in a way that directly shapes modeling, evaluation, and rollout decisions."
+   },
+   "question": "Thanks for clarifying that handoff. On the 5G forecasting piece, how did you set up your train/validation/test split with respect to time so it mirrored how future periods would be predicted?",
+   "answer": "I just split the data randomly and did a one-off check by holding out the latest month to see if the results looked similar. I didn’t set up any specific time-based evaluation beyond that.",
+   "truth": {
+    "level": "low"
+   }
+  },
+  {
+   "id": "s5-ml_1:low_larry-10",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "communication",
+   "anchors": {
+    "low": "Communicates primarily through artifacts (code/results) without clearly stating objectives, decision context, tradeoffs, or implications. Does not consistently document assumptions, risks, uncertainty, and limitations; these are surfaced late. Handoffs omit key context (intent, constraints, operational considerations) and do not specify decision criteria, ownership, or next steps needed to act on the work.",
+    "medium": "Explains approach and results clearly to technical audiences and summarizes decisions and tradeoffs for partners in a structured way. Surfaces major risks and limitations and provides actionable next steps. However, alignment is not consistently maintained across iterations: success criteria, decision points, and priority tradeoffs are not always explicitly tracked and refreshed as evidence changes.",
+    "high": "Maintains durable alignment by explicitly articulating objectives, options, tradeoffs, assumptions, and decision-relevant uncertainty throughout the project. Communicates in a way that enables action: clear recommendations with expected impacts, explicit risks/limitations, and defined next decisions. Proactively updates stakeholders when evidence changes the plan and produces handoff-quality documentation that preserves intent and operational context (interfaces, monitoring/guardrails, rollout/rollback plans) rather than only implementation details."
+   },
+   "question": "Appreciate that—on Rover Club as deputy software lead, what single artifact did you keep updated to align the 14-person team on objectives, assumptions, and go/no-go criteria?",
+   "answer": "We just kept a simple task board in Notion with a weekly to-do, and if a quick test looked fine, we moved the card to Done.",
+   "truth": {
+    "level": "low"
+   }
+  },
+  {
+   "id": "s5-ml_7:prototype_sprinter-9",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "evaluation_design",
+   "anchors": {
+    "low": "Uses a single headline metric or default split without an explicit argument that it reflects the desired outcome. Employs evaluation protocols that are vulnerable to leakage or unrepresentative splits (e.g., ignores time or entity boundaries when relevant). Does not routinely assess variance/uncertainty across runs or slices, and does not routinely run calibration checks or subgroup analyses as part of the default evaluation. Does not define or execute targeted checks designed to surface known failure modes early (e.g., key slices, stress cases, or guardrail metrics).",
+    "medium": "Defines metrics that are directionally aligned with the goal and uses standard evaluation practices (holdouts, cross-validation where appropriate, baseline comparisons). Includes some robustness checks (e.g., slice breakdowns, calibration checks, multiple seeds) and can interpret tradeoffs. However, the evaluation plan does not consistently mirror deployment conditions (e.g., temporal splits, policy-induced feedback, shifting mixtures), and guardrail metrics and uncertainty criteria are not consistently treated as first-class acceptance/rollback conditions.",
+    "high": "Designs evaluation to mirror the deployment environment and decision process, including leakage-resistant protocols and splits appropriate to the data-generating process (e.g., time-aware or entity-aware splits when relevant) and realistic mixture assumptions. Incorporates uncertainty-aware reasoning (e.g., variance across runs, confidence intervals or equivalent) and stress-tests claims using targeted ablations, slice analyses, and perturbation/counterfactual-style checks where relevant. Establishes guardrail metrics and explicitly defines acceptance thresholds and conditions that would invalidate the approach or trigger rollback."
+   },
+   "question": "Appreciate that—switching to your Half Research Assistant role where you engineered optimization algorithms for high‑dimensional problems, how did you frame the optimization task and set acceptance gates for adopting a new method before investing deeper (e.g., what would have made you stop and stick with the baseline)?",
+   "answer": "I framed it as getting the same target results faster than the baseline, mainly checking for fewer iterations and lower wall‑clock while keeping quality about the same. If it looked faster without an obvious quality drop we moved it forward; if not, or it behaved oddly, we stopped.",
+   "truth": {
+    "level": "low"
+   }
+  },
+  {
+   "id": "s5-ml_0:prototype_sprinter-10",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "communication",
+   "anchors": {
+    "low": "Communicates primarily through artifacts (code/results) without clearly stating objectives, decision context, tradeoffs, or implications. Does not consistently document assumptions, risks, uncertainty, and limitations; these are surfaced late. Handoffs omit key context (intent, constraints, operational considerations) and do not specify decision criteria, ownership, or next steps needed to act on the work.",
+    "medium": "Explains approach and results clearly to technical audiences and summarizes decisions and tradeoffs for partners in a structured way. Surfaces major risks and limitations and provides actionable next steps. However, alignment is not consistently maintained across iterations: success criteria, decision points, and priority tradeoffs are not always explicitly tracked and refreshed as evidence changes.",
+    "high": "Maintains durable alignment by explicitly articulating objectives, options, tradeoffs, assumptions, and decision-relevant uncertainty throughout the project. Communicates in a way that enables action: clear recommendations with expected impacts, explicit risks/limitations, and defined next decisions. Proactively updates stakeholders when evidence changes the plan and produces handoff-quality documentation that preserves intent and operational context (interfaces, monitoring/guardrails, rollout/rollback plans) rather than only implementation details."
+   },
+   "question": "Thanks, that’s clear. On Ridgeway you mention developing training and documentation—how did you keep the objectives, assumptions, guardrails, and go/no-go criteria explicit for partner teams during updates?",
+   "answer": "I kept simple release notes with the goal and assumptions and shared brief updates before changes so the team knew what was coming. Before each release we did a quick check to confirm the criteria and how we’d roll back if needed.",
+   "truth": {
+    "level": "medium"
+   }
+  },
+  {
+   "id": "s5-ml_9:research_purist-5",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "problem_framing",
+   "anchors": {
+    "low": "Starts work from implementation or model selection without first producing a clear, decision-linked problem statement. Defines success criteria that are vague or not tied to the real decision being improved (e.g., optimizes an offline metric without an argument for online impact). Leaves assumptions, constraints, and operating conditions undocumented, and does not specify evaluation gates or deployment requirements needed for a safe go/no-go decision. Decomposition is shallow: key failure modes, edge cases, and data feasibility checks are not surfaced early and instead emerge reactively during execution.",
+    "medium": "Produces a workable problem statement that maps a goal to an ML task with a measurable target and an initial evaluation plan. Identifies major constraints and data requirements, and outlines reasonable baselines and an iterative approach. However, end-to-end alignment is not consistently specified: the plan does not consistently include explicit offline/online alignment arguments, distribution-shift considerations, or long-tail failure modes and guardrails. In ambiguous settings, defaults to convenient formulations/metrics rather than explicitly selecting the most decision-relevant objective and constraints.",
+    "high": "Produces a crisp, decision-focused framing that explicitly connects the real-world objective to an ML formulation and a deployment context. Documents assumptions and constraints early (including latency, cost, privacy, safety, and maintainability) and defines success metrics plus guardrails that are argued to align offline evaluation with expected online impact. Proactively enumerates key failure modes (slices, drift, abuse cases) and incorporates them into the approach. States what evidence would change the plan and updates the framing as new information arrives while preserving continuity and decision alignment."
+   },
+   "question": "Appreciate the context on the NEC setup—switching gears to your iAmSmart PyTorch image recognition work at Automated Systems, what was the actual deployment environment (device, runtime, latency/throughput limits), and how did that shape your model architecture and pre/post‑processing choices?",
+   "answer": "It ran on a basic server we had, and I kept the model small with downscaled inputs so it would respond quickly. I just did simple resizing and a basic score cutoff with a quick duplicate filter, processing images one at a time, nothing fancy at inference.",
+   "truth": {
+    "level": "medium"
+   }
+  },
+  {
+   "id": "s5-ml_0:prototype_sprinter-0",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "problem_framing",
+   "anchors": {
+    "low": "Starts work from implementation or model selection without first producing a clear, decision-linked problem statement. Defines success criteria that are vague or not tied to the real decision being improved (e.g., optimizes an offline metric without an argument for online impact). Leaves assumptions, constraints, and operating conditions undocumented, and does not specify evaluation gates or deployment requirements needed for a safe go/no-go decision. Decomposition is shallow: key failure modes, edge cases, and data feasibility checks are not surfaced early and instead emerge reactively during execution.",
+    "medium": "Produces a workable problem statement that maps a goal to an ML task with a measurable target and an initial evaluation plan. Identifies major constraints and data requirements, and outlines reasonable baselines and an iterative approach. However, end-to-end alignment is not consistently specified: the plan does not consistently include explicit offline/online alignment arguments, distribution-shift considerations, or long-tail failure modes and guardrails. In ambiguous settings, defaults to convenient formulations/metrics rather than explicitly selecting the most decision-relevant objective and constraints.",
+    "high": "Produces a crisp, decision-focused framing that explicitly connects the real-world objective to an ML formulation and a deployment context. Documents assumptions and constraints early (including latency, cost, privacy, safety, and maintainability) and defines success metrics plus guardrails that are argued to align offline evaluation with expected online impact. Proactively enumerates key failure modes (slices, drift, abuse cases) and incorporates them into the approach. States what evidence would change the plan and updates the framing as new information arrives while preserving continuity and decision alignment."
+   },
+   "question": "Hey Alex, thanks for sharing your background—looks interesting. On your Intelligent Knowledge-Retrieval (RAG) project, what specific decision or workflow were you targeting, and how did you define success up front before building anything?",
+   "answer": "I focused on helping engineers search our docs so they could decide whether to proceed on their own or ask an expert. We aimed for most test queries to bring up a relevant cited passage near the top while keeping responses reasonably fast and within our cost limits.",
+   "truth": {
+    "level": "medium"
+   }
+  },
+  {
+   "id": "s5-ml_7:research_purist-1",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "data_judgement",
+   "anchors": {
+    "low": "Treats available data as representative by default and proceeds without a documented account of what the dataset represents or how it is generated. Does not routinely check for leakage, shifting definitions, selection effects, or label noise until anomalies appear in results. Chooses labels and features primarily for convenience rather than for fidelity to the deployed system’s inputs, incentives, and measurement process.",
+    "medium": "Articulates basic dataset suitability and how labels/features relate to the task, including simple provenance and known limitations. Implements common checks and mitigations for obvious leakage and bias, and proposes practical improvements (sampling changes, cleaning steps, labeling guidelines). However, does not consistently test for subtler mismatches (e.g., proxy-label traps, delayed feedback loops, cohort effects) or specify how data validity will be preserved under deployment dynamics.",
+    "high": "Evaluates data using an explicit generative account: who/what produces it, under what incentives and constraints, and how the process can change after deployment. Proactively audits leakage paths, proxy-label traps, selection effects, and non-stationarity; designs data collection and labeling to preserve validity (sampling strategy, measurement definitions, auditability). Selects features and labels that remain robust under operational realities and documents dataset limitations in a way that directly shapes modeling, evaluation, and rollout decisions."
+   },
+   "question": "Appreciate that—on that same DCNN-for-GP project, how did you generate the training summaries/labels and structure the splits to avoid leakage given spatiotemporal correlations?",
+   "answer": "Labels came from simulated data with known settings, and I only did simple local summaries without looking ahead or outside the area. To avoid leakage, we kept regions and time blocks separate so nothing from one place or time ended up in another split.",
+   "truth": {
+    "level": "medium"
+   }
+  },
+  {
+   "id": "s5-ml_3:average_joe-0",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "problem_framing",
+   "anchors": {
+    "low": "Starts work from implementation or model selection without first producing a clear, decision-linked problem statement. Defines success criteria that are vague or not tied to the real decision being improved (e.g., optimizes an offline metric without an argument for online impact). Leaves assumptions, constraints, and operating conditions undocumented, and does not specify evaluation gates or deployment requirements needed for a safe go/no-go decision. Decomposition is shallow: key failure modes, edge cases, and data feasibility checks are not surfaced early and instead emerge reactively during execution.",
+    "medium": "Produces a workable problem statement that maps a goal to an ML task with a measurable target and an initial evaluation plan. Identifies major constraints and data requirements, and outlines reasonable baselines and an iterative approach. However, end-to-end alignment is not consistently specified: the plan does not consistently include explicit offline/online alignment arguments, distribution-shift considerations, or long-tail failure modes and guardrails. In ambiguous settings, defaults to convenient formulations/metrics rather than explicitly selecting the most decision-relevant objective and constraints.",
+    "high": "Produces a crisp, decision-focused framing that explicitly connects the real-world objective to an ML formulation and a deployment context. Documents assumptions and constraints early (including latency, cost, privacy, safety, and maintainability) and defines success metrics plus guardrails that are argued to align offline evaluation with expected online impact. Proactively enumerates key failure modes (slices, drift, abuse cases) and incorporates them into the approach. States what evidence would change the plan and updates the framing as new information arrives while preserving continuity and decision alignment."
+   },
+   "question": "Hey Aarav, thanks for joining. On your WESEE AI intern role, for the MCP-based report-generation agent, how did you frame the problem at the start—what decision or workflow were you targeting, and what specific go/no-go criteria did you set before building?",
+   "answer": "I focused on helping the team produce a simple morning status that highlights which assets might need attention and why, turning raw logs into a short summary with some lookups and basic checks. We aimed for quick responses and reasonable accuracy based on a small labeled sample, avoided sensitive info in outputs with simple filters, and had a basic fallback to the last stable version if data looked off.",
+   "truth": {
+    "level": "medium"
+   }
+  },
+  {
+   "id": "s5-ml_5:research_purist-6",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "data_judgement",
+   "anchors": {
+    "low": "Treats available data as representative by default and proceeds without a documented account of what the dataset represents or how it is generated. Does not routinely check for leakage, shifting definitions, selection effects, or label noise until anomalies appear in results. Chooses labels and features primarily for convenience rather than for fidelity to the deployed system’s inputs, incentives, and measurement process.",
+    "medium": "Articulates basic dataset suitability and how labels/features relate to the task, including simple provenance and known limitations. Implements common checks and mitigations for obvious leakage and bias, and proposes practical improvements (sampling changes, cleaning steps, labeling guidelines). However, does not consistently test for subtler mismatches (e.g., proxy-label traps, delayed feedback loops, cohort effects) or specify how data validity will be preserved under deployment dynamics.",
+    "high": "Evaluates data using an explicit generative account: who/what produces it, under what incentives and constraints, and how the process can change after deployment. Proactively audits leakage paths, proxy-label traps, selection effects, and non-stationarity; designs data collection and labeling to preserve validity (sampling strategy, measurement definitions, auditability). Selects features and labels that remain robust under operational realities and documents dataset limitations in a way that directly shapes modeling, evaluation, and rollout decisions."
+   },
+   "question": "Got it, thanks—on NexStep, once users started interacting with the assistant’s follow‑ups and slot suggestions, how did you watch for feedback‑driven drift or cohort effects that could change your data’s validity and did you adjust labeling or sampling to keep offline checks representative?",
+   "answer": "We watched basic accept/edit/ignore rates and response times by a few user groups over time using existing analytics, and when we noticed a shift after a change, we refreshed the offline set to reflect recent behavior and froze the before/after windows. We also spot-checked and re-labeled a small recent sample so the checks stayed grounded in what users were seeing.",
+   "truth": {
+    "level": "medium"
+   }
+  },
+  {
+   "id": "s5-ml_0:average_joe-3",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "evaluation_design",
+   "anchors": {
+    "low": "Uses a single headline metric or default split without an explicit argument that it reflects the desired outcome. Employs evaluation protocols that are vulnerable to leakage or unrepresentative splits (e.g., ignores time or entity boundaries when relevant). Does not routinely assess variance/uncertainty across runs or slices, and does not routinely run calibration checks or subgroup analyses as part of the default evaluation. Does not define or execute targeted checks designed to surface known failure modes early (e.g., key slices, stress cases, or guardrail metrics).",
+    "medium": "Defines metrics that are directionally aligned with the goal and uses standard evaluation practices (holdouts, cross-validation where appropriate, baseline comparisons). Includes some robustness checks (e.g., slice breakdowns, calibration checks, multiple seeds) and can interpret tradeoffs. However, the evaluation plan does not consistently mirror deployment conditions (e.g., temporal splits, policy-induced feedback, shifting mixtures), and guardrail metrics and uncertainty criteria are not consistently treated as first-class acceptance/rollback conditions.",
+    "high": "Designs evaluation to mirror the deployment environment and decision process, including leakage-resistant protocols and splits appropriate to the data-generating process (e.g., time-aware or entity-aware splits when relevant) and realistic mixture assumptions. Incorporates uncertainty-aware reasoning (e.g., variance across runs, confidence intervals or equivalent) and stress-tests claims using targeted ablations, slice analyses, and perturbation/counterfactual-style checks where relevant. Establishes guardrail metrics and explicitly defines acceptance thresholds and conditions that would invalidate the approach or trigger rollback."
+   },
+   "question": "Appreciate that context on your release checks; shifting to your Aim-Trainer project, how did you set up the evaluation protocol and splits for the 2,000-image dataset, and what specific slices or stress cases did you look at before calling a model “good enough” for your use?",
+   "answer": "I used a standard 70/15/15 train/val/test split with fixed seeds and evaluated with mAP, plus a quick calibration sanity check. Before green-lighting, I did basic slice reviews on a few common stress cases to make sure there weren’t obvious regressions.",
+   "truth": {
+    "level": "medium"
+   }
+  },
+  {
+   "id": "s5-ml_6:average_joe-11",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "ml_system_delivery",
+   "anchors": {
+    "low": "Delivers prototypes with unclear interfaces and brittle behavior under edge cases; changes frequently break downstream components. Operational constraints (latency, memory, cost), observability, and safe rollback/disable paths are not designed in from the start. Reliability depends on manual intervention due to missing safeguards, versioning, and predictable runtime behavior.",
+    "medium": "Delivers working components that integrate into an existing stack with acceptable reliability. Defines interfaces and includes basic operational safeguards (logging, simple monitors, fallback behavior) and some reproducibility practices. However, resilience to real operating conditions (traffic spikes, schema drift, dependency changes, partial outages) is not consistently designed and tested, and maintainability often degrades as complexity grows due to missing modularization, tests, and interface/version discipline.",
+    "high": "Delivers ML systems that remain operable and maintainable under realistic constraints: clear interfaces, reproducible builds, versioned artifacts, and predictable performance characteristics. Designs for safe deployment and operation (feature consistency, monitoring tied to anticipated failure modes, rollback/disable mechanisms, and graceful degradation). Anticipates operational risks and reduces them through design choices that keep the system understandable, testable, and resilient over time."
+   },
+   "question": "Nice, that’s a clean, data-backed ops tweak—on your Chrome research assistant, since it relies on site DOM patterns and external APIs, what did you set up to detect and handle potential page-structure changes or API hiccups before they degraded the user experience?",
+   "answer": "I added basic checks and timeouts on API calls with simple retry/backoff, falling back to cached or minimal suggestions and showing a neutral “temporarily unavailable” message so the UI wouldn’t hang. When pages changed, we used loose selector fallbacks and disabled the enhancer for that page/domain via a remote flag if key elements weren’t found until it was patched.",
+   "truth": {
+    "level": "medium"
+   }
+  },
+  {
+   "id": "s5-ml_3:production_hardener-6",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "evaluation_design",
+   "anchors": {
+    "low": "Uses a single headline metric or default split without an explicit argument that it reflects the desired outcome. Employs evaluation protocols that are vulnerable to leakage or unrepresentative splits (e.g., ignores time or entity boundaries when relevant). Does not routinely assess variance/uncertainty across runs or slices, and does not routinely run calibration checks or subgroup analyses as part of the default evaluation. Does not define or execute targeted checks designed to surface known failure modes early (e.g., key slices, stress cases, or guardrail metrics).",
+    "medium": "Defines metrics that are directionally aligned with the goal and uses standard evaluation practices (holdouts, cross-validation where appropriate, baseline comparisons). Includes some robustness checks (e.g., slice breakdowns, calibration checks, multiple seeds) and can interpret tradeoffs. However, the evaluation plan does not consistently mirror deployment conditions (e.g., temporal splits, policy-induced feedback, shifting mixtures), and guardrail metrics and uncertainty criteria are not consistently treated as first-class acceptance/rollback conditions.",
+    "high": "Designs evaluation to mirror the deployment environment and decision process, including leakage-resistant protocols and splits appropriate to the data-generating process (e.g., time-aware or entity-aware splits when relevant) and realistic mixture assumptions. Incorporates uncertainty-aware reasoning (e.g., variance across runs, confidence intervals or equivalent) and stress-tests claims using targeted ablations, slice analyses, and perturbation/counterfactual-style checks where relevant. Establishes guardrail metrics and explicitly defines acceptance thresholds and conditions that would invalidate the approach or trigger rollback."
+   },
+   "question": "Makes sense, thanks. On your multilingual sentiment project, how did you design the evaluation to mirror real usage—what splits and slice checks did you use across languages and audio/text conditions, and what acceptance or rollback thresholds did you set?",
+   "answer": "We used a standard train/validation/test split with language-aware partitions and mainly tracked F1, plus simple slice checks (e.g., by language and device) against a baseline. Targets focused on overall and per-language F1, while calibration and rollback specifics were handled separately by the broader process.",
+   "truth": {
+    "level": "medium"
+   }
+  },
+  {
+   "id": "s5-ml_8:prototype_sprinter-11",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "communication",
+   "anchors": {
+    "low": "Communicates primarily through artifacts (code/results) without clearly stating objectives, decision context, tradeoffs, or implications. Does not consistently document assumptions, risks, uncertainty, and limitations; these are surfaced late. Handoffs omit key context (intent, constraints, operational considerations) and do not specify decision criteria, ownership, or next steps needed to act on the work.",
+    "medium": "Explains approach and results clearly to technical audiences and summarizes decisions and tradeoffs for partners in a structured way. Surfaces major risks and limitations and provides actionable next steps. However, alignment is not consistently maintained across iterations: success criteria, decision points, and priority tradeoffs are not always explicitly tracked and refreshed as evidence changes.",
+    "high": "Maintains durable alignment by explicitly articulating objectives, options, tradeoffs, assumptions, and decision-relevant uncertainty throughout the project. Communicates in a way that enables action: clear recommendations with expected impacts, explicit risks/limitations, and defined next decisions. Proactively updates stakeholders when evidence changes the plan and produces handoff-quality documentation that preserves intent and operational context (interfaces, monitoring/guardrails, rollout/rollback plans) rather than only implementation details."
+   },
+   "question": "Nice catch on the logo—switching back to Northwind where you collaborated with PMs on AI-driven features, can you tell me about one specific checkpoint where you laid out options and tradeoffs to stakeholders—what choices you put on the table, the risks and success criteria you highlighted, and what decision they made in that meeting?",
+   "answer": "In a mid-milestone review, I compared a quick rule-based re-ranker we could ship soon with a more advanced model that would take longer, noting possible slowdowns, cost, mobile experience issues, and that the catalog might not always be up to date. We aimed for a small add-to-cart lift without noticeable latency, and the team chose a phased plan: try the simple version with a small rollout first while we kept the other ready behind a switch.",
+   "truth": {
+    "level": "medium"
+   }
+  },
+  {
+   "id": "s5-ml_0:average_joe-10",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "evaluation_design",
+   "anchors": {
+    "low": "Uses a single headline metric or default split without an explicit argument that it reflects the desired outcome. Employs evaluation protocols that are vulnerable to leakage or unrepresentative splits (e.g., ignores time or entity boundaries when relevant). Does not routinely assess variance/uncertainty across runs or slices, and does not routinely run calibration checks or subgroup analyses as part of the default evaluation. Does not define or execute targeted checks designed to surface known failure modes early (e.g., key slices, stress cases, or guardrail metrics).",
+    "medium": "Defines metrics that are directionally aligned with the goal and uses standard evaluation practices (holdouts, cross-validation where appropriate, baseline comparisons). Includes some robustness checks (e.g., slice breakdowns, calibration checks, multiple seeds) and can interpret tradeoffs. However, the evaluation plan does not consistently mirror deployment conditions (e.g., temporal splits, policy-induced feedback, shifting mixtures), and guardrail metrics and uncertainty criteria are not consistently treated as first-class acceptance/rollback conditions.",
+    "high": "Designs evaluation to mirror the deployment environment and decision process, including leakage-resistant protocols and splits appropriate to the data-generating process (e.g., time-aware or entity-aware splits when relevant) and realistic mixture assumptions. Incorporates uncertainty-aware reasoning (e.g., variance across runs, confidence intervals or equivalent) and stress-tests claims using targeted ablations, slice analyses, and perturbation/counterfactual-style checks where relevant. Establishes guardrail metrics and explicitly defines acceptance thresholds and conditions that would invalidate the approach or trigger rollback."
+   },
+   "question": "Got it on keeping sessions together and setting guidelines; for the Aim-Trainer’s auto-annotation script you deployed, what safeguards or review loops did you put in place so bad auto-labels didn’t silently contaminate the training set over time?",
+   "answer": "I used basic confidence thresholds and a second model as a sanity check; low-confidence or mismatched cases went to a quick manual review, and we did small spot-checks against a known set before adding labels. I tracked the changes and ran a small test retrain to see if metrics looked similar to the previous version before updating the training data.",
+   "truth": {
+    "level": "medium"
+   }
+  },
+  {
+   "id": "s5-ml_2:average_joe-4",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "ml_system_delivery",
+   "anchors": {
+    "low": "Delivers prototypes with unclear interfaces and brittle behavior under edge cases; changes frequently break downstream components. Operational constraints (latency, memory, cost), observability, and safe rollback/disable paths are not designed in from the start. Reliability depends on manual intervention due to missing safeguards, versioning, and predictable runtime behavior.",
+    "medium": "Delivers working components that integrate into an existing stack with acceptable reliability. Defines interfaces and includes basic operational safeguards (logging, simple monitors, fallback behavior) and some reproducibility practices. However, resilience to real operating conditions (traffic spikes, schema drift, dependency changes, partial outages) is not consistently designed and tested, and maintainability often degrades as complexity grows due to missing modularization, tests, and interface/version discipline.",
+    "high": "Delivers ML systems that remain operable and maintainable under realistic constraints: clear interfaces, reproducible builds, versioned artifacts, and predictable performance characteristics. Designs for safe deployment and operation (feature consistency, monitoring tied to anticipated failure modes, rollback/disable mechanisms, and graceful degradation). Anticipates operational risks and reduces them through design choices that keep the system understandable, testable, and resilient over time."
+   },
+   "question": "Appreciate that breakdown. For the Flask-based spam detector you followed, how did you package the model and define the interface so it could be called reliably, and what simple monitoring or rollback path did you put in with it?",
+   "answer": "I exposed a basic prediction endpoint that took text and returned a label and score, with simple input checks and platform-level timeouts. We logged requests/outcomes with basic counters, had a lightweight health check, and included a simple toggle to fall back to the existing keyword filter if errors or quality seemed to dip.",
+   "truth": {
+    "level": "medium"
+   }
+  },
+  {
+   "id": "s5-ml_3:prototype_sprinter-0",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "problem_framing",
+   "anchors": {
+    "low": "Starts work from implementation or model selection without first producing a clear, decision-linked problem statement. Defines success criteria that are vague or not tied to the real decision being improved (e.g., optimizes an offline metric without an argument for online impact). Leaves assumptions, constraints, and operating conditions undocumented, and does not specify evaluation gates or deployment requirements needed for a safe go/no-go decision. Decomposition is shallow: key failure modes, edge cases, and data feasibility checks are not surfaced early and instead emerge reactively during execution.",
+    "medium": "Produces a workable problem statement that maps a goal to an ML task with a measurable target and an initial evaluation plan. Identifies major constraints and data requirements, and outlines reasonable baselines and an iterative approach. However, end-to-end alignment is not consistently specified: the plan does not consistently include explicit offline/online alignment arguments, distribution-shift considerations, or long-tail failure modes and guardrails. In ambiguous settings, defaults to convenient formulations/metrics rather than explicitly selecting the most decision-relevant objective and constraints.",
+    "high": "Produces a crisp, decision-focused framing that explicitly connects the real-world objective to an ML formulation and a deployment context. Documents assumptions and constraints early (including latency, cost, privacy, safety, and maintainability) and defines success metrics plus guardrails that are argued to align offline evaluation with expected online impact. Proactively enumerates key failure modes (slices, drift, abuse cases) and incorporates them into the approach. States what evidence would change the plan and updates the framing as new information arrives while preserving continuity and decision alignment."
+   },
+   "question": "Hey Aarav, thanks for joining. On your WESEE AI intern role, for the MCP-based report-generation agent, how did you frame the problem at the start—what decision or workflow were you targeting, and what specific go/no-go criteria did you set before building?",
+   "answer": "I aimed to replace a manual, SQL-and-spreadsheet routine with a simple chat and brief that duty officers could use to approve deployments and spot issues from the live feed. It needed to feel fast, line up closely with what the existing dashboard showed, respect access/privacy rules, and fall back to the old view if something seemed off.",
+   "truth": {
+    "level": "medium"
+   }
+  },
+  {
+   "id": "s5-ml_8:research_purist-8",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "problem_framing",
+   "anchors": {
+    "low": "Starts work from implementation or model selection without first producing a clear, decision-linked problem statement. Defines success criteria that are vague or not tied to the real decision being improved (e.g., optimizes an offline metric without an argument for online impact). Leaves assumptions, constraints, and operating conditions undocumented, and does not specify evaluation gates or deployment requirements needed for a safe go/no-go decision. Decomposition is shallow: key failure modes, edge cases, and data feasibility checks are not surfaced early and instead emerge reactively during execution.",
+    "medium": "Produces a workable problem statement that maps a goal to an ML task with a measurable target and an initial evaluation plan. Identifies major constraints and data requirements, and outlines reasonable baselines and an iterative approach. However, end-to-end alignment is not consistently specified: the plan does not consistently include explicit offline/online alignment arguments, distribution-shift considerations, or long-tail failure modes and guardrails. In ambiguous settings, defaults to convenient formulations/metrics rather than explicitly selecting the most decision-relevant objective and constraints.",
+    "high": "Produces a crisp, decision-focused framing that explicitly connects the real-world objective to an ML formulation and a deployment context. Documents assumptions and constraints early (including latency, cost, privacy, safety, and maintainability) and defines success metrics plus guardrails that are argued to align offline evaluation with expected online impact. Proactively enumerates key failure modes (slices, drift, abuse cases) and incorporates them into the approach. States what evidence would change the plan and updates the framing as new information arrives while preserving continuity and decision alignment."
+   },
+   "question": "Thanks, that additive-change approach with version flags is clear—on your AI Research Fellowship in healthcare predictive analytics, how did you initially frame the clinical or operational decision the model would inform, and what specific constraints (safety, privacy, latency, auditability) shaped your go/no-go criteria?",
+   "answer": "We scoped it as helping nurses flag possible sepsis in the EHR, and I focused on the model and evaluation while clinical/IT handled the operational and compliance pieces. Before showing anything to clinicians, we needed a silent run to meet clear acceptance bars—precision at a set sensitivity, calibrated risk, subgroup differences within bounds, and no increase in paging load.",
+   "truth": {
+    "level": "medium"
+   }
+  },
+  {
+   "id": "s5-ml_5:average_joe-9",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "communication",
+   "anchors": {
+    "low": "Communicates primarily through artifacts (code/results) without clearly stating objectives, decision context, tradeoffs, or implications. Does not consistently document assumptions, risks, uncertainty, and limitations; these are surfaced late. Handoffs omit key context (intent, constraints, operational considerations) and do not specify decision criteria, ownership, or next steps needed to act on the work.",
+    "medium": "Explains approach and results clearly to technical audiences and summarizes decisions and tradeoffs for partners in a structured way. Surfaces major risks and limitations and provides actionable next steps. However, alignment is not consistently maintained across iterations: success criteria, decision points, and priority tradeoffs are not always explicitly tracked and refreshed as evidence changes.",
+    "high": "Maintains durable alignment by explicitly articulating objectives, options, tradeoffs, assumptions, and decision-relevant uncertainty throughout the project. Communicates in a way that enables action: clear recommendations with expected impacts, explicit risks/limitations, and defined next decisions. Proactively updates stakeholders when evidence changes the plan and produces handoff-quality documentation that preserves intent and operational context (interfaces, monitoring/guardrails, rollout/rollback plans) rather than only implementation details."
+   },
+   "question": "Thanks, that staged testing approach makes sense—on your AstraSoft solution briefs, how did you structure a brief so a client could make a concrete go/no-go decision, and what key tradeoffs did you explicitly lay out for them to weigh?",
+   "answer": "I shared a short summary of the goal, a simple success metric, and a couple of solution options with rough effort/cost and timelines plus immediate next steps. We highlighted the main tradeoffs at a high level—like speed to value vs customization and performance/latency vs cost—to help choose a direction.",
+   "truth": {
+    "level": "medium"
+   }
+  },
+  {
+   "id": "s5-ml_4:average_joe-3",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "failure_analysis_and_iteration",
+   "anchors": {
+    "low": "Responds to disappointing results primarily with trial-and-error changes (e.g., architecture/hyperparameter tweaking) without isolating variables or forming testable hypotheses. Relies on aggregate metrics without systematic localization (e.g., slice-level errors, pipeline checks, or minimal reproductions). Does not consistently validate fixes across seeds, slices, and reruns, and experiment records are insufficient to reliably reproduce findings or prevent regressions.",
+    "medium": "Uses a mix of diagnostic tools (error analysis, ablations, qualitative inspections, and basic pipeline debugging) to identify plausible failure sources and propose targeted interventions. Can reproduce issues and maintains experiment tracking with reasonable hygiene. However, hypotheses and tests are not consistently structured to isolate the causal lever (especially when failures involve interactions across data, model, and system behavior), and validation of fixes across operating conditions is not consistently performed.",
+    "high": "Runs a hypothesis-driven iteration loop: isolates variables, constructs minimal reproductions, and uses targeted ablations and slice-focused probes to localize root causes. Validates fixes for robustness across seeds, slices, and reruns and articulates why the fix should generalize given observed evidence. Maintains clean experimental records (including datasets, configs, and evaluation protocols) that support fast iteration without accumulating unexamined complexity."
+   },
+   "question": "Makes sense, thanks—during the RetailPulse rollout or shadow run, what was one unexpected failure you hit and how did you isolate the root cause before changing anything?",
+   "answer": "During shadow, we noticed a precision dip on voice calls. I compared errors by channel and did a quick review of top false positives, which suggested new boilerplate in the audio that sounded like rude phrases and likely drove the spike.",
+   "truth": {
+    "level": "medium"
+   }
+  },
+  {
+   "id": "s5-ml_9:production_hardener-2",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "evaluation_design",
+   "anchors": {
+    "low": "Uses a single headline metric or default split without an explicit argument that it reflects the desired outcome. Employs evaluation protocols that are vulnerable to leakage or unrepresentative splits (e.g., ignores time or entity boundaries when relevant). Does not routinely assess variance/uncertainty across runs or slices, and does not routinely run calibration checks or subgroup analyses as part of the default evaluation. Does not define or execute targeted checks designed to surface known failure modes early (e.g., key slices, stress cases, or guardrail metrics).",
+    "medium": "Defines metrics that are directionally aligned with the goal and uses standard evaluation practices (holdouts, cross-validation where appropriate, baseline comparisons). Includes some robustness checks (e.g., slice breakdowns, calibration checks, multiple seeds) and can interpret tradeoffs. However, the evaluation plan does not consistently mirror deployment conditions (e.g., temporal splits, policy-induced feedback, shifting mixtures), and guardrail metrics and uncertainty criteria are not consistently treated as first-class acceptance/rollback conditions.",
+    "high": "Designs evaluation to mirror the deployment environment and decision process, including leakage-resistant protocols and splits appropriate to the data-generating process (e.g., time-aware or entity-aware splits when relevant) and realistic mixture assumptions. Incorporates uncertainty-aware reasoning (e.g., variance across runs, confidence intervals or equivalent) and stress-tests claims using targeted ablations, slice analyses, and perturbation/counterfactual-style checks where relevant. Establishes guardrail metrics and explicitly defines acceptance thresholds and conditions that would invalidate the approach or trigger rollback."
+   },
+   "question": "Thanks, that makes sense. On the Forex project’s evaluation and rollout, what were your explicit offline acceptance gates and guardrails, and how did you mirror live conditions during testing before letting it influence real orders?",
+   "answer": "We ran backtests on held‑out time periods and checked after‑cost PnL with reasonable Sharpe and drawdown, along with basic risk limits. To mirror live, we paper‑traded on the real feed with a simple execution model, exercised tougher market windows, then did a tiny canary behind a flag with live monitoring and a fast rollback.",
+   "truth": {
+    "level": "medium"
+   }
+  },
+  {
+   "id": "s5-ml_1:research_purist-1",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "data_judgement",
+   "anchors": {
+    "low": "Treats available data as representative by default and proceeds without a documented account of what the dataset represents or how it is generated. Does not routinely check for leakage, shifting definitions, selection effects, or label noise until anomalies appear in results. Chooses labels and features primarily for convenience rather than for fidelity to the deployed system’s inputs, incentives, and measurement process.",
+    "medium": "Articulates basic dataset suitability and how labels/features relate to the task, including simple provenance and known limitations. Implements common checks and mitigations for obvious leakage and bias, and proposes practical improvements (sampling changes, cleaning steps, labeling guidelines). However, does not consistently test for subtler mismatches (e.g., proxy-label traps, delayed feedback loops, cohort effects) or specify how data validity will be preserved under deployment dynamics.",
+    "high": "Evaluates data using an explicit generative account: who/what produces it, under what incentives and constraints, and how the process can change after deployment. Proactively audits leakage paths, proxy-label traps, selection effects, and non-stationarity; designs data collection and labeling to preserve validity (sampling strategy, measurement definitions, auditability). Selects features and labels that remain robust under operational realities and documents dataset limitations in a way that directly shapes modeling, evaluation, and rollout decisions."
+   },
+   "question": "Got it, thanks—sticking with the Mask R-CNN on the rover, how did you collect and label the train/validation data to mirror actual field conditions, and what mismatches or leakage risks did you encounter as you iterated?",
+   "answer": "We gathered clips from the rover and a handheld setup during the event, sampled them for the labels we needed, and kept train/val splits separated by place and day to mirror use. We noticed risks like very similar frames or the same items showing up across splits, plus a gap between cleaner indoor shots and the dusty, glare-heavy, cluttered field scenes.",
+   "truth": {
+    "level": "medium"
+   }
+  },
+  {
+   "id": "s5-ml_0:average_joe-0",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "problem_framing",
+   "anchors": {
+    "low": "Starts work from implementation or model selection without first producing a clear, decision-linked problem statement. Defines success criteria that are vague or not tied to the real decision being improved (e.g., optimizes an offline metric without an argument for online impact). Leaves assumptions, constraints, and operating conditions undocumented, and does not specify evaluation gates or deployment requirements needed for a safe go/no-go decision. Decomposition is shallow: key failure modes, edge cases, and data feasibility checks are not surfaced early and instead emerge reactively during execution.",
+    "medium": "Produces a workable problem statement that maps a goal to an ML task with a measurable target and an initial evaluation plan. Identifies major constraints and data requirements, and outlines reasonable baselines and an iterative approach. However, end-to-end alignment is not consistently specified: the plan does not consistently include explicit offline/online alignment arguments, distribution-shift considerations, or long-tail failure modes and guardrails. In ambiguous settings, defaults to convenient formulations/metrics rather than explicitly selecting the most decision-relevant objective and constraints.",
+    "high": "Produces a crisp, decision-focused framing that explicitly connects the real-world objective to an ML formulation and a deployment context. Documents assumptions and constraints early (including latency, cost, privacy, safety, and maintainability) and defines success metrics plus guardrails that are argued to align offline evaluation with expected online impact. Proactively enumerates key failure modes (slices, drift, abuse cases) and incorporates them into the approach. States what evidence would change the plan and updates the framing as new information arrives while preserving continuity and decision alignment."
+   },
+   "question": "Hey Alex, thanks for sharing your background—looks interesting. On your Intelligent Knowledge-Retrieval (RAG) project, what specific decision or workflow were you targeting, and how did you define success up front before building anything?",
+   "answer": "I focused on helping support engineers decide whether retrieved PDF passages were enough to answer spec/compliance questions without escalation, with a plan to track basic retrieval quality and responsiveness. I used a small seed set to get a baseline on recall and did occasional SME spot-checks to sanity-check that the cited passages looked sufficient.",
+   "truth": {
+    "level": "medium"
+   }
+  },
+  {
+   "id": "s5-ml_7:prototype_sprinter-0",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "problem_framing",
+   "anchors": {
+    "low": "Starts work from implementation or model selection without first producing a clear, decision-linked problem statement. Defines success criteria that are vague or not tied to the real decision being improved (e.g., optimizes an offline metric without an argument for online impact). Leaves assumptions, constraints, and operating conditions undocumented, and does not specify evaluation gates or deployment requirements needed for a safe go/no-go decision. Decomposition is shallow: key failure modes, edge cases, and data feasibility checks are not surfaced early and instead emerge reactively during execution.",
+    "medium": "Produces a workable problem statement that maps a goal to an ML task with a measurable target and an initial evaluation plan. Identifies major constraints and data requirements, and outlines reasonable baselines and an iterative approach. However, end-to-end alignment is not consistently specified: the plan does not consistently include explicit offline/online alignment arguments, distribution-shift considerations, or long-tail failure modes and guardrails. In ambiguous settings, defaults to convenient formulations/metrics rather than explicitly selecting the most decision-relevant objective and constraints.",
+    "high": "Produces a crisp, decision-focused framing that explicitly connects the real-world objective to an ML formulation and a deployment context. Documents assumptions and constraints early (including latency, cost, privacy, safety, and maintainability) and defines success metrics plus guardrails that are argued to align offline evaluation with expected online impact. Proactively enumerates key failure modes (slices, drift, abuse cases) and incorporates them into the approach. States what evidence would change the plan and updates the framing as new information arrives while preserving continuity and decision alignment."
+   },
+   "question": "Thanks for walking me through your background, Alex—on the DCNNs you built to regress GP covariance parameters, how did you initially frame the problem and define a clear go/no-go decision before investing in scaling the approach?",
+   "answer": "I framed it as replacing the slower iterative GP tuning with a supervised model that takes compact data summaries and predicts kernel settings, aiming for something that runs quickly on our GPU path and drops into the existing pipeline. We did basic offline checks for speed and reasonable accuracy and moved forward if it looked clearly faster without obvious accuracy issues, rather than using strict thresholds.",
+   "truth": {
+    "level": "medium"
+   }
+  },
+  {
+   "id": "s5-ml_9:production_hardener-4",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "ml_system_delivery",
+   "anchors": {
+    "low": "Delivers prototypes with unclear interfaces and brittle behavior under edge cases; changes frequently break downstream components. Operational constraints (latency, memory, cost), observability, and safe rollback/disable paths are not designed in from the start. Reliability depends on manual intervention due to missing safeguards, versioning, and predictable runtime behavior.",
+    "medium": "Delivers working components that integrate into an existing stack with acceptable reliability. Defines interfaces and includes basic operational safeguards (logging, simple monitors, fallback behavior) and some reproducibility practices. However, resilience to real operating conditions (traffic spikes, schema drift, dependency changes, partial outages) is not consistently designed and tested, and maintainability often degrades as complexity grows due to missing modularization, tests, and interface/version discipline.",
+    "high": "Delivers ML systems that remain operable and maintainable under realistic constraints: clear interfaces, reproducible builds, versioned artifacts, and predictable performance characteristics. Designs for safe deployment and operation (feature consistency, monitoring tied to anticipated failure modes, rollback/disable mechanisms, and graceful degradation). Anticipates operational risks and reduces them through design choices that keep the system understandable, testable, and resilient over time."
+   },
+   "question": "Thanks for walking me through that—sounds like you iterated pragmatically. On your NEC Transport Department camera-status work, how did you define the camera “health” signals and alert thresholds in your Python monitoring so the reports reflected real issues rather than transient glitches?",
+   "answer": "We mostly used simple stream/status checks and rough per‑camera patterns to see if things looked normal, and we skipped planned maintenance times. The monitoring tool handled the exact thresholds and wait time so it only pinged us if an issue stuck around, not quick blips.",
+   "truth": {
+    "level": "high"
+   }
+  },
+  {
+   "id": "s5-ml_3:production_hardener-5",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "data_judgement",
+   "anchors": {
+    "low": "Treats available data as representative by default and proceeds without a documented account of what the dataset represents or how it is generated. Does not routinely check for leakage, shifting definitions, selection effects, or label noise until anomalies appear in results. Chooses labels and features primarily for convenience rather than for fidelity to the deployed system’s inputs, incentives, and measurement process.",
+    "medium": "Articulates basic dataset suitability and how labels/features relate to the task, including simple provenance and known limitations. Implements common checks and mitigations for obvious leakage and bias, and proposes practical improvements (sampling changes, cleaning steps, labeling guidelines). However, does not consistently test for subtler mismatches (e.g., proxy-label traps, delayed feedback loops, cohort effects) or specify how data validity will be preserved under deployment dynamics.",
+    "high": "Evaluates data using an explicit generative account: who/what produces it, under what incentives and constraints, and how the process can change after deployment. Proactively audits leakage paths, proxy-label traps, selection effects, and non-stationarity; designs data collection and labeling to preserve validity (sampling strategy, measurement definitions, auditability). Selects features and labels that remain robust under operational realities and documents dataset limitations in a way that directly shapes modeling, evaluation, and rollout decisions."
+   },
+   "question": "Thanks for walking through that fix. On the Critical AI system, after that incident, what concrete monitors or guardrails did you put in place specifically around external map/image connectors so you’d catch similar degradations early and have a clean fallback path?",
+   "answer": "We set up per-connector health checks for latency, errors, and staleness with simple heartbeats/retries and a kill switch that falls back to cached tiles or a plain text view when limits are hit. Traffic went through a versioned gateway with quotas and basic schema/PII filtering plus provenance tags, and alerts carried enough slice context to pause a slice until it recovered.",
+   "truth": {
+    "level": "high"
+   }
+  },
+  {
+   "id": "s5-ml_6:research_purist-5",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "evaluation_design",
+   "anchors": {
+    "low": "Uses a single headline metric or default split without an explicit argument that it reflects the desired outcome. Employs evaluation protocols that are vulnerable to leakage or unrepresentative splits (e.g., ignores time or entity boundaries when relevant). Does not routinely assess variance/uncertainty across runs or slices, and does not routinely run calibration checks or subgroup analyses as part of the default evaluation. Does not define or execute targeted checks designed to surface known failure modes early (e.g., key slices, stress cases, or guardrail metrics).",
+    "medium": "Defines metrics that are directionally aligned with the goal and uses standard evaluation practices (holdouts, cross-validation where appropriate, baseline comparisons). Includes some robustness checks (e.g., slice breakdowns, calibration checks, multiple seeds) and can interpret tradeoffs. However, the evaluation plan does not consistently mirror deployment conditions (e.g., temporal splits, policy-induced feedback, shifting mixtures), and guardrail metrics and uncertainty criteria are not consistently treated as first-class acceptance/rollback conditions.",
+    "high": "Designs evaluation to mirror the deployment environment and decision process, including leakage-resistant protocols and splits appropriate to the data-generating process (e.g., time-aware or entity-aware splits when relevant) and realistic mixture assumptions. Incorporates uncertainty-aware reasoning (e.g., variance across runs, confidence intervals or equivalent) and stress-tests claims using targeted ablations, slice analyses, and perturbation/counterfactual-style checks where relevant. Establishes guardrail metrics and explicitly defines acceptance thresholds and conditions that would invalidate the approach or trigger rollback."
+   },
+   "question": "Thanks for clarifying—got it. On your 5G Network Performance Analysis and Prediction project, how did you set up the temporal/entity‑aware evaluation to avoid leakage across time and towers and match the actual maintenance decision horizon?",
+   "answer": "We used a time-based split aligned to the weekly planning window and kept towers separated with a small buffer so nothing from the future slipped into training. To check it generalized across assets, we tested runs where a tower was left out and only used information available at the decision time.",
+   "truth": {
+    "level": "high"
+   }
+  },
+  {
+   "id": "s5-ml_7:high_henry-4",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "ml_system_delivery",
+   "anchors": {
+    "low": "Delivers prototypes with unclear interfaces and brittle behavior under edge cases; changes frequently break downstream components. Operational constraints (latency, memory, cost), observability, and safe rollback/disable paths are not designed in from the start. Reliability depends on manual intervention due to missing safeguards, versioning, and predictable runtime behavior.",
+    "medium": "Delivers working components that integrate into an existing stack with acceptable reliability. Defines interfaces and includes basic operational safeguards (logging, simple monitors, fallback behavior) and some reproducibility practices. However, resilience to real operating conditions (traffic spikes, schema drift, dependency changes, partial outages) is not consistently designed and tested, and maintainability often degrades as complexity grows due to missing modularization, tests, and interface/version discipline.",
+    "high": "Delivers ML systems that remain operable and maintainable under realistic constraints: clear interfaces, reproducible builds, versioned artifacts, and predictable performance characteristics. Designs for safe deployment and operation (feature consistency, monitoring tied to anticipated failure modes, rollback/disable mechanisms, and graceful degradation). Anticipates operational risks and reduces them through design choices that keep the system understandable, testable, and resilient over time."
+   },
+   "question": "Nice, that’s a clean hypothesis test—on the same RA project when you put the surrogate into the kriging pipeline, what concrete runtime safeguards and rollback paths did you put around it and how was the interface contract defined?",
+   "answer": "We exposed a stateless predict endpoint with a clear, versioned contract and latency target that validated inputs (schema/coordinates/units) and returned mean/variance plus a calibration tag. Operational safeguards covered preflight and feature-integrity checks, calibration/drift monitors on key slices, a circuit breaker to fall back to the exact GP or last known-good model, and a shadow-to-canary rollout with automatic rollback.",
+   "truth": {
+    "level": "high"
+   }
+  },
+  {
+   "id": "s5-ml_6:production_hardener-1",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "data_judgement",
+   "anchors": {
+    "low": "Treats available data as representative by default and proceeds without a documented account of what the dataset represents or how it is generated. Does not routinely check for leakage, shifting definitions, selection effects, or label noise until anomalies appear in results. Chooses labels and features primarily for convenience rather than for fidelity to the deployed system’s inputs, incentives, and measurement process.",
+    "medium": "Articulates basic dataset suitability and how labels/features relate to the task, including simple provenance and known limitations. Implements common checks and mitigations for obvious leakage and bias, and proposes practical improvements (sampling changes, cleaning steps, labeling guidelines). However, does not consistently test for subtler mismatches (e.g., proxy-label traps, delayed feedback loops, cohort effects) or specify how data validity will be preserved under deployment dynamics.",
+    "high": "Evaluates data using an explicit generative account: who/what produces it, under what incentives and constraints, and how the process can change after deployment. Proactively audits leakage paths, proxy-label traps, selection effects, and non-stationarity; designs data collection and labeling to preserve validity (sampling strategy, measurement definitions, auditability). Selects features and labels that remain robust under operational realities and documents dataset limitations in a way that directly shapes modeling, evaluation, and rollout decisions."
+   },
+   "question": "Got it, that’s a clear framing. For that LLM project, how did you build the “representative prompts” and label hallucinations—who/what generated the prompts and references, how were labels decided, and what did you do to avoid leakage from training or retrieval into eval?",
+   "answer": "I used a scrubbed slice of past chats, some simple templates, and a small set of tougher cases, and locked a dated reference set (wiki/news and the retrieval snapshot) with a labeling guide that required claim-level support, with humans settling disagreements. To limit leakage, I split by time, removed near-duplicates across splits, kept eval-style prompts out of fine-tuning, and ensured the retrieval data and training data didn’t overlap.",
+   "truth": {
+    "level": "high"
+   }
+  },
+  {
+   "id": "s5-ml_8:high_henry-11",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "failure_analysis_and_iteration",
+   "anchors": {
+    "low": "Responds to disappointing results primarily with trial-and-error changes (e.g., architecture/hyperparameter tweaking) without isolating variables or forming testable hypotheses. Relies on aggregate metrics without systematic localization (e.g., slice-level errors, pipeline checks, or minimal reproductions). Does not consistently validate fixes across seeds, slices, and reruns, and experiment records are insufficient to reliably reproduce findings or prevent regressions.",
+    "medium": "Uses a mix of diagnostic tools (error analysis, ablations, qualitative inspections, and basic pipeline debugging) to identify plausible failure sources and propose targeted interventions. Can reproduce issues and maintains experiment tracking with reasonable hygiene. However, hypotheses and tests are not consistently structured to isolate the causal lever (especially when failures involve interactions across data, model, and system behavior), and validation of fixes across operating conditions is not consistently performed.",
+    "high": "Runs a hypothesis-driven iteration loop: isolates variables, constructs minimal reproductions, and uses targeted ablations and slice-focused probes to localize root causes. Validates fixes for robustness across seeds, slices, and reruns and articulates why the fix should generalize given observed evidence. Maintains clean experimental records (including datasets, configs, and evaluation protocols) that support fast iteration without accumulating unexamined complexity."
+   },
+   "question": "Thanks—that retraining and canary flow sounds disciplined. On your Northwind microservices reliability work, what’s one concrete failure mode you ran into and what single architectural or operational change did you make to address it, and how did you validate it actually improved reliability without new regressions?",
+   "answer": "When a backend slowed during traffic spikes and caused timeouts, I added a per-call circuit breaker with a brief cached fallback. We pressure-tested it and did a small rollout, and tail latency and errors stabilized without new issues.",
+   "truth": {
+    "level": "high"
+   }
+  },
+  {
+   "id": "s5-ml_9:high_henry-9",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "failure_analysis_and_iteration",
+   "anchors": {
+    "low": "Responds to disappointing results primarily with trial-and-error changes (e.g., architecture/hyperparameter tweaking) without isolating variables or forming testable hypotheses. Relies on aggregate metrics without systematic localization (e.g., slice-level errors, pipeline checks, or minimal reproductions). Does not consistently validate fixes across seeds, slices, and reruns, and experiment records are insufficient to reliably reproduce findings or prevent regressions.",
+    "medium": "Uses a mix of diagnostic tools (error analysis, ablations, qualitative inspections, and basic pipeline debugging) to identify plausible failure sources and propose targeted interventions. Can reproduce issues and maintains experiment tracking with reasonable hygiene. However, hypotheses and tests are not consistently structured to isolate the causal lever (especially when failures involve interactions across data, model, and system behavior), and validation of fixes across operating conditions is not consistently performed.",
+    "high": "Runs a hypothesis-driven iteration loop: isolates variables, constructs minimal reproductions, and uses targeted ablations and slice-focused probes to localize root causes. Validates fixes for robustness across seeds, slices, and reruns and articulates why the fix should generalize given observed evidence. Maintains clean experimental records (including datasets, configs, and evaluation protocols) that support fast iteration without accumulating unexamined complexity."
+   },
+   "question": "Appreciate that thorough gating on the model swap. On iAmSmart, what was one concrete slice or condition where the model underperformed during testing, and how did you pinpoint the root cause and prove the fix held up across devices and capture conditions?",
+   "answer": "We saw low-light selfies on some older front cameras underperform, reproduced the issue across devices/lighting, and traced it to a cropping misalignment compounded by noise. We adjusted the pipeline and training to handle those cases and confirmed on representative splits and on-device that accuracy improved while latency stayed stable.",
+   "truth": {
+    "level": "high"
+   }
+  },
+  {
+   "id": "s5-ml_5:production_hardener-9",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "ml_system_delivery",
+   "anchors": {
+    "low": "Delivers prototypes with unclear interfaces and brittle behavior under edge cases; changes frequently break downstream components. Operational constraints (latency, memory, cost), observability, and safe rollback/disable paths are not designed in from the start. Reliability depends on manual intervention due to missing safeguards, versioning, and predictable runtime behavior.",
+    "medium": "Delivers working components that integrate into an existing stack with acceptable reliability. Defines interfaces and includes basic operational safeguards (logging, simple monitors, fallback behavior) and some reproducibility practices. However, resilience to real operating conditions (traffic spikes, schema drift, dependency changes, partial outages) is not consistently designed and tested, and maintainability often degrades as complexity grows due to missing modularization, tests, and interface/version discipline.",
+    "high": "Delivers ML systems that remain operable and maintainable under realistic constraints: clear interfaces, reproducible builds, versioned artifacts, and predictable performance characteristics. Designs for safe deployment and operation (feature consistency, monitoring tied to anticipated failure modes, rollback/disable mechanisms, and graceful degradation). Anticipates operational risks and reduces them through design choices that keep the system understandable, testable, and resilient over time."
+   },
+   "question": "Appreciate that A/B—shifting to your AstraSoft work, when you were delivering backend services across those 10+ apps, what did you formalize around interfaces and versioning so changes didn’t break clients, and what was your concrete rollback path when something behaved oddly in prod?",
+   "answer": "We had versioned APIs with clear contracts and kept data changes compatible, shipping builds in versions so clients could stay on what they used. Rollbacks were handled by ops with environment switches and simple config flags, letting us flip traffic back quickly without messing with data.",
+   "truth": {
+    "level": "high"
+   }
+  },
+  {
+   "id": "s5-ml_4:high_henry-11",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "ml_system_delivery",
+   "anchors": {
+    "low": "Delivers prototypes with unclear interfaces and brittle behavior under edge cases; changes frequently break downstream components. Operational constraints (latency, memory, cost), observability, and safe rollback/disable paths are not designed in from the start. Reliability depends on manual intervention due to missing safeguards, versioning, and predictable runtime behavior.",
+    "medium": "Delivers working components that integrate into an existing stack with acceptable reliability. Defines interfaces and includes basic operational safeguards (logging, simple monitors, fallback behavior) and some reproducibility practices. However, resilience to real operating conditions (traffic spikes, schema drift, dependency changes, partial outages) is not consistently designed and tested, and maintainability often degrades as complexity grows due to missing modularization, tests, and interface/version discipline.",
+    "high": "Delivers ML systems that remain operable and maintainable under realistic constraints: clear interfaces, reproducible builds, versioned artifacts, and predictable performance characteristics. Designs for safe deployment and operation (feature consistency, monitoring tied to anticipated failure modes, rollback/disable mechanisms, and graceful degradation). Anticipates operational risks and reduces them through design choices that keep the system understandable, testable, and resilient over time."
+   },
+   "question": "Appreciate the detail on the flat-tire work; across RetailPulse and Redwood, how did you handle experiment tracking and dataset/config versioning so you could reliably reproduce results and prevent regressions during rollouts?",
+   "answer": "We kept a single source of truth for each run—versioned code, configs, dependencies, and datasets—so any model could be recreated exactly. For rollouts, the pipeline compared candidates to pinned baselines with guardrails, tried them safely on shadow traffic, and automatically stopped promotion on any regression.",
+   "truth": {
+    "level": "high"
+   }
+  },
+  {
+   "id": "s5-ml_1:production_hardener-8",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "ml_system_delivery",
+   "anchors": {
+    "low": "Delivers prototypes with unclear interfaces and brittle behavior under edge cases; changes frequently break downstream components. Operational constraints (latency, memory, cost), observability, and safe rollback/disable paths are not designed in from the start. Reliability depends on manual intervention due to missing safeguards, versioning, and predictable runtime behavior.",
+    "medium": "Delivers working components that integrate into an existing stack with acceptable reliability. Defines interfaces and includes basic operational safeguards (logging, simple monitors, fallback behavior) and some reproducibility practices. However, resilience to real operating conditions (traffic spikes, schema drift, dependency changes, partial outages) is not consistently designed and tested, and maintainability often degrades as complexity grows due to missing modularization, tests, and interface/version discipline.",
+    "high": "Delivers ML systems that remain operable and maintainable under realistic constraints: clear interfaces, reproducible builds, versioned artifacts, and predictable performance characteristics. Designs for safe deployment and operation (feature consistency, monitoring tied to anticipated failure modes, rollback/disable mechanisms, and graceful degradation). Anticipates operational risks and reduces them through design choices that keep the system understandable, testable, and resilient over time."
+   },
+   "question": "Appreciate the detail—on your shift to simulation‑driven design with ROS Gazebo for the rover, what concrete change to the team’s day‑to‑day workflow did you put in place that made integrations into the main rover stack safer to land?",
+   "answer": "I added a test gate in our build so changes had to pass a simulator run that matched the rover setup before merging, which kept interfaces consistent and surfaced schema/latency issues before we touched hardware.",
+   "truth": {
+    "level": "high"
+   }
+  },
+  {
+   "id": "s5-ml_9:high_henry-5",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "ml_system_delivery",
+   "anchors": {
+    "low": "Delivers prototypes with unclear interfaces and brittle behavior under edge cases; changes frequently break downstream components. Operational constraints (latency, memory, cost), observability, and safe rollback/disable paths are not designed in from the start. Reliability depends on manual intervention due to missing safeguards, versioning, and predictable runtime behavior.",
+    "medium": "Delivers working components that integrate into an existing stack with acceptable reliability. Defines interfaces and includes basic operational safeguards (logging, simple monitors, fallback behavior) and some reproducibility practices. However, resilience to real operating conditions (traffic spikes, schema drift, dependency changes, partial outages) is not consistently designed and tested, and maintainability often degrades as complexity grows due to missing modularization, tests, and interface/version discipline.",
+    "high": "Delivers ML systems that remain operable and maintainable under realistic constraints: clear interfaces, reproducible builds, versioned artifacts, and predictable performance characteristics. Designs for safe deployment and operation (feature consistency, monitoring tied to anticipated failure modes, rollback/disable mechanisms, and graceful degradation). Anticipates operational risks and reduces them through design choices that keep the system understandable, testable, and resilient over time."
+   },
+   "question": "Thanks for walking through that fix. On your NEC Transport Department camera status reporting, what did you build into the Python scripts and daily workflow to stay reliable when feeds hiccupped, schemas shifted, or sensors got noisy?",
+   "answer": "I put practical guardrails around each feed with safe fallbacks and input validation, isolating odd cases and using the last known good with clear traceability. We tracked per‑camera health with rolling trends and drift signals, only alerted when it affected key goals, and phased in schema changes before full runs.",
+   "truth": {
+    "level": "high"
+   }
+  },
+  {
+   "id": "s5-ml_8:production_hardener-1",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "data_judgement",
+   "anchors": {
+    "low": "Treats available data as representative by default and proceeds without a documented account of what the dataset represents or how it is generated. Does not routinely check for leakage, shifting definitions, selection effects, or label noise until anomalies appear in results. Chooses labels and features primarily for convenience rather than for fidelity to the deployed system’s inputs, incentives, and measurement process.",
+    "medium": "Articulates basic dataset suitability and how labels/features relate to the task, including simple provenance and known limitations. Implements common checks and mitigations for obvious leakage and bias, and proposes practical improvements (sampling changes, cleaning steps, labeling guidelines). However, does not consistently test for subtler mismatches (e.g., proxy-label traps, delayed feedback loops, cohort effects) or specify how data validity will be preserved under deployment dynamics.",
+    "high": "Evaluates data using an explicit generative account: who/what produces it, under what incentives and constraints, and how the process can change after deployment. Proactively audits leakage paths, proxy-label traps, selection effects, and non-stationarity; designs data collection and labeling to preserve validity (sampling strategy, measurement definitions, auditability). Selects features and labels that remain robust under operational realities and documents dataset limitations in a way that directly shapes modeling, evaluation, and rollout decisions."
+   },
+   "question": "Got it, thanks—on that recommender at Northwind, how did you decide what data to feed it and what the training target should be, and what checks did you run to make sure there wasn’t leakage or a mismatch between training signals and what would be available at serve time?",
+   "answer": "I used only impression-time info and set the goal as whether the shown item was added to cart in that session, weighted by value. I avoided after-the-fact fields, used a simple time-based split, treated negatives conservatively, and did basic checks that training matched serving.",
+   "truth": {
+    "level": "high"
+   }
+  },
+  {
+   "id": "s5-ml_7:high_henry-3",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "failure_analysis_and_iteration",
+   "anchors": {
+    "low": "Responds to disappointing results primarily with trial-and-error changes (e.g., architecture/hyperparameter tweaking) without isolating variables or forming testable hypotheses. Relies on aggregate metrics without systematic localization (e.g., slice-level errors, pipeline checks, or minimal reproductions). Does not consistently validate fixes across seeds, slices, and reruns, and experiment records are insufficient to reliably reproduce findings or prevent regressions.",
+    "medium": "Uses a mix of diagnostic tools (error analysis, ablations, qualitative inspections, and basic pipeline debugging) to identify plausible failure sources and propose targeted interventions. Can reproduce issues and maintains experiment tracking with reasonable hygiene. However, hypotheses and tests are not consistently structured to isolate the causal lever (especially when failures involve interactions across data, model, and system behavior), and validation of fixes across operating conditions is not consistently performed.",
+    "high": "Runs a hypothesis-driven iteration loop: isolates variables, constructs minimal reproductions, and uses targeted ablations and slice-focused probes to localize root causes. Validates fixes for robustness across seeds, slices, and reruns and articulates why the fix should generalize given observed evidence. Maintains clean experimental records (including datasets, configs, and evaluation protocols) that support fast iteration without accumulating unexamined complexity."
+   },
+   "question": "Appreciate that detail—when a stress slice underperformed on the Research Assistant project, what was one minimal reproduction you set up and the single hypothesis it was designed to confirm or falsify before you made a change?",
+   "answer": "I’ll set up a tiny 2D toy case with the same missing-data pattern, compare interior vs edge points while switching padding from zero to reflective, and check calibration specifically at the edges. If the edge gap closes when only padding changes, that implicates padding; if not, we can rule it out.",
+   "truth": {
+    "level": "high"
+   }
+  },
+  {
+   "id": "s5-ml_4:high_henry-7",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "data_judgement",
+   "anchors": {
+    "low": "Treats available data as representative by default and proceeds without a documented account of what the dataset represents or how it is generated. Does not routinely check for leakage, shifting definitions, selection effects, or label noise until anomalies appear in results. Chooses labels and features primarily for convenience rather than for fidelity to the deployed system’s inputs, incentives, and measurement process.",
+    "medium": "Articulates basic dataset suitability and how labels/features relate to the task, including simple provenance and known limitations. Implements common checks and mitigations for obvious leakage and bias, and proposes practical improvements (sampling changes, cleaning steps, labeling guidelines). However, does not consistently test for subtler mismatches (e.g., proxy-label traps, delayed feedback loops, cohort effects) or specify how data validity will be preserved under deployment dynamics.",
+    "high": "Evaluates data using an explicit generative account: who/what produces it, under what incentives and constraints, and how the process can change after deployment. Proactively audits leakage paths, proxy-label traps, selection effects, and non-stationarity; designs data collection and labeling to preserve validity (sampling strategy, measurement definitions, auditability). Selects features and labels that remain robust under operational realities and documents dataset limitations in a way that directly shapes modeling, evaluation, and rollout decisions."
+   },
+   "question": "Thanks, that gives me a picture of your thresholds. Still on the Redwood project, how did you account for how the data and attacker behavior might shift after model release, and what choices did you make in data collection or measurement to keep your evaluations valid under those shifts?",
+   "answer": "We explicitly accounted for evolving attacker behavior and validated defenses under conditions that mirrored rollout stages, using realistic splits, shifts, perturbations, and budgeted red‑teaming. To keep measures trustworthy, we versioned label/metric definitions, maintained a blinded offline attack‑eval set refreshed from the same sources, and tied re‑evaluation to monitored drift signals.",
+   "truth": {
+    "level": "high"
+   }
+  },
+  {
+   "id": "s5-ml_0:prototype_sprinter-9",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "ml_system_delivery",
+   "anchors": {
+    "low": "Delivers prototypes with unclear interfaces and brittle behavior under edge cases; changes frequently break downstream components. Operational constraints (latency, memory, cost), observability, and safe rollback/disable paths are not designed in from the start. Reliability depends on manual intervention due to missing safeguards, versioning, and predictable runtime behavior.",
+    "medium": "Delivers working components that integrate into an existing stack with acceptable reliability. Defines interfaces and includes basic operational safeguards (logging, simple monitors, fallback behavior) and some reproducibility practices. However, resilience to real operating conditions (traffic spikes, schema drift, dependency changes, partial outages) is not consistently designed and tested, and maintainability often degrades as complexity grows due to missing modularization, tests, and interface/version discipline.",
+    "high": "Delivers ML systems that remain operable and maintainable under realistic constraints: clear interfaces, reproducible builds, versioned artifacts, and predictable performance characteristics. Designs for safe deployment and operation (feature consistency, monitoring tied to anticipated failure modes, rollback/disable mechanisms, and graceful degradation). Anticipates operational risks and reduces them through design choices that keep the system understandable, testable, and resilient over time."
+   },
+   "question": "Sounds good that you gated it behind a switch. On your Ridgeway Robotics role where you owned data pipelines for production tests, how did you detect and handle sensor schema or definition changes so bad data didn’t silently flow downstream, and what was your rollback path when something slipped?",
+   "answer": "We added input checks at ingest to catch bad data early; when something didn’t match, we isolated it, alerted, and let downstream fall back to safe defaults. If an issue reached production, we rolled back to the last known-good version, paused that test’s exports, and reprocessed from logs after a small fix.",
+   "truth": {
+    "level": "high"
+   }
+  },
+  {
+   "id": "s5-ml_2:research_purist-2",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "evaluation_design",
+   "anchors": {
+    "low": "Uses a single headline metric or default split without an explicit argument that it reflects the desired outcome. Employs evaluation protocols that are vulnerable to leakage or unrepresentative splits (e.g., ignores time or entity boundaries when relevant). Does not routinely assess variance/uncertainty across runs or slices, and does not routinely run calibration checks or subgroup analyses as part of the default evaluation. Does not define or execute targeted checks designed to surface known failure modes early (e.g., key slices, stress cases, or guardrail metrics).",
+    "medium": "Defines metrics that are directionally aligned with the goal and uses standard evaluation practices (holdouts, cross-validation where appropriate, baseline comparisons). Includes some robustness checks (e.g., slice breakdowns, calibration checks, multiple seeds) and can interpret tradeoffs. However, the evaluation plan does not consistently mirror deployment conditions (e.g., temporal splits, policy-induced feedback, shifting mixtures), and guardrail metrics and uncertainty criteria are not consistently treated as first-class acceptance/rollback conditions.",
+    "high": "Designs evaluation to mirror the deployment environment and decision process, including leakage-resistant protocols and splits appropriate to the data-generating process (e.g., time-aware or entity-aware splits when relevant) and realistic mixture assumptions. Incorporates uncertainty-aware reasoning (e.g., variance across runs, confidence intervals or equivalent) and stress-tests claims using targeted ablations, slice analyses, and perturbation/counterfactual-style checks where relevant. Establishes guardrail metrics and explicitly defines acceptance thresholds and conditions that would invalidate the approach or trigger rollback."
+   },
+   "question": "Thanks, that makes sense. Before you trained, what concrete acceptance thresholds or guardrails did you set for calling the spam model “good enough” to ship, especially around false positives on ham?",
+   "answer": "I set strict precision and recall targets with statistical confidence on a held-out set and picked a single operating threshold accordingly. We also defined clear no-ship guardrails: if any critical slice showed elevated false positives or if false positives drifted meaningfully from baseline in shadow testing.",
+   "truth": {
+    "level": "high"
+   }
+  },
+  {
+   "id": "s5-ml_6:high_henry-0",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "problem_framing",
+   "anchors": {
+    "low": "Starts work from implementation or model selection without first producing a clear, decision-linked problem statement. Defines success criteria that are vague or not tied to the real decision being improved (e.g., optimizes an offline metric without an argument for online impact). Leaves assumptions, constraints, and operating conditions undocumented, and does not specify evaluation gates or deployment requirements needed for a safe go/no-go decision. Decomposition is shallow: key failure modes, edge cases, and data feasibility checks are not surfaced early and instead emerge reactively during execution.",
+    "medium": "Produces a workable problem statement that maps a goal to an ML task with a measurable target and an initial evaluation plan. Identifies major constraints and data requirements, and outlines reasonable baselines and an iterative approach. However, end-to-end alignment is not consistently specified: the plan does not consistently include explicit offline/online alignment arguments, distribution-shift considerations, or long-tail failure modes and guardrails. In ambiguous settings, defaults to convenient formulations/metrics rather than explicitly selecting the most decision-relevant objective and constraints.",
+    "high": "Produces a crisp, decision-focused framing that explicitly connects the real-world objective to an ML formulation and a deployment context. Documents assumptions and constraints early (including latency, cost, privacy, safety, and maintainability) and defines success metrics plus guardrails that are argued to align offline evaluation with expected online impact. Proactively enumerates key failure modes (slices, drift, abuse cases) and incorporates them into the approach. States what evidence would change the plan and updates the framing as new information arrives while preserving continuity and decision alignment."
+   },
+   "question": "Hey Arjun, thanks for sharing your resume—looks like you’ve put real thought into end-to-end work. On your “Calibrate and Fine-Tune Language Models to Reduce Model Hallucinations” project, how did you initially frame the problem and decide what success would look like in deployment terms rather than just an offline metric?",
+   "answer": "I framed it as a ship/no-ship call: deliver a QA assistant that keeps hallucinations rare while meeting tight latency and cost bounds, with a safe fallback when confidence drops. We measured success with an online experiment supported by targeted human review and alerting, using offline proxies only after showing they tracked the real outcome during the pilot.",
+   "truth": {
+    "level": "high"
+   }
+  },
+  {
+   "id": "s5-ml_3:high_henry-8",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "ml_system_delivery",
+   "anchors": {
+    "low": "Delivers prototypes with unclear interfaces and brittle behavior under edge cases; changes frequently break downstream components. Operational constraints (latency, memory, cost), observability, and safe rollback/disable paths are not designed in from the start. Reliability depends on manual intervention due to missing safeguards, versioning, and predictable runtime behavior.",
+    "medium": "Delivers working components that integrate into an existing stack with acceptable reliability. Defines interfaces and includes basic operational safeguards (logging, simple monitors, fallback behavior) and some reproducibility practices. However, resilience to real operating conditions (traffic spikes, schema drift, dependency changes, partial outages) is not consistently designed and tested, and maintainability often degrades as complexity grows due to missing modularization, tests, and interface/version discipline.",
+    "high": "Delivers ML systems that remain operable and maintainable under realistic constraints: clear interfaces, reproducible builds, versioned artifacts, and predictable performance characteristics. Designs for safe deployment and operation (feature consistency, monitoring tied to anticipated failure modes, rollback/disable mechanisms, and graceful degradation). Anticipates operational risks and reduces them through design choices that keep the system understandable, testable, and resilient over time."
+   },
+   "question": "Thanks for that rundown on the fusion checks. On your GPT‑2 build and LLaMA‑3.2 8B LoRA fine‑tune, what constraints in your target runtime led you to LoRA and the Q5K‑M quantization, and how did you verify the tradeoffs between quality and latency/memory in that environment before deciding to ship it?",
+   "answer": "We were targeting CPU-only edge nodes with tight memory and a strict per-token latency budget, so I used parameter‑efficient fine‑tuning and careful quantization to fit while preserving behavior. I compared a few quantization levels across latency, memory, and throughput on representative workloads with A/B human checks, and picked the smallest model that met our runtime targets while staying within a very small allowed quality drop.",
+   "truth": {
+    "level": "high"
+   }
+  },
+  {
+   "id": "s5-ml_1:high_henry-8",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "data_judgement",
+   "anchors": {
+    "low": "Treats available data as representative by default and proceeds without a documented account of what the dataset represents or how it is generated. Does not routinely check for leakage, shifting definitions, selection effects, or label noise until anomalies appear in results. Chooses labels and features primarily for convenience rather than for fidelity to the deployed system’s inputs, incentives, and measurement process.",
+    "medium": "Articulates basic dataset suitability and how labels/features relate to the task, including simple provenance and known limitations. Implements common checks and mitigations for obvious leakage and bias, and proposes practical improvements (sampling changes, cleaning steps, labeling guidelines). However, does not consistently test for subtler mismatches (e.g., proxy-label traps, delayed feedback loops, cohort effects) or specify how data validity will be preserved under deployment dynamics.",
+    "high": "Evaluates data using an explicit generative account: who/what produces it, under what incentives and constraints, and how the process can change after deployment. Proactively audits leakage paths, proxy-label traps, selection effects, and non-stationarity; designs data collection and labeling to preserve validity (sampling strategy, measurement definitions, auditability). Selects features and labels that remain robust under operational realities and documents dataset limitations in a way that directly shapes modeling, evaluation, and rollout decisions."
+   },
+   "question": "Makes sense and nice use of clear gates—on your Forest Fire Detection project, how did you define and source the target signal for “likelihood of a forest fire” and reason about its validity given limited ground truth, especially with NeRF-built scene representations?",
+   "answer": "We framed it as near‑term ignition risk per area, using historical ignitions plus an expert‑informed hazard signal from vegetation, terrain, and recent weather, aligned to what our drones actually covered. We validated with a forward‑looking, geography‑aware split, audited for leakage, checked calibration and tough slices with experts, and set clear thresholds that would roll us back to simpler proxies if needed.",
+   "truth": {
+    "level": "high"
+   }
+  },
+  {
+   "id": "s5-ml_0:high_henry-0",
+   "source": "btr",
+   "lang": "en",
+   "dimension": "problem_framing",
+   "anchors": {
+    "low": "Starts work from implementation or model selection without first producing a clear, decision-linked problem statement. Defines success criteria that are vague or not tied to the real decision being improved (e.g., optimizes an offline metric without an argument for online impact). Leaves assumptions, constraints, and operating conditions undocumented, and does not specify evaluation gates or deployment requirements needed for a safe go/no-go decision. Decomposition is shallow: key failure modes, edge cases, and data feasibility checks are not surfaced early and instead emerge reactively during execution.",
+    "medium": "Produces a workable problem statement that maps a goal to an ML task with a measurable target and an initial evaluation plan. Identifies major constraints and data requirements, and outlines reasonable baselines and an iterative approach. However, end-to-end alignment is not consistently specified: the plan does not consistently include explicit offline/online alignment arguments, distribution-shift considerations, or long-tail failure modes and guardrails. In ambiguous settings, defaults to convenient formulations/metrics rather than explicitly selecting the most decision-relevant objective and constraints.",
+    "high": "Produces a crisp, decision-focused framing that explicitly connects the real-world objective to an ML formulation and a deployment context. Documents assumptions and constraints early (including latency, cost, privacy, safety, and maintainability) and defines success metrics plus guardrails that are argued to align offline evaluation with expected online impact. Proactively enumerates key failure modes (slices, drift, abuse cases) and incorporates them into the approach. States what evidence would change the plan and updates the framing as new information arrives while preserving continuity and decision alignment."
+   },
+   "question": "Hey Alex, thanks for sharing your background—looks interesting. On your Intelligent Knowledge-Retrieval (RAG) project, what specific decision or workflow were you targeting, and how did you define success up front before building anything?",
+   "answer": "I focused on the “can we answer this doc question without opening a ticket?” path for support/eng—essentially deciding to deflect or escalate based on a grounded, cited answer. We set clear quality, retrieval, latency, and cost targets, validated on an SME-checked held-out set and canonical Q/A, with a rollback tied to hallucination rates.",
+   "truth": {
+    "level": "high"
+   }
+  }
+ ]
+}

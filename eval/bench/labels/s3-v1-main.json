@@ -1,0 +1,2318 @@
+{
+ "instructions": "逐条读 truthNext 与 modelNext，判断是否在验证同一件事（sameIntent: true/false）。只看意图，不看措辞。",
+ "rows": [
+  {
+   "id": "s3-mj-ai-llm-duoyi-01-9",
+   "lang": "zh",
+   "context": [
+    "介绍一下你自已。",
+    "你这几个项目，挑一个你理解比较深的项目（这里我就以我的实习项目为主，介绍了整体架构，记忆设计和RAG过程）",
+    "你的这个三级记忆结构，你是如何实现的。（主要以LangGraph框架为主）",
+    "项目为什么想到用RAG，他在你的项目中解决了什么问题呢。",
+    "讲一下你的项目架构和基本工作流程（我就以一次用户询问作为例子了）",
+    "你在项目中说到，你的记忆架构能让模型在20轮对话后，还能保留90%的信息，你是怎么判断和验证的（只顾着编了，没想着怎么做，随便掰扯了。。）",
+    "项目里面你说的6人团队，那这些团队都是开发吗，分工是什么（我能说是只和mentor大眼瞪小眼吗，继续瞎编中）",
+    "在项目过程中又遇到怎么大的问题吗，说说你怎么解决的。（整理了，但是忘了，只说了怎么平衡固定的WorkFlow和Agent自主权的问题）",
+    "整个项目你的编码量如何，AI coding你都是怎么使用的呢？"
+   ],
+   "truthNext": "个人项目你提到了一个多Agent 框架，你是出于什么做的呢（有点卡，没听到说的啥，然后这个项目是这个：https://github.com/zts212653/clowder-ai 【感谢大佬】超级多东西，只拿了其中几个内容作为亮点）",
+   "modelNext": "你提到用AI coding辅助开发，那你是如何评估AI生成代码的正确性和安全性，并把它集成到项目里的？",
+   "modelIntent": "考察AI辅助开发中的代码质量把控与工程实践意识",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-mj-infra-qingteng-01-8",
+   "lang": "zh",
+   "context": [
+    "能 ping 通 b 的 IP 地址，能保证我 A 连 B 的3389端口一定是通的吗,怎么确认我和他的业务端口通不通呢？",
+    "防火墙主要关注哪些设置？",
+    "排查主机a联通业务服务器b的3389端口时，a看出站、b看入站，主要看哪个链,怎么看？",
+    "Iptables  firewall",
+    "主机 A 无法解析任何域名的话，我怎么去排查处理？",
+    "dns 的服务地址配置在哪看，没配的话怎么变更？",
+    "DNS 服务能不能走本地解析？",
+    "容器里边一直报解析不到目标主机的域名怎么解决？"
+   ],
+   "truthNext": "怎么看我当前的这个 Linux 系统的 CPU 详细信息是多少？",
+   "modelNext": "如果容器里 DNS 解析配置正确但仍然解析失败，你会怎么进一步排查？",
+   "modelIntent": "考察候选人在容器网络环境下对 DNS 解析链路的深度排查能力，包括对容器 DNS 配置、宿主 DNS 与网络策略的关联理解。",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-mj-test-qa-xiaoying-01-2",
+   "lang": "zh",
+   "context": [
+    "自我介绍",
+    "看你是前端技术栈，为什么想着来测试呢？"
+   ],
+   "truthNext": "这个电商网站项目，讲讲开发思路",
+   "modelNext": "既然你从开发转向测试，那你认为开发经验中哪一部分最能直接帮到测试工作，能具体举个例子吗？",
+   "modelIntent": "验证候选人能否把开发背景转化为测试优势，并考察其真实理解而非泛泛而谈",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-mj-ai-llm-bytedance-01-16",
+   "lang": "zh",
+   "context": [
+    "简单介绍一下你做过的Coding Agent项目，以及整体架构设计。",
+    "ReAct模式和Plan模式有什么区别？两种Agent执行方式分别适用于哪些场景？",
+    "如果Agent上下文信息越来越长，超过模型限制，通常有哪些处理方式？",
+    "上下文压缩时一般会保留哪些关键信息？如何判断哪些内容可以被丢弃？",
+    "如何避免Context压缩之后，模型忘记用户之前提出的重要需求？",
+    "Agent在执行任务时出现路径反复、重复尝试等“路径震荡”问题，可能原因是什么？如何优化？",
+    "一个完整的Agent记忆系统应该如何设计？包括哪些模块？",
+    "当前对话中的Context和长期Memory有什么区别？两者分别解决什么问题？",
+    "Agent中的Memory信息如何进行提取、存储和检索？",
+    "为什么一些记忆管理、上下文压缩任务可以交给小模型完成？相比大模型有什么优势？",
+    "MCP是什么？Agent通过MCP调用工具的流程是什么？",
+    "当Agent拥有大量工具时，如何避免工具描述导致Prompt过长？",
+    "如果工具返回的数据量过大，超过上下文窗口限制，应该如何处理？",
+    "Prompt Cache是什么？它为什么能够提升模型调用效率？如何提高缓存命中率？",
+    "Multi-Agent系统中，不同Agent之间应该如何划分职责？",
+    "多个子Agent之间如何进行通信和任务协作？"
+   ],
+   "truthNext": "如果多个Agent同时修改同一个文件，如何避免冲突？",
+   "modelNext": "当多个子 Agent 的结论出现冲突时，你一般怎么设计仲裁或汇总机制来决定最终输出？",
+   "modelIntent": "考察多 Agent 协作中的冲突消解与结果汇总设计能力",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-mj-test-qa-meituan-01-6",
+   "lang": "zh",
+   "context": [
+    "自我介绍",
+    "1 你都是开发岗实习，为什么想做测开",
+    "1 介绍项目，做了多久",
+    "2 你用到了redis，主要用来做什么的",
+    "3 遇到了哪些问题怎么解决的（答了数据一致性）",
+    "1 操作系统里进程和线程的区别"
+   ],
+   "truthNext": "2 网络中，输入一个www.baidu.com到返回数据需要经过哪些步骤",
+   "modelNext": "在 Redis 缓存和数据库数据一致性的问题里，你具体采用了什么方案来保证一致性，比如是延迟双删、先更新数据库再删缓存还是其他做法？",
+   "modelIntent": "考察候选人对缓存一致性具体实现方案的掌握程度和项目落地细节",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-mj-frontend-other-01-6",
+   "lang": "zh",
+   "context": [
+    "什么是js的变量提升，你什么情况下会用var，为什么要提升，不是在外面定义",
+    "我怎么判断对象里面的方法，是不是相等，怎么去做",
+    "讲一下const var let的区别",
+    "promise你了解多少",
+    "json的对象有哪些方法",
+    "！0是true还是false"
+   ],
+   "truthNext": "js数组的方法，怎么用其他方法去判断这是不是数组不用isArray（问了一下说是用里面js自带的instanceof好像）",
+   "modelNext": "接着 promise 问一下，async/await 和 promise 是什么关系，它是怎么实现的？",
+   "modelIntent": "考察候选人对异步编程演进的理解，是否能说明 async/await 底层基于 promise 和 generator 的实现原理。",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-mj-infra-fenzi-01-4",
+   "lang": "zh",
+   "context": [
+    "自我介绍",
+    "介绍项目一",
+    "你提到Windows上没办法部署RabbitMQ，那你是怎么做的",
+    "你的项目有部署到服务器上吗"
+   ],
+   "truthNext": "Redis怎么做的限流（答错成代码层面的内容了，实际是要答令牌桶算法）",
+   "modelNext": "既然项目实际部署到了 Linux 服务器上，那你是怎么把服务发布上去的？比如用了什么工具或流程？",
+   "modelIntent": "考察候选人在真实服务器环境下的部署方式与工具链熟练度",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-mj-infra-fenzi-01-5",
+   "lang": "zh",
+   "context": [
+    "自我介绍",
+    "介绍项目一",
+    "你提到Windows上没办法部署RabbitMQ，那你是怎么做的",
+    "你的项目有部署到服务器上吗",
+    "Redis怎么做的限流（答错成代码层面的内容了，实际是要答令牌桶算法）"
+   ],
+   "truthNext": "怎么保证Redis和MySQL的数据一致性",
+   "modelNext": "既然你项目里用到了限流，那如果让你设计一个分布式的限流方案，你会怎么保证多个服务节点之间的限流阈值是全局统一的？",
+   "modelIntent": "考察分布式限流的设计思路，验证是否理解单机限流与全局限流的差异及常见实现方案",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-mj-ai-llm-other-01-3",
+   "lang": "zh",
+   "context": [
+    "Python中词典和列表的区别",
+    "做的rag项目中，为什么用Chroma",
+    "什么是rag"
+   ],
+   "truthNext": "rag的整个流程中，你认为哪里最容易出问题",
+   "modelNext": "你在这个 RAG 项目里，文档切分（chunking）的策略是怎样的，为什么这么选？",
+   "modelIntent": "验证候选人对 RAG 核心工程细节的掌握程度，以及切分策略与检索效果之间的权衡思考。",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-mj-test-qa-xiaoying-01-7",
+   "lang": "zh",
+   "context": [
+    "自我介绍",
+    "看你是前端技术栈，为什么想着来测试呢？",
+    "这个电商网站项目，讲讲开发思路",
+    "就购物车这一点，讲一讲测试这个模块的测试用例",
+    "这个网站项目有部署，讲讲部署的流程",
+    "笔试错题：http499 状态码和 linux 的grep 命令现在知道是什么了吗？",
+    "开发过程中也要查看日志什么的吧，讲讲查看日志的命令"
+   ],
+   "truthNext": "黑盒测试盒白盒测试了解吗？",
+   "modelNext": "刚才提到的查看日志命令，测试过程中通常会 grep 哪些关键字来定位问题？",
+   "modelIntent": "考察候选人将日志命令应用于测试排查的实际经验，验证关键字选择是否合理。",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-mj-ai-llm-other-04-5",
+   "lang": "zh",
+   "context": [
+    "介绍一下项目一，oauth2.1为什么要接入进mcp中",
+    "项目一中遇到最困难的点是什么",
+    "做重构的时候是如何使用ai的",
+    "RAG项目二中MySQL和ES数据一致性是怎么做的",
+    "embedding模型是如何选型的"
+   ],
+   "truthNext": "手动干预切片是怎么实现的",
+   "modelNext": "在RAG项目二中，用户查询进入后，你是如何做召回和重排序的？",
+   "modelIntent": "考察RAG检索链路设计与排序策略，验证候选人对召回阶段的工程实现能力。",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-mj-ai-llm-other-04-9",
+   "lang": "zh",
+   "context": [
+    "介绍一下项目一，oauth2.1为什么要接入进mcp中",
+    "项目一中遇到最困难的点是什么",
+    "做重构的时候是如何使用ai的",
+    "RAG项目二中MySQL和ES数据一致性是怎么做的",
+    "embedding模型是如何选型的",
+    "手动干预切片是怎么实现的",
+    "讲解召回重排的策略",
+    "如何实现多租户隔离",
+    "sse流式输出在用户关闭浏览器的时候就断开了，如何保证中断后还能保持之前输出"
+   ],
+   "truthNext": "是否了解k8s",
+   "modelNext": "在SSE长连接中断后要恢复之前的输出，你如何设计服务端的事件缓存与重放机制，并保证用户重连时不会重复或丢失消息？",
+   "modelIntent": "考察流式输出中断恢复的具体实现方案，验证对事件ID、缓存、断点续传及幂等性的掌握。",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-mj-ai-llm-bytedance-01-9",
+   "lang": "zh",
+   "context": [
+    "简单介绍一下你做过的Coding Agent项目，以及整体架构设计。",
+    "ReAct模式和Plan模式有什么区别？两种Agent执行方式分别适用于哪些场景？",
+    "如果Agent上下文信息越来越长，超过模型限制，通常有哪些处理方式？",
+    "上下文压缩时一般会保留哪些关键信息？如何判断哪些内容可以被丢弃？",
+    "如何避免Context压缩之后，模型忘记用户之前提出的重要需求？",
+    "Agent在执行任务时出现路径反复、重复尝试等“路径震荡”问题，可能原因是什么？如何优化？",
+    "一个完整的Agent记忆系统应该如何设计？包括哪些模块？",
+    "当前对话中的Context和长期Memory有什么区别？两者分别解决什么问题？",
+    "Agent中的Memory信息如何进行提取、存储和检索？"
+   ],
+   "truthNext": "为什么一些记忆管理、上下文压缩任务可以交给小模型完成？相比大模型有什么优势？",
+   "modelNext": "检索到的记忆有冲突或过时的时候，你的Agent怎么判断该用哪条、怎么更新记忆？",
+   "modelIntent": "考察记忆冲突消解与更新机制的设计能力",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-mj-ai-llm-other-03-5",
+   "lang": "zh",
+   "context": [
+    "最近一年你的agent学习路线是什么，接触过哪些比较好的agent产品？",
+    "你用过trae、claude code、codex，这几个agent之间的优劣势？",
+    "你如果去评价一个agent的能力，不考虑模型，你怎么去评价？",
+    "在一些场景下可能会对模型的选型做出限制。针对不同的模型，去优化一个agent在全流程的表现，你的方法论是什么？",
+    "真实的业务场景下，一类agent的需求通常是收敛的，你需要对agent在特定场景上做优化，你有什么优化的思路吗？RAG是一种处理手段，那如果agent的任务里不仅是在知识库检索，还包含写脚本、写SQL之类的任务，你还有什么处理方法？"
+   ],
+   "truthNext": "skill的目录结构是什么样的？skills相对于MCP的最大优点是什么？MCP也能封装工具，搭建生态，还有什么其它优点？假如你要给一群完全不懂技术的人装openclaw，你会用什么方法？",
+   "modelNext": "你提到用子agent分别处理检索、写脚本、写SQL，那这些子agent的编排和结果汇总，你具体是怎么设计调度逻辑的？",
+   "modelIntent": "验证候选人是否真正落地过多agent协作调度，而非停留在概念层面",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-mj-infra-yinshuo-01-4",
+   "lang": "zh",
+   "context": [
+    "你的环境都是用docker部署的吗？",
+    "在部署过程中遇到过哪些问题？你是怎么解决的？能举例分享一下吗？",
+    "博客系统部署时遇到哪些具体问题？比如前端加密、接口访问等。",
+    "宿主机编译能运行，docker里不能运行，怎么排查的？"
+   ],
+   "truthNext": "你用的Nginx做了哪些优化？有没有做负载均衡？",
+   "modelNext": "那最后定位到的原因是什么？你是怎么修复的？",
+   "modelIntent": "验证候选人排查问题的具体结论和修复能力，延续上一问的排查过程",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-mj-infra-bytedance-01-6",
+   "lang": "zh",
+   "context": [
+    "大致介绍整个面试流程，然后自我介绍",
+    "拷打实验室项目，具体工作，成果",
+    "CICD啊，jenkins这里面，怎么样去实现它的一个自动化的一个构建和部署。",
+    "讲一下docker的一些核心的一些概念，还有工作原理。",
+    "K8s的架构和组件",
+    "K8s的存储，网络模型，不同插件的区别"
+   ],
+   "truthNext": "K8s一共有几种访问方式",
+   "modelNext": "在 Kubernetes 中，你排查过最棘手的一次线上故障是什么，最终如何定位和解决的？",
+   "modelIntent": "考察候选人在生产环境下的故障排查思路和实战经验",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-mj-ai-llm-anruan-01-30",
+   "lang": "zh",
+   "context": [
+    "面试公司：安软",
+    "面试岗位：AI 应用开发实习生",
+    "面试时间：2026 年 7 月 25 日",
+    "面试批次：实习",
+    "面试轮次：技术面试",
+    "面试形式：线上面试",
+    "面试时长：约 28 分钟",
+    "请简单介绍简历中的两个项目。",
+    "两个项目是否都是个人项目？",
+    "你怎样理解 AI Coding？它能替代开发者完成哪些工作，不能替代哪些工作？",
+    "项目中哪些代码由 AI 辅助生成，哪些部分由自己设计或手写？",
+    "日常使用哪些模型？模型选型时如何权衡能力、稳定性和成本？",
+    "使用 Coding Agent 开发复杂功能时，如果上下文过长或模型产生幻觉，怎样把任务拉回正确方向？",
+    "项目规则文件中会保存哪些不能在上下文压缩时丢失的信息？",
+    "是否使用过辅助项目设计与开发的工作流或 Agent 框架？",
+    "为什么自研轻量 Agent，而不是直接使用成熟框架？",
+    "项目如何统一接入三类模型后端？",
+    "新增一个模型后端时，需要修改哪些位置？",
+    "不同模型的请求格式和返回格式如何适配为统一接口？",
+    "工具如何注册？工具的参数、权限和作用范围如何描述？",
+    "三层 Memory 分别保存什么？",
+    "哪些信息必须长期保留，哪些内容可以摘要或淘汰？",
+    "为什么工具调用链属于高优先级记忆？",
+    "文档读取结果如何使用渐进式披露，避免上下文快速膨胀？",
+    "长期记忆如何保存笔记、错题和用户偏好？",
+    "RAG 评测集是怎样构造的？有多少文档和问题？",
+    "哪些内容由人工标注，哪些内容由模型生成？",
+    "项目中接近 100% 的命中率是否可信？",
+    "高命中率是因为数据量较小、针对性优化，还是可能存在过拟合？",
+    "公开技术文档可能已经进入模型预训练数据，这会怎样影响评测？"
+   ],
+   "truthNext": "如果要提高结论可信度，应该使用怎样的私有或未见数据集？",
+   "modelNext": "如果让你重新设计这套 RAG 评测，你会怎样排除模型预训练泄漏对命中率的影响？",
+   "modelIntent": "验证候选人能否识别评测偏差并给出可落地的去泄漏实验设计，而非只解释现象",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-mj-infra-youka-01-12",
+   "lang": "zh",
+   "context": [
+    "自我介绍",
+    "说说对运维的理解",
+    "怎么排查Linux系统故障",
+    "怎么排查端口和网络问题",
+    "怎么排查对方服务器发送的包未收到",
+    "怎么连接多台服务器（答用XShell，被告知XShell只能连1台）",
+    "你在实习过程中使用了什么shell脚本解决什么问题",
+    "K8s场景题（回答不怎么会，所以没继续）",
+    "熟悉什么中间件（MySQL，Redis，RabbitMQ）",
+    "怎么在自己的机器上部署中间件程序（答平时都用Docker，不清楚细节）",
+    "平时怎么用AI进行开发和学习",
+    "平时用哪些Skills"
+   ],
+   "truthNext": "怎么设计提示词让AI帮你解决项目中的各类型错误",
+   "modelNext": "既然你平时用 Docker 部署中间件，那你能说说容器和虚拟机在资源隔离上的核心区别吗？",
+   "modelIntent": "考察对容器底层原理（如 namespace/cgroup）的理解，验证是否只是会用工具而不懂机制",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-mj-ai-llm-tencent-02-9",
+   "lang": "zh",
+   "context": [
+    "实习拷打",
+    "项目拷打",
+    "这个项目的背景是什么？你们团队在做什么？",
+    "你这里说的“特征”具体是什么？它的数据源是什么？怎么生成这个特征？",
+    "这些特征最终怎么分类？拿到这些特征之后主要用来做什么？",
+    "训练出来的模型最终输出是什么？又是怎么反过来指导你这块工作的？",
+    "你这个两秒、十秒和九十秒这三档缓存，对应的分别是什么样的特征？",
+    "你说的这些特征，你是知道它到底对应的是哪种用户行为，或者哪一类设备的吗？",
+    "大概介绍一下另一个 AI 投资分析系统项目。"
+   ],
+   "truthNext": "这个项目当时用的模型是哪一家的？",
+   "modelNext": "在这个 AI 投资分析系统里，你具体负责哪一部分，是数据、模型还是应用层？",
+   "modelIntent": "了解候选人在该项目中的实际职责与技术栈，验证其参与深度",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-mj-ai-llm-tencent-03-7",
+   "lang": "zh",
+   "context": [
+    "分库分表基础：你是怎么做分库？怎么分表的？",
+    "分片键选择：你是对什么取哈希的？（引出 Shop Number 和二级索引）",
+    "跨库跨表场景：分库分表以后，你要做一些跨库或跨表查的话是怎么查？",
+    "深分页原理：你这里用书签记录法去规避这种深分页，这种是怎么做呀？",
+    "书签法使用前提：你这个查的是有序查的吗？",
+    "MySQL 事务隔离级别有哪些？",
+    "Lua 脚本动机：在这个红包系统里用了 Redis 的这种 Lua 脚本做增减，为什么用 Lua 脚本不用比如 Redis 自己自带的这些原子指令（比如 `INCR`/`DECR`）？"
+   ],
+   "truthNext": "Redis 分布式锁原理：在 Redis 里的分布式锁，它是大概是什么样的以及怎么用的？",
+   "modelNext": "你提到用 Lua 脚本保证原子性，那如果脚本执行到一半 Redis 挂了，或者主从切换时脚本还没同步到从节点，数据一致性怎么保证？",
+   "modelIntent": "考察候选人对 Redis Lua 脚本在故障场景下一致性风险的认知和应对方案",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-mj-infra-bytedance-01-11",
+   "lang": "zh",
+   "context": [
+    "大致介绍整个面试流程，然后自我介绍",
+    "拷打实验室项目，具体工作，成果",
+    "CICD啊，jenkins这里面，怎么样去实现它的一个自动化的一个构建和部署。",
+    "讲一下docker的一些核心的一些概念，还有工作原理。",
+    "K8s的架构和组件",
+    "K8s的存储，网络模型，不同插件的区别",
+    "K8s一共有几种访问方式",
+    "服务网格功能特性和工作原理",
+    "讲一下灰度发布策略，它的含义和用途",
+    "VLAN和VXLAN的区别，VXLAN有什么优势",
+    "nginx的负载均衡策略有哪些"
+   ],
+   "truthNext": "HTTPS加密解密过程",
+   "modelNext": "你在项目里是怎么实现对服务健康状态的检测，并触发流量摘除或重新上线的？",
+   "modelIntent": "考察候选人是否具备可观测性与自动化运维闭环的落地经验",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-mj-ai-llm-other-03-4",
+   "lang": "zh",
+   "context": [
+    "最近一年你的agent学习路线是什么，接触过哪些比较好的agent产品？",
+    "你用过trae、claude code、codex，这几个agent之间的优劣势？",
+    "你如果去评价一个agent的能力，不考虑模型，你怎么去评价？",
+    "在一些场景下可能会对模型的选型做出限制。针对不同的模型，去优化一个agent在全流程的表现，你的方法论是什么？"
+   ],
+   "truthNext": "真实的业务场景下，一类agent的需求通常是收敛的，你需要对agent在特定场景上做优化，你有什么优化的思路吗？RAG是一种处理手段，那如果agent的任务里不仅是在知识库检索，还包含写脚本、写SQL之类的任务，你还有什么处理方法？",
+   "modelNext": "在这个方法论里，你怎么定义一个 agent 全流程的评测指标，尤其是多轮任务和工具调用场景下怎么量化好坏？",
+   "modelIntent": "考察其 agent 全流程评测与指标设计能力，验证是否有可落地的量化评估方法论",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-mj-ai-llm-bytedance-02-2",
+   "lang": "zh",
+   "context": [
+    "项目拷打",
+    "创新点与落地差异拷问：你做的这个 RAG 和传统上的 RAG 有没有什么不同？还是只是基于传统概念做了一个落地实践？"
+   ],
+   "truthNext": "效果评估与归因分析：目前 RAG 的效果你怎么看？",
+   "modelNext": "你提到和传统 RAG 有差异，那具体在检索环节你们采用了哪些不同于朴素向量检索的做法？",
+   "modelIntent": "验证候选人能否说清 RAG 检索环节的具体技术改进点。",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-mj-frontend-other-02-7",
+   "lang": "zh",
+   "context": [
+    "会话是如何渲染的？",
+    "markdown是如何解析的？",
+    "那个插件解析出来的结果是什么样子的？",
+    "解析markdown文件，最终输出的是什么结果？",
+    "输出html后，是如何渲染到页面上的？",
+    "VUE的话，还做过哪些功能？",
+    "除了ai对话平台，vue3还做过哪些功能？"
+   ],
+   "truthNext": "图片懒加载 - 是否做了加载异常的处理？",
+   "modelNext": "在那些 Vue3 项目里，你是怎么做状态管理的？",
+   "modelIntent": "考察 Vue3 项目中的状态管理方案与选型思路",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-mj-frontend-other-01-3",
+   "lang": "zh",
+   "context": [
+    "什么是js的变量提升，你什么情况下会用var，为什么要提升，不是在外面定义",
+    "我怎么判断对象里面的方法，是不是相等，怎么去做",
+    "讲一下const var let的区别"
+   ],
+   "truthNext": "promise你了解多少",
+   "modelNext": "ES6 的模块导入导出中，你觉得和 CommonJS 的 require 主要区别是什么？",
+   "modelIntent": "考察模块化规范的理解及实际使用经验",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-mj-frontend-kuaishou-01-9",
+   "lang": "zh",
+   "context": [
+    "自我介绍",
+    "接入qiankun的步骤",
+    "子应用配置打包的过程 蒽不知道 说只知道打包成UMD格式",
+    "webpack迁移到RSpack过程中有没有遇到兼容性或者模式不适配的问题",
+    "实习成果迭代思路？",
+    "项目简述 感觉说的思路不太清晰 没有提前打磨 从需求发现=》spec生成=》研发=》测试部署的闭环没有说的很完整",
+    "vue的生命周期如何对应react的钩子，可以用哪些方式去实现？ 答成狗屎了，没有背过vue的八股",
+    "usecallback和useMemo的区别和应用场景",
+    "fiber的数据结构与算法"
+   ],
+   "truthNext": "React如何实现中断？我们的浏览器是否提供了api实现类似的？",
+   "modelNext": "你刚才提到 fiber 的数据结构与算法，那 React 的调度器是如何基于 fiber 实现时间切片和优先级中断的？",
+   "modelIntent": "考察对 fiber 架构与调度机制的理解深度，验证是否只停留在概念背诵",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-mj-infra-kuaishou-01-9",
+   "lang": "zh",
+   "context": [
+    "25，投递",
+    "28，一面",
+    "29，二面",
+    "12，hr面",
+    "18，电话oc",
+    "19，offer",
+    "你的项目是课题的项目，还是？讲讲你第一个项目的架构",
+    "你的第二个项目用了多少机器？怎么去规划分布的这些呃资源？大概讲一下你这个架构。",
+    "你在运维过程当中用到ansible去做一些批量的一些运维操作，能举几个场景例子吗？你主要用它去做哪些批量部署？"
+   ],
+   "truthNext": "Prometheus 一般在收集监控对象的这些指标，一般有哪两种？",
+   "modelNext": "你说用 Ansible 做批量部署，那如果某台机器执行失败了，你是怎么发现并处理的？",
+   "modelIntent": "考察 Ansible 批量运维中的失败检测与处理机制，验证实践深度",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-mj-ai-llm-anruan-01-10",
+   "lang": "zh",
+   "context": [
+    "面试公司：安软",
+    "面试岗位：AI 应用开发实习生",
+    "面试时间：2026 年 7 月 25 日",
+    "面试批次：实习",
+    "面试轮次：技术面试",
+    "面试形式：线上面试",
+    "面试时长：约 28 分钟",
+    "请简单介绍简历中的两个项目。",
+    "两个项目是否都是个人项目？",
+    "你怎样理解 AI Coding？它能替代开发者完成哪些工作，不能替代哪些工作？"
+   ],
+   "truthNext": "项目中哪些代码由 AI 辅助生成，哪些部分由自己设计或手写？",
+   "modelNext": "你平时使用过哪些 AI 辅助编程工具，它们具体帮你解决了哪些问题？",
+   "modelIntent": "了解候选人对 AI Coding 工具的实操经验和真实使用场景",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-mj-ai-llm-nio-01-5",
+   "lang": "zh",
+   "context": [
+    "你有没有接触过自动化测试？了解哪些测试框架（Python 或其他语言）？",
+    "你在A公司做的 AI 平台整体是干什么的？",
+    "你说的孤儿资源清理具体是怎么实现的？",
+    "你是怎么判断一个资源是孤儿资源的？",
+    "这个过程是基于全量扫描，还是事件驱动？具体怎么做的？"
+   ],
+   "truthNext": "Watch 和数据库同步这一套是怎么设计的？有没有一致性问题？",
+   "modelNext": "全量扫描的资源规模大概有多大，一次扫描耗时多久，有没有做过性能优化？",
+   "modelIntent": "验证候选人对全量扫描方案的规模认知、性能瓶颈判断与优化实践。",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-mj-ai-llm-bytedance-02-7",
+   "lang": "zh",
+   "context": [
+    "项目拷打",
+    "创新点与落地差异拷问：你做的这个 RAG 和传统上的 RAG 有没有什么不同？还是只是基于传统概念做了一个落地实践？",
+    "效果评估与归因分析：目前 RAG 的效果你怎么看？",
+    "失败案例的具体分析：你提到写了一些“小结”导致召回率失败，那个小结会有什么负向作用？",
+    "Embedding 策略拷问：为什么只对标题做 Embedding，而不对段落内容本身做 Embedding？当时的考虑是什么？",
+    "概念辨析 1：提示词工程（Prompt Engineering）和上下文工程（Context Engineering）的区别是什么？",
+    "业界趋势理解：当前比较热的 Skill，这个是什么概念？"
+   ],
+   "truthNext": "概念辨析 2：Skill 和 Tool / Function Call 的区别是什么？本质在解决什么问题？",
+   "modelNext": "既然你提到 Agent 的 Skill 概念，那在实际工程里你会怎么设计一个 Skill 的注册和调度机制，让它能被 Agent 稳定地选择和执行？",
+   "modelIntent": "考察对 Skill 从概念到后端工程落地的设计能力，包括注册、发现、参数校验与调度。",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-btr-ml_7:prototype_sprinter-8",
+   "lang": "en",
+   "context": [
+    {
+     "role": "interviewer",
+     "message": "Thanks for walking me through your background, Alex—on the DCNNs you built to regress GP covariance parameters, how did you initially frame the problem and define a clear go/no-go decision before investing in scaling the approach?"
+    },
+    {
+     "role": "applicant",
+     "message": "I framed it as replacing the slower iterative GP tuning with a supervised model that takes compact data summaries and predicts kernel settings, aiming for something that runs quickly on our GPU path and drops into the existing pipeline. We did basic offline checks for speed and reasonable accuracy and moved forward if it looked clearly faster without obvious accuracy issues, rather than using strict thresholds."
+    },
+    {
+     "role": "interviewer",
+     "message": "Got it, thanks—sticking with that DCNN-for-GP work, when you generated the synthetic spatiotemporal data and compact summaries, how did you choose the generative assumptions and sampling so they reflected the pipeline’s GP fitting task, and what checks did you run to guard against leakage or a summary/label mismatch before trying it on real data?"
+    },
+    {
+     "role": "applicant",
+     "message": "I set up the simulator to roughly match what we were using and pulled a few simple summaries from the raw data, then did a basic train/test split so they weren’t the same. I did quick checks to avoid obvious leakage and to see the summaries helped, and I spot-checked a few cases before using the real data."
+    },
+    {
+     "role": "interviewer",
+     "message": "Makes sense—when you moved the DCNN to real datasets, how did you set up the evaluation split to mirror how the GP fitting would be used in practice (e.g., time or location boundaries), and why did you choose that protocol?"
+    },
+    {
+     "role": "applicant",
+     "message": "We just did a basic random split into train and test to keep it simple and roughly in line with how the data came in. We didn’t add any special time or location rules since that wasn’t how it was used."
+    },
+    {
+     "role": "interviewer",
+     "message": "Appreciate the context—staying with the DCNN-for-GP work, when results on real data didn’t match expectations, how did you localize the failure (e.g., summaries vs. network vs. label generation) and what concrete evidence led you to your next change?"
+    },
+    {
+     "role": "applicant",
+     "message": "I tried swapping a few parts of the pipeline—kept the labels as given and tested a simpler head, then kept the model and used more detailed summary features. Accuracy only improved when the summaries were richer, so I focused on adding those longer‑range signals."
+    },
+    {
+     "role": "interviewer",
+     "message": "Gotcha, enriching the summaries moved the needle—when you wired that DCNN into the existing GP pipeline, what concrete safeguards or rollback path did you put in so the system could fall back to the original GP tuning if the predictions looked off?"
+    },
+    {
+     "role": "applicant",
+     "message": "We added guardrails with an automatic fallback to the previous tuner whenever signals looked off or a call ran long, so traffic would route there by default on issues. We also kept an instant rollback switch and monitors to flip it if errors or latency spiked."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks, that rollback setup sounds pragmatic—on your resume you mention communicating findings to experts and nonexperts with visualizations, how did you keep stakeholders aligned on objectives and risks over iterations on the GP/DCNN project, and what did you do when new evidence suggested changing course?"
+    },
+    {
+     "role": "applicant",
+     "message": "I kept the team aligned with a short weekly summary and simple charts showing the goal, how we compared to baseline, any flags, and what we needed to decide next. When it looked like richer summaries mattered, we did a quick review, paused changes, clarified what to look for, did a quick check, and then continued the rollout."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks for laying out how you handled alignment and course changes—switching to your data transformation pipeline with scikit‑learn/pandas, how did you document the data contracts and guard against schema drift or silent feature changes so that downstream models kept seeing valid, consistent inputs over time?"
+    },
+    {
+     "role": "applicant",
+     "message": "We defined a clear data spec and enforced it end to end with checks at ingestion and before deployment. In production, we monitored schema and data quality with guardrails that blocked bad runs, alerted, and safely fell back to the last known good features until we approved changes."
+    },
+    {
+     "role": "interviewer",
+     "message": "Nice, that sounds solid—on the distributed multi‑GPU setup where you got 1000%+ speedups, how did you make runs reproducible and debuggable in the face of partial GPU/node failures and dependency changes (e.g., versioned datasets/artifacts, fixed envs, rerunability)?"
+    },
+    {
+     "role": "applicant",
+     "message": "We standardized the environment and dependencies, versioned data and artifacts, and made runs reproducible with fixed configs/seeds and frequent checkpoints so interrupted jobs could resume. The platform handled step-level retries and unhealthy machines, and we linked logs/metrics to run IDs to allow exact reruns or quick isolation when needed."
+    }
+   ],
+   "truthNext": "Great, thanks—on your multi-GPU hyperparameter tuning work, how did you set up the search space/objective and deal with noisy evaluations so the optimizer didn’t overfit the validation split or chase variance?",
+   "modelNext": "On the multi-GPU work, when a node failed mid-run and the job retried, how did you confirm the resumed run was computing the same thing—did you compare checkpoints, loss trajectories, or outputs against the uninterrupted reference to detect partial-write corruption or divergent RNG state?",
+   "modelIntent": "验证故障恢复下的实验可复现性与验证手段（failure_analysis / ml_system_delivery）",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-btr-ml_5:production_hardener-2",
+   "lang": "en",
+   "context": [
+    {
+     "role": "interviewer",
+     "message": "Hey Suparshwa, thanks for taking the time—on your CivicRelay Labs agentic RAG platform, when you kicked off the work, what concrete decision or workflow were you targeting to improve, and how did you frame success so your offline checks meaningfully predicted the kind of online impact you cared about?"
+    },
+    {
+     "role": "applicant",
+     "message": "We focused on volunteer triage and onboarding—deciding if an incoming question could be auto-answered, sent to a playbook, or escalated. I mainly tracked time to first meaningful action and escalation rate, and used a simple holdout to check answer quality plus some basic latency and cost checks before moving forward."
+    },
+    {
+     "role": "interviewer",
+     "message": "Got it, thanks—sticking with CivicRelay’s triage, what did you use to determine “can be auto-answered” vs “route to playbook” vs “escalate” in your data and labels, and how did you make sure that matched what the system would see and decide on in production?"
+    },
+    {
+     "role": "applicant",
+     "message": "Labels came from what shift leads decided within about a day — tickets that were answered directly, ones that followed a playbook, and ones we sent up when it looked risky or out of scope. We kept inputs the same as prod (request text plus basic org/time info), used a simple time split, and didn’t include after-the-fact notes."
+    }
+   ],
+   "truthNext": "Makes sense, thanks—before you shipped that router at CivicRelay, what concrete acceptance thresholds and rollback triggers did you set, and how did you connect those to your offline time-split results versus the first live signals you watched?",
+   "modelNext": "How did you evaluate the triage model beyond a single holdout—did you look at slice-level performance, uncertainty across runs, or set explicit acceptance thresholds and guardrail metrics before deciding to ship?",
+   "modelIntent": "Probe evaluation_design: metrics, slices, uncertainty, acceptance/guardrail criteria",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-btr-ml_8:prototype_sprinter-2",
+   "lang": "en",
+   "context": [
+    {
+     "role": "interviewer",
+     "message": "Hey Alex, thanks for sharing your background—Northwind’s AI-driven features caught my eye. Could you pick one specific feature you worked on there and walk me through how you initially framed the problem—what real decision it was meant to improve, the key constraints you identified early (like latency, cost, privacy), and how you defined success for a go/no-go?"
+    },
+    {
+     "role": "applicant",
+     "message": "At Northwind I led a personalized search effort to lift add-to-cart by treating it as a ranking task using basic click/cart signals and a simple baseline to start. We worked within a clear latency and cost budget with privacy handled by standard company logging, and I aimed for an A/B lift in add-to-cart while keeping the system reliable."
+    },
+    {
+     "role": "interviewer",
+     "message": "Got it, thanks—on that personalized search at Northwind, how did you define the click/cart labels over time and what time-aware checks did you use to ensure no future info leaked into the training features or labels?"
+    },
+    {
+     "role": "applicant",
+     "message": "Labels were based on clicks and adds around when the query happened, using whatever our tracking provided, and the existing pipelines handled most of that. For training and validation we just used a standard split with the available fields, without extra timing rules beyond what the system already did."
+    }
+   ],
+   "truthNext": "Thanks for clarifying—on that Northwind personalized search, what offline ranking metric did you optimize during model development, and what made you believe movement in that metric would translate to the add-to-cart lift you were targeting in the A/B?",
+   "modelNext": "Since you used a standard random split without time-aware rules, what evidence did you gather to convince yourself that offline ranking metrics would actually translate to the A/B add-to-cart lift you were targeting—and if you didn't check this, how would you design that check now?",
+   "modelIntent": "验证评估设计与离线/在线对齐意识，以及是否考虑分布偏移与反馈回路",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-btr-ml_9:average_joe-4",
+   "lang": "en",
+   "context": [
+    {
+     "role": "interviewer",
+     "message": "Thanks for sharing your resume—looks like you’ve touched finance, transport, and logistics. On the Forex Forest project, how did you frame the trading predictor in terms of the concrete decision it was meant to influence and what constraints you had to respect, like latency, cost, or risk exposure?"
+    },
+    {
+     "role": "applicant",
+     "message": "I framed it as a buy/sell/hold aid over the next ~15 minutes, producing confidence scores to help size positions, and we judged it mainly by net return and hit rate after costs. We kept predictions fast enough to be practical and within budget, and added basic safeguards—position limits, stop‑losses, daily drawdown limits—and a simple fallback to a passive baseline when needed."
+    },
+    {
+     "role": "interviewer",
+     "message": "Got it, thanks—that framing makes sense; for the Forex Forest work, how did you set up your backtests and validation splits to mirror live trading, especially handling temporal splits, slippage/fees, market closures, and avoiding any lookahead leakage?"
+    },
+    {
+     "role": "applicant",
+     "message": "We used time-based splits—training on past data, validating on the next period, and testing on a later holdout—generating signals at bar close and avoiding lookahead by using lagged inputs. For backtests we included basic trading costs and respected market hours, with simple order and sizing rules aligned with how it would run in production."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks, that sounds disciplined; on the Forex Forest project, where did your market data come from and how did you ensure every feature you trained on was actually available with the same timestamp and quality at prediction time?"
+    },
+    {
+     "role": "applicant",
+     "message": "We used live quotes from the broker and matching historical bar data from a standard vendor. To keep training and live consistent, we built features from those bars with a simple lag, used the same basic cleaning/resampling in backtests and live, and avoided inputs that wouldn’t be available at signal time."
+    },
+    {
+     "role": "interviewer",
+     "message": "Makes sense on keeping train/live aligned; when the Forex predictor underperformed in any period, how did you break down the failures and decide what to try next without just tweaking models?"
+    },
+    {
+     "role": "applicant",
+     "message": "I’d start by looking at simple breakdowns of results across a few common segments and skim some representative trades to spot patterns, making sure the flow looks sensible. From there I’d try straightforward tweaks (e.g., adjust position size, nudge the lookback, add basic safeguards) and compare to a baseline on a holdout before changing anything bigger."
+    }
+   ],
+   "truthNext": "Appreciate that breakdown; shifting to your iAmSmart PyTorch image recognition work at Automated Systems, before enabling it for real users, what concrete acceptance checks and guardrails did you set up in staging or a pilot to decide go/no‑go?",
+   "modelNext": "You mentioned comparing tweaks on a holdout before bigger changes—can you describe how you validated that a fix, like adjusting the lookback, actually generalized rather than just luck on that holdout? Specifically, what steps did you take to test robustness across different time periods, market reg",
+   "modelIntent": "评估候选人是否具备假设驱动迭代与稳健验证能力（failure_analysis_and_iteration），包括跨时段/市场状态/种子的验证和实验记录，以区分真实提升与噪声。",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-btr-ml_0:high_henry-4",
+   "lang": "en",
+   "context": [
+    {
+     "role": "interviewer",
+     "message": "Hey Alex, thanks for sharing your background—looks interesting. On your Intelligent Knowledge-Retrieval (RAG) project, what specific decision or workflow were you targeting, and how did you define success up front before building anything?"
+    },
+    {
+     "role": "applicant",
+     "message": "I focused on the “can we answer this doc question without opening a ticket?” path for support/eng—essentially deciding to deflect or escalate based on a grounded, cited answer. We set clear quality, retrieval, latency, and cost targets, validated on an SME-checked held-out set and canonical Q/A, with a rollback tied to hallucination rates."
+    },
+    {
+     "role": "interviewer",
+     "message": "Got it, that makes sense. For that RAG project, how did you assemble the SME-checked eval set so it matched real query patterns, and what steps did you take to avoid leakage or contamination that would make offline results look rosier than what users would see?"
+    },
+    {
+     "role": "applicant",
+     "message": "We built the eval set by sampling past searches/tickets and consulting domain experts to cover different intents and phrasings; they wrote and verified questions and answers strictly from cited source text, including small variants to match real user wording. To avoid contamination, we separated training and eval in time with a frozen corpus and separate index, removed near-duplicates, kept experts blind to model outputs, and avoided any tuning that could touch eval material."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks, that’s a solid approach to eval hygiene. Once you put the RAG system in front of users, how did you monitor for hallucinations and other regressions in real traffic, and what was the actual rollback/disable path when a guardrail tripped?"
+    },
+    {
+     "role": "applicant",
+     "message": "We set up automated groundedness checks, a lightweight hallucination signal, key slice monitors with user feedback, and canary/alerting so drift or rising error rates show up quickly. If a guardrail tripped, we flipped traffic to a safe retrieval-only fallback and used versioned rollbacks, with a circuit breaker that paused generation when thresholds were breached."
+    },
+    {
+     "role": "interviewer",
+     "message": "Appreciate that detail on the rollback path. On your Aim-Trainer Performance Analyzer, when the model hit strong mAP, what did your error analysis reveal about misses or bad slices, and how did you structure iterations to isolate the cause rather than just tweak hyperparameters?"
+    },
+    {
+     "role": "applicant",
+     "message": "Errors clustered around small/dim targets, motion blur, on-screen overlays, and edge-of-frame cases. I tested hypotheses by isolating components, running targeted tweaks and stress tests, then adding focused data for those slices, and only shipped changes that consistently reduced their errors across repeats."
+    }
+   ],
+   "truthNext": "Nice, sounds like you dug into the right slices. Jumping to your Ridgeway Robotics role where you owned data pipelines for production tests, how did you define the ingestion/validation gates and what conditions would cause the pipeline to halt versus let data through for downstream analysis?",
+   "modelNext": "That's helpful. When you moved from these offline, per-slice fixes to actually deploying the analyzer in its intended setting, what operational risks did you design for up front—latency or resource limits, input distribution drift like new target types or camera changes, and a safe path to disable o",
+   "modelIntent": "Probe ml_system_delivery and data_judgement: whether deployment constraints, drift, and safe fallback were designed in, ",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-btr-ml_6:prototype_sprinter-10",
+   "lang": "en",
+   "context": [
+    {
+     "role": "interviewer",
+     "message": "Hey Arjun, thanks for sharing your resume—looks like you’ve put real thought into end-to-end work. On your “Calibrate and Fine-Tune Language Models to Reduce Model Hallucinations” project, how did you initially frame the problem and decide what success would look like in deployment terms rather than just an offline metric?"
+    },
+    {
+     "role": "applicant",
+     "message": "I framed it as making the model cheaper to run without hurting user trust, aiming for a big inference cost reduction while keeping behavior roughly in line with the current system on a set of prompts similar to production. We considered it a success if it met our latency budget for that service tier and we didn’t see a noticeable uptick in internal QA/flagged responses during a small rollout."
+    },
+    {
+     "role": "interviewer",
+     "message": "Got it, that makes sense. For that LLM project, how did you choose and label the prompts/answers to measure hallucination—what was the source of the data, how were “facts” established, and how did you guard against leakage or domain mismatch with your production-like set?"
+    },
+    {
+     "role": "applicant",
+     "message": "We mainly pulled prompts from our docs and common references, and checked answers against public info with a quick pass by reviewers. Avoiding obvious overlap was handled by the existing pipeline, and we kept topics roughly in line with expected use without getting into detailed split rules or special checks."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks, that helps. During the small rollout for the LLM project, what concrete acceptance and rollback conditions did you set, and how were you monitoring them in near-real time?"
+    },
+    {
+     "role": "applicant",
+     "message": "We did a small canary and watched latency, cost, and QA flags on a dashboard with alerts, backed by versioned logging. If those looked off, a feature flag let us quickly switch back to the baseline."
+    },
+    {
+     "role": "interviewer",
+     "message": "Got it, thanks for that detail about the canary and feature flag. On the LLM project, can you walk me through one concrete issue you hit during quantization or fine-tuning and how you isolated the root cause before deciding what to change next?"
+    },
+    {
+     "role": "applicant",
+     "message": "When we switched to 4‑bit, answers about dates/entities got shaky, so I tried a few simple toggles and quick comparisons to narrow it down to the final output part being sensitive. We kept some parts in higher precision, lowered the learning rate, and after a quick spot check on those cases, it looked stable enough to proceed."
+    },
+    {
+     "role": "interviewer",
+     "message": "Makes sense, thanks for explaining how you stabilized it. On your 5G Network Performance project, how did you set up your train/validation/test splits for the LSTM so that future data didn’t leak into the past, and how did you check whether the temporal distribution or tower cohorts shifted between splits?"
+    },
+    {
+     "role": "applicant",
+     "message": "I just used a basic time-based split—older data to train and the latest to check results. I skimmed the datasets to see if they looked similar and that the main groups were there; anything more in-depth was handled elsewhere."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks for explaining your split approach. Switching over to your GCP pipeline for the LLM work, how did you keep train/serve features consistent and artifacts reproducible—what did the interface look like between data prep, fine-tuning, and inference so you could roll forward or back confidently?"
+    },
+    {
+     "role": "applicant",
+     "message": "We versioned the preprocessing and model artifacts end to end, used reproducible builds, and kept data/checkpoints in immutable storage so training and serving pulled the same thing. The service read exact versions from config, and a simple switch let us shift traffic between model versions for quick roll‑forward/back without code changes."
+    },
+    {
+     "role": "interviewer",
+     "message": "Appreciate the detail on versioning and traffic shifting. Before we leave the LLM work, did you map out any specific long‑tail or abuse cases you wanted to watch during rollout, and how did you incorporate those into monitoring or guardrails?"
+    },
+    {
+     "role": "applicant",
+     "message": "We added basic guardrails for the obvious risks and tied them into our existing monitoring so we’d get notified if something looked unsafe. If that happened, we flipped traffic back to the baseline with our feature flag and saved examples for follow‑up."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks for sharing how you handled guardrails and rollback on the LLM rollout. On your 5G Network Performance Analysis project, how did you align on the problem definition and success criteria with whoever owned tower maintenance decisions, and what specific decision or action your forecasts were meant to inform?"
+    },
+    {
+     "role": "applicant",
+     "message": "We agreed with the maintenance ops lead that the model would just give a weekly list of towers to check to help with crew scheduling, not detailed forecasts. For the pilot, we’d see if it did better than the old process—aiming for more useful finds per visit and fewer unexpected outages in the higher-priority picks."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks for clarifying the maintenance-focused output. On the 5G project, how were the “useful finds” or outages actually recorded and attributed in your data, and did you check for any definition changes or selection effects over time that could skew the weekly tower list evaluation?"
+    },
+    {
+     "role": "applicant",
+     "message": "I used the ops team’s maintenance lists and outage logs as-is and matched items by tower and roughly the same time window to attribute impact. For the pilot, I followed their existing definitions and conventions."
+    },
+    {
+     "role": "interviewer",
+     "message": "Got it, thanks for sticking to the ops definitions for the pilot. On your Proactive Research Assistant Chrome Extension, how did you handle user privacy when detecting page context and calling external APIs—what data left the browser, and what safeguards or minimization steps did you put in place?"
+    },
+    {
+     "role": "applicant",
+     "message": "To my knowledge, only the URL, page title, and a small bit of visible text were sent from the browser; cookies, form inputs, and history weren’t part of what we handled. There was a simple in-extension toggle to stop any outgoing calls if needed."
+    }
+   ],
+   "truthNext": "Thanks for outlining the privacy approach. On your 5G project, when you built the stakeholder visualizations and translated findings into recommendations, how did you communicate uncertainty and tradeoffs to the ops lead, and what decision did that enable for the pilot?",
+   "modelNext": "On the Chrome extension, how did you validate that the URL, title, and visible-text snippets you sent were actually sufficient for relevant paper suggestions without over-collecting—and what tests or audits did you run on the extension's real network payloads to confirm nothing extra was leaving the",
+   "modelIntent": "验证数据最小化主张是否有实际测量与审计支撑，而非仅凭设计假设",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-btr-ml_1:low_larry-10",
+   "lang": "en",
+   "context": [
+    {
+     "role": "interviewer",
+     "message": "Thanks for chatting, Alex—on the Rover Club work where you fine-tuned Mask R-CNN for custom items, how did you frame the problem and decide what “good enough” meant given the rover arm’s needs and the on-board compute/latency limits?"
+    },
+    {
+     "role": "applicant",
+     "message": "We just used a standard object-finding setup and called it good when it looked decent on our test data and seemed fast enough on the device for the arm to grab things in quick checks. We assumed the camera/views would be similar and mostly one item at a time, and did a few quick tries to make sure the gripper didn’t time out."
+    },
+    {
+     "role": "interviewer",
+     "message": "Got it, thanks—sticking with the Rover Club detector/arm, when you moved past those quick checks into Gazebo or outdoor runs, what didn’t behave like you expected, and what was the first concrete change you made in response?"
+    },
+    {
+     "role": "applicant",
+     "message": "In testing, glare, shadows, and awkward angles made the signals jumpy so it paused or reached a bit off. I loosened the setting so it would accept more and keep moving."
+    },
+    {
+     "role": "interviewer",
+     "message": "Makes sense, thanks—after you loosened the acceptance on the Rover Club detector, how did you decide it was actually a net win across your Gazebo or outdoor runs—what single check or metric did you lean on to make that call?"
+    },
+    {
+     "role": "applicant",
+     "message": "We just looked at how many picks worked out of how many tries in some quick test runs, and I called it good if that number went up."
+    },
+    {
+     "role": "interviewer",
+     "message": "Appreciate that—switching to your Forest Fire Detection project, how did you define and source the ground truth for “likelihood of a forest fire” from the drone data—what exactly constituted a positive vs. negative label in your dataset?"
+    },
+    {
+     "role": "applicant",
+     "message": "We went through the drone videos and just marked clips as dry or not based on how they looked; the ops team mostly handled that, so I don’t have the exact details. Sometimes someone glanced at ranger notes to match things up, but I don’t remember the specifics."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks for sharing that—on the Forest Fire Detection work, when you trained the transformer with NeRF features, how did you split train/validation/test to avoid leakage from near-duplicate frames or the same flight/day/location ending up on both sides?"
+    },
+    {
+     "role": "applicant",
+     "message": "We just let the tool randomly split things, so stuff from the same day could end up in different groups. If two looked obviously the same we might drop one by eye, but we didn’t add any special grouping by trip or place."
+    },
+    {
+     "role": "interviewer",
+     "message": "Got it, thanks—on the fire detection project, when you first ran the model on a new flight from a different day or spot, what actually happened and what was the very first change you tried in response?"
+    },
+    {
+     "role": "applicant",
+     "message": "On a new run it missed spots it had flagged before and the scores jumped around. I did a quick retrain and added a few images from that flight to the data to see if it settled down."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks, that makes sense—on your Adversarial Self-Driving project in CARLA, how did you set up training and evaluation to avoid overfitting to specific maps or weather patterns, and what single metric or check told you the GAN approach was actually helping beyond the baseline?"
+    },
+    {
+     "role": "applicant",
+     "message": "We used a mix of simulator scenes with some varied conditions and just did a random split from that same set to check results. I called it a win when the score consistently came out higher than what we had before."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks for explaining your CARLA setup—sticking with Rover Club, when the detector or SLAM pose went stale mid-pick, what concrete fallback behavior did you wire in on the robot?"
+    },
+    {
+     "role": "applicant",
+     "message": "We used a simple check, and if something seemed off it would stop, park the arm in a safe spot, try once more, and if it still looked off it would alert someone to take over. This flow was handled by the built-in system."
+    },
+    {
+     "role": "interviewer",
+     "message": "Got it, thanks—on your shift to ROS Gazebo for the rover, what was the single validation you used to convince yourselves the sim was close enough to trust for navigation tuning before field runs?"
+    },
+    {
+     "role": "applicant",
+     "message": "We just tried a simple L-shaped path like the one we set up outside and figured it was fine if it reached the spots about as fast without bumping into anything."
+    },
+    {
+     "role": "interviewer",
+     "message": "Makes sense, thanks—staying on the Rover Club system delivery side, during field runs what telemetry or checks did you actually log on-board, and what single alert or threshold would cause you to disable autonomy and hand control to an operator?"
+    },
+    {
+     "role": "applicant",
+     "message": "We had some basic on-device logs like timestamps and a few status readings, but most of that setup was handled by the platform team. If it looked like the system lost its place for a short while it would switch out of autonomy to the operator, though I don’t recall the exact checks or timing."
+    }
+   ],
+   "truthNext": "Appreciate that—on Rover Club as deputy software lead, what single artifact did you keep updated to align the 14-person team on objectives, assumptions, and go/no-go criteria?",
+   "modelNext": "Thanks—on that handoff-to-operator tripwire: if you had to design it now from scratch, what single measurable signal would you log and threshold on-board to trigger that fallback, and roughly where would you set the threshold?",
+   "modelIntent": "检验运行监控、回退触发条件与阈值设定能力（ml_system_delivery）",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-btr-ml_8:high_henry-6",
+   "lang": "en",
+   "context": [
+    {
+     "role": "interviewer",
+     "message": "Hey Alex, thanks for sharing your background—Northwind’s AI-driven features caught my eye. Could you pick one specific feature you worked on there and walk me through how you initially framed the problem—what real decision it was meant to improve, the key constraints you identified early (like latency, cost, privacy), and how you defined success for a go/no-go?"
+    },
+    {
+     "role": "applicant",
+     "message": "I framed a next-best-product ranker to pick the top items per session to lift add-to-cart, with tight latency and cost limits, strict train/serve parity, clear privacy constraints, and a safe popularity fallback when features were missing. We set clear offline targets and guardrails aligned to online impact, then ran an A/B with explicit lift thresholds for add-to-cart and revenue, rolling back if any performance, fairness, or experience guardrail was breached."
+    },
+    {
+     "role": "interviewer",
+     "message": "Got it, thanks—that’s a crisp setup. For that Northwind next-best-product ranker, how did you define and source the training labels and what concrete steps did you take to audit and prevent leakage or selection effects from the session logs before and after deployment?"
+    },
+    {
+     "role": "applicant",
+     "message": "I labeled based on whether shown items led to add-to-cart shortly after exposure, using logs with a small randomized slice for counterfactual signal and time-based joins that avoided post‑hoc artifacts. To guard against leakage and selection bias, I used time/entity‑aware splits, restricted features to what was available at exposure with bounded history, validated with propensity‑weighted checks from that traffic, and set up cohort‑level monitoring and alerts for drift in exposure mix and conversion."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks, that makes sense and sounds disciplined. Sticking with this ranker, how did you design the offline evaluation to mirror deployment—specifically, what split protocol did you use and which slice or stress tests were must-haves before greenlighting an experiment?"
+    },
+    {
+     "role": "applicant",
+     "message": "I used a forward‑chaining, time‑aware setup that respected user/session boundaries and promo blackouts, and evaluated on exposure events consistent with what the system would see. Before greenlighting, I insisted on targeted slice and stress checks covering user and item freshness, long‑tail categories, device/latency constraints, inventory/price shifts, cohort differences and bot‑filtered traffic, plus drift probes via perturbed histories."
+    },
+    {
+     "role": "interviewer",
+     "message": "Appreciate the detail—you covered a lot of the right stress checks; can you share one concrete case on that Northwind ranker where offline looked good but the online A/B underperformed, and walk me through your hypothesis, the minimal repro you built, and what change you shipped (or rolled back) as a result?"
+    },
+    {
+     "role": "applicant",
+     "message": "In our first broad test, the offline improvement didn’t show up in the key user action, which I traced to stale inputs versus fast‑changing prices and stock that especially hurt new and promoted items. I reproduced it with a simple replay, then adjusted how we capture those inputs and eased exploration for new items behind a safe ramp, after which the next test showed the expected lift."
+    },
+    {
+     "role": "interviewer",
+     "message": "Nice recovery on that issue—when you wired the ranker into Northwind’s microservices stack, what did the service interface and operational guardrails look like to keep it stable under traffic spikes and upstream schema or dependency changes, and how did you execute a rollback or kill-switch when needed?"
+    },
+    {
+     "role": "applicant",
+     "message": "We shipped it as a versioned API with a clear feature contract (request-time inputs only) that returned ranked IDs with brief reasons, wrapped in sensible timeouts, autoscaling, validation, and monitors for latency, errors, data quality, and drift. Rollback was instant via blue/green and a control-plane switch to a deterministic fallback or last-good model, with caching and backpressure to handle spikes or upstream changes."
+    },
+    {
+     "role": "interviewer",
+     "message": "Great setup on the rollout and kill‑switch—switching gears, on your Northwind line about optimizing cloud infrastructure, how did you frame the cost optimization effort into a concrete decision with success criteria and guardrails without degrading reliability or latency?"
+    },
+    {
+     "role": "applicant",
+     "message": "I framed it as a rightsizing/scheduling decision to cut cost per request while keeping SLOs steady (latency, errors, availability) and enough headroom for peak. We gated rollout on a small trial showing a real cost drop without tripping key guardrails and kept an instant flag-based rollback to the previous config."
+    }
+   ],
+   "truthNext": "Makes sense—keeping SLOs steady while cutting cost is a clean framing. Jumping to your AI Research Fellowship on predictive analytics in healthcare, how did you model the data-generating process—who/what produced the labels and features—and how did that understanding shape which labels and inputs you chose to avoid leakage and stay valid after deployment?",
+   "modelNext": "Let's stay on that cost optimization effort—how did you actually measure the cost and SLO impact, what evidence or thresholds would have made you abandon the rightsizing plan, and how did you keep the reliability evidence reproducible across the trial and the full rollout?",
+   "modelIntent": "验证 evaluation_design 与 ml_system_delivery：指标、接受阈值、回滚条件与可复现性",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-btr-ml_0:research_purist-8",
+   "lang": "en",
+   "context": [
+    {
+     "role": "interviewer",
+     "message": "Hey Alex, thanks for sharing your background—looks interesting. On your Intelligent Knowledge-Retrieval (RAG) project, what specific decision or workflow were you targeting, and how did you define success up front before building anything?"
+    },
+    {
+     "role": "applicant",
+     "message": "I scoped it to helping support and sales find exact cited passages faster by seeing if a RAG setup could reasonably replace our keyword search. We evaluated on real past tickets against the baseline with clear acceptance gates on speed, retrieval quality, and hallucination risk, using a protocol that matched how it would run in practice."
+    },
+    {
+     "role": "interviewer",
+     "message": "Got it, that makes sense—on those past tickets, how did you build the ground truth for “correct” retrieval and guard against leakage or version skew between the knowledge base used to answer the ticket and the corpus your RAG indexed?"
+    },
+    {
+     "role": "applicant",
+     "message": "For each ticket we used the sources the resolver cited, had two people highlight the relevant part, and agreed on one answer. To avoid leakage/version mix‑ups we used a snapshot of what was available at the time, kept time‑based splits to match usage, and did simple duplicate checks."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks, that’s a clear setup. On those acceptance gates for speed, retrieval quality, and hallucination risk, what were the explicit go/no‑go checks you used in the offline eval and what conditions would have triggered a rollback in a pilot?"
+    },
+    {
+     "role": "applicant",
+     "message": "We defined go/no-go around keeping latency low, showing clear gains in retrieval with citations near the top, and tight hallucination guardrails (accurate citations and abstaining when there’s no evidence). In pilot, if those guardrails slipped, we’d pause and revert using the standard checks handled by the rollout team."
+    },
+    {
+     "role": "interviewer",
+     "message": "Appreciate that context—before we leave the RAG work, was there a specific recurring failure mode or slice you uncovered during eval or pilot, and what hypothesis-driven change did you try to address just that issue?"
+    },
+    {
+     "role": "applicant",
+     "message": "Short, code-like tickets weren’t coming back, and we suspected the matching was downplaying exact tokens. I raised it and the search team put in a simple keyword pass with acronym expansion and boosted exact matches."
+    },
+    {
+     "role": "interviewer",
+     "message": "Nice catch on that slice. On your Aim‑Trainer Performance Analyzer project, since you used an automatic annotation script to speed up labeling, how did you quantify and control the label noise it introduced before trusting those labels in training and eval?"
+    },
+    {
+     "role": "applicant",
+     "message": "I used regular spot checks with human review and broke results down by a few key slices so we could see where errors clustered, with simple thresholds and acceptance checks before anything went live. Most of the filtering was handled by the existing pipeline; I just used a basic confidence gate, sent unclear items for manual review, and kept a small fixed set aside to sanity‑check changes."
+    },
+    {
+     "role": "interviewer",
+     "message": "Makes sense, thanks for walking through that. On the Aim‑Trainer project, was there one concrete failure slice you isolated during error analysis, and what single targeted change did you make to test that specific hypothesis?"
+    },
+    {
+     "role": "applicant",
+     "message": "I noticed small, low-contrast targets near the center were getting missed during quick moves, so I suspected the suppression step was wiping out true hits. I only switched that step to a gentler version for very small detections and rechecked that case."
+    },
+    {
+     "role": "interviewer",
+     "message": "Good catch and tight test there. On your Ridgeway Robotics data pipelines for production tests, how did you define the data interfaces and protect downstream consumers from schema drift or late-breaking sensor changes?"
+    },
+    {
+     "role": "applicant",
+     "message": "I stuck with the existing data format and let the usual pipeline checks handle odd fields or unit issues, since another team owned that part. When sensors changed, I used short-term workarounds and waited for their update notes before proceeding so things stayed roughly in sync."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks for explaining how you handled those sensor changes. On your RAG system where you “designed the data system with scalability and deployment in mind,” what did you actually monitor at runtime during the pilot, and what was the concrete fallback path when a check tripped?"
+    },
+    {
+     "role": "applicant",
+     "message": "We kept an eye on latency, a simple retrieval/answer-quality check on a labeled slice, plus basic health and citation signals, using thresholds roughly in line with what we used offline. If something crossed a threshold, we temporarily fell back to the existing keyword search without generation and noted the queries for later review."
+    }
+   ],
+   "truthNext": "Got it, thanks for laying out the pilot behavior clearly. On your Ridgeway line about “develop training and documentation,” can you walk me through one handoff where your doc let another team make a decision without you in the room—what you chose to include and how you knew it was sufficient?",
+   "modelNext": "On the RAG pilot, since fallback routed to keyword search, how did you keep the keyword index in sync with the vector snapshot so the fallback wasn't silently retrieving from a stale or mismatched corpus, and what monitoring would have caught that mismatch?",
+   "modelIntent": "验证线上运行时的数据/系统一致性设计与监控覆盖，属 ml_system_delivery 维度",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-btr-ml_5:research_purist-9",
+   "lang": "en",
+   "context": [
+    {
+     "role": "interviewer",
+     "message": "Hey Suparshwa, thanks for taking the time—on your CivicRelay Labs agentic RAG platform, when you kicked off the work, what concrete decision or workflow were you targeting to improve, and how did you frame success so your offline checks meaningfully predicted the kind of online impact you cared about?"
+    },
+    {
+     "role": "applicant",
+     "message": "I focused on getting new volunteers routed quickly, so I measured retrieval quality on historical tickets and set a straightforward target for harder cases (around 85% top‑3). I used time‑based splits and checked key slices with clear thresholds and uncertainty checks to judge readiness, while latency limits came from the platform team."
+    },
+    {
+     "role": "interviewer",
+     "message": "Got it, thanks—staying on CivicRelay for a moment, how did you construct and validate the relevance signal for those historical tickets so your retrieval labels didn’t leak future information or reviewer intent?"
+    },
+    {
+     "role": "applicant",
+     "message": "I built the dataset to match triage conditions by freezing content to each ticket’s time, using only what was visible then, defining positives from opens with some dwell and the doc cited in the first reply, and excluding later notes or tags. I verified it held up by checking for future-looking fields, having a second reviewer spot-check with simple guidelines and watch for drift, and rerunning checks after removing outcome cues to confirm the labels weren’t biased."
+    },
+    {
+     "role": "interviewer",
+     "message": "Makes sense—on the CivicRelay rollout, what, if any, operational guardrails and rollback/disable paths did you set up, and how did you pick them relative to the specific failure modes you anticipated like misrouting, latency spikes, or cost swings?"
+    },
+    {
+     "role": "applicant",
+     "message": "We mostly used a basic on/off toggle and could switch back to the old flow if things looked off; the platform team already handled most of the routing and cost stuff. We watched for obvious misroutes or slowdowns and turned it off when needed—I don’t remember the exact numbers."
+    },
+    {
+     "role": "interviewer",
+     "message": "Appreciate that—switching to your Fort Wayne Dynamic Transformers work, when you saw the 11% faster convergence, how did you isolate that effect from confounders like LR/batch/regularization and convince yourself it held across seeds or datasets?"
+    },
+    {
+     "role": "applicant",
+     "message": "I compared dynamic vs. static with the same setup and measured time to a target validation score, running multiple seeds on two translation datasets to check the results were consistent. I also turned the routing on/off; when it was removed the gap went away, indicating the method drove roughly an 11% effect."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks, that comparison sounds clean—staying on CivicRelay a bit longer, with your FastAPI orchestration and the type-safe React interface, what concrete interface/versioning or runtime checks did you put in place to keep feature schemas consistent and catch bad inputs before they could cause misroutes or crashes?"
+    },
+    {
+     "role": "applicant",
+     "message": "We mostly relied on the framework’s built-in checks with a simple version tag, and if something didn’t parse it just fell back to the older path. Any odd payloads or mismatches showed up in platform logs on their side, and that team handled them."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks for clarifying that fallback path—on your NexStep Calendar AI assistant that automated follow‑ups and scheduling, what concrete decision or user workflow did you anchor the initial scope around, and how did you tie your offline evaluation to whether users would actually accept or edit the assistant’s proposed actions?"
+    },
+    {
+     "role": "applicant",
+     "message": "We went with a 48‑hour follow‑up and suggesting the next 30‑minute openings based on each person’s usual constraints. For offline checks, we compared to past conversations with simple matches and basic validity checks, then chose thresholds that tracked a small pilot’s accept vs. edit rates."
+    },
+    {
+     "role": "interviewer",
+     "message": "Got it, thanks—on NexStep, once users started interacting with the assistant’s follow‑ups and slot suggestions, how did you watch for feedback‑driven drift or cohort effects that could change your data’s validity and did you adjust labeling or sampling to keep offline checks representative?"
+    },
+    {
+     "role": "applicant",
+     "message": "We watched basic accept/edit/ignore rates and response times by a few user groups over time using existing analytics, and when we noticed a shift after a change, we refreshed the offline set to reflect recent behavior and froze the before/after windows. We also spot-checked and re-labeled a small recent sample so the checks stayed grounded in what users were seeing."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks for walking through how you kept NexStep’s checks representative—on your Contextual Emotion‑Cause Detection project, when the RoBERTa QA module struggled on certain dialogues, how did you localize the failure and what was the first minimal experiment you ran to test your leading hypothesis?"
+    },
+    {
+     "role": "applicant",
+     "message": "I focused on conversations where answers crossed turns and had lots of pronouns, then built a few tiny test cases by hiding names and swapping speakers to see if answers shifted. Asking the same questions with and without resolving references showed a clear drop without it and a recovery with it, confirming cross‑turn references were the issue."
+    },
+    {
+     "role": "interviewer",
+     "message": "Nice, that’s a crisp way to validate the hypothesis—switching to your AstraSoft microservices work, when you chased that 30% latency drop, what concrete checks or safeguards did you put in place to make sure the query/SQL changes didn’t cause regressions under peak traffic or weird edge-case inputs?"
+    },
+    {
+     "role": "applicant",
+     "message": "I tried the change with some recorded traffic in a safe setup and checked that things looked okay compared to before. For rollout we used the usual platform switch so we could turn it off if something seemed off, relying on the standard alerts our infra already had."
+    }
+   ],
+   "truthNext": "Thanks for walking me through that rollout path—on your Fort Wayne training pipelines, what did you actually version and log for each run so someone else could reproduce a result months later without guesswork?",
+   "modelNext": "Thanks—on that AstraSoft latency change, what evidence did you collect before calling it a win, and what specific result would have made you revert or redesign the query optimization?",
+   "modelIntent": "Assess evaluation design rigor and explicit rollback/acceptance criteria under production-like conditions.",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-btr-ml_8:low_larry-5",
+   "lang": "en",
+   "context": [
+    {
+     "role": "interviewer",
+     "message": "Hey Alex, thanks for sharing your background—Northwind’s AI-driven features caught my eye. Could you pick one specific feature you worked on there and walk me through how you initially framed the problem—what real decision it was meant to improve, the key constraints you identified early (like latency, cost, privacy), and how you defined success for a go/no-go?"
+    },
+    {
+     "role": "applicant",
+     "message": "I just trained a basic model to reshuffle items so people would click more, using the data we already had and making sure pages loaded fast enough on the setup we were using. If it looked better than what we had in quick checks, that was good enough; the platform handled costs and data handling."
+    },
+    {
+     "role": "interviewer",
+     "message": "Got it, thanks for clarifying. For that Northwind reshuffle, how did you construct the training data—what exactly did you use as the target signal, and how did you pick the time window so you weren’t accidentally using future information?"
+    },
+    {
+     "role": "applicant",
+     "message": "I used clicks from the logs as the target and the fields that were already in the logs along with the item info. I pulled some recent data and did a basic split with the default setup, and the logging pipeline handled the timing details."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks, that helps. For that Northwind reshuffle, what was the primary evaluation setup you used before any rollout—specifically, which metric on which holdout or split determined your go/no-go?"
+    },
+    {
+     "role": "applicant",
+     "message": "We just looked at clicks on a random slice of recent data, comparing our version to what was already in place. If clicks looked higher on that slice, we went ahead."
+    },
+    {
+     "role": "interviewer",
+     "message": "Appreciate it. After you pushed the reshuffle live, what did you monitor in production and what, if anything, would have triggered a rollback or disable?"
+    },
+    {
+     "role": "applicant",
+     "message": "I just watched a simple clicks dashboard and glanced at load times and obvious errors; if things looked off or the site seemed slow, we had it turned off. We mostly went by what looked different from what we usually saw."
+    },
+    {
+     "role": "interviewer",
+     "message": "Makes sense, thanks—shifting to your AI Research Fellowship in healthcare, how did you define the prediction target there and what was the source of truth for the labels?"
+    },
+    {
+     "role": "applicant",
+     "message": "We treated it as a simple yes/no readmission around a month and just used what was already in the warehouse. Labels were taken from the hospital records managed by another team; I don’t recall the exact fields, it was whatever the system exposed."
+    }
+   ],
+   "truthNext": "Thanks, got it. Still on that healthcare fellowship project, how did you set up the evaluation split—did you partition by time or patient to mirror how the model would be used later?",
+   "modelNext": "For that readmission target, how did you check for label leakage—like if a patient's discharge summary or follow-up notes were written after the readmission and leaked into the features? What did you find?",
+   "modelIntent": "Assess data judgment around leakage detection and label validity in healthcare data.",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-btr-ml_6:high_henry-9",
+   "lang": "en",
+   "context": [
+    {
+     "role": "interviewer",
+     "message": "Hey Arjun, thanks for sharing your resume—looks like you’ve put real thought into end-to-end work. On your “Calibrate and Fine-Tune Language Models to Reduce Model Hallucinations” project, how did you initially frame the problem and decide what success would look like in deployment terms rather than just an offline metric?"
+    },
+    {
+     "role": "applicant",
+     "message": "I framed it as a ship/no-ship call: deliver a QA assistant that keeps hallucinations rare while meeting tight latency and cost bounds, with a safe fallback when confidence drops. We measured success with an online experiment supported by targeted human review and alerting, using offline proxies only after showing they tracked the real outcome during the pilot."
+    },
+    {
+     "role": "interviewer",
+     "message": "Got it, that’s a clear framing. On that LLM project, how did you operationalize the “hallucination” signal for both the online alerts and the offline labels, and what did you do to avoid proxy-label traps while setting up that labeling and detection process?"
+    },
+    {
+     "role": "applicant",
+     "message": "Online, we used retrieval-grounded checks and guardrails to flag weakly supported or conflicting answers and fall back when uncertainty was high. Offline, we relied on source-backed human review and treated automated signals as triage only, which helped avoid proxy traps and leakage from changing sources."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks, that makes sense. Sticking with the LLM project, in the GCP fine-tuning and deployment pipeline, what concrete monitoring signals and rollback/disable paths did you put in place during the pilot so you could safely react when the guardrails flagged issues?"
+    },
+    {
+     "role": "applicant",
+     "message": "We monitored the main quality, retrieval, drift, latency/reliability, and cost signals by slice with clear thresholds. If anything tripped a threshold, traffic automatically moved to safer variants, behavior was tightened, and we rolled back via flags with clean failover and on‑call alerts."
+    },
+    {
+     "role": "interviewer",
+     "message": "Appreciate the detail. On your 5G Network Performance Analysis project, how did you set up the train/validation/test splits across time and towers to reflect real forecasting, and what checks did you run to catch any leakage or temporal drift?"
+    },
+    {
+     "role": "applicant",
+     "message": "We used time-aware, per‑tower splits with a holdout gap and rolling backtests, fitting preprocessing on train only and using lagged inputs to prevent look‑ahead. We audited timestamps, joins, and label timing, and monitored slice‑level drift and residuals over time to surface leakage or shifts early."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks, that split sounds thoughtful. Sticking once more with the LLM pipeline, can you tell me about one concrete incident where your hallucination or drift signals spiked and walk me through the hypothesis you formed, the minimal repro you built, and the specific change you shipped after validating it?"
+    },
+    {
+     "role": "applicant",
+     "message": "During a pilot we saw unsupported-answer alerts spike on healthcare acronyms after an index refresh; I suspected the new embeddings hurt recall on short queries, reproduced it with a small acronym set, and compared versions under the same retrieval settings. We rolled back, added a simple acronym-expansion rewrite, and confirmed via offline checks and a small canary that alerts and human‑reviewed factuality returned to baseline without impacting latency."
+    },
+    {
+     "role": "interviewer",
+     "message": "Nice catch on the acronym issue and clean rollback. On your Proactive Research Assistant Chrome Extension, how did you evaluate and calibrate the relevance scoring for suggested papers in the absence of a labeled dataset, and what acceptance criteria did you use before rolling it out for regular use?"
+    },
+    {
+     "role": "applicant",
+     "message": "I bootstrapped labels with simple side‑by‑side checks and thumbs‑up/down from a small reviewer panel, then calibrated the score against preference and engagement signals after confirming those proxies aligned on a blind sample. Before regular use, we set clear quality, user‑impact, and latency thresholds with an automatic rollback tied to complaint and off‑topic rates on key slices."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks, that bootstrap-and-calibrate approach is clear. On the Chrome Extension, when third‑party APIs or content scripts misbehaved, what concrete safeguards and graceful‑degradation behaviors did you build so users still had a usable experience, and how did you observe those failures in the wild?"
+    },
+    {
+     "role": "applicant",
+     "message": "I added protective limits around external calls, isolated scripts with permissions, and built simple fallbacks (cache/local reranker and a lighter UI that can back off or be turned off remotely). In production, we used privacy‑safe telemetry and alerts across errors, rates, exceptions, and latency, and relied on sampled traces and user reports to confirm impact."
+    },
+    {
+     "role": "interviewer",
+     "message": "Totally makes sense, thanks for walking through that. On the LLM project, how did you keep stakeholders aligned as evidence evolved—what cadences or artifacts did you use to track objectives, risks, acceptance thresholds, and go/no‑go decisions across the pilot?"
+    },
+    {
+     "role": "applicant",
+     "message": "We kept a steady cadence with regular metric updates and live views tied to guardrails, plus a shared log of risks, assumptions, slice signals, and acceptance thresholds. Decisions and pilot results were captured in brief write-ups and reviewed in a standing go/no-go forum with clear ownership and rollback options."
+    },
+    {
+     "role": "interviewer",
+     "message": "Appreciate that, sounds organized. On the LLM pilot, how did you quantify and document the alignment between your offline hallucination/QA measures and the online human-review and alert signals, and what specific evidence made you comfortable using the offline metrics to drive iteration?"
+    },
+    {
+     "role": "applicant",
+     "message": "We compared our offline groundedness measures with blinded human reviews and real alert rates over time and saw strong, well-calibrated agreement. Those offline shifts reliably anticipated alert changes in canaries, so we used them to set thresholds and captured the rationale and gates in the decision log."
+    }
+   ],
+   "truthNext": "Thanks, that linkage sounds solid. On the GCP fine‑tuning/deployment pipeline, how did you enforce feature/training–serving consistency and artifact versioning—concretely, what were the versioned units, how were builds made reproducible, and how did you gate and roll back a model/config change?",
+   "modelNext": "When the offline-to-online agreement broke down—or you had to decide it had—how did you detect that the calibration was drifting, and what would have triggered you to stop trusting the offline metric and re-run the alignment study?",
+   "modelIntent": "考察评估设计中离线/在线对齐的持续监控与失效判定条件",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-btr-ml_0:average_joe-7",
+   "lang": "en",
+   "context": [
+    {
+     "role": "interviewer",
+     "message": "Hey Alex, thanks for sharing your background—looks interesting. On your Intelligent Knowledge-Retrieval (RAG) project, what specific decision or workflow were you targeting, and how did you define success up front before building anything?"
+    },
+    {
+     "role": "applicant",
+     "message": "I focused on helping support engineers decide whether retrieved PDF passages were enough to answer spec/compliance questions without escalation, with a plan to track basic retrieval quality and responsiveness. I used a small seed set to get a baseline on recall and did occasional SME spot-checks to sanity-check that the cited passages looked sufficient."
+    },
+    {
+     "role": "interviewer",
+     "message": "Got it, thanks—that helps; for those technical PDFs in the RAG system, how were they sourced and updated over time, and what did you put in place to handle versions/duplicates or changing document structures when re-ingesting?"
+    },
+    {
+     "role": "applicant",
+     "message": "We pulled documents from a shared repository that updated regularly; I kept simple IDs and dates to track versions and used basic duplicate checks so we kept the most recent copy. When a file looked odd, the parser fell back to a default and we set those aside for review with basic logging to keep things stable."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks—that makes sense; when the repo refreshed and you re-ingested, what concrete go/no-go checks did you run before updating the live index, and what would have triggered a pause or rollback?"
+    },
+    {
+     "role": "applicant",
+     "message": "Before changing the index, I ran a simple smoke test and compared key metrics to the previous release to catch any obvious drops in retrieval quality or major latency spikes, using our standard rollback if something looked off. I also spot-checked parsing and deduping with a small query set and relied on the platform’s monitors to surface any schema issues."
+    },
+    {
+     "role": "interviewer",
+     "message": "Appreciate that context on your release checks; shifting to your Aim-Trainer project, how did you set up the evaluation protocol and splits for the 2,000-image dataset, and what specific slices or stress cases did you look at before calling a model “good enough” for your use?"
+    },
+    {
+     "role": "applicant",
+     "message": "I used a standard 70/15/15 train/val/test split with fixed seeds and evaluated with mAP, plus a quick calibration sanity check. Before green-lighting, I did basic slice reviews on a few common stress cases to make sure there weren’t obvious regressions."
+    },
+    {
+     "role": "interviewer",
+     "message": "Gotcha on the splits and sanity checks; on the Aim-Trainer, when a slice looked weak during those stress reviews, what was one concrete hypothesis you formed about the failure and what single change did you try first to test it?"
+    },
+    {
+     "role": "applicant",
+     "message": "In a low-light, fast-movement case, I suspected motion blur was causing elongated targets the model struggled with. I added a simple blur augmentation and retrained to see if that slice improved."
+    },
+    {
+     "role": "interviewer",
+     "message": "Makes sense on the blur hypothesis; after adding the blur augmentation, how did you decide it was safe to keep—what specific evidence on that slice and overall test set were you looking for before adopting it?"
+    },
+    {
+     "role": "applicant",
+     "message": "I kept it if the low‑light/fast‑movement cases looked better than baseline while the overall score stayed about the same with no clear regressions, and latency didn’t change. I did a quick sanity check for stability, and if that held, we kept the blur."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks, that decision rule is clear; on your Ridgeway Robotics data pipelines, how did you define the interface and contracts with upstream sensor producers and downstream analysis consumers so that schema, timing, and units stayed consistent across those production tests?"
+    },
+    {
+     "role": "applicant",
+     "message": "We documented the input/output fields with brief descriptions and examples so integration was straightforward. The import step did simple format and timestamp sanity checks, and we let consumers know ahead of any changes."
+    }
+   ],
+   "truthNext": "Thanks, that gives me a feel for the contracts; when you did see a schema drift or timing skew in those Ridgeway sensor feeds, what was the first concrete step you took to localize the break before touching downstream consumers?",
+   "modelNext": "You mentioned documenting fields and doing import checks; when a schema or timing issue did slip through to downstream analysis—or when you anticipated one—how did you describe the impact and your recommended fix to the analysis team, and what decision did you want them to make?",
+   "modelIntent": "考察工程沟通与交付：接口变更的风险说明、影响范围与推荐动作是否清晰可执行，以及是否主动对齐下游决策。",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-btr-ml_3:low_larry-4",
+   "lang": "en",
+   "context": [
+    {
+     "role": "interviewer",
+     "message": "Hey Aarav, thanks for joining. On your WESEE AI intern role, for the MCP-based report-generation agent, how did you frame the problem at the start—what decision or workflow were you targeting, and what specific go/no-go criteria did you set before building?"
+    },
+    {
+     "role": "applicant",
+     "message": "I just hooked it up so folks could ask questions and get a quick summary from the data we already had, mostly following the team’s usual setup. We called it good if it seemed to handle a few common questions and produced a short page fast in a dry run, with someone on the team giving it a quick look."
+    },
+    {
+     "role": "interviewer",
+     "message": "Got it, thanks for that context—on the WESEE MCP agent, when you connected tools to SQLite and automated report generation, what guardrails or access controls did you put in place around tool calls or sensitive tables, if any?"
+    },
+    {
+     "role": "applicant",
+     "message": "Our data team set up basic access so the agent could only see the reporting stuff, not the raw data. We kept it on a simple path and relied on the usual safeguards that were already in place."
+    },
+    {
+     "role": "interviewer",
+     "message": "Makes sense, thanks—switching to your WESEE YOLOv8 object detection and tracking project that used Selenium-scraped data, how did you construct and validate the dataset and splits to avoid leakage or identity overlap between train/val/test, especially for tracking scenarios?"
+    },
+    {
+     "role": "applicant",
+     "message": "The scraper saved the videos in chunks, and I just did a quick split into train/val/test without doing anything special around grouping. I skimmed a few outputs, and once the basic numbers looked okay, I moved on."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks for explaining how you handled the split there. On your Critical AI multimodal Llama-3.2-8B narrative system with RAG, Whisper, gTTS, image search, and OSM, what concrete latency or cost constraints did you design around, and how did those shape your model/tool choices?"
+    },
+    {
+     "role": "applicant",
+     "message": "I mostly just aimed for it to feel quick on my laptop and not add any extra costs. I used small, free off‑the‑shelf pieces with some basic caching so it would run locally, leaning on whatever libraries and services worked at the time."
+    }
+   ],
+   "truthNext": "Thanks, that helps—on your XLM-RoBERTa multilingual sentiment project, how did you obtain and align labels across the five languages, and what checks did you run to see if Whisper transcription errors were skewing labels or slice performance?",
+   "modelNext": "Thanks for walking through those projects. Given your interest in MLOps and experience with CI/CD and Kubernetes in the anime recommendation system, can you describe the monitoring and rollback mechanisms you implemented? Specifically, how did you track model performance in production and what trigg",
+   "modelIntent": "Evaluate ml_system_delivery: operational monitoring, rollback design, and production safeguards.",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-btr-ml_0:production_hardener-8",
+   "lang": "en",
+   "context": [
+    {
+     "role": "interviewer",
+     "message": "Hey Alex, thanks for sharing your background—looks interesting. On your Intelligent Knowledge-Retrieval (RAG) project, what specific decision or workflow were you targeting, and how did you define success up front before building anything?"
+    },
+    {
+     "role": "applicant",
+     "message": "We framed it around a simple fork—either answer the doc question or hand it to a human—so decisions hinged on answer vs. route, with success tied to faster responses, solid retrieval, and only citing or abstaining. We kept tight runtime and cost budgets for the service and tracked retrieval/answer quality and time-to-answer on a separate set of real queries."
+    },
+    {
+     "role": "interviewer",
+     "message": "Got it, thanks. For that RAG project, how did you build the evaluation query set and ground truth from the PDFs in a way that matched real usage while avoiding leakage from anything the system ingested?"
+    },
+    {
+     "role": "applicant",
+     "message": "We used real support tickets to sketch queries and had folks write answers linked to the right pages, and we kept a set of whole documents out so those weren’t in the system when we evaluated. We tracked where things came from and used a simple holdout with some paraphrases to avoid overlap between what was used to build the system and what we tested on."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks, that makes sense. Still on the RAG system, when you saw errors or borderline cases, what were the main failure modes you uncovered and what concrete guardrails or thresholds did you put in to decide when to abstain or trigger a rollback?"
+    },
+    {
+     "role": "applicant",
+     "message": "We were seeing some quirky matches and cut‑off snippets, and the model sometimes guessed when results didn’t line up, so we added a basic abstain on low agreement, switched to quote‑only answers with verified citations, and used our existing checks to roll back if errors or latency looked off. We mainly tracked the key rates week to week to keep it steady."
+    },
+    {
+     "role": "interviewer",
+     "message": "Appreciate that, thanks; on the RAG system, what concrete signals did you wire into the service to trigger an automatic rollback or disable (and how was that executed operationally) given your latency and cost budgets?"
+    },
+    {
+     "role": "applicant",
+     "message": "We kept an eye on latency, cost, and a couple of basic retrieval/answer checks, and if they started looking off we flipped a simple switch to send traffic to a cached FAQ or handoff. On deploys we used a feature flag with a quick rollback to the previous model/index version and shut off the expensive path when needed."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks, that’s clear. On your Aim‑Trainer Performance Analyzer, what real-world decision or workflow were you building it for, and how did you define success before training anything?"
+    },
+    {
+     "role": "applicant",
+     "message": "We set it up to auto-score aim sessions so players and coaches didn’t have to mark things by hand and could quickly see what to redo or review. We aimed for high recall and accuracy on key events, fast processing on a typical GPU, decent scoreboard text reading, and had it skip cases when it wasn’t sure."
+    },
+    {
+     "role": "interviewer",
+     "message": "Got it, thanks. On the Aim‑Trainer project, when you created and then auto‑annotated that dataset, what checks did you run to validate label quality and to catch any leakage between training and evaluation clips?"
+    },
+    {
+     "role": "applicant",
+     "message": "We kept sessions/players/maps from crossing splits with a recent holdout, cleaned obvious dupes, and made sure training didn’t include eval or near‑duplicates. For labels, a small gold set was double‑checked for agreement and anything suspicious got another review with a few spot checks when metrics looked off."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks, that labeling approach sounds thoughtful. Sticking with the Aim‑Trainer repo, when you were getting ready to ship, how did you decide what would count as “good enough” on the key metrics, and did you include any uncertainty checks or acceptance/rollback thresholds in that go/no‑go?"
+    },
+    {
+     "role": "applicant",
+     "message": "We aimed for strong results on a recent-session holdout—good overall quality, solid recall on the harder cases, low OCR error rate, and latency within our budget—then did some basic slice and run-to-run checks. For rollout, we used a small canary with monitoring and a straightforward rollback switch if things looked off."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks, that rollout plan sounds pragmatic. On your Systems Engineer II role at Ridgeway Robotics, when you owned those production test data pipelines, how did you define the data quality gates and acceptance criteria up front so they mapped to the downstream performance analysis or modeling decisions?"
+    },
+    {
+     "role": "applicant",
+     "message": "We put basic upstream quality gates on the feeds (schema/timing/missingness and general sanity checks) and only turned things on after a small rollout looked fine on latency and cost. If something tripped a gate, it was held back with its source noted and a simple fallback used until it was sorted."
+    }
+   ],
+   "truthNext": "Thanks, that helps. Still at Ridgeway, what telemetry and alerts did you put in place on those pipelines to catch schema or timing drift and partial outages in production, and how did you route or degrade traffic when those fired?",
+   "modelNext": "Thanks, that’s helpful. At Ridgeway, when one of those quality gates did trip and data was held back, how did you determine whether the held-back data indicated a real change in the sensor or test setup versus a pipeline bug — and what did that change about the downstream model retraining or the gat",
+   "modelIntent": "考察数据判断与失败分析迭代：是否区分数据生成漂移与管道故障，并据此调整门控与重训决策",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-btr-ml_4:research_purist-7",
+   "lang": "en",
+   "context": [
+    {
+     "role": "interviewer",
+     "message": "Thanks for sharing your resume, Avery—it’s great context. On your RetailPulse sentiment model project, before you started building anything, how did you frame the business decision and translate it into a concrete ML problem with clear success criteria and constraints?"
+    },
+    {
+     "role": "applicant",
+     "message": "I reframed the vague “improve sentiment” ask into ranking retailer interactions for QA escalation, set it up as a simple binary classifier on transcripts, and aimed for high precision (~90%) with moderate recall (~60%), beating basic keyword/TF‑IDF baselines. We evaluated on a holdout that reflected how data arrives and set clear pilot acceptance/rollback criteria, while ops handled practical limits like response time and PII."
+    },
+    {
+     "role": "interviewer",
+     "message": "Got it, thanks for laying that out—on those transcripts at RetailPulse, how were labels generated and what checks did you run to catch leakage or bias from things like agent notes, customer metadata, or post-escalation outcomes sneaking into features?"
+    },
+    {
+     "role": "applicant",
+     "message": "Labels were created by QA reviewers using a defined rubric, with some double reviews to keep consistency, and we avoided obvious after-call fields that could leak outcomes. For evaluation, we used time-aware splits and kept retailers separated across sets to prevent leakage, and we checked slices like retailer size and region to make sure results held up."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks, that makes sense—sticking with RetailPulse for a moment, when you dug into the model’s mistakes, what were the main error patterns you found and what concrete change did you make that most improved those cases, and how did you validate the fix held across slices and reruns?"
+    },
+    {
+     "role": "applicant",
+     "message": "Main issues were sarcasm/code‑switching getting read as rude, agent boilerplate tripping flags, and short calls losing context; I split agent vs customer text, hid boilerplate with a simple pre‑pass, and added tougher disputed examples to training. I checked results over time and across clients and slices like region and short‑call buckets, and toggled boilerplate on/off to see precision hold without a recall hit."
+    },
+    {
+     "role": "interviewer",
+     "message": "Appreciate that detail—staying on RetailPulse briefly, once in production, what did you monitor in real time (both outcome and guardrail signals) and what was the concrete rollback or disable path if those signals drifted?"
+    },
+    {
+     "role": "applicant",
+     "message": "We mostly watched a weekly sample of flagged calls and simple trend slices (like by client and short calls), with basic checks for odd spikes, slowdowns, or any sensitive info. If something looked off, we’d fall back to the older keyword setup or pause scoring, and the platform team handled switching things over."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks, that’s clear—shifting to your Redwood State University work, what threat model did you anchor on for “data exploitation,” and how did that choice shape the evaluation protocol you used to judge whether the diffusion‑autoencoder defense actually helped?"
+    },
+    {
+     "role": "applicant",
+     "message": "We focused on a realistic attacker who could query the model and see confidence scores, and we also sanity-checked a stronger internal-access case to understand risk. We set utility targets for the main task and ran a suite of privacy attacks over varying budgets with simple baselines and controls, accepting only when attack strength clearly dropped without hurting task quality too much."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks—that helps me see the bar you set; on the Redwood project, how did you characterize the provenance of the training and attack datasets (who/what generated them and under what constraints), and what shifts in that process did you plan for when designing your evaluation?"
+    },
+    {
+     "role": "applicant",
+     "message": "We used mostly public vision datasets with permissive terms and known issues like duplicates, plus some attack data we created by making queries to a similar system within normal usage limits. To mirror real use, we did time-based splits and checked if the defense held up when visibility or query patterns changed, using transfer checks and simple perturbations."
+    },
+    {
+     "role": "interviewer",
+     "message": "Got it, thanks—on your BluePeak Airflow ETL handling 1TB/day, what was the single highest-impact operational risk you designed around, and what concrete safeguard did you bake into the DAG or data contract to contain it?"
+    },
+    {
+     "role": "applicant",
+     "message": "Changes in the input data were a risk, so we used the platform’s built-in checks to flag obvious mismatches, and if something didn’t line up the job simply wouldn’t run. Any issues were handled before the rest of the steps kicked off."
+    }
+   ],
+   "truthNext": "Thanks—on that BluePeak pipeline, how did you handle backfills or late-arriving records so reruns were idempotent and you didn’t double-ingest or corrupt downstream tables?",
+   "modelNext": "Let's stay on the BluePeak pipeline: when a schema mismatch halted the job like that, what was the actual failure path downstream—how were partial or stale outputs handled, and what evidence did you use to decide whether to reprocess or backfill before re-enabling the DAG?",
+   "modelIntent": "Probe failure_analysis_and_iteration and ml_system_delivery: root-cause handling of pipeline failures, data contracts, a",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-btr-ml_4:average_joe-2",
+   "lang": "en",
+   "context": [
+    {
+     "role": "interviewer",
+     "message": "Thanks for sharing your resume, Avery—it’s great context. On your RetailPulse sentiment model project, before you started building anything, how did you frame the business decision and translate it into a concrete ML problem with clear success criteria and constraints?"
+    },
+    {
+     "role": "applicant",
+     "message": "We aligned with support ops on flagging likely rude retailer interactions quickly for manager follow‑up, framed it as a binary classifier on text transcripts, and used a simple keyword/rule baseline. We set basic precision/recall targets with a standard holdout, aimed for reasonable latency/cost, and planned to compare thresholded alerts against business‑as‑usual."
+    },
+    {
+     "role": "interviewer",
+     "message": "Got it, thanks. Sticking with RetailPulse for a moment, how were the training/eval transcripts and labels actually produced end‑to‑end, and what did you do—if anything—to check for leakage or selection bias in that data?"
+    },
+    {
+     "role": "applicant",
+     "message": "Transcripts came from call/chat logs and CRM exports over a defined window, with labels mostly from QA tags and a brief alignment pass on what counted as “rude.” I did basic cleaning (dropped a few obvious post-interaction fields and near-duplicates), used a simple split that tried to avoid overlap, and did a few slice spot‑checks to look for skew."
+    }
+   ],
+   "truthNext": "Thanks, that helps. On RetailPulse, when it came time to ship, how did you pick the alert threshold and what explicit acceptance or rollback criteria did you set to decide it was safe to roll out?",
+   "modelNext": "You mentioned QA tags and a brief alignment pass. How did you validate that those labels were consistent and accurate—did you measure inter-rater agreement or audit a sample—and how did the label definitions or taggers potentially change over that window in ways that could affect the model?",
+   "modelIntent": "Assess data judgment on label provenance, noise, and non-stationarity.",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-btr-ml_5:prototype_sprinter-9",
+   "lang": "en",
+   "context": [
+    {
+     "role": "interviewer",
+     "message": "Hey Suparshwa, thanks for taking the time—on your CivicRelay Labs agentic RAG platform, when you kicked off the work, what concrete decision or workflow were you targeting to improve, and how did you frame success so your offline checks meaningfully predicted the kind of online impact you cared about?"
+    },
+    {
+     "role": "applicant",
+     "message": "We focused on the volunteer onboarding flow—mainly choosing which snippet/playbook to show and when to loop in a coordinator—to speed up first wins and cut escalations. I relied on basic offline checks over past questions and a rough responsiveness target, assuming better-looking answers and quick replies would help in production, with finer metric details following our team’s existing review standards."
+    },
+    {
+     "role": "interviewer",
+     "message": "Got it, thanks—sticking with CivicRelay Labs, before you rolled out the onboarding assistant, which specific failure modes or edge cases did you anticipate (e.g., around snippet selection or coordinator loop-ins), and what concrete checks or monitors did you put in place to catch them post-deploy?"
+    },
+    {
+     "role": "applicant",
+     "message": "We expected some bad snippet choices, overactive pings, made-up steps, prompt attacks, and occasional slowdowns, so we added simple confidence gates with human handoff, basic output/source checks, throttled coordinator loop-ins, and a safe rollback switch. Post-launch we tracked a few high-level engagement and escalation signals and basic retrieval coverage with alerts, and rolled back quickly if something looked off."
+    },
+    {
+     "role": "interviewer",
+     "message": "Makes sense, thanks—staying on CivicRelay, how did you decide what content made it into the snippet/playbook corpus and what rules did you set around freshness, permissions, or source trust so your offline retrieval looked like what volunteers would actually see live?"
+    },
+    {
+     "role": "applicant",
+     "message": "We mostly used the main internal docs and some approved FAQs people pointed us to, leaned on the existing owners/permissions there, and left anything uncertain out until someone reviewed it. The index followed the same access rules as production and refreshed on a regular schedule so behavior stayed consistent."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks, that helps—switching to your NexStep Calendar AI work, for the assistant that automated follow-ups and scheduling, what exact trigger logic or decision criteria did you define for when the agent should act versus defer to the user, and how did you test that choice offline in a way that reflected real user contexts?"
+    },
+    {
+     "role": "applicant",
+     "message": "We set clear, simple rules for when the agent could auto‑send versus only draft and ask for approval, with a fallback for cases that looked sensitive or uncertain. For checking, we did a basic offline replay against past activity and mainly looked at a single straightforward metric to see if auto‑send lined up with what people did before."
+    },
+    {
+     "role": "interviewer",
+     "message": "Appreciate that—on NexStep, once auto‑send was live, what concrete safeguards and signals did you wire up to catch misfires or drift (and enable quick rollback), and can you walk me through one iteration you made based on a real failure you observed?"
+    },
+    {
+     "role": "applicant",
+     "message": "We launched behind a flag with sensible safeguards—gradual rollout, limits, alerts, logging, and easy rollback. In the first week we spotted tentative follow-ups causing auto‑reschedules, reviewed examples, tightened the trigger with a simpler rule and brief delay, and routed that pattern to drafts, which stopped the alerts."
+    },
+    {
+     "role": "interviewer",
+     "message": "Nice catch on tightening that trigger—switching to your Fort Wayne ML Research Group work on Dynamic Transformers, before you ran experiments, what was the specific hypothesis you were testing and what result would have led you to drop or rethink the dynamic-architecture approach?"
+    },
+    {
+     "role": "applicant",
+     "message": "I framed it loosely as letting the model switch some parts during training and checking if it hits a BLEU goal within a fixed time faster than a basic baseline, while keeping quality roughly similar and training steady. If there wasn’t a clear speedup or quality dipped too much or training looked shaky, I’d reconsider the approach."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks, that makes sense—on the Dynamic Transformers work, how did you structure the evaluation protocol in practice (splits, repeat runs, acceptance thresholds, and any guardrails) so that your offline BLEU/time claims would hold up across reruns and not just a lucky seed or dataset slice?"
+    },
+    {
+     "role": "applicant",
+     "message": "I used the default WMT train/dev/test split and tracked BLEU, aiming to be roughly within about half a point while being noticeably faster under the same setup. I left the setup unchanged and, if a run failed, I just reran it and recorded the result once it finished."
+    },
+    {
+     "role": "interviewer",
+     "message": "Appreciate the detail—if you were to rerun the Dynamic Transformers study with the same compute budget, what concrete changes would you make to the eval protocol (splits, repeats, thresholds, or guardrails) so the BLEU/time claims are robust across reruns rather than a lucky seed?"
+    },
+    {
+     "role": "applicant",
+     "message": "I’d stick with the same split and just compare BLEU and run time against the baseline to see if it’s roughly on par but faster. I’d keep versions consistent and save what I ran so I can reproduce it, and if something looks off (like a sudden loss jump), I’d rerun to check."
+    },
+    {
+     "role": "interviewer",
+     "message": "Got it, thanks for clarifying—on your Contextual Emotion-Cause Detection project, how did you set up your train/val/test splits and feature choices to avoid leakage across episodes/speakers and ensure the TF‑IDF and RoBERTa inputs reflected what the SemEval dataset actually provides at inference time?"
+    },
+    {
+     "role": "applicant",
+     "message": "I did a basic 80/10/10 random split and used the dataset as-is with the same inputs available at test time. I didn’t add special grouping or extra checks—if the same episode or speaker showed up across splits, I left it that way since a new line would still come with its nearby context."
+    }
+   ],
+   "truthNext": "Thanks for walking through that split choice—switching to AstraSoft, when you cut API latency by optimizing SQL joins, how did you validate those changes under production-like load while checking for any correctness regressions in downstream services before shipping?",
+   "modelNext": "On that project, what concrete evidence would tell you your reported 72% emotion and 60% cause accuracy were inflated by episode or speaker overlap between train and test—and what split or checks would you run to get a trustworthy number before trusting the result?",
+   "modelIntent": "Test whether applicant can recognize entity/episode leakage risk and design grouped splits, moving evaluation_design and",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-btr-ml_7:low_larry-4",
+   "lang": "en",
+   "context": [
+    {
+     "role": "interviewer",
+     "message": "Thanks for walking me through your background, Alex—on the DCNNs you built to regress GP covariance parameters, how did you initially frame the problem and define a clear go/no-go decision before investing in scaling the approach?"
+    },
+    {
+     "role": "applicant",
+     "message": "I treated it as a basic prediction task with the data available and checked that it did better than a simple baseline on a quick split, then moved forward. It fit within the resources we had, so I scaled it up after that."
+    },
+    {
+     "role": "interviewer",
+     "message": "Got it, thanks for that—on your synthetic spatiotemporal data generation work, how did you decide on the label/parameter definitions and guard against leakage or mismatches between the synthetic generator and the real data you cared about?"
+    },
+    {
+     "role": "applicant",
+     "message": "I used whatever the simulator provided for labels and made the inputs fit what the model expected, keeping it simple. The standard splitter handled train/validation, and I just spot-checked a few examples to see if they roughly matched some real data we had."
+    },
+    {
+     "role": "interviewer",
+     "message": "Appreciate the context—on the line where you “reduced model error by over 10%” for interpolating missing spatial/time-series data, how did you set up the evaluation to mirror the real interpolation use case (e.g., holdout strategy, slices, acceptance criteria) before calling that improvement meaningful?"
+    },
+    {
+     "role": "applicant",
+     "message": "We hid some values at random and compared our results to a basic fill‑in method on a simple split, then did a quick visual pass on the maps. We considered it good when things looked noticeably better on the data we tuned on and seemed similar on the other set."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks for explaining that—on your “1000% speed” distributed GPU training work, when a run underperformed or diverged, what was the first concrete step you took to localize the issue before making code or config changes?"
+    },
+    {
+     "role": "applicant",
+     "message": "I skimmed the logs for anything obvious and then just tried running it again to see if it was a one-off. If it still looked off, I’d kick off another run the same way before changing anything."
+    }
+   ],
+   "truthNext": "Thanks—that makes sense; switching gears to your Scikit-learn/pandas data transformation pipeline, what interfaces or contracts did you define so downstream training and inference saw consistent features across versions?",
+   "modelNext": "Got it—on the distributed GPU training, once you did decide to change something, how did you isolate which variable was actually responsible for a fix, and how did you confirm the fix held up across different seeds, slices, or operating conditions rather than just the one run?",
+   "modelIntent": "验证 failure_analysis_and_iteration：是否能假设驱动地隔离变量、跨种子/切片验证修复，而非试错",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-btr-ml_1:average_joe-5",
+   "lang": "en",
+   "context": [
+    {
+     "role": "interviewer",
+     "message": "Thanks for chatting, Alex—on the Rover Club work where you fine-tuned Mask R-CNN for custom items, how did you frame the problem and decide what “good enough” meant given the rover arm’s needs and the on-board compute/latency limits?"
+    },
+    {
+     "role": "applicant",
+     "message": "We framed it as detecting graspable targets and optimized for the arm’s pick success while staying within on‑device limits for a single camera feed. “Good enough” meant high precision with acceptable recall on common, reachable cases and real‑time inference so the arm didn’t chase false positives or build up lag."
+    },
+    {
+     "role": "interviewer",
+     "message": "Got it, thanks—sticking with the Rover Club work, how did you build the training/validation sets for those custom items and guard against leakage or sim-to-real mismatch when mixing Gazebo data with Zed camera footage?"
+    },
+    {
+     "role": "applicant",
+     "message": "We split data so similar scenes or the same items didn’t appear in both train and validation, and the synthetic set was varied with some added noise to reduce overfitting. For mismatch, we tested on held‑out locations plus a small real‑only sanity check, and adjusted the mix after field runs when we noticed changes."
+    },
+    {
+     "role": "interviewer",
+     "message": "Makes sense—on that rover pipeline, what were your offline acceptance gates and the specific field check that would trigger a rollback before or during runs?"
+    },
+    {
+     "role": "applicant",
+     "message": "We set straightforward offline targets around precision/recall on the main slice and verified latency on the device with a couple of runs. In the field, we did a short supervised roam with the arm disabled and simple rollback triggers if frame rate dipped or obvious false positives showed up."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks, that field gate makes sense—when you did hit obvious false positives in those supervised roams, how did you zero in on the root cause and what evidence, if any, led you to change the data, model, or thresholds?"
+    },
+    {
+     "role": "applicant",
+     "message": "We reviewed the roam videos, marked the false positives, and broke them down by conditions; quick visual checks and a few simple knob tweaks suggested glare was the driver, so we added examples from those scenes and nudged the decision threshold. On a separate test split the false positives dropped noticeably with a small recall tradeoff, a short supervised roam kept precision steady at normal speed, and this outperformed the model-only change, so we kept it."
+    },
+    {
+     "role": "interviewer",
+     "message": "Appreciate that detail—on your shift to simulation-driven design with ROS Gazebo, what single change in the team’s workflow or interfaces most reduced integration bugs when moving from sim to the Zed/LIDAR stack on the rover?"
+    },
+    {
+     "role": "applicant",
+     "message": "We made the data format consistent between the simulator and the sensors, which cut a lot of sim-to-real surprises. After that, pieces fit together more smoothly and those weird rotation/scale issues mostly went away."
+    }
+   ],
+   "truthNext": "Nice, standardizing those formats pays off—on your A* navigation with GPS plus a SLAM cost map from the Zed and LIDAR, how did you validate the planner under real rover conditions, and what specific scenario or slice told you it was or wasn’t ready?",
+   "modelNext": "你能具体说说在从仿真到 Zoe/LIDAR 栈的集成中，你提到统一数据格式之后，你们是如何在系统层面验证这种一致性、并设计监控或回滚机制来应对实际运行时可能出现的传感器数据漂移或部分组件故障的？",
+   "modelIntent": "评估 ML 系统交付中的运维设计、监控与回滚机制",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-btr-ml_2:average_joe-6",
+   "lang": "en",
+   "context": [
+    {
+     "role": "interviewer",
+     "message": "Hey Amina, thanks for joining. On your spam detection project from the courses/tutorials, how did you frame the real decision you were supporting and define what “success” would mean before you started building anything?"
+    },
+    {
+     "role": "applicant",
+     "message": "I framed it as keeping the inbox clean without hiding real mail—a simple spam vs. ham decision to filter or surface messages. We aimed to beat a basic keyword baseline and, on a held‑out set, keep high precision on legitimate mail with solid spam recall, with a light manual check before moving ahead."
+    },
+    {
+     "role": "interviewer",
+     "message": "Got it, thanks. For that spam detector, what data did you use and how did you check it reflected the kind of inbox you cared about while avoiding leakage between training and evaluation?"
+    },
+    {
+     "role": "applicant",
+     "message": "I used a common spam dataset plus a small set of similar emails, did quick checks on basic stats, and skimmed samples to confirm the content matched what I needed. I removed obvious markers that could leak labels and did a straightforward train/validation/test split with a separate holdout."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks, that makes sense. Sticking with the spam project, how did you set up the evaluation to feel like the real inbox scenario, and did you define any explicit guardrails or a rollback line you wouldn’t cross on the holdout?"
+    },
+    {
+     "role": "applicant",
+     "message": "I evaluated on a simple holdout, tweaked the threshold to be conservative about ham, and looked at a few basic slices like short vs. long messages and link-heavy ones. If it started flagging too much ham or missing lots of spam, we fell back to the keyword filter."
+    },
+    {
+     "role": "interviewer",
+     "message": "Makes sense. When that spam model made the wrong calls in your checks, how did you zero in on why and decide what single change to try next?"
+    },
+    {
+     "role": "applicant",
+     "message": "I grouped the misses by pattern (short promos, obfuscated words, non‑English) and skimmed inputs/outputs to see what signals might be driving mistakes, then did a small check to see if link cues or common‑word handling changed results. From there I’d make one focused tweak and re-test those groups to confirm it helped before touching anything else."
+    },
+    {
+     "role": "interviewer",
+     "message": "Appreciate that breakdown. For the Flask-based spam detector you followed, how did you package the model and define the interface so it could be called reliably, and what simple monitoring or rollback path did you put in with it?"
+    },
+    {
+     "role": "applicant",
+     "message": "I exposed a basic prediction endpoint that took text and returned a label and score, with simple input checks and platform-level timeouts. We logged requests/outcomes with basic counters, had a lightweight health check, and included a simple toggle to fall back to the existing keyword filter if errors or quality seemed to dip."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks, that sounds clean. On your Bulk Data Migration Bot in UiPath, when you first scoped it, what concrete constraints and acceptance checks did you set for a “go” before building the workflow?"
+    },
+    {
+     "role": "applicant",
+     "message": "Up front I captured the basic timing and access constraints, kept logs simple with sensitive details left out, and limited how much we ran in parallel so the source wasn’t overloaded. We did a small dry run, made sure counts lined up and retries behaved, and kept a straightforward fallback in case we needed to roll back before running it end to end."
+    }
+   ],
+   "truthNext": "Thanks, that’s helpful. Still on the spam detector, given spam tactics and inbox content can shift, how did you think about possible distribution changes after deployment and what, if anything, did you plan to watch or refresh to keep the model from drifting off course?",
+   "modelNext": "For that migration run, how would you know after deployment whether it actually succeeded in the real environment? What signals would you monitor, and what would trigger a rollback?",
+   "modelIntent": "验证 ml_system_delivery 中部署后的监控、回滚与可运维性设计",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-btr-ml_7:high_henry-8",
+   "lang": "en",
+   "context": [
+    {
+     "role": "interviewer",
+     "message": "Thanks for walking me through your background, Alex—on the DCNNs you built to regress GP covariance parameters, how did you initially frame the problem and define a clear go/no-go decision before investing in scaling the approach?"
+    },
+    {
+     "role": "applicant",
+     "message": "I framed it as replacing exact Bayesian hyperparameter inference with a learned surrogate that keeps kriging accuracy and uncertainty trustworthy within a tight latency/cost budget. Success was defined with offline metrics aligned to the decision and clear guardrails: only proceed if the model stayed within a small margin of the baseline across locations/time, held up on the tricky slices we care about, met throughput/latency, and had a safe fallback."
+    },
+    {
+     "role": "interviewer",
+     "message": "Got it, thanks—since you mention vectorized synthetic spatiotemporal data generation and the DCNN surrogate, how did you approach understanding the data-generating process and checking for leakage or proxy-label traps between your inputs and targets when creating the training set?"
+    },
+    {
+     "role": "applicant",
+     "message": "I built a simulator that mirrors how the data is actually produced, keeping the true underlying parameters as targets while feeding the model only information you could realistically observe. To avoid leakage and proxy traps, I used splits that respect time/entities, avoided any target‑derived summaries, and checked performance under shifted conditions to confirm it held up."
+    },
+    {
+     "role": "interviewer",
+     "message": "Makes sense—staying on that Research Assistant project, how did you structure the offline evaluation to reflect the real interpolation use cases in deployment, especially around uncertainty calibration and the specific stress slices you cared about?"
+    },
+    {
+     "role": "applicant",
+     "message": "We mirrored deployment with time- and region-aware splits and assessed both accuracy and uncertainty using calibration and sharpness checks, gating against a strong baseline while keeping intervals tight. We predeclared stress slices (e.g., sparse coverage, shifts, boundary effects, bursty missing data, injected bias) and required per-slice thresholds and stable calibration under those perturbations."
+    },
+    {
+     "role": "interviewer",
+     "message": "Appreciate that detail—when a stress slice underperformed on the Research Assistant project, what was one minimal reproduction you set up and the single hypothesis it was designed to confirm or falsify before you made a change?"
+    },
+    {
+     "role": "applicant",
+     "message": "I’ll set up a tiny 2D toy case with the same missing-data pattern, compare interior vs edge points while switching padding from zero to reflective, and check calibration specifically at the edges. If the edge gap closes when only padding changes, that implicates padding; if not, we can rule it out."
+    },
+    {
+     "role": "interviewer",
+     "message": "Nice, that’s a clean hypothesis test—on the same RA project when you put the surrogate into the kriging pipeline, what concrete runtime safeguards and rollback paths did you put around it and how was the interface contract defined?"
+    },
+    {
+     "role": "applicant",
+     "message": "We exposed a stateless predict endpoint with a clear, versioned contract and latency target that validated inputs (schema/coordinates/units) and returned mean/variance plus a calibration tag. Operational safeguards covered preflight and feature-integrity checks, calibration/drift monitors on key slices, a circuit breaker to fall back to the exact GP or last known-good model, and a shadow-to-canary rollout with automatic rollback."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks, that interface and safeguards sound thoughtfully put together—switching to your Half Research Assistant work on high‑dimensional optimization, how did you decide on the exact objective and constraint formulation to reflect the real downstream application rather than a convenient surrogate?"
+    },
+    {
+     "role": "applicant",
+     "message": "We tied the work to the real decision we cared about: end‑to‑end image quality under realistic noise, checked with standard quality measures and a reader review, rather than optimizing a convenient proxy. We set practical limits and guardrails—runtime/memory, stability, and visible‑artifact thresholds—and only advanced a method if it cleared the baseline on those checks at the needed throughput."
+    },
+    {
+     "role": "interviewer",
+     "message": "Appreciate that—on the RA surrogate rollout, how did you keep stakeholders aligned as evidence evolved; what concrete communication and handoff artifacts did you maintain so decisions, assumptions, guardrails, and rollback plans stayed clear?"
+    },
+    {
+     "role": "applicant",
+     "message": "I maintained concise, living docs that captured objectives, acceptance criteria, risks, and next decisions, and kept them current as results evolved. For handoff, I provided clear interfaces and artifacts with the necessary evaluation context plus the operational pieces to monitor in production and roll back safely if needed."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks, keeping those living docs current is great—on your distributed computing work where you got big speedups with multi‑GPU jobs, how did you make builds and runs reproducible across nodes and ensure predictable runtime behavior before scaling out?"
+    },
+    {
+     "role": "applicant",
+     "message": "I made sure everyone ran the same setup and data with tight versioning and reproducible runs, keeping checkpoints and releases organized so jobs behaved consistently across machines. Before ramping up, I did a single-machine shakeout and a small test run to check performance, set clear targets, and only scaled once things were stable and predictable."
+    }
+   ],
+   "truthNext": "Totally, that reproducibility discipline sounds solid—on the scikit‑learn/pandas data transformation pipeline you led, how did you keep training and inference feature definitions locked in step as upstream schemas changed?",
+   "modelNext": "On the distributed computing work, when a multi-GPU run behaved unpredictably across nodes, what was one concrete hypothesis you formed about the root cause, and what minimal reproduction or test did you use to confirm or rule it out before applying a fix?",
+   "modelIntent": "Assess failure analysis and iteration: hypothesis-driven debugging and minimal reproduction in distributed system contex",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-btr-ml_7:average_joe-4",
+   "lang": "en",
+   "context": [
+    {
+     "role": "interviewer",
+     "message": "Thanks for walking me through your background, Alex—on the DCNNs you built to regress GP covariance parameters, how did you initially frame the problem and define a clear go/no-go decision before investing in scaling the approach?"
+    },
+    {
+     "role": "applicant",
+     "message": "I framed it as a supervised regression: map simple summary features of the data to the model’s settings using simulator-provided labels, with standard error on held-out data and rough latency goals. We’d move forward only if it beat straightforward baselines on accuracy while being clearly faster than what we already used, under basic input/output checks."
+    },
+    {
+     "role": "interviewer",
+     "message": "Got it—sticking with that GP/DCNN project, how did you assess whether the simulator-generated labels and summary features would remain valid for the real deployment distribution, and what specific checks did you run to rule out leakage or proxy traps?"
+    },
+    {
+     "role": "applicant",
+     "message": "I sanity-checked the simulator by comparing against a small real holdout and trying a few simple setting changes to see if results stayed stable; when the mix looked off, I adjusted sampling to be closer and confirmed the errors didn’t move much. To avoid leakage/proxies, I used a basic split with obvious boundaries, dropped any future-looking fields, did a quick label-shuffle and simple ID correlation check, and spot-removed feature groups to ensure nothing trivial was propping up performance."
+    },
+    {
+     "role": "interviewer",
+     "message": "Makes sense, thanks—on that same GP/DCNN work, what evaluation protocol and guardrails did you lock in up front, specifically how you handled spatiotemporal splits and what acceptance thresholds you used for a go/no-go?"
+    },
+    {
+     "role": "applicant",
+     "message": "We used a holdout that kept some recent data and certain locations for validation, trained on the rest, and looked at overall accuracy plus a few site/time breakdowns with a quick calibration check. We proceeded if it clearly beat a basic baseline and was fast enough for our setup without obvious regressions on key slices; otherwise we held off."
+    },
+    {
+     "role": "interviewer",
+     "message": "Appreciate that—sticking with the GP/DCNN work, can you share one concrete failure you found from a slice or ablation, how you isolated the root cause, what you changed, and how you checked the fix held across seeds and slices?"
+    },
+    {
+     "role": "applicant",
+     "message": "A simple slice check showed the model struggled during storm-heavy weeks, suggesting our data and summaries weren’t capturing that behavior well. I adjusted the data balance and added short-term signals, then compared against the baseline on relevant splits to confirm an overall improvement."
+    }
+   ],
+   "truthNext": "Thanks for walking through that storm-week fix—how did you verify the improvement held across different random seeds and across the time/location slices you cared about?",
+   "modelNext": "On that storm-heavy failure, once you changed the data balance and added short-term signals, what specific evidence convinced you the improvement was real and would generalize—did you re-run across multiple seeds and other slices, and could the gain have come from the extra data rather than the new ",
+   "modelIntent": "验证失败分析与迭代：是否做因果隔离、多随机种子与切片验证，避免混杂因素。",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-btr-ml_8:average_joe-2",
+   "lang": "en",
+   "context": [
+    {
+     "role": "interviewer",
+     "message": "Hey Alex, thanks for sharing your background—Northwind’s AI-driven features caught my eye. Could you pick one specific feature you worked on there and walk me through how you initially framed the problem—what real decision it was meant to improve, the key constraints you identified early (like latency, cost, privacy), and how you defined success for a go/no-go?"
+    },
+    {
+     "role": "applicant",
+     "message": "We built homepage recommendations for logged-in users to increase add-to-cart, using our own click/purchase logs and following standard data policies. Success was defined as a measurable lift over a heuristic baseline in a short A/B with a basic offline holdout check, while keeping latency and costs within acceptable limits and avoiding user-facing regressions."
+    },
+    {
+     "role": "interviewer",
+     "message": "Got it, thanks—that’s clear. Sticking with the Northwind homepage recs, how did you define the training labels and sampling windows, and what decisions did you make about time/entity splits to avoid leakage or selection effects between training, offline holdout, and the A/B?"
+    },
+    {
+     "role": "applicant",
+     "message": "We labeled examples by whether an add-to-cart happened after a product impression and evaluated on a later time-based holdout. We used standard time splits and trained only on data before the test period to avoid obvious leakage."
+    }
+   ],
+   "truthNext": "Makes sense, thanks—on those homepage recs, what features and serving inputs did you standardize on, and how did you ensure train/serve consistency and feature freshness in production given latency and cost limits?",
+   "modelNext": "你能详细说明一下，在这个推荐系统中，你是如何定义具体的训练标签和采样窗口的？比如，产品的曝光和加购事件之间，你考虑的最大时间间隔是多少？为什么选择这个窗口？另外，针对用户实体，你是否检查过同一用户在不同数据集中的重叠情况，以及这种重叠可能带来的评估偏差？",
+   "modelIntent": "验证数据判断能力，特别是标签定义和防止实体泄漏的设计。",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-btr-ml_4:high_henry-4",
+   "lang": "en",
+   "context": [
+    {
+     "role": "interviewer",
+     "message": "Thanks for sharing your resume, Avery—it’s great context. On your RetailPulse sentiment model project, before you started building anything, how did you frame the business decision and translate it into a concrete ML problem with clear success criteria and constraints?"
+    },
+    {
+     "role": "applicant",
+     "message": "I framed it as reducing escalations by letting QA flag likely rude interactions in near real time, tying success to an online drop per 1k interactions with stable QA handle time, supported by offline metrics shown to predict that impact. I scoped a transcript classifier with a simple fallback and defined practical constraints (latency/cost, privacy/audit), realistic splits, slice guardrails and false‑positive limits, plus clear go/no‑go gates including a pre‑specified A/B lift with fast rollback."
+    },
+    {
+     "role": "interviewer",
+     "message": "Appreciate that context—it’s crisp. Sticking with RetailPulse, how did you source and define the labels for “rude” in those transcripts, and what checks did you run to catch leakage or selection bias between the scraped complaints and the interaction data?"
+    },
+    {
+     "role": "applicant",
+     "message": "We set up a clear QA rubric with double review and kept labels tied strictly to the live transcript, with spot audits to guard against leakage. To handle selection differences between complaint sources and interaction logs, we structured sampling and evaluation to compare like-for-like cohorts, held out domains to check generalization, and adjusted weights when one side was overrepresented."
+    },
+    {
+     "role": "interviewer",
+     "message": "Got it, that labeling process sounds disciplined. Sticking with RetailPulse, can you walk me through the offline evaluation you ran right before the A/B—specifically how you structured the splits to mirror deployment and how you quantified uncertainty for the go/no-go call?"
+    },
+    {
+     "role": "applicant",
+     "message": "We mirrored production with time-aware and entity-blocked splits and ran rolling backtests using a mix that matched expected traffic. For the go/no-go, we quantified uncertainty on the primary metric and guardrails across slices via multiple runs/resampling, requiring clear improvement over baseline and all key slices under the FPR cap, otherwise we held."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks, that makes sense; on RetailPulse, can you share a concrete failure mode you hit during development, how you isolated the root cause, and what evidence convinced you the fix would generalize?"
+    },
+    {
+     "role": "applicant",
+     "message": "We saw a spike in false positives when agents quoted customer profanity, and traced it to occasional speaker-role flips upstream by slicing around profanity/quote cases and using a small repro that kept text fixed while shuffling roles, which pointed to an ASR config change. We added role-aware features, quote handling, and pinned the diarizer; the fix held across vendors, time windows, and seeds plus a role-swap counterfactual, so we rolled it out."
+    }
+   ],
+   "truthNext": "That root-cause story is clear, thanks; still on RetailPulse, how did you set up the production interfaces, monitoring tied to expected failure modes, and the concrete rollback path for the QA workflow?",
+   "modelNext": "That failure analysis is solid. Now shifting to system delivery: when that diarizer fix went out at RetailPulse, how did you handle versioning and safe rollout of the model and its upstream ASR dependency, and what monitoring or rollback mechanism would have caught a regression like the role-flip is",
+   "modelIntent": "Probe ml_system_delivery: interfaces, versioning, monitoring tied to failure modes, and safe rollout/rollback under depe",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-btr-ml_1:production_hardener-6",
+   "lang": "en",
+   "context": [
+    {
+     "role": "interviewer",
+     "message": "Thanks for chatting, Alex—on the Rover Club work where you fine-tuned Mask R-CNN for custom items, how did you frame the problem and decide what “good enough” meant given the rover arm’s needs and the on-board compute/latency limits?"
+    },
+    {
+     "role": "applicant",
+     "message": "I framed it as “can the arm pick the right thing on the first try, in real time,” so we went with a fast way to highlight what to grab that prioritized catching targets and having confidence that made misses rare. “Good enough” was that most picks worked in our tests without latency hiccups, and if the system wasn’t sure or conditions got weird, it would hand off to teleop."
+    },
+    {
+     "role": "interviewer",
+     "message": "Got it, thanks—on that Mask R-CNN fine-tuning, how did you build and validate the training set for those custom items so it reflected the rover’s real environments (lighting, backgrounds, occlusions) without leaking near-duplicate scenes between train and test?"
+    },
+    {
+     "role": "applicant",
+     "message": "We grouped recordings by site and time, kept each session on a single split to avoid overlap, and did simple train-only augmentations for lighting and occlusion. For validation we used a basic holdout and looked at a few slices (like lighting and background) to see if results were broadly consistent."
+    },
+    {
+     "role": "interviewer",
+     "message": "Makes sense—when you took that pipeline onto the field with the rover, what recurring failure in the detect-to-grasp chain did you pin down, and what specific change did you try first to test whether it actually fixed that root cause?"
+    },
+    {
+     "role": "applicant",
+     "message": "In the field, things would flicker when the gripper got in the way, so the pick point jumped and we’d miss or stop. I tried a quick lock: once it looked solid, I’d just freeze the point and reuse the last good view for a bit to see if it settled."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks, that makes sense—when you tried that lock in the field, what concrete signal or test told you it was actually improving pick success rather than just masking the flicker, and what would have made you roll it back?"
+    },
+    {
+     "role": "applicant",
+     "message": "I did back-to-back runs on the same course and watched the occlusion moments; with the lock on, first-try grabs looked better, aborts went down, and the box seemed to stay on the object well enough that it didn’t just feel like hiding flicker. If confidence or alignment started slipping or we saw more wrong picks/hand-offs, I would’ve rolled it back."
+    },
+    {
+     "role": "interviewer",
+     "message": "Appreciate that—on your SAC research for the rover arm, what was the explicit go/no-go criterion to move from sim-only to touching hardware, and what evidence would have paused that?"
+    },
+    {
+     "role": "applicant",
+     "message": "We saw about 90% task success in sim with varied setups, no limit hits, inference stayed within our device budget, and the safety paths (watchdog and e‑stop) were exercised with the hardware. I’d pause to investigate if success dropped on other runs or camera replays, if forces edged toward limits, or if latency/jitter started creeping up."
+    },
+    {
+     "role": "interviewer",
+     "message": "Got it, thanks—switching to your A* navigation on GPS plus a SLAM cost map, what was the single assumption about pose/map reliability that, if it didn’t hold in the field, would have broken the plan, and how did you probe that before a full run?"
+    },
+    {
+     "role": "applicant",
+     "message": "We mainly checked the map looked stable and the position stayed within about a meter over a short window; otherwise the route could try to go through spots that weren’t actually open. I did a quick drive around some markers and glanced at the logs to see that things didn’t jump around before doing a full run."
+    }
+   ],
+   "truthNext": "Thanks—that quick drive-and-check makes sense for a sanity gate; on your Forest Fire Detection project where you used NeRFs with a visual transformer, how did you define and source the “fire likelihood” signal for training so it wasn’t just a proxy that would fall apart outside your sampled sites?",
+   "modelNext": "You mentioned checking markers and logs before a full run—how did you decide that a ~1m position tolerance and a 'stable-looking' map were the right thresholds, and what would you have done differently if a stakeholder's decision (e.g., go/no-go for competition) depended on a tighter bound?",
+   "modelIntent": "验证问题界定是否与决策挂钩、成功标准与约束如何设定（problem_framing）",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-btr-ml_3:average_joe-10",
+   "lang": "en",
+   "context": [
+    {
+     "role": "interviewer",
+     "message": "Hey Aarav, thanks for joining. On your WESEE AI intern role, for the MCP-based report-generation agent, how did you frame the problem at the start—what decision or workflow were you targeting, and what specific go/no-go criteria did you set before building?"
+    },
+    {
+     "role": "applicant",
+     "message": "I focused on helping the team produce a simple morning status that highlights which assets might need attention and why, turning raw logs into a short summary with some lookups and basic checks. We aimed for quick responses and reasonable accuracy based on a small labeled sample, avoided sensitive info in outputs with simple filters, and had a basic fallback to the last stable version if data looked off."
+    },
+    {
+     "role": "interviewer",
+     "message": "Got it, that makes sense. For that WESEE agent, what concrete signals did you use to decide “data looked off” and trigger the fallback, and how did you choose those thresholds from the live SQLite stream rather than just the labeled sample?"
+    },
+    {
+     "role": "applicant",
+     "message": "We set up monitors for schema changes, missing/invalid values on important fields, timestamp gaps, traffic spikes/drops, duplicate IDs, and noticeable drift in a few key fields, with a fallback when limits were crossed. The limits came from short-term production baselines during a brief shadow run rather than the labeled set."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks, that’s clear. Sticking with the WESEE agent, during the shadow run and early rollout, how did you evaluate the summary quality and reliability—what review process or metrics did you use, and what acceptance criteria determined when you were comfortable promoting an update?"
+    },
+    {
+     "role": "applicant",
+     "message": "We did regular spot-checks with a simple rubric (key facts, prioritization, actionability) and tracked basic metrics like precision/recall on important alerts from logs, latency, completion rate, and a few slice views. We promoted an update once it consistently beat baseline precision without hurting recall and passed basic reliability checks with no obvious regressions."
+    },
+    {
+     "role": "interviewer",
+     "message": "Appreciate that detail. On your WESEE YOLOv8 work where you web-scraped a custom dataset, how did you split train/val/test to reflect the real deployment setting and avoid redundancy or leakage from near-duplicate frames or entities across splits?"
+    },
+    {
+     "role": "applicant",
+     "message": "We used a straightforward train/val/test split, keeping items from the same video/source together and leaning on recording time so newer sessions fell into test. We also ran simple duplicate checks and kept obviously related samples in the same split to cut down on leakage."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks for explaining your split. On that YOLOv8 project, how did you handle label quality for the scraped dataset—what was your process to detect and correct noisy or inconsistent annotations, and did you keep an audit trail that tied fixes back to specific sources?"
+    },
+    {
+     "role": "applicant",
+     "message": "We did basic checks to catch formatting and obvious annotation issues, used the model to flag likely mismatches, sent those for relabeling with a short guideline, and spot-checked a small sample before exporting. We logged changes in a simple sheet with before/after notes and reviewer info so we could refer back if needed."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks for walking through your labeling flow. On your Critical AI multimodal narrative system, when you kicked it off how did you pin down the key operating constraints and guardrails—things like latency, cost, privacy, and potential abuse cases—and which of those actually shaped the first version’s design choices?"
+    },
+    {
+     "role": "applicant",
+     "message": "We aimed for quick responses at reasonable cost, avoided keeping sensitive info, and added simple checks for prompt injection, image safety, and location use. That guided us toward lightweight local components with timeouts and short contexts, safer image/map sources, and basic filters and rate limits before running any tools."
+    },
+    {
+     "role": "interviewer",
+     "message": "Got it, thanks. On your multilingual sentiment project with audio input, how did you structure the evaluation to cover the key slices—languages, accents/speakers, and audio conditions—so you could see where the pipeline held up versus where it struggled?"
+    },
+    {
+     "role": "applicant",
+     "message": "We made sure train and test didn’t share the same speakers and reviewed results by language and a few simple audio groupings, tracking per-slice sentiment scores and an ASR error metric to tell if issues were from transcription or classification. We also did a small spot-check on some noisy examples and looked over the reports to find obvious gaps."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks for that rundown. On your GPT-2 build and LLaMA LoRA fine-tune, when you hit a performance or latency regression, what was the single most effective minimal reproduction or ablation you used to pinpoint the cause?"
+    },
+    {
+     "role": "applicant",
+     "message": "I ran a simple timing check on one prompt with different input lengths and toggled a couple of features, capturing rough throughput. It showed the batched path was accidentally turning off a cache after a padding change, not anything related to adapters or compression."
+    },
+    {
+     "role": "interviewer",
+     "message": "Nice catch on the cache issue. On your Hybrid Anime Recommendation System deployed on GKE, how did you set up production monitoring and safe rollback—what signals did you watch, how were models/versioned artifacts swapped, and what was the concrete disable or fallback path when something went wrong?"
+    },
+    {
+     "role": "applicant",
+     "message": "We had basic monitoring for latency/errors and a few product signals with alerts, plus simple checks on data freshness. Models were versioned and rolled out gradually, and if needed we switched traffic back to the previous version or a simple non-ML fallback via a flag."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks, that’s clear. On your XGBoost churn project, how did you define the churn label and handle timing to avoid leakage, and what choices did you make so the offline evaluation matched the way the model would be used in the dashboard and Streamlit app?"
+    },
+    {
+     "role": "applicant",
+     "message": "We defined churn around inactivity after the billing cutoff and built features from recent user history, using time-aware splits so each month predicted the next. For evaluation, we kept it close to the dashboard by using similar preprocessing and rolling next‑month forecasts so the main metrics matched what users saw."
+    }
+   ],
+   "truthNext": "Appreciate the detail on the churn setup. For the WESEE agent, how did you keep the team aligned as you iterated—what lightweight artifacts or cadences did you use to capture assumptions, guardrails, and go/no-go decisions so everyone knew what changed and why?",
+   "modelNext": "On the churn project, you mentioned time-aware splits and offline metrics matching the dashboard. How did you determine which decision the churn model would actually improve—such as retention offers or outreach—and what online or business outcome, with what guardrails, would have told you the model ",
+   "modelIntent": "Assess problem framing: linking churn model to real decisions, success metrics, online impact, and guardrails.",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-btr-ml_8:research_purist-1",
+   "lang": "en",
+   "context": [
+    {
+     "role": "interviewer",
+     "message": "Hey Alex, thanks for sharing your background—Northwind’s AI-driven features caught my eye. Could you pick one specific feature you worked on there and walk me through how you initially framed the problem—what real decision it was meant to improve, the key constraints you identified early (like latency, cost, privacy), and how you defined success for a go/no-go?"
+    },
+    {
+     "role": "applicant",
+     "message": "I worked on a checkout “next-best-incentive” banner—basically choosing which offer (or none) to show to reduce abandonment—using only consented, privacy-safe inputs (no raw PII). We set a clear offline target with calibration checks and confirmed lift in an online holdout, with simple guardrails to roll back if key groups or error rates looked worse."
+    }
+   ],
+   "truthNext": "Got it, thanks—that’s a clear setup. For that checkout incentive at Northwind, how did you build the training dataset given that showing an offer can change user behavior—what did you use as the label and what steps did you take to avoid post-treatment leakage or selection bias from prior targeting rules?",
+   "modelNext": "You mentioned using only consented, privacy-safe inputs—how did you actually verify your training data represented the deployed checkout traffic, for example checking for selection effects from consent or label definitions that could drift once the incentive policy changed online behavior?",
+   "modelIntent": "考察 data_judgement：数据生成过程、选择偏差与部署后非平稳性",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-btr-ml_7:production_hardener-4",
+   "lang": "en",
+   "context": [
+    {
+     "role": "interviewer",
+     "message": "Thanks for walking me through your background, Alex—on the DCNNs you built to regress GP covariance parameters, how did you initially frame the problem and define a clear go/no-go decision before investing in scaling the approach?"
+    },
+    {
+     "role": "applicant",
+     "message": "I framed it as replacing the usual optimizer by predicting GP kernel settings from simple covariance cues, with the basic assumptions set early (which kernel we’d allow, general stationarity, rough input size ranges, and reasonable latency on our hardware). The bar was a clear speedup while keeping loss close and errors acceptable on a held‑out split and a few tricky cases; if it didn’t hit that, we’d stick with the existing optimizer path."
+    },
+    {
+     "role": "interviewer",
+     "message": "Got it, thanks—on that GP/DCNN setup, how did you source and validate the training labels and inputs for those covariance-parameter regressions, and what checks did you run to rule out leakage or selection effects between train/validation, especially given the synthetic spatiotemporal data pipeline you built?"
+    },
+    {
+     "role": "applicant",
+     "message": "We generated data in a controlled setup and kept the true parameters as labels, doing a few quick refits on small samples to check we could recover them and that the measurements lined up. For evaluation we used a straightforward train/validation/test split with simple leakage guards (kept obvious time/region groupings from mixing), and the rest was handled by the existing data pipeline."
+    },
+    {
+     "role": "interviewer",
+     "message": "Makes sense, thanks—when you said “loss close and errors acceptable,” what specific metrics and predefined thresholds did you use for the go/no-go, and did you include any particular stress-case slices in that gate?"
+    },
+    {
+     "role": "applicant",
+     "message": "Go/no-go was based on getting a clear speedup over the existing optimizer, keeping errors and predictive loss within a small margin, and calibration looking reasonable, without noticeable drops on a few predeclared tricky cases. We focused on extremes and messy scenarios (e.g., very short/long scales, near-degenerate setups, low-signal, shifts, and missing blocks), with the exact cutoffs and checks handled through our usual process."
+    },
+    {
+     "role": "interviewer",
+     "message": "Appreciate the detail—on the GP/DCNN work, when a stress slice didn’t meet that gate, what was the most useful root-cause investigation you ran and what concrete change did you make next as a result?"
+    },
+    {
+     "role": "applicant",
+     "message": "We noticed the very short, noisy cases were off and, from some quick eyeballing, it looked like the preprocessing was too aggressive, so we loosened it and used a simple fallback to the old method for those. After a retrain with a few more of those examples mixed in, the results were back where we needed them."
+    }
+   ],
+   "truthNext": "Nice, thanks for walking through that—shifting to your Scikit-learn/pandas transformation pipeline, how did you design the interfaces and versioning so downstream jobs could tolerate schema changes, and what was your concrete rollback path if a transform misbehaved in production-like runs?",
+   "modelNext": "You mentioned a fallback to the old method and mixing in more examples—when you retrained, how did you confirm the fix wasn't just noise, and what would you do if the very same slice regressed again after the next pipeline, data, or dependency change?",
+   "modelIntent": "验证迭代修复的因果隔离、鲁棒性验证与回归防护（failure_analysis_and_iteration 与 ml_system_delivery）",
+   "sameIntent": null,
+   "error": null
+  },
+  {
+   "id": "s3-btr-ml_7:research_purist-10",
+   "lang": "en",
+   "context": [
+    {
+     "role": "interviewer",
+     "message": "Thanks for walking me through your background, Alex—on the DCNNs you built to regress GP covariance parameters, how did you initially frame the problem and define a clear go/no-go decision before investing in scaling the approach?"
+    },
+    {
+     "role": "applicant",
+     "message": "I treated it as supervised regression from simple dataset summaries to the kernel settings under a fixed input budget, aiming for a big runtime win while keeping error tight and not hurting downstream accuracy on real data, with splits that matched how data shows up and a few tough slices. We had clear accept/stop checks: if it was decisively faster than our usual fitting approaches while staying within set error bounds across multiple runs and small nudges, we went ahead; otherwise we parked it."
+    },
+    {
+     "role": "interviewer",
+     "message": "Appreciate that—on that same DCNN-for-GP project, how did you generate the training summaries/labels and structure the splits to avoid leakage given spatiotemporal correlations?"
+    },
+    {
+     "role": "applicant",
+     "message": "Labels came from simulated data with known settings, and I only did simple local summaries without looking ahead or outside the area. To avoid leakage, we kept regions and time blocks separate so nothing from one place or time ended up in another split."
+    },
+    {
+     "role": "interviewer",
+     "message": "Got it—sticking with that GP/DCNN work for a moment, what were the specific stress slices or perturbations you used to pressure-test it, and how did you handle uncertainty across runs when deciding pass/fail?"
+    },
+    {
+     "role": "applicant",
+     "message": "We stress-tested the system with tough edge cases and shifts—noisy bursts, missing/irregular inputs, boundary-heavy regions, and small input perturbations—to probe stability. We quantified uncertainty with repeat runs/resampling, enforced slice-level thresholds with guardrails, and treated any variance or guardrail breach as a no-go."
+    },
+    {
+     "role": "interviewer",
+     "message": "Makes sense—when that GP/DCNN setup fell short on a tricky slice, how did you zero in on the root cause and what evidence, if any, led you to pivot or stick with the approach?"
+    },
+    {
+     "role": "applicant",
+     "message": "I cut the problem down to a small example from the bad region, tried a few focused tweaks, and found the miss came from a preprocessing step that hid some broader patterns. We added a simple extra input and tweaked the setup, kept it only after it held across repeats and key slices with tighter uncertainty and no guardrail hits; otherwise that slice used a basic fallback."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks for breaking that down—on the data transformation pipeline you led, how did you define the interface and put in basic safeguards like monitoring or fallbacks so downstream jobs wouldn’t break when schemas or data quirks showed up?"
+    },
+    {
+     "role": "applicant",
+     "message": "I mostly relied on the existing data feed with a few basic checks for obvious issues, and if something looked off I let the pipeline run and flagged it. For odd cases, I used simple defaults or let the values pass through, and downstream teams handled any follow‑ups."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks for the context—let’s switch gears to your vectorized/parallelized synthetic spatiotemporal data generation work: how did you decide on a generative setup and sampling strategy so the synthetic sets were representative of the real operating conditions without baking in leakage or unrealistic correlations?"
+    },
+    {
+     "role": "applicant",
+     "message": "I based the simulator on patterns from the logs with simple noise/missing data, and I split by entity and contiguous time so nothing bled across boundaries. I checked that the splits looked representative and watched for obvious leakage signals, adjusting the sampling when those checks looked off."
+    },
+    {
+     "role": "interviewer",
+     "message": "Got it, thanks—on your distributed multi-GPU setup where you sped up training and tuning, how did you handle reproducible artifacts and safe rollback/disable paths when a job or model version misbehaved?"
+    },
+    {
+     "role": "applicant",
+     "message": "We kept things in simple dated folders, and if a run misbehaved I’d stop it and switch back to the last version we knew worked. Rollbacks were manual—basically pointing it to the prior file and restarting, often handled by the ops team."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks for explaining that rollback setup—on your resume you mention presenting findings to experts and nonexperts; how did you keep objectives, risks, and next decisions clear across iterations, and what concrete artifacts did you use to maintain alignment?"
+    },
+    {
+     "role": "applicant",
+     "message": "I mostly shared results in the usual channels and relied on the team’s standard docs and meetings for the bigger decisions. Any formal tracking or summaries were handled by existing project processes, with my plots and brief notes kept alongside the code."
+    },
+    {
+     "role": "interviewer",
+     "message": "Appreciate that—jumping to your high-dimensional optimization work as Half Research Assistant, how did you set up the objective and constraints and decide on concrete stopping criteria or acceptance checks before calling a run “converged enough” for the use case you were targeting?"
+    },
+    {
+     "role": "applicant",
+     "message": "I aligned the goal with a metric we could actually track and kept it within practical limits like resource caps and simple constraints. A run only counted if it clearly settled, met those constraints, and repeated across a few reruns and on a separate set; if anything looked off, we didn’t accept it."
+    },
+    {
+     "role": "interviewer",
+     "message": "Thanks for laying that out—on your PDE solvers for medical imaging/CV, how did you set up the evaluation to mirror the real usage (e.g., entity- or scan-aware splits, temporal aspects), and what guardrails did you use to catch physically implausible outputs before calling a result acceptable?"
+    },
+    {
+     "role": "applicant",
+     "message": "I don’t put much weight on pretty screenshots, so we set up splits that reflect how new studies show up in practice, including subject- and time-aware setups for longitudinal cases. We enforced strict guardrails for physically or anatomically implausible outputs, and if any slice tripped a check, the run failed."
+    }
+   ],
+   "truthNext": "Appreciate the detail—on your resume you note attending weekly seminars and then experimenting with cutting‑edge ML that improved model performance; how did you pick which ideas to trial and set up ablations/baselines to attribute any lift to the new method rather than to data shifts or tuning noise?",
+   "modelNext": "On the PDE solver work for medical imaging, you mentioned subject- and time-aware splits and guardrails for implausible outputs—can you walk me through the generative account behind those scans: who acquires the data, under what measurement process, and how you audited leakage or non-stationarity wh",
+   "modelIntent": "Validate data_judgement: generative account, leakage auditing, and post-deployment drift handling.",
+   "sameIntent": null,
+   "error": null
+  }
+ ]
+}

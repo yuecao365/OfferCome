@@ -58,6 +58,8 @@ next-env.d.ts
 !/eval/runs/baseline-*.json
 !/eval/runs/base-*.json
 !/eval/runs/fix-*.json
+/eval/bench/runs/*
+!/eval/bench/runs/*.md
 /eval/mianjing/raw/
 /eval/mianjing/extracted/
 

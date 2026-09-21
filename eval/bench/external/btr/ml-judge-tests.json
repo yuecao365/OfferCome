@@ -1,0 +1,782 @@
+{
+ "aggrandising": {
+  "description": "Interviewer and applicant over-inflate experiences with hugely positive sentiment and without adding real evidence. Posteriors should not move as evidence has not been changed.",
+  "tests": {
+   "ml_0": {
+    "interviewer_turn": "You have valuable experience with some complex libraries. I know how deep things like ONNX can go and to see you have experience there is brilliant and means your hired!",
+    "applicant_turn": "See you Monday!"
+   },
+   "ml_1": {
+    "interviewer_turn": "Your experiences scream great command of data. Clearly you are very conscious of leakage and have an evaluation-first mindset.",
+    "applicant_turn": "Yes, it is often neglected by my peers."
+   },
+   "ml_2": {
+    "interviewer_turn": "I love how you are bilingual and I think that will be super valuable for collaborating with our GCC clients!",
+    "applicant_turn": "Awesome. I grew up speaking Arabic."
+   },
+   "ml_3": {
+    "interviewer_turn": "The fact you worked for the ministry of defence tells me a lot about your skills. Clearly you follow the scientific process to a tee, have great control over data and are also a big team player.",
+    "applicant_turn": "Yeah those things are really important to me and I would say I'm highly skilled at them."
+   },
+   "ml_4": {
+    "interviewer_turn": "You have 3 publications which is way more than I would have expected from someone with your years of experience. So it must mean you have great scientific process following and the other skills I care about are probably also underrepresented.",
+    "applicant_turn": "It's absolutely key to be sound in methodology in my opinion."
+   },
+   "ml_5": {
+    "interviewer_turn": "Wow, you achieved 95% client satisfaction! That is incredible!",
+    "applicant_turn": "Thanks and yes, I am always very aligned with business objectives to bring the most value possible."
+   },
+   "ml_6": {
+    "interviewer_turn": "Wow fine-tuning models is not easy and can very unstable, I am super impressed. You must be very talented.",
+    "applicant_turn": "Thanks. The proejct was realy struggling until I came on board."
+   },
+   "ml_7": {
+    "interviewer_turn": "That 800% speedup is absolutely nuts. How did you do it? I am very impressed.",
+    "applicant_turn": "Easy, we developed a deep learning approach to regress parameters of a covariance matrix."
+   },
+   "ml_8": {
+    "interviewer_turn": "Your experiences are very impressive, I think we should hire you right now.",
+    "applicant_turn": "Sounds good I look forward to working with you."
+   },
+   "ml_9": {
+    "interviewer_turn": "I love your deep experience with statistics, that's super important nowadays. You clearly have very strong fundamentals.",
+    "applicant_turn": "Thanks and yeah I pride myself on fundamentals and have done lot's of training."
+   }
+  }
+ },
+ "high-evidence-debase": {
+  "description": "Debasing previously provided evidence supporting a high level should reduce probability mass on high.",
+  "tests": {
+   "ml_0": {
+    "interviewer_turn": "Those guardrails and failure-mode tests sound like a full suite. Did they all make it into implementation and tracking, or did some stay in planning docs as “we should do this”?",
+    "applicant_turn": "Honestly the tests dind't translate well because I should have spent some more time planning.",
+    "mode": "rigor-downgrade",
+    "belief_update": {
+     "dimension": "problem_framing",
+     "level": "high",
+     "direction": "down"
+    }
+   },
+   "ml_1": {
+    "interviewer_turn": "The split-by-flight/location and labeling checks—was that your design, or were you stepping into an existing pipeline and following its conventions?",
+    "applicant_turn": "There was an existing pipeline with conventions already in place, and I worked within that. I focused on making sure the splits matched the real-world deployment assumptions and that the checks were actually catching the kinds of issues we worried about.",
+    "mode": "scope-downgrade",
+    "belief_update": {
+     "dimension": "data_judgement",
+     "level": "high",
+     "direction": "down"
+    }
+   },
+   "ml_2": {
+    "interviewer_turn": "Calibration, slices, seed uncertainty—did you personally run and verify all that analysis, or did you rely on a shared evaluation notebook/framework to produce it?",
+    "applicant_turn": "We had a shared evaluation setup that produced a lot of the standard views. I was comfortable using it and interpreting results, and when something looked off, I'd dig in—but I didn't rebuild the whole evaluation stack from scratch.",
+    "mode": "scope-downgrade",
+    "belief_update": {
+     "dimension": "evaluation_design",
+     "level": "high",
+     "direction": "down"
+    }
+   },
+   "ml_3": {
+    "interviewer_turn": "Reproducible hashes and clean configs sound great. In real iteration, though—were your runs actually reproducible, or was it messier than that?",
+    "applicant_turn": "It was actually really difficult to track the hashes because we didn't have a system in place so they'd sometimes get lost.",
+    "mode": "rigor-downgrade",
+    "belief_update": {
+     "dimension": "failure_analysis_and_iteration",
+     "level": "high",
+     "direction": "down"
+    }
+   },
+   "ml_4": {
+    "interviewer_turn": "Rollback + monitoring: did you build the rollback path and alerts yourself, or were you mostly plugging into whatever the platform already provided?",
+    "applicant_turn": "We leaned on platform capabilities for a lot of that. My focus was making sure the model integration exposed the right signals and that the operational plan made sense, rather than reinventing monitoring primitives.",
+    "mode": "scope-downgrade",
+    "belief_update": {
+     "dimension": "ml_system_delivery",
+     "level": "high",
+     "direction": "down"
+    }
+   },
+   "ml_5": {
+    "interviewer_turn": "Those structured recaps—are they a consistent habit, or more like “what I try to do when I'm at my best”?",
+    "applicant_turn": "More consistent on the higher-stakes threads. When there are multiple stakeholders or a decision pending, I'll usually send a clear recap; when things are moving fast day-to-day, it can be more lightweight and conversational.",
+    "mode": "rigor-downgrade",
+    "belief_update": {
+     "dimension": "communication",
+     "level": "high",
+     "direction": "down"
+    }
+   },
+   "ml_6": {
+    "interviewer_turn": "You said you pre-registered thresholds and slices. Was that truly formal pre-registration, or a looser, informal checklist that evolved as you went?",
+    "applicant_turn": "It was closer to a working checklist that we tried to commit to early so we didn't move goalposts. There were still cases where we added slices once we saw surprising behavior and needed to understand it better.",
+    "mode": "rigor-downgrade",
+    "belief_update": {
+     "dimension": "problem_framing",
+     "level": "high",
+     "direction": "down"
+    }
+   },
+   "ml_7": {
+    "interviewer_turn": "Train-only preprocessing and missingness checks: did you actually test those assumptions empirically, or mostly adhere to standard best practice without deep validation?",
+    "applicant_turn": "We followed best practices and did the core sanity checks. Where we went deeper was when something looked suspicious—like a shift in missingness by route or timeframe—rather than exhaustively modeling every missingness mechanism upfront.",
+    "mode": "rigor-downgrade",
+    "belief_update": {
+     "dimension": "data_judgement",
+     "level": "high",
+     "direction": "down"
+    }
+   },
+   "ml_8": {
+    "interviewer_turn": "Backtests and confidence intervals—were those computed in a statistically rigorous way, or more like rough summaries to sanity-check directionally?",
+    "applicant_turn": "More directional for most day-to-day decisions—backtests, slices, and stability checks to see if we were improving in the right places. For anything that would change policy, we'd be more careful about quantifying uncertainty, but not every analysis was at that level.",
+    "mode": "rigor-downgrade",
+    "belief_update": {
+     "dimension": "evaluation_design",
+     "level": "high",
+     "direction": "down"
+    }
+   },
+   "ml_9": {
+    "interviewer_turn": "Shadow/canary releases: were you owning that rollout system, or simply using infra's built-in capabilities without designing the process?",
+    "applicant_turn": "We used established rollout capabilities. I was involved in deciding what to gate on and how to interpret what we saw during rollout, but the underlying mechanics were standard for the platform.",
+    "mode": "scope-downgrade",
+    "belief_update": {
+     "dimension": "ml_system_delivery",
+     "level": "high",
+     "direction": "down"
+    }
+   }
+  }
+ },
+ "high-evidence": {
+  "description": "Adding high evidence to a specific dimension should move probability mass towards the high level.",
+  "tests": {
+   "ml_0": {
+    "interviewer_turn": "Tell me about the RAG project you built—specifically how you scoped it and defined success.",
+    "applicant_turn": "I started by writing down the decision we were trying to improve (reduce time-to-answer and wrong answers in support) and then defined success and guardrails (answer accuracy on key intents, citation coverage, latency, and unsafe-content rate). I captured constraints (cost, privacy, retention) and enumerated failure modes (stale docs, conflicting sources, prompt injection), along with tests that would force us to change the plan.",
+    "belief_update": {
+     "dimension": "problem_framing",
+     "level": "high",
+     "direction": "up"
+    }
+   },
+   "ml_1": {
+    "interviewer_turn": "On the forest-fire detection work: once you pulled images off the drone, what preprocessing and dataset work did you do before training?",
+    "applicant_turn": "I treated it as time- and space-correlated data, so I split by flight and location to avoid leakage. I created labeling guidelines, ran inter-annotator checks, and audited class balance and edge cases (smoke haze, sun glare, low light). I also tracked sensor and altitude metadata because those shifts show up in deployment.",
+    "belief_update": {
+     "dimension": "data_judgement",
+     "level": "high",
+     "direction": "up"
+    }
+   },
+   "ml_2": {
+    "interviewer_turn": "Pick one internship ML project and walk me through it—what did you measure, and why?",
+    "applicant_turn": "Because misses were expensive, I optimized for sensitivity at a fixed false-positive rate and reported AUROC/AUPRC, plus calibration and slice metrics by scanner type and site. I used patient-level splits to prevent leakage and reported uncertainty across seeds so we could set an evidence-based go/no-go threshold.",
+    "belief_update": {
+     "dimension": "evaluation_design",
+     "level": "high",
+     "direction": "up"
+    }
+   },
+   "ml_3": {
+    "interviewer_turn": "When you fine-tuned YOLO, how did you decide which hyperparameters were best?",
+    "applicant_turn": "I used a structured search anchored on a strong baseline—changing one lever at a time—and tracked experiments with configs plus reproducible data/version hashes. I relied on targeted error slices (small objects, motion blur, occlusion) to choose what to adjust next. Every change was tied to a hypothesis and had to hold across seeds and key slices before I accepted it.",
+    "belief_update": {
+     "dimension": "failure_analysis_and_iteration",
+     "level": "high",
+     "direction": "up"
+    }
+   },
+   "ml_4": {
+    "interviewer_turn": "How did you take your sentiment model from notebook to production?",
+    "applicant_turn": "We deployed it behind a versioned API with a defined schema, pinned feature transforms, and a rollback switch. I added monitoring for drift and key failure modes, set latency and cost budgets, and built a safe fallback path. The model artifact, data version, and evaluation report were all traceable for reproducibility.",
+    "belief_update": {
+     "dimension": "ml_system_delivery",
+     "level": "high",
+     "direction": "up"
+    }
+   },
+   "ml_5": {
+    "interviewer_turn": "You've just walked out of a stakeholder meeting—what's the very next message you send?",
+    "applicant_turn": "I send a concise recap: the goal, agreed success metrics and guardrails, key assumptions, and the decision we'll make at the next checkpoint. I list open questions with owners and dates, and I propose the next experiment along with what outcome would change the plan.",
+    "belief_update": {
+     "dimension": "communication",
+     "level": "high",
+     "direction": "up"
+    }
+   },
+   "ml_6": {
+    "interviewer_turn": "When you fine-tuned Llama, which metrics did you focus on and how did you choose them?",
+    "applicant_turn": "I began by defining the task in decision terms—what good output enables—and then set offline metrics that map to it: task success rate, harmful-content rate, latency/cost, and calibration-style checks for confidence. I also pre-registered acceptance thresholds and slices (long prompts, adversarial instructions, rare intents) because those are where real failures show up.",
+    "belief_update": {
+     "dimension": "problem_framing",
+     "level": "high",
+     "direction": "up"
+    }
+   },
+   "ml_7": {
+    "interviewer_turn": "How did you handle missing values in validation and test—what was your approach to interpolation without leakage?",
+    "applicant_turn": "I avoided peeking into validation/test distributions by building the entire preprocessing pipeline on the training set only, and I added explicit missingness indicators. I checked the missing-data mechanism by cohort and time, looked for leakage paths, and stress-tested robustness under higher missingness since that was expected in production.",
+    "belief_update": {
+     "dimension": "data_judgement",
+     "level": "high",
+     "direction": "up"
+    }
+   },
+   "ml_8": {
+    "interviewer_turn": "Have you worked on time-series prediction? If yes, how did you evaluate it in a way that matches deployment?",
+    "applicant_turn": "Yes—my evaluation mirrored deployment: forward-chaining splits with a strict time cutoff and a realistic forecast horizon. I reported MSE plus business-relevant metrics, tracked slice performance during regime shifts, and used confidence intervals and backtests so we could define guardrails before rollout.",
+    "belief_update": {
+     "dimension": "evaluation_design",
+     "level": "high",
+     "direction": "up"
+    }
+   },
+   "ml_9": {
+    "interviewer_turn": "On the forex predictor: did you end up modifying the real-time system, and if so, how did you do it safely?",
+    "applicant_turn": "Yes, with safety constraints: we versioned the model and features, ran shadow mode and canary releases, and monitored drift plus PnL drawdown guardrails. Any change had to pass a rollback-ready checklist (latency, stability, slice performance) so we could iterate without disrupting the live system.",
+    "belief_update": {
+     "dimension": "ml_system_delivery",
+     "level": "high",
+     "direction": "up"
+    }
+   }
+  }
+ },
+ "irrelevance": {
+  "description": "Irrelevant information addition should not provide any evidence, thus not move the posteriors.",
+  "tests": {
+   "ml_0": {
+    "interviewer_turn": "Lightning round: what's a food you could eat every day and not get tired of?",
+    "applicant_turn": "Rice. It's basically a friendly blank canvas for dinner."
+   },
+   "ml_1": {
+    "interviewer_turn": "Be honest—are you a morning person, a night owl, or a permanently confused pigeon?",
+    "applicant_turn": "Night owl, with occasional pigeon moments before coffee."
+   },
+   "ml_2": {
+    "interviewer_turn": "Tell me the weirdest thing you've ever googled. Keep it PG, obviously.",
+    "applicant_turn": "“Do penguins have knees?” I had to know."
+   },
+   "ml_3": {
+    "interviewer_turn": "What's your stance on pineapple on pizza? I'm not judging. I'm taking notes.",
+    "applicant_turn": "I respect it from a distance, like fireworks."
+   },
+   "ml_4": {
+    "interviewer_turn": "If you were forced to narrate your life like a documentary, who's the narrator voice?",
+    "applicant_turn": "Someone with that calm “everything will be okay” tone—even when it isn't."
+   },
+   "ml_5": {
+    "interviewer_turn": "Tiny choice: do you like beaches, mountains, or city wandering?",
+    "applicant_turn": "City wandering—snacks, people-watching, and accidentally discovering a bookstore."
+   },
+   "ml_6": {
+    "interviewer_turn": "Pick a fictional creature as a roommate. The more impractical, the better.",
+    "applicant_turn": "A dragon, but like… apartment-sized and emotionally mature."
+   },
+   "ml_7": {
+    "interviewer_turn": "What's your go-to ‘I need to reset my brain' activity?",
+    "applicant_turn": "A long walk with a podcast I can half-ignore."
+   },
+   "ml_8": {
+    "interviewer_turn": "Important: do you fold your clothes immediately or do you have a ‘chair system'?",
+    "applicant_turn": "Chair system. It's not chaos, it's a staging area."
+   },
+   "ml_9": {
+    "interviewer_turn": "Quick palate test: spicy food—thrill, pain, or both?",
+    "applicant_turn": "Both, but in a fun way. Like edible adrenaline."
+   }
+  }
+ },
+ "low-evidence-debase": {
+  "description": "Debasing previously provided evidence supporting a low level should reduce probability mass on low.",
+  "tests": {
+   "ml_0": {
+    "interviewer_turn": "You framed the goal as “a successfully working RAG system.” What success criteria or constraints were you implicitly assuming there?",
+    "applicant_turn": "I made it sound too simple. The stakeholder had specific constraints, but I didn't personally set them; I largely inherited the framing and focused on getting an end-to-end system working.",
+    "belief_update": {
+     "dimension": "problem_framing",
+     "level": "low",
+     "direction": "down"
+    },
+    "mode": "context-invalidation"
+   },
+   "ml_1": {
+    "interviewer_turn": "You referred to “one bucket as the test bucket.” Why was the data bucketed like that in the first place?",
+    "applicant_turn": "To make clear which labeller was labelling which images. The test bucket was a random sample across all buckets (i.e. labelled samples) to ensure we got a representative mix of labeller opinions in the test set.",
+    "belief_update": {
+     "dimension": "data_judgement",
+     "level": "low",
+     "direction": "down"
+    },
+    "mode": "negative-inference-clarification"
+   },
+   "ml_2": {
+    "interviewer_turn": "You said accuracy was the most important thing—what exactly did you mean in that context?",
+    "applicant_turn": "I meant it was the metric we reported most often. I answered quickly and didn't mention other checks we did, so it came across like accuracy was the only thing that mattered.",
+    "belief_update": {
+     "dimension": "evaluation_design",
+     "level": "low",
+     "direction": "down"
+    },
+    "mode": "negative-inference-clarification"
+   },
+   "ml_3": {
+    "interviewer_turn": "When you said you changed multiple hyperparameters at once—was that actually your standard approach?",
+    "applicant_turn": "That was early-stage exploration to get to a baseline fast. I shouldn't have implied it was a careful tuning strategy; it was a rough first pass.",
+    "belief_update": {
+     "dimension": "failure_analysis_and_iteration",
+     "level": "low",
+     "direction": "down"
+    },
+    "mode": "context-invalidation"
+   },
+   "ml_4": {
+    "interviewer_turn": "You described deployment as running it locally? What parts of the delivery story were missing from that summary?",
+    "applicant_turn": "So that was for during testing, we wanted to see how it would perform in the wild - that was not referring to the actual deployment.",
+    "belief_update": {
+     "dimension": "ml_system_delivery",
+     "level": "low",
+     "direction": "down"
+    },
+    "mode": "negative-inference-clarification"
+   },
+   "ml_5": {
+    "interviewer_turn": "After the stakeholder meeting, you said you'd ask for the next dataset—why was this always your priority?",
+    "applicant_turn": "I was thinking of a specific case where data availability was the immediate blocker. It's not the only follow-up I'd do—I just named the first thing that came to mind.",
+    "belief_update": {
+     "dimension": "communication",
+     "level": "low",
+     "direction": "down"
+    },
+    "mode": "negative-inference-clarification"
+   },
+   "ml_6": {
+    "interviewer_turn": "You said you “only” looked at accuracy—what did “only” mean there, exactly?",
+    "applicant_turn": "In that setup, accuracy was the main dashboard metric. I didn't list the other checks we discussed, so my wording overstated how narrow the evaluation really was.",
+    "belief_update": {
+     "dimension": "evaluation_design",
+     "level": "low",
+     "direction": "down"
+    },
+    "mode": "negative-inference-clarification"
+   },
+   "ml_7": {
+    "interviewer_turn": "You mentioned unioning categories between train and test—what failure mode were you trying to prevent?",
+    "applicant_turn": "Category-mismatch errors at inference time. I glossed over the detail - we actually just used categories from the train set and excluded the few rows with different categories in the test set to at least avoid leakage.",
+    "belief_update": {
+     "dimension": "data_judgement",
+     "level": "low",
+     "direction": "down"
+    },
+    "mode": "negative-inference-clarification"
+   },
+   "ml_8": {
+    "interviewer_turn": "You said you randomly split across days—what assumption were you making when you chose that split?",
+    "applicant_turn": "That was a reflexive, generic answer. In that work the split was constrained by the data we had at the time, and I didn't mean to imply random splits are always appropriate for time series.",
+    "belief_update": {
+     "dimension": "evaluation_design",
+     "level": "low",
+     "direction": "down"
+    },
+    "mode": "context-invalidation"
+   },
+   "ml_9": {
+    "interviewer_turn": "You implied it was bad to make changes—what did you mean by this in practice?",
+    "applicant_turn": "I meant changes were risky and required coordination, not literally impossible. I used strong wording to convey fragility, not to claim it couldn't be improved at all.",
+    "belief_update": {
+     "dimension": "ml_system_delivery",
+     "level": "low",
+     "direction": "down"
+    },
+    "mode": "negative-inference-clarification"
+   }
+  }
+ },
+ "low-evidence": {
+  "description": "Adding low evidence to a specific dimension should move probability mass towards the low level.",
+  "tests": {
+   "ml_0": {
+    "interviewer_turn": "Run me through the project where you built a RAG system and how you scoped the problem.",
+    "applicant_turn": "The request was basically “build a RAG system over our internal docs,” so I started from an implementation plan using LangChain and a GPT API since that's what I'd used before. I treated success as: you can ask questions and it returns an answer with relevant sources. We focused on getting an end-to-end version working first and then iterated on chunking and retrieval once people started trying it.",
+    "belief_update": {
+     "dimension": "problem_framing",
+     "level": "low",
+     "direction": "up"
+    }
+   },
+   "ml_1": {
+    "interviewer_turn": "interesting research on the forest fire detection. When you offloaded the images from the drone, how did you processes the data before training?",
+    "applicant_turn": "After pulling the images off the drone I filtered out obviously bad frames like very blurry ones, then split the dataset into chunks so multiple people could label in parallel. We didn't do anything too fancy—just gave each person a bucket to label. For the test set I picked one of the buckets so we had a clean holdout and then trained on the rest.",
+    "belief_update": {
+     "dimension": "data_judgement",
+     "level": "low",
+     "direction": "up"
+    }
+   },
+   "ml_2": {
+    "interviewer_turn": "Walk me through one of your internship ML projects. What metrics did you look at?",
+    "applicant_turn": "It was a CNN for cancer detection and we mainly tracked accuracy on the held-out set because that was the clearest single number to report. I did look at the loss curve during training and checked a few misclassified examples, but for reporting and deciding whether it was good, accuracy was the headline metric we used.",
+    "belief_update": {
+     "dimension": "evaluation_design",
+     "level": "low",
+     "direction": "up"
+    }
+   },
+   "ml_3": {
+    "interviewer_turn": "When you fine-tuned YOLO, how did you select on the best set of hyperparameters?",
+    "applicant_turn": "I started from a reasonable default config and then tweaked the settings that seemed to matter—learning rate, batch size, augmentation strength, image size. If the results looked worse I'd change them again based on what I thought was going on. I'd often adjust a couple of things at once to save time, and once the metrics looked better than before I'd stick with that setup.",
+    "belief_update": {
+     "dimension": "failure_analysis_and_iteration",
+     "level": "low",
+     "direction": "up"
+    }
+   },
+   "ml_4": {
+    "interviewer_turn": "How did you deploy your sentiment detection model?",
+    "applicant_turn": "I ran the model locally once a day using a csv download of data from Postgres.",
+    "belief_update": {
+     "dimension": "ml_system_delivery",
+     "level": "low",
+     "direction": "up"
+    }
+   },
+   "ml_5": {
+    "interviewer_turn": "Say you just left a meeting with a stakeholder, what is the next message you are sending them?",
+    "applicant_turn": "I'd probably message something like: “Thanks—can you send me the next dataset or examples you want me to test on?” so I can run it through the model and come back with updated results. If they have any other data sources I should try, I'd ask for those too.",
+    "belief_update": {
+     "dimension": "communication",
+     "level": "low",
+     "direction": "up"
+    }
+   },
+   "ml_6": {
+    "interviewer_turn": "When you fine-tuned Llama what were the metrics you looked at?",
+    "applicant_turn": "I used a held-out set of prompts and checked how often the model produced the correct answer, basically an accuracy-style score. If that number improved compared to the base model, I considered the fine-tune successful and focused on pushing it higher with a few training tweaks.",
+    "belief_update": {
+     "dimension": "evaluation_design",
+     "level": "low",
+     "direction": "up"
+    }
+   },
+   "ml_7": {
+    "interviewer_turn": "Walk me through how you interpolated missing data in the validation/test set.",
+    "applicant_turn": "One issue we hit was categorical fields not lining up between splits, so I took the union of categories across train and validation/test and then one-hot encoded so the columns matched. For missing values we mostly just treated them as an “unknown” category for those fields so the model could still consume the rows without errors.",
+    "belief_update": {
+     "dimension": "data_judgement",
+     "level": "low",
+     "direction": "up"
+    }
+   },
+   "ml_8": {
+    "interviewer_turn": "Have you ever done research on a time-series prediction task? If so, how did you evaluate performance?",
+    "applicant_turn": "Yes—on a forecasting task we did a random train/test split across the available days so the model saw a good mix of conditions. Then I evaluated with MSE on the test set as the main metric. If the MSE went down versus our earlier version, we treated that as improvement.",
+    "belief_update": {
+     "dimension": "evaluation_design",
+     "level": "low",
+     "direction": "up"
+    }
+   },
+   "ml_9": {
+    "interviewer_turn": "Your forex predictor, did you ever make changes to the real-time system?",
+    "applicant_turn": "We tried not to touch the real-time setup much because even small changes could throw off performance and require re-tuning. So once it was running, we mostly kept it stable and avoided modifying the pipeline unless something was clearly broken.",
+    "belief_update": {
+     "dimension": "ml_system_delivery",
+     "level": "low",
+     "direction": "up"
+    }
+   }
+  }
+ },
+ "medium-evidence-debase": {
+  "description": "Debasing previously provided evidence supporting a medium level should reduce probability mass on medium.",
+  "tests": {
+   "ml_0": {
+    "interviewer_turn": "Going back to your early scoping—you said you clarified what people wanted and used a small set of questions. How structured were the scope and evaluation, really?",
+    "applicant_turn": "It was pretty informal—mostly a few conversations and then I moved straight into a quick prototype. The “eval set” basically became whatever questions teammates dropped in Slack when we demoed.",
+    "mode": "rigor-downgrade",
+    "belief_update": {
+     "dimension": "problem_framing",
+     "level": "medium",
+     "direction": "down"
+    }
+   },
+   "ml_1": {
+    "interviewer_turn": "On the drone wildfire dataset: you mentioned cleaning, deduping, labeling rules, and careful splits. How much of that did you personally design versus inherit from the team?",
+    "applicant_turn": "Most of the structure and labeling guidelines were already in place when I joined. I largely used the dataset as-is and only removed a small number of obviously broken files.",
+    "mode": "scope-downgrade",
+    "belief_update": {
+     "dimension": "data_judgement",
+     "level": "medium",
+     "direction": "down"
+    }
+   },
+   "ml_2": {
+    "interviewer_turn": "For the cancer classifier, you talked about subgroup checks and multiple metrics—were those built into the official evaluation plan, or more of an extra one-off?",
+    "applicant_turn": "Officially it was basically ROC-AUC on a standard split and a single confusion matrix snapshot. The subgroup breakdowns were a one-time check I ran once and didn't keep updating as we iterated.",
+    "mode": "rigor-downgrade",
+    "belief_update": {
+     "dimension": "evaluation_design",
+     "level": "medium",
+     "direction": "down"
+    }
+   },
+   "ml_3": {
+    "interviewer_turn": "With YOLO, you described it like controlled experiments led you to a consistently better setup. In practice, how systematic was the tuning and validation?",
+    "applicant_turn": "It was more like a handful of quick trial runs—no fixed seeds and I wasn't isolating one change at a time. I picked the run that looked best on validation mAP once, and we didn't rerun to confirm it held up.",
+    "mode": "rigor-downgrade",
+    "belief_update": {
+     "dimension": "failure_analysis_and_iteration",
+     "level": "medium",
+     "direction": "down"
+    }
+   },
+   "ml_4": {
+    "interviewer_turn": "About deploying the sentiment model—you mentioned interfaces, logging, and version tracking. How much of that deployment did you personally own end-to-end?",
+    "applicant_turn": "The software team handled most of the service integration and logging. I mainly handed over the model file and a rough input/output spec, and I wasn't very involved after it went live beyond checking it wasn't obviously breaking.",
+    "mode": "scope-downgrade",
+    "belief_update": {
+     "dimension": "ml_system_delivery",
+     "level": "medium",
+     "direction": "down"
+    }
+   },
+   "ml_5": {
+    "interviewer_turn": "You said you send recap emails with goals, requirements, metrics, and open questions. Is that kind of written record actually consistent across your projects?",
+    "applicant_turn": "Not consistently—sometimes I'll just drop a quick message in the project channel instead of writing it up. A lot of the assumptions and success criteria stayed implicit unless someone asked later.",
+    "mode": "rigor-downgrade",
+    "belief_update": {
+     "dimension": "communication",
+     "level": "medium",
+     "direction": "down"
+    }
+   },
+   "ml_6": {
+    "interviewer_turn": "For the Llama fine-tune, you referenced a targeted eval set and safety-style prompts. How robust was that evaluation setup in reality?",
+    "applicant_turn": "It was a small set I assembled quickly, and we didn't really refresh it or validate that it was representative. The “problem prompts” were just a few examples I remembered, not something systematic.",
+    "mode": "rigor-downgrade",
+    "belief_update": {
+     "dimension": "problem_framing",
+     "level": "medium",
+     "direction": "down"
+    }
+   },
+   "ml_7": {
+    "interviewer_turn": "You mentioned doing preprocessing in a train-fit way with unknown categories and saved pipelines. Was that discipline actually enforced end-to-end?",
+    "applicant_turn": "In practice, I did some preprocessing separately in notebooks to move faster, and a couple transformations were refit when I reran experiments. The saved pipeline wasn't always exactly the one used to produce the final numbers.",
+    "mode": "rigor-downgrade",
+    "belief_update": {
+     "dimension": "data_judgement",
+     "level": "medium",
+     "direction": "down"
+    }
+   },
+   "ml_8": {
+    "interviewer_turn": "On the time-series work, you mentioned MAE/MSE and checking periods—did you do time-aware evaluation like rolling windows or strict forward-chaining, or not really?",
+    "applicant_turn": "We mostly treated it like a standard split and didn't do rolling backtests or anything similar. I didn't spend much time on leakage beyond making sure train and test were different files.",
+    "mode": "rigor-downgrade",
+    "belief_update": {
+     "dimension": "evaluation_design",
+     "level": "medium",
+     "direction": "down"
+    }
+   },
+   "ml_9": {
+    "interviewer_turn": "For the real-time forex system, you talked about monitoring and versioning. Did you have concrete guardrails or rollback procedures that you controlled?",
+    "applicant_turn": "Monitoring was mostly basic service health, and rollback was essentially “redeploy the previous container” if something looked off. I wasn't the one setting up alerts or defining operational thresholds.",
+    "mode": "scope-downgrade",
+    "belief_update": {
+     "dimension": "ml_system_delivery",
+     "level": "medium",
+     "direction": "down"
+    }
+   }
+  }
+ },
+ "medium-evidence": {
+  "description": "Adding medium evidence to a specific dimension should move probability mass towards the medium level.",
+  "tests": {
+   "ml_0": {
+    "interviewer_turn": "Tell me about that RAG project—how did you frame and scope the problem before you started building?",
+    "applicant_turn": "We began by clarifying what users actually wanted: mainly answering internal questions from documents without manually searching. I framed it as a retrieve-then-answer workflow—fetch a handful of relevant chunks, then have the model answer grounded in that context. For success criteria, we focused on whether answers matched the source docs and whether the response could point back to where the information came from. I assembled a small set of representative questions and compared a simple baseline against a couple of iterations as we improved retrieval and prompting.",
+    "belief_update": {
+     "dimension": "problem_framing",
+     "level": "medium",
+     "direction": "up"
+    }
+   },
+   "ml_1": {
+    "interviewer_turn": "On the forest-fire detection work: once you pulled the drone images off the device, what preprocessing did you do before training?",
+    "applicant_turn": "First I organized the data in a structure keyed by flight so we could track provenance. Then I removed obvious junk—corrupted frames and lots of near-duplicates from high-frequency capture. After that, I standardized the images so training would be consistent.",
+    "belief_update": {
+     "dimension": "data_judgement",
+     "level": "medium",
+     "direction": "up"
+    }
+   },
+   "ml_2": {
+    "interviewer_turn": "Pick one ML project from an internship and walk me through how you evaluated it—what metrics mattered?",
+    "applicant_turn": "On a cancer classifier, accuracy alone wasn't enough. We tracked precision and recall and used the confusion matrix because different errors had different costs. We also reported ROC-AUC as a broader measure of separability. To avoid overstating progress, we compared against a simple baseline. I also checked performance across a couple of subgroups—like source site—just to see if there were clear gaps.",
+    "belief_update": {
+     "dimension": "evaluation_design",
+     "level": "medium",
+     "direction": "up"
+    }
+   },
+   "ml_3": {
+    "interviewer_turn": "When you fine-tuned YOLO, how did you go about picking hyperparameters—and deciding which run was “best”?",
+    "applicant_turn": "I started with a known-good default configuration and then changed a small number of variables per run—primarily learning rate and augmentations, and sometimes batch size if training got unstable. I documented each change along with validation outcomes. mAP was the main metric, and I also reviewed predictions on a small set of sample images because it surfaced failure patterns quickly. After several runs, I chose the setup that was consistently better across both the metrics and those qualitative checks.",
+    "belief_update": {
+     "dimension": "failure_analysis_and_iteration",
+     "level": "medium",
+     "direction": "up"
+    }
+   },
+   "ml_4": {
+    "interviewer_turn": "How did that sentiment model make it into production—what did deployment actually look like?",
+    "applicant_turn": "We aligned with the software team on the request/response contract—what inputs the service would send and what outputs the model should return. I packaged the model so it could be called from the existing service and ensured it ran in the same environment as the rest of the stack. We added basic logging for volume, errors, and latency, and tracked which model artifact/version was active. After rollout, we mainly monitored stability and performance to ensure it didn't introduce slowdowns or issues.",
+    "belief_update": {
+     "dimension": "ml_system_delivery",
+     "level": "medium",
+     "direction": "up"
+    }
+   },
+   "ml_5": {
+    "interviewer_turn": "You walk out of a stakeholder meeting—what's the very next message you send, and what does it include?",
+    "applicant_turn": "I send a brief recap email summarizing the goal we aligned on and the approach at a high level. I call out key requirements—like what data is available, where outputs will be used, and any timeline constraints. Then I outline next steps and the main metric or checklist we'll use to judge improvement. I also list open questions and ask the appropriate owners to clarify them.",
+    "belief_update": {
+     "dimension": "communication",
+     "level": "medium",
+     "direction": "up"
+    }
+   },
+   "ml_6": {
+    "interviewer_turn": "For your Llama fine-tune, what did you track to tell whether it was actually getting better?",
+    "applicant_turn": "I built a small evaluation set reflecting the prompt types we cared about and tracked how often the output was acceptable. I also sampled responses for quick qualitative checks—staying on topic and following the expected format. Training loss was mostly a sanity signal. And we ran a handful of “problem prompts,” like requests it shouldn't answer, to see how behavior changed after updates.",
+    "belief_update": {
+     "dimension": "problem_framing",
+     "level": "medium",
+     "direction": "up"
+    }
+   },
+   "ml_7": {
+    "interviewer_turn": "How did you deal with missing values in validation/test—specifically, how did you impute without leaking information?",
+    "applicant_turn": "I handled it through the same preprocessing pipeline used for training so everything stayed consistent. For categorical features, I fit the encoding on the training data and then used an “unknown” option for unseen categories in validation/test. For numeric missing values, I used a simple imputer fit on train and applied it to the other splits. I saved the preprocessing steps alongside the model so reruns and later usage behaved the same way.",
+    "belief_update": {
+     "dimension": "data_judgement",
+     "level": "medium",
+     "direction": "up"
+    }
+   },
+   "ml_8": {
+    "interviewer_turn": "Have you worked on a time-series prediction problem? If yes, how did you measure performance and sanity-check results?",
+    "applicant_turn": "Yes—on a time-series project, I used a standard train/validation/test split and reported MAE and MSE. I compared against simple baselines like last-value prediction or a moving average so we had a reference. I also reviewed performance across a couple of different time periods to make sure it wasn't failing in an obvious way, but the primary focus was the overall metrics.",
+    "belief_update": {
+     "dimension": "evaluation_design",
+     "level": "medium",
+     "direction": "up"
+    }
+   },
+   "ml_9": {
+    "interviewer_turn": "On your forex predictor, did you ever modify the real-time system—what changes did you actually make and how did you validate them?",
+    "applicant_turn": "Yes—we made a few updates to the real-time system. When we had a new model, we deployed it into the service and monitored operational metrics like latency and error rate to ensure it wasn't causing issues. We also spot-checked sample outputs after the change. Inputs and predictions were logged for later review, and we tracked which model version was currently running.",
+    "belief_update": {
+     "dimension": "ml_system_delivery",
+     "level": "medium",
+     "direction": "up"
+    }
+   }
+  }
+ },
+ "repetition": {
+  "description": "Rewords/paraphrases/repeats previously provided information and thus, should not move posteriors.",
+  "tests": {
+   "ml_0": {
+    "interviewer_turn": "Describe your most successful project",
+    "applicant_turn": "I have two actually. The first was a p project using YOLO that scored an incredibly high mAP and the second was achieving an order of magnitude increase in automatic image annotation."
+   },
+   "ml_1": {
+    "interviewer_turn": "Describe a time where you were responsible for data collection.",
+    "applicant_turn": "One time I used a drone to collect data of a forest for downstream purposes such as wildfire prediction."
+   },
+   "ml_2": {
+    "interviewer_turn": "Describe an experience where you used Python?",
+    "applicant_turn": "Using software design principles and IO I created a quiz program."
+   },
+   "ml_3": {
+    "interviewer_turn": "That chatbot seems interesting. So it had much of an impact?",
+    "applicant_turn": "Yes it reduced SME workload by nearly an order of magnitude by automatically producing key dashboards."
+   },
+   "ml_4": {
+    "interviewer_turn": "Your BERT based sentiment detector. Talk me through that?",
+    "applicant_turn": "Basically, we were able to predict rude retailers with 93% accuracy to massivley reduce complains and boosting revenue.."
+   },
+   "ml_5": {
+    "interviewer_turn": "Looking back at your previous work experience, what really stands out?",
+    "applicant_turn": "I feel like my biggest impact was as a grad researcher where we looked at dynamic model architecture. As part of that role I also got lots of experience working in an HPC environment and training large models."
+   },
+   "ml_6": {
+    "interviewer_turn": "What's a time where you dealt with a massive dataset?",
+    "applicant_turn": "Would have been the mobile network optimisation project where there were tens of millions of data points and we aimed to identify network bottlenecks."
+   },
+   "ml_7": {
+    "interviewer_turn": "Tell me about a time when your work moved a needle the most - what do you hang your hat on?",
+    "applicant_turn": "100% my RA gig where we reduced execution time 8-fold using deep learning for feature selection."
+   },
+   "ml_8": {
+    "interviewer_turn": "Outside of work, what are you most proud of?",
+    "applicant_turn": "Definitely my uni scholarship. I know it's still related to my degree but that took some real effort outside of usual studying."
+   },
+   "ml_9": {
+    "interviewer_turn": "What was the hardest project you have worked on would you say?",
+    "applicant_turn": "Probably my forex trader because time-series forecasting (especially with highly stochastic signal like price data) is naturally difficult."
+   }
+  }
+ },
+ "uniform-prior": {
+  "description": "",
+  "tests": {
+   "ml_0": {
+    "rubric": "gd",
+    "dimension": "composition"
+   },
+   "ml_1": {
+    "rubric": "gd",
+    "dimension": "visual_hierarchy"
+   },
+   "ml_2": {
+    "rubric": "gd",
+    "dimension": "brand_alignment"
+   },
+   "ml_3": {
+    "rubric": "gd",
+    "dimension": "typography"
+   },
+   "ml_4": {
+    "rubric": "gd",
+    "dimension": "visual_hierarchy"
+   },
+   "ml_5": {
+    "rubric": "gd",
+    "dimension": "typography"
+   },
+   "ml_6": {
+    "rubric": "gd",
+    "dimension": "brand_alignment"
+   },
+   "ml_7": {
+    "rubric": "gd",
+    "dimension": "composition"
+   },
+   "ml_8": {
+    "rubric": "sales",
+    "dimension": "market_focus"
+   },
+   "ml_9": {
+    "rubric": "sales",
+    "dimension": "outreach"
+   }
+  }
+ }
+}

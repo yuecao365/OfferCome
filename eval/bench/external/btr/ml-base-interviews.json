@@ -1,0 +1,278 @@
+{
+ "ml_0": [
+  {
+   "role": "interviewer",
+   "message": "Hey Alex, glad you could make it. I skimmed your resume—looks like you've bounced between robotics, ML, and testing roles. Can you give me a quick rundown of what you actually do day to day right now at Ridgeway Robotics?"
+  },
+  {
+   "role": "applicant",
+   "message": "Yeah, mostly data stuff. Pipelines, sensor data, making sure it gets where it needs to go. Some analysis too."
+  },
+  {
+   "role": "interviewer",
+   "message": "Got it. You mention owning end-to-end pipelines for production tests. What does “owning” that look like in practice? Are you coding, designing infra, coordinating teams?"
+  },
+  {
+   "role": "applicant",
+   "message": "A bit of all that. I set things up and keep them running. Write scripts, fix issues when they pop up."
+  },
+  {
+   "role": "interviewer",
+   "message": "Cool. I also saw the YOLOv8 project with 98% mAP. That's pretty high. What kind of objects were you detecting, and how did you measure that metric?"
+  },
+  {
+   "role": "applicant",
+   "message": "It was like UI elements from an aim trainer game. I just used the standard eval setup from YOLO, split the dataset, trained, and checked the numbers."
+  }
+ ],
+ "ml_1": [
+  {
+   "role": "interviewer",
+   "message": "Alright… I skimmed this. You've done a lot of robotics stuff. Were you actually coding most of that, or more like… organizing people?"
+  },
+  {
+   "role": "applicant",
+   "message": "Both. Led architecture and implemented core autonomy and perception systems."
+  },
+  {
+   "role": "interviewer",
+   "message": "This Mask R-CNN thing on the rover — why that? Seems heavy for a student project."
+  },
+  {
+   "role": "applicant",
+   "message": "Needed reliable instance segmentation for custom objects. It performed best after fine-tuning."
+  },
+  {
+   "role": "interviewer",
+   "message": "You mentioned Soft Actor-Critic for the rover arm. Did that actually work in the real world or just in simulation?"
+  },
+  {
+   "role": "applicant",
+   "message": "Sim first. Then transferred to hardware with constrained action space. Stable performance."
+  },
+  {
+   "role": "interviewer",
+   "message": "This forest fire project sounds… ambitious. Did you really build a NeRF for that?"
+  },
+  {
+   "role": "applicant",
+   "message": "Yes. Used it as a spatial prior in a transformer for environmental feature queries."
+  }
+ ],
+ "ml_2": [
+  {
+   "role": "interviewer",
+   "message": "Hi Amina! It's really nice to meet you. I had a chance to glance through your resume and I love seeing your mix of software engineering, RPA, and machine learning interests. To start us off, could you tell me a bit about yourself and what got you interested in this path?"
+  },
+  {
+   "role": "applicant",
+   "message": "Hi… thank you, it's really nice to meet you too. Umm, so I'm currently in my final year studying software engineering, and I think over time I just started getting more curious about how things can be automated, especially repetitive tasks. At first I was mostly focused on Python and basic programming, but then I discovered UiPath and machine learning courses online, and it kind of opened my eyes to how software can actually *do* things by itself, if that makes sense. I wouldn't say I'm an expert yet, but I've been trying to build small projects and follow tutorials to really understand how AI and automation can be applied in practical ways."
+  },
+  {
+   "role": "interviewer",
+   "message": "That's a wonderful way to explore your interests, honestly. I can tell you've been very proactive with self-learning. I noticed you mentioned a spam detection model and some ML tutorials you followed. Can you walk me through what you did there and what you learned from that experience?"
+  },
+  {
+   "role": "applicant",
+   "message": "Yes, sure… so the spam detection model was something I built after following Google's ML Crash Course and some scikit-learn tutorials. I started with understanding how text data can be converted into numbers using things like vectorization, which was a bit confusing at first. Then I used scikit-learn to train a simple model to classify messages as spam or not. It wasn't very advanced, but I learned a lot about preprocessing text, cleaning data, and evaluating the model's accuracy. I also tried to deploy it with Flask after watching some videos, which honestly took me some time to figure out, but it helped me understand how ML models can actually be used in applications."
+  },
+  {
+   "role": "interviewer",
+   "message": "That's fantastic progress for someone still in university. I also saw your project about the File Organizer Bot and the Bulk Data Migration Bot with UiPath. What was the most challenging part of working on those automation projects?"
+  },
+  {
+   "role": "applicant",
+   "message": "I think the hardest part was not really the coding itself, but understanding how to design the workflow properly before implementing it. With the File Organizer Bot, it seemed simple at first, but I had to think about edge cases, like different file types and unexpected folder structures. For the data migration bot, it was more challenging because I had to work with SQL Server and make sure the data was transferred correctly without breaking anything. I sometimes felt unsure if I was doing it the best way, so I kept revising the workflow and testing it many times. It taught me to be more patient and careful when automating processes."
+  }
+ ],
+ "ml_3": [
+  {
+   "role": "interviewer",
+   "message": "Hi Aarav, it's great to meet you. I had a look through your resume and there's a lot happening there for someone still in undergrad. I'm curious—how would you describe your core strength in one or two lines, beyond the list of tools and projects?"
+  },
+  {
+   "role": "applicant",
+   "message": "Nice to meet you as well. If I had to compress it, I'd say I'm unusually good at taking ambitious AI ideas and actually getting them to work end-to-end. A lot of people can train a model or write a script, but I focus on stitching systems together so they're usable, measurable, and actually impactful."
+  },
+  {
+   "role": "interviewer",
+   "message": "That's a confident claim. Can you walk me through one experience where you feel you truly delivered that kind of end-to-end impact rather than just a technical proof of concept?"
+  },
+  {
+   "role": "applicant",
+   "message": "Sure. During my LLM internship at Critical AI, I built a multimodal narrative system using Llama 3.2 that combined RAG, speech-to-text, text-to-speech, image search, and even OSM mappings. It wasn't just about hooking APIs together—the base console they had was pretty limited. After my integration, the functionality improved by more than 50%. People could actually use it to generate contextual, location-aware narratives from audio and images. That's where I think I stand out—making GenAI systems practical, not just flashy."
+  },
+  {
+   "role": "interviewer",
+   "message": "Interesting. With so many different technologies involved, how do you decide what to build yourself versus what to rely on from existing libraries or frameworks?"
+  },
+  {
+   "role": "applicant",
+   "message": "I'm quite pragmatic about it. If a library can do something reliably, I'll use it. But if I feel it's a black box that limits performance or understanding, I reimplement parts of it. For example, I built core GPT-2 components and KV-cache logic myself before fine-tuning LLaMA with LoRA. That way, I'm not just using models—I actually understand how they behave under the hood."
+  }
+ ],
+ "ml_4": [
+  {
+   "role": "interviewer",
+   "message": "Hi Avery, it's great to meet you! I was really intrigued by your research work at Redwood State, especially the part about protecting models from data exploitation. Could you tell me a bit about what drew you into that problem space?"
+  },
+  {
+   "role": "applicant",
+   "message": "Yeah, absolutely. I think I just kept noticing that a lot of work focused on making models better, faster, more accurate, but not necessarily safer. I kind of fell into a few papers around model inversion and data leakage, and it felt like an area where small ideas could have meaningful impact. So I explored it further and it turned into a pretty serious research direction."
+  },
+  {
+   "role": "interviewer",
+   "message": "That's a really thoughtful way to approach it. I also saw you implemented a defense method with diffusion autoencoders in PyTorch. What was the most challenging part of turning that idea into something that actually worked on large datasets?"
+  },
+  {
+   "role": "applicant",
+   "message": "Honestly, getting it to scale without breaking the assumptions behind the method. On paper it sounded straightforward, but once you start pushing 100k-plus samples through it, edge cases show up. A lot of time went into figuring out where the model was quietly failing rather than loudly failing."
+  },
+  {
+   "role": "interviewer",
+   "message": "That makes sense. Switching gears a bit, your experience at BluePeak shows strong data engineering alongside ML. How did working on large ETL pipelines influence the way you approach ML system design today?"
+  },
+  {
+   "role": "applicant",
+   "message": "I think it made me more cautious, in a good way. You start realizing models are only as good as the pipelines feeding them. So now I tend to think about data flow, monitoring, and failure modes almost before I think about model architecture."
+  },
+  {
+   "role": "interviewer",
+   "message": "I really like that perspective. One more thing I'm curious about—your sentiment model at RetailPulse had a pretty tangible business impact. How did you balance model experimentation with the need to ship something reliable in production?"
+  },
+  {
+   "role": "applicant",
+   "message": "We tried not to over-optimize for cleverness. There were a few fancier approaches we tested, but the BERT-based pipeline was the one we understood well enough to trust in production. It wasn't necessarily the most novel, just the most dependable under constraints."
+  }
+ ],
+ "ml_5": [
+  {
+   "role": "interviewer",
+   "message": "Walk me through what you're doing right now at CivicRelay."
+  },
+  {
+   "role": "applicant",
+   "message": "Sure. I'm working part-time as a software engineer focused on AI systems. I designed and now maintain an agentic RAG platform end to end. That includes the retrieval infrastructure, orchestration layer, and the frontend that streams responses. The goal was to help volunteers get information faster, and we saw noticeable improvements in both productivity and onboarding time after deployment."
+  },
+  {
+   "role": "interviewer",
+   "message": "Agentic RAG is vague. What did you actually build?"
+  },
+  {
+   "role": "applicant",
+   "message": "Right, so concretely I built the data pipelines for indexing multimodal content, then an orchestration layer in FastAPI that routes user queries to different agents based on intent and context. I also worked on optimizing latency by refining how retrieval and generation steps happen in sequence. On the frontend, I implemented real-time streaming so users can see partial responses while the system reasons."
+  },
+  {
+   "role": "interviewer",
+   "message": "Why did latency matter that much?"
+  },
+  {
+   "role": "applicant",
+   "message": "Because users were interacting with it conversationally. If responses took too long, they'd abandon the flow. We were seeing p95 spikes as usage grew, so I profiled the routing logic and retrieval calls and adjusted how agents were selected and how much context they were given. That brought latency down and also reduced unnecessary compute cost."
+  },
+  {
+   "role": "interviewer",
+   "message": "You also did research. How is that relevant here?"
+  },
+  {
+   "role": "applicant",
+   "message": "During my graduate research I worked on dynamically adjusting transformer architectures during training. That experience made me comfortable with profiling model behavior and thinking about efficiency, not just accuracy. I think that mindset translated well when optimizing real-world LLM systems where performance and cost matter as much as model quality."
+  }
+ ],
+ "ml_6": [
+  {
+   "role": "interviewer",
+   "message": "Hi Arjun, thanks for joining. I see you worked on reducing hallucinations in language models. Can you walk me through what you actually did there, step by step?"
+  },
+  {
+   "role": "applicant",
+   "message": "Yeah so basically I was trying to make the model say less wrong stuff. I used Llama 2 and did fine tuning with LoRA and QLoRA and also tried 4 bit and 8 bit quantization so it costs less GPU. I tested it on this benchmark called HaluEval to see if it still gives correct facts."
+  },
+  {
+   "role": "interviewer",
+   "message": "Interesting. When you say you kept hallucination within 2 to 3 percent, how were you measuring that exactly, and what changed between 4-bit and 8-bit for you?"
+  },
+  {
+   "role": "applicant",
+   "message": "I was counting the wrong answers from the model compared to the expected answers in the dataset. Like factual mismatch. With 4 bit it was cheaper but sometimes slightly worse answers, 8 bit was more stable but still cheaper than full precision. I kind of balanced based on accuracy and cost."
+  },
+  {
+   "role": "interviewer",
+   "message": "Got it. You also mentioned building a full GCP pipeline for this. What parts of that pipeline did you design yourself versus using existing tools?"
+  },
+  {
+   "role": "applicant",
+   "message": "I set up the compute instances and storage and scripts to move data around. I wrote the training scripts and evaluation part. Some parts like storage buckets and VM setup were standard GCP stuff but the flow of how data goes in, model trains, then evaluates, that I set up."
+  },
+  {
+   "role": "interviewer",
+   "message": "You've got a mix of AI work and jobs like gym manager and waiter. How do you think those experiences actually help you in a technical role?"
+  },
+  {
+   "role": "applicant",
+   "message": "I think it helped me deal with people and pressure. Like in the restaurant it gets very busy and you still have to be calm. In the gym I look at numbers like memberships and try to improve things, so I kind of apply data thinking there too."
+  }
+ ],
+ "ml_7": [
+  {
+   "role": "interviewer",
+   "message": "Hi Alex, thanks for coming in. I see you did a lot of research work during your PhD. Can you tell me, in simple words, what kind of work you were doing day to day?"
+  },
+  {
+   "role": "applicant",
+   "message": "Yes, I work with data and numbers. I try make computer learn from data. I run many code, test many time, and try make things faster and more correct."
+  },
+  {
+   "role": "interviewer",
+   "message": "When you say you made things faster, what exactly were you improving, and how did you know it was working better than before?"
+  },
+  {
+   "role": "applicant",
+   "message": "Before it take very long time to run, like hours. I change how code run and use many computer together. After that, it run much quicker. I check time and also check result still same or better."
+  }
+ ],
+ "ml_8": [
+  {
+   "role": "interviewer",
+   "message": "Tell me about what you do now."
+  },
+  {
+   "role": "applicant",
+   "message": "Oh yeah, so I work on like big web stuff at my company, making sure everything runs smooth and doesn't break when lots of people use it. I also mess around with smart computer programs that learn from data to make the app better for users. It's pretty fun honestly."
+  },
+  {
+   "role": "interviewer",
+   "message": "Biggest thing you improved there?"
+  },
+  {
+   "role": "applicant",
+   "message": "We changed how the whole thing was set up so it didn't crash when traffic got crazy, and I helped tweak how we use the cloud so the company saved a bunch of money. People were pretty happy about that part."
+  }
+ ],
+ "ml_9": [
+  {
+   "role": "interviewer",
+   "message": "Alright, I skimmed your resume and I'm a bit confused already—you've jumped from ports to gambling to transport to forex. What exactly do you think you're best at, because it reads a little all over the place?"
+  },
+  {
+   "role": "applicant",
+   "message": "Yes, I understand how it can look scattered, but actually the common thread across all those roles is data analysis and applied machine learning. Even when I was working on port systems or gambling platforms, I was the one pulling out the statistics, building reports, or adding predictive components. Over time I naturally shifted more into ML-focused work because I realized I was much stronger there, especially with Python and data modelling, so the domain changed but the technical direction became more and more consistent toward machine learning engineering."
+  },
+  {
+   "role": "interviewer",
+   "message": "Hmm. You say machine learning, but I mostly see reporting, SQL, and scripts for cameras. That doesn't scream ML engineer to me. Why should I believe you can actually do serious modelling?"
+  },
+  {
+   "role": "applicant",
+   "message": "That's fair, because some of those roles were operationally heavy, especially the transport department one where reliability mattered more than experimentation. But in parallel I was always the person building prototypes and internal tools. For example, at Automated Systems I built a deep learning image recognition system with PyTorch that was integrated into the iAmSmart initiative, and more recently at Forex Forest I built an LSTM-based predictor from scratch in PyTorch using historical trend data and then improved an existing logistic regression bot by replacing parts with XGBoost, which improved performance by 35%. I've done the modelling, tuning, and evaluation, but sometimes the job titles didn't fully reflect that part of my contribution."
+  },
+  {
+   "role": "interviewer",
+   "message": "Okay, jumping topic—your education is statistics and data science, but you also did Java and databases earlier. If I drop you into a messy dataset tomorrow, what's the first thing you actually do, not theoretically, but practically?"
+  },
+  {
+   "role": "applicant",
+   "message": "Practically, the first thing I do is not even model anything. I profile the data thoroughly using Python, usually pandas and some quick visualization, because I want to understand distributions, missing values, and potential leakage before thinking about algorithms. I'll check how the data was collected, what each feature represents in real terms, and whether the target variable makes sense. Only after that I start thinking about feature engineering and a baseline model like logistic regression or a simple tree model, just to understand signal strength before moving into more complex approaches like neural networks or boosting methods."
+  }
+ ]
+}

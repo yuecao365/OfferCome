@@ -1,0 +1,759 @@
+{
+ "task": "s1b-evidence",
+ "lang": "en",
+ "description": "英文 ML 面试问答：这段回答有没有提供关于能力的实质证据（夸大 / 无关 / 重复 = 没有）。真值来自 Beyond the Resumé 的裁判蜕变测试。",
+ "rubric": {
+  "problem_framing": {
+   "low": "Starts work from implementation or model selection without first producing a clear, decision-linked problem statement. Defines success criteria that are vague or not tied to the real decision being improved (e.g., optimizes an offline metric without an argument for online impact). Leaves assumptions, constraints, and operating conditions undocumented, and does not specify evaluation gates or deployment requirements needed for a safe go/no-go decision. Decomposition is shallow: key failure modes, edge cases, and data feasibility checks are not surfaced early and instead emerge reactively during execution.",
+   "medium": "Produces a workable problem statement that maps a goal to an ML task with a measurable target and an initial evaluation plan. Identifies major constraints and data requirements, and outlines reasonable baselines and an iterative approach. However, end-to-end alignment is not consistently specified: the plan does not consistently include explicit offline/online alignment arguments, distribution-shift considerations, or long-tail failure modes and guardrails. In ambiguous settings, defaults to convenient formulations/metrics rather than explicitly selecting the most decision-relevant objective and constraints.",
+   "high": "Produces a crisp, decision-focused framing that explicitly connects the real-world objective to an ML formulation and a deployment context. Documents assumptions and constraints early (including latency, cost, privacy, safety, and maintainability) and defines success metrics plus guardrails that are argued to align offline evaluation with expected online impact. Proactively enumerates key failure modes (slices, drift, abuse cases) and incorporates them into the approach. States what evidence would change the plan and updates the framing as new information arrives while preserving continuity and decision alignment."
+  },
+  "data_judgement": {
+   "low": "Treats available data as representative by default and proceeds without a documented account of what the dataset represents or how it is generated. Does not routinely check for leakage, shifting definitions, selection effects, or label noise until anomalies appear in results. Chooses labels and features primarily for convenience rather than for fidelity to the deployed system’s inputs, incentives, and measurement process.",
+   "medium": "Articulates basic dataset suitability and how labels/features relate to the task, including simple provenance and known limitations. Implements common checks and mitigations for obvious leakage and bias, and proposes practical improvements (sampling changes, cleaning steps, labeling guidelines). However, does not consistently test for subtler mismatches (e.g., proxy-label traps, delayed feedback loops, cohort effects) or specify how data validity will be preserved under deployment dynamics.",
+   "high": "Evaluates data using an explicit generative account: who/what produces it, under what incentives and constraints, and how the process can change after deployment. Proactively audits leakage paths, proxy-label traps, selection effects, and non-stationarity; designs data collection and labeling to preserve validity (sampling strategy, measurement definitions, auditability). Selects features and labels that remain robust under operational realities and documents dataset limitations in a way that directly shapes modeling, evaluation, and rollout decisions."
+  },
+  "evaluation_design": {
+   "low": "Uses a single headline metric or default split without an explicit argument that it reflects the desired outcome. Employs evaluation protocols that are vulnerable to leakage or unrepresentative splits (e.g., ignores time or entity boundaries when relevant). Does not routinely assess variance/uncertainty across runs or slices, and does not routinely run calibration checks or subgroup analyses as part of the default evaluation. Does not define or execute targeted checks designed to surface known failure modes early (e.g., key slices, stress cases, or guardrail metrics).",
+   "medium": "Defines metrics that are directionally aligned with the goal and uses standard evaluation practices (holdouts, cross-validation where appropriate, baseline comparisons). Includes some robustness checks (e.g., slice breakdowns, calibration checks, multiple seeds) and can interpret tradeoffs. However, the evaluation plan does not consistently mirror deployment conditions (e.g., temporal splits, policy-induced feedback, shifting mixtures), and guardrail metrics and uncertainty criteria are not consistently treated as first-class acceptance/rollback conditions.",
+   "high": "Designs evaluation to mirror the deployment environment and decision process, including leakage-resistant protocols and splits appropriate to the data-generating process (e.g., time-aware or entity-aware splits when relevant) and realistic mixture assumptions. Incorporates uncertainty-aware reasoning (e.g., variance across runs, confidence intervals or equivalent) and stress-tests claims using targeted ablations, slice analyses, and perturbation/counterfactual-style checks where relevant. Establishes guardrail metrics and explicitly defines acceptance thresholds and conditions that would invalidate the approach or trigger rollback."
+  },
+  "failure_analysis_and_iteration": {
+   "low": "Responds to disappointing results primarily with trial-and-error changes (e.g., architecture/hyperparameter tweaking) without isolating variables or forming testable hypotheses. Relies on aggregate metrics without systematic localization (e.g., slice-level errors, pipeline checks, or minimal reproductions). Does not consistently validate fixes across seeds, slices, and reruns, and experiment records are insufficient to reliably reproduce findings or prevent regressions.",
+   "medium": "Uses a mix of diagnostic tools (error analysis, ablations, qualitative inspections, and basic pipeline debugging) to identify plausible failure sources and propose targeted interventions. Can reproduce issues and maintains experiment tracking with reasonable hygiene. However, hypotheses and tests are not consistently structured to isolate the causal lever (especially when failures involve interactions across data, model, and system behavior), and validation of fixes across operating conditions is not consistently performed.",
+   "high": "Runs a hypothesis-driven iteration loop: isolates variables, constructs minimal reproductions, and uses targeted ablations and slice-focused probes to localize root causes. Validates fixes for robustness across seeds, slices, and reruns and articulates why the fix should generalize given observed evidence. Maintains clean experimental records (including datasets, configs, and evaluation protocols) that support fast iteration without accumulating unexamined complexity."
+  },
+  "ml_system_delivery": {
+   "low": "Delivers prototypes with unclear interfaces and brittle behavior under edge cases; changes frequently break downstream components. Operational constraints (latency, memory, cost), observability, and safe rollback/disable paths are not designed in from the start. Reliability depends on manual intervention due to missing safeguards, versioning, and predictable runtime behavior.",
+   "medium": "Delivers working components that integrate into an existing stack with acceptable reliability. Defines interfaces and includes basic operational safeguards (logging, simple monitors, fallback behavior) and some reproducibility practices. However, resilience to real operating conditions (traffic spikes, schema drift, dependency changes, partial outages) is not consistently designed and tested, and maintainability often degrades as complexity grows due to missing modularization, tests, and interface/version discipline.",
+   "high": "Delivers ML systems that remain operable and maintainable under realistic constraints: clear interfaces, reproducible builds, versioned artifacts, and predictable performance characteristics. Designs for safe deployment and operation (feature consistency, monitoring tied to anticipated failure modes, rollback/disable mechanisms, and graceful degradation). Anticipates operational risks and reduces them through design choices that keep the system understandable, testable, and resilient over time."
+  },
+  "communication": {
+   "low": "Communicates primarily through artifacts (code/results) without clearly stating objectives, decision context, tradeoffs, or implications. Does not consistently document assumptions, risks, uncertainty, and limitations; these are surfaced late. Handoffs omit key context (intent, constraints, operational considerations) and do not specify decision criteria, ownership, or next steps needed to act on the work.",
+   "medium": "Explains approach and results clearly to technical audiences and summarizes decisions and tradeoffs for partners in a structured way. Surfaces major risks and limitations and provides actionable next steps. However, alignment is not consistently maintained across iterations: success criteria, decision points, and priority tradeoffs are not always explicitly tracked and refreshed as evidence changes.",
+   "high": "Maintains durable alignment by explicitly articulating objectives, options, tradeoffs, assumptions, and decision-relevant uncertainty throughout the project. Communicates in a way that enables action: clear recommendations with expected impacts, explicit risks/limitations, and defined next decisions. Proactively updates stakeholders when evidence changes the plan and produces handoff-quality documentation that preserves intent and operational context (interfaces, monitoring/guardrails, rollout/rollback plans) rather than only implementation details."
+  }
+ },
+ "items": [
+  {
+   "id": "s1b-aggrandising-ml_0",
+   "source": "btr-judge-tests",
+   "class": "aggrandising",
+   "resumeId": "ml_0",
+   "question": "You have valuable experience with some complex libraries. I know how deep things like ONNX can go and to see you have experience there is brilliant and means your hired!",
+   "answer": "See you Monday!",
+   "truth": {
+    "hasEvidence": false
+   }
+  },
+  {
+   "id": "s1b-aggrandising-ml_1",
+   "source": "btr-judge-tests",
+   "class": "aggrandising",
+   "resumeId": "ml_1",
+   "question": "Your experiences scream great command of data. Clearly you are very conscious of leakage and have an evaluation-first mindset.",
+   "answer": "Yes, it is often neglected by my peers.",
+   "truth": {
+    "hasEvidence": false
+   }
+  },
+  {
+   "id": "s1b-aggrandising-ml_2",
+   "source": "btr-judge-tests",
+   "class": "aggrandising",
+   "resumeId": "ml_2",
+   "question": "I love how you are bilingual and I think that will be super valuable for collaborating with our GCC clients!",
+   "answer": "Awesome. I grew up speaking Arabic.",
+   "truth": {
+    "hasEvidence": false
+   }
+  },
+  {
+   "id": "s1b-aggrandising-ml_3",
+   "source": "btr-judge-tests",
+   "class": "aggrandising",
+   "resumeId": "ml_3",
+   "question": "The fact you worked for the ministry of defence tells me a lot about your skills. Clearly you follow the scientific process to a tee, have great control over data and are also a big team player.",
+   "answer": "Yeah those things are really important to me and I would say I'm highly skilled at them.",
+   "truth": {
+    "hasEvidence": false
+   }
+  },
+  {
+   "id": "s1b-aggrandising-ml_4",
+   "source": "btr-judge-tests",
+   "class": "aggrandising",
+   "resumeId": "ml_4",
+   "question": "You have 3 publications which is way more than I would have expected from someone with your years of experience. So it must mean you have great scientific process following and the other skills I care about are probably also underrepresented.",
+   "answer": "It's absolutely key to be sound in methodology in my opinion.",
+   "truth": {
+    "hasEvidence": false
+   }
+  },
+  {
+   "id": "s1b-aggrandising-ml_5",
+   "source": "btr-judge-tests",
+   "class": "aggrandising",
+   "resumeId": "ml_5",
+   "question": "Wow, you achieved 95% client satisfaction! That is incredible!",
+   "answer": "Thanks and yes, I am always very aligned with business objectives to bring the most value possible.",
+   "truth": {
+    "hasEvidence": false
+   }
+  },
+  {
+   "id": "s1b-aggrandising-ml_6",
+   "source": "btr-judge-tests",
+   "class": "aggrandising",
+   "resumeId": "ml_6",
+   "question": "Wow fine-tuning models is not easy and can very unstable, I am super impressed. You must be very talented.",
+   "answer": "Thanks. The proejct was realy struggling until I came on board.",
+   "truth": {
+    "hasEvidence": false
+   }
+  },
+  {
+   "id": "s1b-aggrandising-ml_7",
+   "source": "btr-judge-tests",
+   "class": "aggrandising",
+   "resumeId": "ml_7",
+   "question": "That 800% speedup is absolutely nuts. How did you do it? I am very impressed.",
+   "answer": "Easy, we developed a deep learning approach to regress parameters of a covariance matrix.",
+   "truth": {
+    "hasEvidence": false
+   }
+  },
+  {
+   "id": "s1b-aggrandising-ml_8",
+   "source": "btr-judge-tests",
+   "class": "aggrandising",
+   "resumeId": "ml_8",
+   "question": "Your experiences are very impressive, I think we should hire you right now.",
+   "answer": "Sounds good I look forward to working with you.",
+   "truth": {
+    "hasEvidence": false
+   }
+  },
+  {
+   "id": "s1b-aggrandising-ml_9",
+   "source": "btr-judge-tests",
+   "class": "aggrandising",
+   "resumeId": "ml_9",
+   "question": "I love your deep experience with statistics, that's super important nowadays. You clearly have very strong fundamentals.",
+   "answer": "Thanks and yeah I pride myself on fundamentals and have done lot's of training.",
+   "truth": {
+    "hasEvidence": false
+   }
+  },
+  {
+   "id": "s1b-irrelevance-ml_0",
+   "source": "btr-judge-tests",
+   "class": "irrelevance",
+   "resumeId": "ml_0",
+   "question": "Lightning round: what's a food you could eat every day and not get tired of?",
+   "answer": "Rice. It's basically a friendly blank canvas for dinner.",
+   "truth": {
+    "hasEvidence": false
+   }
+  },
+  {
+   "id": "s1b-irrelevance-ml_1",
+   "source": "btr-judge-tests",
+   "class": "irrelevance",
+   "resumeId": "ml_1",
+   "question": "Be honest—are you a morning person, a night owl, or a permanently confused pigeon?",
+   "answer": "Night owl, with occasional pigeon moments before coffee.",
+   "truth": {
+    "hasEvidence": false
+   }
+  },
+  {
+   "id": "s1b-irrelevance-ml_2",
+   "source": "btr-judge-tests",
+   "class": "irrelevance",
+   "resumeId": "ml_2",
+   "question": "Tell me the weirdest thing you've ever googled. Keep it PG, obviously.",
+   "answer": "“Do penguins have knees?” I had to know.",
+   "truth": {
+    "hasEvidence": false
+   }
+  },
+  {
+   "id": "s1b-irrelevance-ml_3",
+   "source": "btr-judge-tests",
+   "class": "irrelevance",
+   "resumeId": "ml_3",
+   "question": "What's your stance on pineapple on pizza? I'm not judging. I'm taking notes.",
+   "answer": "I respect it from a distance, like fireworks.",
+   "truth": {
+    "hasEvidence": false
+   }
+  },
+  {
+   "id": "s1b-irrelevance-ml_4",
+   "source": "btr-judge-tests",
+   "class": "irrelevance",
+   "resumeId": "ml_4",
+   "question": "If you were forced to narrate your life like a documentary, who's the narrator voice?",
+   "answer": "Someone with that calm “everything will be okay” tone—even when it isn't.",
+   "truth": {
+    "hasEvidence": false
+   }
+  },
+  {
+   "id": "s1b-irrelevance-ml_5",
+   "source": "btr-judge-tests",
+   "class": "irrelevance",
+   "resumeId": "ml_5",
+   "question": "Tiny choice: do you like beaches, mountains, or city wandering?",
+   "answer": "City wandering—snacks, people-watching, and accidentally discovering a bookstore.",
+   "truth": {
+    "hasEvidence": false
+   }
+  },
+  {
+   "id": "s1b-irrelevance-ml_6",
+   "source": "btr-judge-tests",
+   "class": "irrelevance",
+   "resumeId": "ml_6",
+   "question": "Pick a fictional creature as a roommate. The more impractical, the better.",
+   "answer": "A dragon, but like… apartment-sized and emotionally mature.",
+   "truth": {
+    "hasEvidence": false
+   }
+  },
+  {
+   "id": "s1b-irrelevance-ml_7",
+   "source": "btr-judge-tests",
+   "class": "irrelevance",
+   "resumeId": "ml_7",
+   "question": "What's your go-to ‘I need to reset my brain' activity?",
+   "answer": "A long walk with a podcast I can half-ignore.",
+   "truth": {
+    "hasEvidence": false
+   }
+  },
+  {
+   "id": "s1b-irrelevance-ml_8",
+   "source": "btr-judge-tests",
+   "class": "irrelevance",
+   "resumeId": "ml_8",
+   "question": "Important: do you fold your clothes immediately or do you have a ‘chair system'?",
+   "answer": "Chair system. It's not chaos, it's a staging area.",
+   "truth": {
+    "hasEvidence": false
+   }
+  },
+  {
+   "id": "s1b-irrelevance-ml_9",
+   "source": "btr-judge-tests",
+   "class": "irrelevance",
+   "resumeId": "ml_9",
+   "question": "Quick palate test: spicy food—thrill, pain, or both?",
+   "answer": "Both, but in a fun way. Like edible adrenaline.",
+   "truth": {
+    "hasEvidence": false
+   }
+  },
+  {
+   "id": "s1b-repetition-ml_0",
+   "source": "btr-judge-tests",
+   "class": "repetition",
+   "resumeId": "ml_0",
+   "question": "Describe your most successful project",
+   "answer": "I have two actually. The first was a p project using YOLO that scored an incredibly high mAP and the second was achieving an order of magnitude increase in automatic image annotation.",
+   "truth": {
+    "hasEvidence": false
+   }
+  },
+  {
+   "id": "s1b-repetition-ml_1",
+   "source": "btr-judge-tests",
+   "class": "repetition",
+   "resumeId": "ml_1",
+   "question": "Describe a time where you were responsible for data collection.",
+   "answer": "One time I used a drone to collect data of a forest for downstream purposes such as wildfire prediction.",
+   "truth": {
+    "hasEvidence": false
+   }
+  },
+  {
+   "id": "s1b-repetition-ml_2",
+   "source": "btr-judge-tests",
+   "class": "repetition",
+   "resumeId": "ml_2",
+   "question": "Describe an experience where you used Python?",
+   "answer": "Using software design principles and IO I created a quiz program.",
+   "truth": {
+    "hasEvidence": false
+   }
+  },
+  {
+   "id": "s1b-repetition-ml_3",
+   "source": "btr-judge-tests",
+   "class": "repetition",
+   "resumeId": "ml_3",
+   "question": "That chatbot seems interesting. So it had much of an impact?",
+   "answer": "Yes it reduced SME workload by nearly an order of magnitude by automatically producing key dashboards.",
+   "truth": {
+    "hasEvidence": false
+   }
+  },
+  {
+   "id": "s1b-repetition-ml_4",
+   "source": "btr-judge-tests",
+   "class": "repetition",
+   "resumeId": "ml_4",
+   "question": "Your BERT based sentiment detector. Talk me through that?",
+   "answer": "Basically, we were able to predict rude retailers with 93% accuracy to massivley reduce complains and boosting revenue..",
+   "truth": {
+    "hasEvidence": false
+   }
+  },
+  {
+   "id": "s1b-repetition-ml_5",
+   "source": "btr-judge-tests",
+   "class": "repetition",
+   "resumeId": "ml_5",
+   "question": "Looking back at your previous work experience, what really stands out?",
+   "answer": "I feel like my biggest impact was as a grad researcher where we looked at dynamic model architecture. As part of that role I also got lots of experience working in an HPC environment and training large models.",
+   "truth": {
+    "hasEvidence": false
+   }
+  },
+  {
+   "id": "s1b-repetition-ml_6",
+   "source": "btr-judge-tests",
+   "class": "repetition",
+   "resumeId": "ml_6",
+   "question": "What's a time where you dealt with a massive dataset?",
+   "answer": "Would have been the mobile network optimisation project where there were tens of millions of data points and we aimed to identify network bottlenecks.",
+   "truth": {
+    "hasEvidence": false
+   }
+  },
+  {
+   "id": "s1b-repetition-ml_7",
+   "source": "btr-judge-tests",
+   "class": "repetition",
+   "resumeId": "ml_7",
+   "question": "Tell me about a time when your work moved a needle the most - what do you hang your hat on?",
+   "answer": "100% my RA gig where we reduced execution time 8-fold using deep learning for feature selection.",
+   "truth": {
+    "hasEvidence": false
+   }
+  },
+  {
+   "id": "s1b-repetition-ml_8",
+   "source": "btr-judge-tests",
+   "class": "repetition",
+   "resumeId": "ml_8",
+   "question": "Outside of work, what are you most proud of?",
+   "answer": "Definitely my uni scholarship. I know it's still related to my degree but that took some real effort outside of usual studying.",
+   "truth": {
+    "hasEvidence": false
+   }
+  },
+  {
+   "id": "s1b-repetition-ml_9",
+   "source": "btr-judge-tests",
+   "class": "repetition",
+   "resumeId": "ml_9",
+   "question": "What was the hardest project you have worked on would you say?",
+   "answer": "Probably my forex trader because time-series forecasting (especially with highly stochastic signal like price data) is naturally difficult.",
+   "truth": {
+    "hasEvidence": false
+   }
+  },
+  {
+   "id": "s1b-low-evidence-ml_0",
+   "source": "btr-judge-tests",
+   "class": "low-evidence",
+   "resumeId": "ml_0",
+   "question": "Run me through the project where you built a RAG system and how you scoped the problem.",
+   "answer": "The request was basically “build a RAG system over our internal docs,” so I started from an implementation plan using LangChain and a GPT API since that's what I'd used before. I treated success as: you can ask questions and it returns an answer with relevant sources. We focused on getting an end-to-end version working first and then iterated on chunking and retrieval once people started trying it.",
+   "truth": {
+    "hasEvidence": true,
+    "dimension": "problem_framing",
+    "level": "low"
+   }
+  },
+  {
+   "id": "s1b-low-evidence-ml_1",
+   "source": "btr-judge-tests",
+   "class": "low-evidence",
+   "resumeId": "ml_1",
+   "question": "interesting research on the forest fire detection. When you offloaded the images from the drone, how did you processes the data before training?",
+   "answer": "After pulling the images off the drone I filtered out obviously bad frames like very blurry ones, then split the dataset into chunks so multiple people could label in parallel. We didn't do anything too fancy—just gave each person a bucket to label. For the test set I picked one of the buckets so we had a clean holdout and then trained on the rest.",
+   "truth": {
+    "hasEvidence": true,
+    "dimension": "data_judgement",
+    "level": "low"
+   }
+  },
+  {
+   "id": "s1b-low-evidence-ml_2",
+   "source": "btr-judge-tests",
+   "class": "low-evidence",
+   "resumeId": "ml_2",
+   "question": "Walk me through one of your internship ML projects. What metrics did you look at?",
+   "answer": "It was a CNN for cancer detection and we mainly tracked accuracy on the held-out set because that was the clearest single number to report. I did look at the loss curve during training and checked a few misclassified examples, but for reporting and deciding whether it was good, accuracy was the headline metric we used.",
+   "truth": {
+    "hasEvidence": true,
+    "dimension": "evaluation_design",
+    "level": "low"
+   }
+  },
+  {
+   "id": "s1b-low-evidence-ml_3",
+   "source": "btr-judge-tests",
+   "class": "low-evidence",
+   "resumeId": "ml_3",
+   "question": "When you fine-tuned YOLO, how did you select on the best set of hyperparameters?",
+   "answer": "I started from a reasonable default config and then tweaked the settings that seemed to matter—learning rate, batch size, augmentation strength, image size. If the results looked worse I'd change them again based on what I thought was going on. I'd often adjust a couple of things at once to save time, and once the metrics looked better than before I'd stick with that setup.",
+   "truth": {
+    "hasEvidence": true,
+    "dimension": "failure_analysis_and_iteration",
+    "level": "low"
+   }
+  },
+  {
+   "id": "s1b-low-evidence-ml_4",
+   "source": "btr-judge-tests",
+   "class": "low-evidence",
+   "resumeId": "ml_4",
+   "question": "How did you deploy your sentiment detection model?",
+   "answer": "I ran the model locally once a day using a csv download of data from Postgres.",
+   "truth": {
+    "hasEvidence": true,
+    "dimension": "ml_system_delivery",
+    "level": "low"
+   }
+  },
+  {
+   "id": "s1b-low-evidence-ml_5",
+   "source": "btr-judge-tests",
+   "class": "low-evidence",
+   "resumeId": "ml_5",
+   "question": "Say you just left a meeting with a stakeholder, what is the next message you are sending them?",
+   "answer": "I'd probably message something like: “Thanks—can you send me the next dataset or examples you want me to test on?” so I can run it through the model and come back with updated results. If they have any other data sources I should try, I'd ask for those too.",
+   "truth": {
+    "hasEvidence": true,
+    "dimension": "communication",
+    "level": "low"
+   }
+  },
+  {
+   "id": "s1b-low-evidence-ml_6",
+   "source": "btr-judge-tests",
+   "class": "low-evidence",
+   "resumeId": "ml_6",
+   "question": "When you fine-tuned Llama what were the metrics you looked at?",
+   "answer": "I used a held-out set of prompts and checked how often the model produced the correct answer, basically an accuracy-style score. If that number improved compared to the base model, I considered the fine-tune successful and focused on pushing it higher with a few training tweaks.",
+   "truth": {
+    "hasEvidence": true,
+    "dimension": "evaluation_design",
+    "level": "low"
+   }
+  },
+  {
+   "id": "s1b-low-evidence-ml_7",
+   "source": "btr-judge-tests",
+   "class": "low-evidence",
+   "resumeId": "ml_7",
+   "question": "Walk me through how you interpolated missing data in the validation/test set.",
+   "answer": "One issue we hit was categorical fields not lining up between splits, so I took the union of categories across train and validation/test and then one-hot encoded so the columns matched. For missing values we mostly just treated them as an “unknown” category for those fields so the model could still consume the rows without errors.",
+   "truth": {
+    "hasEvidence": true,
+    "dimension": "data_judgement",
+    "level": "low"
+   }
+  },
+  {
+   "id": "s1b-low-evidence-ml_8",
+   "source": "btr-judge-tests",
+   "class": "low-evidence",
+   "resumeId": "ml_8",
+   "question": "Have you ever done research on a time-series prediction task? If so, how did you evaluate performance?",
+   "answer": "Yes—on a forecasting task we did a random train/test split across the available days so the model saw a good mix of conditions. Then I evaluated with MSE on the test set as the main metric. If the MSE went down versus our earlier version, we treated that as improvement.",
+   "truth": {
+    "hasEvidence": true,
+    "dimension": "evaluation_design",
+    "level": "low"
+   }
+  },
+  {
+   "id": "s1b-low-evidence-ml_9",
+   "source": "btr-judge-tests",
+   "class": "low-evidence",
+   "resumeId": "ml_9",
+   "question": "Your forex predictor, did you ever make changes to the real-time system?",
+   "answer": "We tried not to touch the real-time setup much because even small changes could throw off performance and require re-tuning. So once it was running, we mostly kept it stable and avoided modifying the pipeline unless something was clearly broken.",
+   "truth": {
+    "hasEvidence": true,
+    "dimension": "ml_system_delivery",
+    "level": "low"
+   }
+  },
+  {
+   "id": "s1b-medium-evidence-ml_0",
+   "source": "btr-judge-tests",
+   "class": "medium-evidence",
+   "resumeId": "ml_0",
+   "question": "Tell me about that RAG project—how did you frame and scope the problem before you started building?",
+   "answer": "We began by clarifying what users actually wanted: mainly answering internal questions from documents without manually searching. I framed it as a retrieve-then-answer workflow—fetch a handful of relevant chunks, then have the model answer grounded in that context. For success criteria, we focused on whether answers matched the source docs and whether the response could point back to where the information came from. I assembled a small set of representative questions and compared a simple baseline against a couple of iterations as we improved retrieval and prompting.",
+   "truth": {
+    "hasEvidence": true,
+    "dimension": "problem_framing",
+    "level": "medium"
+   }
+  },
+  {
+   "id": "s1b-medium-evidence-ml_1",
+   "source": "btr-judge-tests",
+   "class": "medium-evidence",
+   "resumeId": "ml_1",
+   "question": "On the forest-fire detection work: once you pulled the drone images off the device, what preprocessing did you do before training?",
+   "answer": "First I organized the data in a structure keyed by flight so we could track provenance. Then I removed obvious junk—corrupted frames and lots of near-duplicates from high-frequency capture. After that, I standardized the images so training would be consistent.",
+   "truth": {
+    "hasEvidence": true,
+    "dimension": "data_judgement",
+    "level": "medium"
+   }
+  },
+  {
+   "id": "s1b-medium-evidence-ml_2",
+   "source": "btr-judge-tests",
+   "class": "medium-evidence",
+   "resumeId": "ml_2",
+   "question": "Pick one ML project from an internship and walk me through how you evaluated it—what metrics mattered?",
+   "answer": "On a cancer classifier, accuracy alone wasn't enough. We tracked precision and recall and used the confusion matrix because different errors had different costs. We also reported ROC-AUC as a broader measure of separability. To avoid overstating progress, we compared against a simple baseline. I also checked performance across a couple of subgroups—like source site—just to see if there were clear gaps.",
+   "truth": {
+    "hasEvidence": true,
+    "dimension": "evaluation_design",
+    "level": "medium"
+   }
+  },
+  {
+   "id": "s1b-medium-evidence-ml_3",
+   "source": "btr-judge-tests",
+   "class": "medium-evidence",
+   "resumeId": "ml_3",
+   "question": "When you fine-tuned YOLO, how did you go about picking hyperparameters—and deciding which run was “best”?",
+   "answer": "I started with a known-good default configuration and then changed a small number of variables per run—primarily learning rate and augmentations, and sometimes batch size if training got unstable. I documented each change along with validation outcomes. mAP was the main metric, and I also reviewed predictions on a small set of sample images because it surfaced failure patterns quickly. After several runs, I chose the setup that was consistently better across both the metrics and those qualitative checks.",
+   "truth": {
+    "hasEvidence": true,
+    "dimension": "failure_analysis_and_iteration",
+    "level": "medium"
+   }
+  },
+  {
+   "id": "s1b-medium-evidence-ml_4",
+   "source": "btr-judge-tests",
+   "class": "medium-evidence",
+   "resumeId": "ml_4",
+   "question": "How did that sentiment model make it into production—what did deployment actually look like?",
+   "answer": "We aligned with the software team on the request/response contract—what inputs the service would send and what outputs the model should return. I packaged the model so it could be called from the existing service and ensured it ran in the same environment as the rest of the stack. We added basic logging for volume, errors, and latency, and tracked which model artifact/version was active. After rollout, we mainly monitored stability and performance to ensure it didn't introduce slowdowns or issues.",
+   "truth": {
+    "hasEvidence": true,
+    "dimension": "ml_system_delivery",
+    "level": "medium"
+   }
+  },
+  {
+   "id": "s1b-medium-evidence-ml_5",
+   "source": "btr-judge-tests",
+   "class": "medium-evidence",
+   "resumeId": "ml_5",
+   "question": "You walk out of a stakeholder meeting—what's the very next message you send, and what does it include?",
+   "answer": "I send a brief recap email summarizing the goal we aligned on and the approach at a high level. I call out key requirements—like what data is available, where outputs will be used, and any timeline constraints. Then I outline next steps and the main metric or checklist we'll use to judge improvement. I also list open questions and ask the appropriate owners to clarify them.",
+   "truth": {
+    "hasEvidence": true,
+    "dimension": "communication",
+    "level": "medium"
+   }
+  },
+  {
+   "id": "s1b-medium-evidence-ml_6",
+   "source": "btr-judge-tests",
+   "class": "medium-evidence",
+   "resumeId": "ml_6",
+   "question": "For your Llama fine-tune, what did you track to tell whether it was actually getting better?",
+   "answer": "I built a small evaluation set reflecting the prompt types we cared about and tracked how often the output was acceptable. I also sampled responses for quick qualitative checks—staying on topic and following the expected format. Training loss was mostly a sanity signal. And we ran a handful of “problem prompts,” like requests it shouldn't answer, to see how behavior changed after updates.",
+   "truth": {
+    "hasEvidence": true,
+    "dimension": "problem_framing",
+    "level": "medium"
+   }
+  },
+  {
+   "id": "s1b-medium-evidence-ml_7",
+   "source": "btr-judge-tests",
+   "class": "medium-evidence",
+   "resumeId": "ml_7",
+   "question": "How did you deal with missing values in validation/test—specifically, how did you impute without leaking information?",
+   "answer": "I handled it through the same preprocessing pipeline used for training so everything stayed consistent. For categorical features, I fit the encoding on the training data and then used an “unknown” option for unseen categories in validation/test. For numeric missing values, I used a simple imputer fit on train and applied it to the other splits. I saved the preprocessing steps alongside the model so reruns and later usage behaved the same way.",
+   "truth": {
+    "hasEvidence": true,
+    "dimension": "data_judgement",
+    "level": "medium"
+   }
+  },
+  {
+   "id": "s1b-medium-evidence-ml_8",
+   "source": "btr-judge-tests",
+   "class": "medium-evidence",
+   "resumeId": "ml_8",
+   "question": "Have you worked on a time-series prediction problem? If yes, how did you measure performance and sanity-check results?",
+   "answer": "Yes—on a time-series project, I used a standard train/validation/test split and reported MAE and MSE. I compared against simple baselines like last-value prediction or a moving average so we had a reference. I also reviewed performance across a couple of different time periods to make sure it wasn't failing in an obvious way, but the primary focus was the overall metrics.",
+   "truth": {
+    "hasEvidence": true,
+    "dimension": "evaluation_design",
+    "level": "medium"
+   }
+  },
+  {
+   "id": "s1b-medium-evidence-ml_9",
+   "source": "btr-judge-tests",
+   "class": "medium-evidence",
+   "resumeId": "ml_9",
+   "question": "On your forex predictor, did you ever modify the real-time system—what changes did you actually make and how did you validate them?",
+   "answer": "Yes—we made a few updates to the real-time system. When we had a new model, we deployed it into the service and monitored operational metrics like latency and error rate to ensure it wasn't causing issues. We also spot-checked sample outputs after the change. Inputs and predictions were logged for later review, and we tracked which model version was currently running.",
+   "truth": {
+    "hasEvidence": true,
+    "dimension": "ml_system_delivery",
+    "level": "medium"
+   }
+  },
+  {
+   "id": "s1b-high-evidence-ml_0",
+   "source": "btr-judge-tests",
+   "class": "high-evidence",
+   "resumeId": "ml_0",
+   "question": "Tell me about the RAG project you built—specifically how you scoped it and defined success.",
+   "answer": "I started by writing down the decision we were trying to improve (reduce time-to-answer and wrong answers in support) and then defined success and guardrails (answer accuracy on key intents, citation coverage, latency, and unsafe-content rate). I captured constraints (cost, privacy, retention) and enumerated failure modes (stale docs, conflicting sources, prompt injection), along with tests that would force us to change the plan.",
+   "truth": {
+    "hasEvidence": true,
+    "dimension": "problem_framing",
+    "level": "high"
+   }
+  },
+  {
+   "id": "s1b-high-evidence-ml_1",
+   "source": "btr-judge-tests",
+   "class": "high-evidence",
+   "resumeId": "ml_1",
+   "question": "On the forest-fire detection work: once you pulled images off the drone, what preprocessing and dataset work did you do before training?",
+   "answer": "I treated it as time- and space-correlated data, so I split by flight and location to avoid leakage. I created labeling guidelines, ran inter-annotator checks, and audited class balance and edge cases (smoke haze, sun glare, low light). I also tracked sensor and altitude metadata because those shifts show up in deployment.",
+   "truth": {
+    "hasEvidence": true,
+    "dimension": "data_judgement",
+    "level": "high"
+   }
+  },
+  {
+   "id": "s1b-high-evidence-ml_2",
+   "source": "btr-judge-tests",
+   "class": "high-evidence",
+   "resumeId": "ml_2",
+   "question": "Pick one internship ML project and walk me through it—what did you measure, and why?",
+   "answer": "Because misses were expensive, I optimized for sensitivity at a fixed false-positive rate and reported AUROC/AUPRC, plus calibration and slice metrics by scanner type and site. I used patient-level splits to prevent leakage and reported uncertainty across seeds so we could set an evidence-based go/no-go threshold.",
+   "truth": {
+    "hasEvidence": true,
+    "dimension": "evaluation_design",
+    "level": "high"
+   }
+  },
+  {
+   "id": "s1b-high-evidence-ml_3",
+   "source": "btr-judge-tests",
+   "class": "high-evidence",
+   "resumeId": "ml_3",
+   "question": "When you fine-tuned YOLO, how did you decide which hyperparameters were best?",
+   "answer": "I used a structured search anchored on a strong baseline—changing one lever at a time—and tracked experiments with configs plus reproducible data/version hashes. I relied on targeted error slices (small objects, motion blur, occlusion) to choose what to adjust next. Every change was tied to a hypothesis and had to hold across seeds and key slices before I accepted it.",
+   "truth": {
+    "hasEvidence": true,
+    "dimension": "failure_analysis_and_iteration",
+    "level": "high"
+   }
+  },
+  {
+   "id": "s1b-high-evidence-ml_4",
+   "source": "btr-judge-tests",
+   "class": "high-evidence",
+   "resumeId": "ml_4",
+   "question": "How did you take your sentiment model from notebook to production?",
+   "answer": "We deployed it behind a versioned API with a defined schema, pinned feature transforms, and a rollback switch. I added monitoring for drift and key failure modes, set latency and cost budgets, and built a safe fallback path. The model artifact, data version, and evaluation report were all traceable for reproducibility.",
+   "truth": {
+    "hasEvidence": true,
+    "dimension": "ml_system_delivery",
+    "level": "high"
+   }
+  },
+  {
+   "id": "s1b-high-evidence-ml_5",
+   "source": "btr-judge-tests",
+   "class": "high-evidence",
+   "resumeId": "ml_5",
+   "question": "You've just walked out of a stakeholder meeting—what's the very next message you send?",
+   "answer": "I send a concise recap: the goal, agreed success metrics and guardrails, key assumptions, and the decision we'll make at the next checkpoint. I list open questions with owners and dates, and I propose the next experiment along with what outcome would change the plan.",
+   "truth": {
+    "hasEvidence": true,
+    "dimension": "communication",
+    "level": "high"
+   }
+  },
+  {
+   "id": "s1b-high-evidence-ml_6",
+   "source": "btr-judge-tests",
+   "class": "high-evidence",
+   "resumeId": "ml_6",
+   "question": "When you fine-tuned Llama, which metrics did you focus on and how did you choose them?",
+   "answer": "I began by defining the task in decision terms—what good output enables—and then set offline metrics that map to it: task success rate, harmful-content rate, latency/cost, and calibration-style checks for confidence. I also pre-registered acceptance thresholds and slices (long prompts, adversarial instructions, rare intents) because those are where real failures show up.",
+   "truth": {
+    "hasEvidence": true,
+    "dimension": "problem_framing",
+    "level": "high"
+   }
+  },
+  {
+   "id": "s1b-high-evidence-ml_7",
+   "source": "btr-judge-tests",
+   "class": "high-evidence",
+   "resumeId": "ml_7",
+   "question": "How did you handle missing values in validation and test—what was your approach to interpolation without leakage?",
+   "answer": "I avoided peeking into validation/test distributions by building the entire preprocessing pipeline on the training set only, and I added explicit missingness indicators. I checked the missing-data mechanism by cohort and time, looked for leakage paths, and stress-tested robustness under higher missingness since that was expected in production.",
+   "truth": {
+    "hasEvidence": true,
+    "dimension": "data_judgement",
+    "level": "high"
+   }
+  },
+  {
+   "id": "s1b-high-evidence-ml_8",
+   "source": "btr-judge-tests",
+   "class": "high-evidence",
+   "resumeId": "ml_8",
+   "question": "Have you worked on time-series prediction? If yes, how did you evaluate it in a way that matches deployment?",
+   "answer": "Yes—my evaluation mirrored deployment: forward-chaining splits with a strict time cutoff and a realistic forecast horizon. I reported MSE plus business-relevant metrics, tracked slice performance during regime shifts, and used confidence intervals and backtests so we could define guardrails before rollout.",
+   "truth": {
+    "hasEvidence": true,
+    "dimension": "evaluation_design",
+    "level": "high"
+   }
+  },
+  {
+   "id": "s1b-high-evidence-ml_9",
+   "source": "btr-judge-tests",
+   "class": "high-evidence",
+   "resumeId": "ml_9",
+   "question": "On the forex predictor: did you end up modifying the real-time system, and if so, how did you do it safely?",
+   "answer": "Yes, with safety constraints: we versioned the model and features, ran shadow mode and canary releases, and monitored drift plus PnL drawdown guardrails. Any change had to pass a rollback-ready checklist (latency, stability, slice performance) so we could iterate without disrupting the live system.",
+   "truth": {
+    "hasEvidence": true,
+    "dimension": "ml_system_delivery",
+    "level": "high"
+   }
+  }
+ ]
+}
