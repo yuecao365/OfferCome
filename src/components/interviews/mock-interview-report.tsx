@@ -14,8 +14,8 @@ import { InterviewerTrail } from "./interviewer-trail";
 import { QuestionDimensionScores } from "./mock-interview-report-visuals";
 
 /**
- * 报告页，从上到下：总分（怎么算的）与两句总评 → 失守与练法 → 站得住的 → 简历上的说法 → 能力估计 → 逐段（默认折叠）。
- * 负面反馈都带候选人的原话；决策记录只留页尾一个链接。本地版与体验版共用。
+ * 报告页，从上到下：总分与两句总评 → 失守与练法（最多 3 条）→ 站得住的（一行）→ 简历上的说法（只列判过的）→ 能力估计（一行）→ 面试官思路 → 逐段（默认折叠）。
+ * 首屏只放主要判断，细节都折叠在逐段里；开发者记录只留页尾一个链接。本地版与体验版共用。
  */
 
 type Question = MockInterviewView["questions"][number];
@@ -36,6 +36,9 @@ function Score({ value }: { value: number }) {
 }
 
 const WEAKNESS_KIND_LABELS: Record<string, string> = { error: "说错了", missing: "没答上", pattern: "反复出现" };
+/** 首屏只放最要紧的：短板 3 条、站得住的 2 条；其余在逐段反馈里。 */
+const MAX_WEAKNESSES = 3;
+const MAX_STRENGTHS = 2;
 const HYPOTHESIS_STATUS: Record<string, { label: string; tone: "success" | "warning" | "neutral" }> = {
   confirmed: { label: "已验证", tone: "success" },
   refuted: { label: "没有讲清楚", tone: "warning" },
@@ -60,7 +63,6 @@ function scoreFormula(questions: Question[]): string {
 
 function Hypotheses({ items }: { items: ReportData["hypotheses"] }) {
   const judged = items.filter((item) => item.status !== "open");
-  const untouched = items.filter((item) => item.status === "open");
   if (items.length === 0) return null;
   return (
     <Card className="p-4">
@@ -69,47 +71,33 @@ function Hypotheses({ items }: { items: ReportData["hypotheses"] }) {
         {judged.map((item) => {
           const status = HYPOTHESIS_STATUS[item.status] ?? HYPOTHESIS_STATUS.open;
           return (
-            <div className="grid gap-1" key={item.text}>
-              <div className="flex flex-wrap items-start gap-2">
-                <Badge tone={status.tone}>{status.label}</Badge>
-                <p className="text-sm leading-6 text-foreground">{item.text}</p>
-              </div>
-              {item.verdict ? <p className="pl-1 text-sm leading-6 text-muted-foreground">{item.verdict}</p> : null}
+            <div className="flex flex-wrap items-start gap-2" key={item.text}>
+              <Badge tone={status.tone}>{status.label}</Badge>
+              <p className="text-sm leading-6 text-foreground">{item.verdict ?? item.text}</p>
             </div>
           );
         })}
-        {untouched.length > 0 ? (
-          <p className="text-sm leading-6 text-muted-foreground">
-            这场没问到：{untouched.map((item) => item.text).join("；")}
-          </p>
-        ) : null}
+        {judged.length === 0 ? <p className="text-sm leading-6 text-muted-foreground">这场没有问到简历上的说法。</p> : null}
       </div>
     </Card>
   );
 }
 
-/** 事后的能力估计：只列测到的；没测到的合成一行。 */
+/** 事后的能力估计：只列测到的，一行一项：名字 + 档位。没测到的不提。 */
 function Estimates({ items }: { items: MockInterviewView["estimates"] }) {
-  if (items.length === 0) return null;
   const measured = items.filter((item) => item.samples > 0);
-  const untouched = items.filter((item) => item.samples === 0);
+  if (measured.length === 0) return null;
   return (
-    <section className="grid gap-3">
+    <section className="grid gap-2">
       <h3 className="text-sm font-semibold text-foreground">能力估计</h3>
-      {measured.length > 0 ? (
-        <ul className="grid gap-2 text-sm leading-6 text-muted-foreground md:grid-cols-2">
-          {measured.map((item) => (
-            <li className="flex flex-wrap items-center gap-2" key={item.competencyId}>
-              <span className="text-foreground">{item.name}</span>
-              <Badge tone={item.mean >= 0.7 ? "success" : item.mean >= 0.4 ? "neutral" : "warning"}>估计 {levelLabel(item.mean)}</Badge>
-              <MetaText>
-                置信 {levelLabel(item.confidence)} · {item.samples} 段
-              </MetaText>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      {untouched.length > 0 ? <p className="text-sm leading-6 text-muted-foreground">这场没问到：{untouched.map((item) => item.name).join("、")}</p> : null}
+      <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm leading-6 text-muted-foreground">
+        {measured.map((item) => (
+          <li className="flex items-center gap-1.5" key={item.competencyId}>
+            <span className="text-foreground">{item.name}</span>
+            <Badge tone={item.mean >= 0.7 ? "success" : item.mean >= 0.4 ? "neutral" : "warning"}>{levelLabel(item.mean)}</Badge>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
@@ -228,9 +216,6 @@ export function MockInterviewReport({ session }: { session: MockInterviewView })
         <div>
           <h3 className="text-sm font-semibold text-foreground">总体评价</h3>
           <p className="mt-2 whitespace-pre-wrap text-[0.8125rem] leading-6 text-muted-foreground">{report.summary}</p>
-          {session.dossier ? (
-            <p className="mt-2 text-xs text-muted-foreground">候选人档案已更新到第 {session.dossier.version} 版：{session.dossier.changes}</p>
-          ) : null}
           <ButtonLink className="mt-3" href="/interviews/profile" size="sm" variant="outline">
             查看能力画像
           </ButtonLink>
@@ -241,7 +226,7 @@ export function MockInterviewReport({ session }: { session: MockInterviewView })
         <h3 className="text-sm font-semibold text-foreground">失守在哪、练什么</h3>
         <ul className="mt-3 grid gap-3 text-sm leading-6 text-muted-foreground">
           {report.weaknesses.length === 0 ? <li>没有明显短板。</li> : null}
-          {report.weaknesses.map((item) => (
+          {report.weaknesses.slice(0, MAX_WEAKNESSES).map((item) => (
             <li key={item.point}>
               <div>
                 <Badge tone="warning">{WEAKNESS_KIND_LABELS[item.kind] ?? item.kind}</Badge>
@@ -251,21 +236,18 @@ export function MockInterviewReport({ session }: { session: MockInterviewView })
               {item.practice ? <p className="pl-1">练：{item.practice}</p> : null}
             </li>
           ))}
+          {report.weaknesses.length > MAX_WEAKNESSES ? <li className="text-xs">其余 {report.weaknesses.length - MAX_WEAKNESSES} 条在逐段反馈里。</li> : null}
         </ul>
       </Card>
 
       {report.strengths.length > 0 ? (
-        <Card className="p-4">
-          <h3 className="text-sm font-semibold text-foreground">站得住的</h3>
-          <ul className="mt-3 grid gap-2 text-sm leading-6 text-muted-foreground">
-            {report.strengths.map((item) => (
-              <li key={item.point}>
-                · {item.point}
-                {item.areaName ? <MetaText className="ml-1">{item.areaName}</MetaText> : null}
-              </li>
-            ))}
-          </ul>
-        </Card>
+        <p className="text-sm leading-6 text-muted-foreground">
+          <span className="font-semibold text-foreground">站得住的：</span>
+          {report.strengths
+            .slice(0, MAX_STRENGTHS)
+            .map((item) => item.point)
+            .join("；")}
+        </p>
       ) : null}
 
       <Hypotheses items={report.hypotheses} />
