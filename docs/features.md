@@ -8,7 +8,7 @@
 
 ## 2. 投递管理（`/applications`）
 
-- 手工新增 / 编辑 / 删除投递，推进阶段，筛选（阶段、来源、关键词），从投递直接"记录面试"或"开模拟面试"。
+- 手工新增 / 编辑 / 删除投递，推进阶段，筛选（阶段、来源、关键词），从投递直接"记录面试"或"开模拟面试"。版式：四张指标卡（全部 / 待跟进 / 面试中 / Offer，全量口径不受筛选影响）→ 一张卡装筛选条、表格、分页。
 - 数据表 `BossContact`（历史命名，实为所有投递；新代码一律 application 语义）。删除进 `DismissedApplication` 黑名单，同步时跳过。
 - **Boss 直聘同步**（仅本地）：`npm run boss:login` 或按钮拉起本机 Chrome / Edge 登录；同步用手写 CDP 客户端（`boss/cdp.ts`，只开 Network + DOM 域，屏幕外窗口）翻"沟通过"标签页的经典分页，从 `Network.getResponseBody` 解析 `geekGetJob`（`code===0` 判成败；`totalCount` 是历史计数不是可拉取数）。**同步规则**：仍在"已投递"且 30 天无动静的标"已拒绝"（`autoRejectedAt`）。禁 Node 直连 / headless / Playwright（账号曾被封）。
 - 体验版：无 Boss 同步（需浏览器扩展，未做），其余相同。
@@ -58,7 +58,7 @@
 
 ## 8. 设置（`/settings`）
 
-- 本地版：按任务（文本 / 转写）配服务商、Base URL、模型、Key，测试连通；存 `AppSetting`，前端脱敏。支持 OpenAI 兼容口（DeepSeek / GLM / Kimi / Qwen 等，`provider-contracts.md` 列契约差异，`npm run probe` 实测）。
+- 本地版：版式左窄右宽——左边"模型总览"卡（三个任务各管什么、当前服务商 / 模型 / 脱敏 Key、已配置 / 缺 Key 徽章，`ai-settings-overview.tsx`），右边三张配置卡按文本 → 评分 → 语音排。每张按任务配服务商、Base URL、模型、Key，测试连通；存 `AppSetting`，前端脱敏。支持 OpenAI 兼容口（DeepSeek / GLM / Kimi / Qwen 等，`provider-contracts.md` 列契约差异，`npm run probe` 实测）。
 - 体验版：Key 校验后编码成连接串存浏览器（可选 session-only），随请求头发送，服务端不落盘。
 - 主题：深色默认，浅色可切（`localStorage["career-agent-theme"]`）。
 

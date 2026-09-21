@@ -7,6 +7,7 @@ import { TrialApplicationsPage } from "@/components/trial/pages/trial-applicatio
 import {
   getApplicationFilterOptions,
   getApplications,
+  getApplicationStats,
 } from "@/lib/applications/queries";
 import { parseApplicationFilters } from "@/lib/applications/types";
 import { getResumeProjectOptions } from "@/lib/interviews/queries";
@@ -32,12 +33,13 @@ export default async function ApplicationsPage({
   await connection();
 
   const filters = parseApplicationFilters(await searchParams);
-  const [options, applications, resumeProjects, transcriptionConfig] =
+  const [options, applications, resumeProjects, transcriptionConfig, stats] =
     await Promise.all([
       getApplicationFilterOptions(),
       getApplications(filters),
       getResumeProjectOptions(),
       getAiTaskConfig("transcription"),
+      getApplicationStats({ trendRange: "14d" }),
     ]);
 
   return (
@@ -50,6 +52,7 @@ export default async function ApplicationsPage({
           transcriptionConfigured: isAiTaskConfigured(transcriptionConfig),
         }}
         sources={options.sources}
+        stats={{ total: stats.total, stageCounts: stats.stageCounts }}
       />
     </AppShell>
   );

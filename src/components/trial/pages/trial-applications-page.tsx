@@ -13,6 +13,7 @@ import { createTrialInterviewRecord } from "@/lib/trial/interview-actions";
 import { trialResumeProjectOptions } from "@/lib/trial/workspace-resume";
 import { useTrialWorkspace } from "@/lib/trial/workspace-store";
 import { applicationSources, queryApplications } from "@/lib/trial/workspace";
+import { applicationStats } from "@/lib/trial/workspace-interviews";
 
 /**
  * 体验版的投递页：与本地版渲染同一个 ApplicationsView，唯一的差别是
@@ -32,6 +33,7 @@ export function TrialApplicationsPage() {
 
   return (
     <ApplicationsView
+      stats={workspace ? (({ total, stageCounts }) => ({ total, stageCounts }))(applicationStats(workspace, "14d")) : undefined}
       applications={applications}
       filters={filters}
       interviewContext={{
