@@ -8,16 +8,10 @@ import { NextActionCard } from "@/components/dashboard/next-action-card";
 import { UpcomingInterviewsCard } from "@/components/interviews/upcoming-interviews-card";
 import { PageHeader } from "@/components/page-header";
 import { SegmentedLinks } from "@/components/ui/segmented-links";
-import { CountUp } from "@/components/ui/count-up";
+import { StatTiles } from "@/components/stat-tiles";
 import { StageBadge } from "@/components/stage-badge";
 import { ButtonLink } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
   APPLICATION_TREND_RANGE_OPTIONS,
@@ -28,7 +22,6 @@ import type {
   ApplicationStats,
   ApplicationTrendRange,
 } from "@/lib/applications/types";
-import { cn } from "@/lib/cn";
 import { formatDateTime } from "@/lib/format/date";
 import type { InterviewStats } from "@/lib/interviews/types";
 import type { UpcomingInterviews } from "@/lib/interviews/upcoming";
@@ -37,22 +30,6 @@ function trendHref(range: ApplicationTrendRange, homeHref: string): string {
   return range === "14d" ? homeHref : `${homeHref}?trend=${range}`;
 }
 
-/** 首屏指标：四张等宽白卡一排，第一张是北极星数字，字号大一档。 */
-function StatTiles({ tiles }: { tiles: { label: string; value: number; note: string }[] }) {
-  return (
-    <section aria-label="关键指标" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      {tiles.map((tile, index) => (
-        <Card className="p-5" key={tile.label}>
-          <p className="text-[0.8125rem] text-muted-foreground">{tile.label}</p>
-          <p className={cn("mt-2 tabular-nums text-foreground", index === 0 ? "text-display" : "text-3xl font-medium leading-9")}>
-            <CountUp value={tile.value} />
-          </p>
-          <p className="mt-2 text-xs text-muted-foreground">{tile.note}</p>
-        </Card>
-      ))}
-    </section>
-  );
-}
 
 /**
  * 数据概览页的呈现层。本地版（服务端取数）和体验版（浏览器取数）渲染同一个组件，统计口径来自共享的纯函数。

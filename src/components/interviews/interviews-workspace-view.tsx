@@ -10,7 +10,7 @@ import { InterviewStageFlow } from "@/components/interviews/interview-stage-flow
 import { InterviewWorkspaceLinks } from "@/components/interviews/interview-workspace-links";
 import { UpcomingInterviewsCard } from "@/components/interviews/upcoming-interviews-card";
 import { PageHeader } from "@/components/page-header";
-import { StatHero } from "@/components/stat-hero";
+import { StatTiles } from "@/components/stat-tiles";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { buildCareerFlowSnapshot } from "@/lib/applications/analytics";
@@ -113,25 +113,23 @@ export function InterviewsWorkspaceView({
 
       <UpcomingInterviewsCard interviews={upcomingInterviews} />
 
-      <StatHero
-        action={
-          <ButtonLink href="/interviews/mock">
-            开始 AI 模拟面试
-            <ArrowRight aria-hidden="true" className="size-4" />
-          </ButtonLink>
-        }
-        label="真实面试记录"
-        note="使用真实岗位描述、已保存简历、历史面试和已确认画像生成针对性问题。"
+      <StatTiles
         tiles={[
-          { label: "模拟训练", value: workspace.completedMockCount },
-          { label: "当前 Offer", value: progress.offer },
           {
-            label: "模拟均分",
-            suffix: "分",
-            value: Math.round(workspace.averageMockScore ?? 0),
+            label: "真实面试记录",
+            value: workspace.realInterviewCounts.total,
+            note: "已记录并可用于复盘与画像的真实面试。",
+            action: (
+              <ButtonLink href="/interviews/mock" size="sm">
+                开始 AI 模拟面试
+                <ArrowRight aria-hidden="true" className="size-4" />
+              </ButtonLink>
+            ),
           },
+          { label: "模拟训练", value: workspace.completedMockCount, note: "已完成的模拟面试" },
+          { label: "当前 Offer", value: progress.offer, note: "处于 Offer 阶段的岗位" },
+          { label: "模拟均分", suffix: "分", value: Math.round(workspace.averageMockScore ?? 0), note: "已完成模拟面试的平均总分" },
         ]}
-        value={workspace.realInterviewCounts.total}
       />
 
       <Card>

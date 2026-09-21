@@ -160,18 +160,26 @@ export function MockInterviewSetup({
         </div>
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
           <FieldLabel>
-            上传 Job Description
-            <Input
-              accept=".txt,.md,.docx,.pdf"
-              className="h-auto min-h-8 py-1 file:mr-3 file:rounded-[4px] file:border-0 file:bg-muted file:px-2 file:py-0.5 file:text-xs file:font-medium file:text-foreground"
-              name="jobDescriptionFile"
-              type="file"
-            />
-            <span className="font-normal leading-5">支持 TXT、MD、DOCX、PDF。上传文件后无需再粘贴文本。</span>
+            <span>
+              上传岗位描述<RequiredMark />
+              <span className="ml-1 font-normal">（与右侧粘贴二选一）</span>
+            </span>
+            <span className="grid min-h-40 place-items-center rounded-control border border-dashed border-border-strong bg-surface-subtle px-4 py-5 text-center">
+              <Input
+                accept=".txt,.md,.docx,.pdf"
+                className="h-auto w-auto border-0 bg-transparent p-0 shadow-none file:mr-3 file:rounded-full file:border-0 file:bg-brand file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-brand-foreground focus-visible:ring-0"
+                name="jobDescriptionFile"
+                type="file"
+              />
+              <span className="mt-3 font-normal leading-5">支持 TXT、MD、DOCX、PDF。上传后无需再粘贴。</span>
+            </span>
           </FieldLabel>
           <FieldLabel>
-            或粘贴 Job Description
+            <span>
+              或粘贴岗位描述<RequiredMark />
+            </span>
             <Textarea
+              className="min-h-40"
               name="jobDescriptionText"
               onChange={(event) => setJobDescriptionText(event.target.value)}
               placeholder="粘贴岗位职责、任职要求和技术栈……"
