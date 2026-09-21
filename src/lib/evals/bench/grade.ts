@@ -1,6 +1,6 @@
-import { normalizedText, questionSimilarity } from "@/lib/text/similarity";
+import { coverage as ngramCoverage, normalizedText, questionSimilarity } from "@/lib/text/similarity";
 
-import { BENCH_LEVELS, LEVEL_OF_RATING, type BenchLevel, type Episode, type Fact, type Task, type TranscriptTurn } from "./types";
+import { BENCH_LEVELS, LEVEL_OF_RATING, type BenchLevel, type Episode, type Fact, type FactType, type Task, type TranscriptTurn } from "./types";
 
 /**
  * InterviewBench 端到端层评分器（README §6）。只读逐字稿与评分卡，全部纯函数；不读任何提交者内部状态。
@@ -30,11 +30,21 @@ export function quoteInTranscript(transcript: TranscriptTurn[], quote: string): 
   return quoteTurn(transcript, quote) !== null;
 }
 
-/** 引用落在哪一句候选人发言上；没有返回 null。 */
+/**
+ * 引用落在哪一句候选人发言上；没有返回 null。"逐字"容忍两种格式偏差：用省略号（…… / ...）拼接的几段原话，每段各自逐字出现在同一回合；
+ * 或漏一个词的近逐字（引用不短于 12 字、3-gram 覆盖 ≥ 0.8：漏一个两字词最多丢 3 个三元组）。改写、概括仍然对不上。
+ */
 export function quoteTurn(transcript: TranscriptTurn[], quote: string): Extract<TranscriptTurn, { role: "candidate" }> | null {
-  const needle = lettersOnly(quote);
-  if (needle.length < 4) return null;
-  for (const turn of transcript) if (turn.role === "candidate" && lettersOnly(turn.text).includes(needle)) return turn;
+  const fragments = quote.split(/…+|\.{3,}/).map(lettersOnly).filter((f) => f.length >= 4);
+  if (fragments.length === 0) return null;
+  const candidates = transcript.filter((turn): turn is Extract<TranscriptTurn, { role: "candidate" }> => turn.role === "candidate");
+  for (const turn of candidates) {
+    const text = lettersOnly(turn.text);
+    if (fragments.every((f) => text.includes(f))) return turn;
+  }
+  const whole = lettersOnly(quote);
+  if (whole.length < 12) return null;
+  for (const turn of candidates) if (ngramCoverage(turn.text, quote) >= 0.8) return turn;
   return null;
 }
 
@@ -91,8 +101,17 @@ export function weightedKappa(pairs: [BenchLevel, BenchLevel][]): number | null 
   return den === 0 ? null : 1 - num / den;
 }
 
+/**
+ * 含糊 / 推脱的说法。模拟器按 medium / low 水平答题时被要求用这些话（见 candidate.ts 引用），评分器用同一份清单认它们：
+ * 候选人对简历成果说了这些话，面试官记一笔 hollow 就不是误报。词表分两组：说自己不会 / 不是自己做的；说自己记不清 / 没细看 / 只有体感。
+ */
+export const HEDGE_PHRASES = {
+  notMine: ["不会", "不了解", "不太了解", "不熟", "说不上来", "说不上", "答不上", "没做过", "没怎么做", "没亲手", "没完整", "没细看", "没单独", "没专门", "没做成", "还没做", "不是我做", "不是我写", "不是我负责", "同事做", "同事写", "同事搞", "同事负责", "同事统计", "同事算", "同事在做", "跟着同事", "更多是同事", "只知道有这么个", "跟着用", "跟着做", "跟着跑", "跟着接", "沿用原来", "现成流程"],
+  vague: ["记不清", "记不太清", "记不准", "记不太准", "记得不算", "记得不太", "记得不清", "记得不是", "不清楚", "说不清", "说不准", "说不太细", "说不太准", "粗估", "不是很严格", "不是特别严谨", "不严谨", "不是精确", "口径不纯", "没细看", "没系统整理", "体感", "大概", "应该是", "印象里", "不想硬报", "没法给你", "没有严", "不是专门"],
+} as const;
+const alternation = (phrases: readonly string[]) => phrases.map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
 /** "推脱语"：这句是不是在说自己答不上 / 不是自己做的 / 记不清口径。 */
-export const DEFLECTION = /(不会|不了解|不太了解|不熟|说不上来|答不上|没做过|没怎么做|不是我(做|写|负责)|同事(做|写|搞|负责|统计|算)|记不清|记不太清|不清楚|说不清)/;
+export const DEFLECTION = new RegExp(`(${alternation([...HEDGE_PHRASES.notMine, ...HEDGE_PHRASES.vague.filter((p) => !["大概", "应该是"].includes(p))])})`);
 /** 操纵 / 不作答：要分、让面试官问 AI。评分卡引用这种话记一笔不算误报。 */
 export const MANIPULATION = /(给我满分|给我个分|直接给分|问问 ?AI|你先说答案|评分标准是什么)/;
 /** 求澄清：没听懂、要求具体一点。 */
@@ -177,7 +196,8 @@ export function gradeMonotonicity(items: { task: Task; episode: Episode }[]): { 
 
 export type FactGrade = { fact: Fact; said: boolean; saidAt: number | null; flagged: boolean; probed: boolean };
 
-const HOLLOW_DEFLECTION = /(同事统计|同事算的|同事做的|记不清口径|口径.{0,6}记不|说不上来怎么(量|算)|怎么(量|算|统计)的.{0,8}(不清楚|记不清|说不上)|分子分母)/;
+/** 对简历成果"说不出怎么量"的口径：同事统计的、记不清口径、分子分母说不上、只有体感、没单独统计过。模拟器与评分器共用。 */
+export const HOLLOW_DEFLECTION = /(同事(统计|算|做|在做|负责)|跟着同事|记不清口径|口径.{0,6}(记不|不清|说不)|说不上来怎么(量|算)|怎么(量|算|统计|测)的.{0,10}(不清楚|记不|说不上|没细看)|分子分母|体感|没(单独|专门)(统计|拉|算|做|量|测)|样本量.{0,6}记不|没做成|没亲手|没细看|记不太准|不想硬报)/;
 
 function factText(fact: Fact): string {
   return fact.type === "hollow" ? fact.resume : fact.says;
@@ -190,11 +210,14 @@ function factText(fact: Fact): string {
  * 一场里反复出现就不能当指纹）。数字整体匹配（"2天"不被"12天"命中）。术语与中文片段不算（"P95""GPU""个百分点"同域面试里到处都是）。
  * 候选人不会复述简历原句，所以不要求与 resume 逐字重叠。
  */
-function flagMatches(flag: { quote: string; note: string }, fact: Fact, saidTurns: Extract<TranscriptTurn, { role: "candidate" }>[], transcript: TranscriptTurn[]): boolean {
+function flagMatches(flag: { type: FactType; quote: string; note: string }, fact: Fact, saidTurns: Extract<TranscriptTurn, { role: "candidate" }>[], transcript: TranscriptTurn[]): boolean {
   if (fact.type !== "hollow") {
     const target = lettersOnly(fact.says);
     const haystack = lettersOnly(flag.quote);
-    return target.length <= 8 ? target.length >= 3 && haystack.includes(target) : overlaps(haystack, target);
+    if (target.length <= 8 ? target.length >= 3 && haystack.includes(target) : overlaps(haystack, target)) return true;
+    // 引用只截了那句话的另一半：落在候选人说这条埋点的回合上、且红旗类型一致，也算抓到（同回合同类，不再要求逐字重叠）。
+    const hit = quoteTurn(transcript, flag.quote);
+    return hit !== null && flag.type === fact.type && saidTurns.some((turn) => turn.index === hit.index);
   }
   const numbers = unitNumbersOf(fact.resume);
   const hit = quoteTurn(transcript, flag.quote);
@@ -209,14 +232,40 @@ function flagMatches(flag: { quote: string; note: string }, fact: Fact, saidTurn
 }
 
 /**
+ * 候选人做了这条埋点的回合：模拟器自报的，加上文字判出来的（自报会漏）。
+ * 说错 / 夸大：这句与 says 逐字重叠（短的整个包含）。答不出细节：这句带推脱口径，且紧前面那一问点到了简历上这一项（带单位的数字或 4 字以上片段）。
+ */
+function turnsDoingFact(transcript: TranscriptTurn[], fact: Fact, index: number): Extract<TranscriptTurn, { role: "candidate" }>[] {
+  const out: Extract<TranscriptTurn, { role: "candidate" }>[] = [];
+  for (let i = 0; i < transcript.length; i += 1) {
+    const turn = transcript[i];
+    if (turn.role !== "candidate") continue;
+    if (turn.factsSaid.includes(index)) {
+      out.push(turn);
+      continue;
+    }
+    if (fact.type !== "hollow") {
+      const target = lettersOnly(fact.says);
+      const text = lettersOnly(turn.text);
+      if (target.length <= 8 ? target.length >= 3 && text.includes(target) : overlaps(text, target)) out.push(turn);
+      continue;
+    }
+    const asked = transcript[i - 1];
+    if (!asked || asked.role !== "interviewer" || !HOLLOW_DEFLECTION.test(turn.text)) continue;
+    const cues = [...unitNumbersOf(fact.resume), ...keywordsOf(fact.resume).filter((w) => w.length >= 4), ...keywordsOf(fact.topic).filter((w) => w.length >= 4)];
+    if (cues.some((cue) => dense(asked.text).includes(cue))) out.push(turn);
+  }
+  return out;
+}
+
+/**
  * 每条埋点：候选人说了没、评分卡红旗里有没有对上、说出后有没有被追（两回合内点名它的关键词，或紧接着的一问在追口径）。
  * 红旗分三类记：对上埋点或落在推脱 / 操纵句上的（不计）、引用对不上逐字稿的（unverified）、引用真实但对不上任何埋点的（falsePositives）。
  */
 export function gradeFacts(task: Task, episode: Episode): { facts: FactGrade[]; falsePositives: number; unverifiedFlags: number } {
-  const candidateTurns = episode.transcript.filter((turn): turn is Extract<TranscriptTurn, { role: "candidate" }> => turn.role === "candidate");
   const flags = episode.scorecard?.redFlags ?? [];
   const facts = task.candidate.facts.map((fact, index): FactGrade => {
-    const saidTurns = candidateTurns.filter((turn) => turn.factsSaid.includes(index));
+    const saidTurns = turnsDoingFact(episode.transcript, fact, index);
     const said = saidTurns.length > 0;
     const saidAt = said ? saidTurns[0].index : null;
     const flagged = flags.some((flag) => flagMatches(flag, fact, saidTurns, episode.transcript));
@@ -234,7 +283,7 @@ export function gradeFacts(task: Task, episode: Episode): { facts: FactGrade[]; 
   let falsePositives = 0;
   let unverifiedFlags = 0;
   for (const flag of flags) {
-    if (task.candidate.facts.some((fact, index) => flagMatches(flag, fact, candidateTurns.filter((turn) => turn.factsSaid.includes(index)), episode.transcript))) continue;
+    if (task.candidate.facts.some((fact, index) => flagMatches(flag, fact, turnsDoingFact(episode.transcript, fact, index), episode.transcript))) continue;
     const turn = quoteTurn(episode.transcript, flag.quote);
     if (turn === null) {
       unverifiedFlags += 1;
@@ -242,8 +291,8 @@ export function gradeFacts(task: Task, episode: Episode): { facts: FactGrade[]; 
     }
     const sentence = sentenceContaining(turn.text, flag.quote);
     // 引用落在做了 hollow 埋点的那个回合上（只是没引到推脱那句）：判断没错、引错了句子，不算命中也不罚误报。
-    const onHollowTurn = flag.type === "hollow" && turn.factsSaid.some((index) => task.candidate.facts[index]?.type === "hollow");
-    const excused = onHollowTurn || (turn.couldNotAnswer && lettersOnly(turn.text).length <= 150) || DEFLECTION.test(sentence) || MANIPULATION.test(sentence);
+    const onHollowTurn = flag.type === "hollow" && task.candidate.facts.some((fact, index) => fact.type === "hollow" && turnsDoingFact(episode.transcript, fact, index).some((t) => t.index === turn.index));
+    const excused = onHollowTurn || turn.askedForClarification || (turn.couldNotAnswer && lettersOnly(turn.text).length <= 150) || DEFLECTION.test(sentence) || MANIPULATION.test(sentence);
     if (!excused) falsePositives += 1;
   }
   return { facts, falsePositives, unverifiedFlags };

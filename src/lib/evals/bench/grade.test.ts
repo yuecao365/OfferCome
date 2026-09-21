@@ -84,6 +84,11 @@ const episode: Episode = {
 test("引用逐字、重叠、κ", () => {
   assert.equal(quoteInTranscript(transcript, "P95 0.8 秒"), true);
   assert.equal(quoteInTranscript(transcript, "P95 1.6 秒"), false);
+  assert.equal(quoteInTranscript(transcript, "那个 30% 是同事统计的，口径我记不清了"), true, "漏一个词的近逐字算");
+  assert.equal(quoteInTranscript(transcript, "这块我没做过，说不上来"), false, "太短的近逐字不算");
+  assert.equal(quoteInTranscript(transcript, "写了回归集……口径我记不清了"), true, "省略号拼接的两段各自逐字");
+  assert.equal(quoteInTranscript(transcript, "写了回归集……P95 0.8 秒"), false, "两段不在同一回合不算");
+  assert.equal(quoteInTranscript(transcript, "候选人表示消息队列用 ack 保证不重复"), false, "概括不算");
   assert.equal(overlaps("ack 机制保证消息只会被消费一次。", "靠 ack 机制保证消息只会被消费一次"), true);
   assert.equal(weightedKappa([["low", "low"], ["high", "high"], ["medium", "medium"]]), null, "不足 10 对不报");
   const pairs = Array.from({ length: 12 }, (_, i): ["low" | "medium" | "high", "low" | "medium" | "high"] => [(["low", "medium", "high"] as const)[i % 3], (["low", "medium", "high"] as const)[i % 3]]);

@@ -22,6 +22,7 @@
     "bench": "tsx --conditions=react-server scripts/bench.ts",
     "bench:build": "tsx --conditions=react-server scripts/bench-build-tasks.ts",
     "bench:e2e": "tsx --conditions=react-server scripts/bench-e2e.ts",
+    "bench:retranslate": "tsx --conditions=react-server scripts/bench-retranslate.ts",
     "compare-runs": "tsx --conditions=react-server scripts/compare-runs.ts",
     "replay": "tsx --conditions=react-server scripts/replay.ts",
     "resegment": "tsx --conditions=react-server scripts/resegment.ts",

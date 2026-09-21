@@ -4,7 +4,7 @@ import type { AiTaskConfig } from "@/lib/ai/config";
 import { runAgent } from "@/lib/ai/run-agent";
 import { salvageJson } from "@/lib/ai/salvage-json";
 
-import { CLARIFICATION, DEFLECTION } from "./grade";
+import { CLARIFICATION, DEFLECTION, HEDGE_PHRASES, HOLLOW_DEFLECTION } from "./grade";
 import { LEVEL_ANCHORS, type Behavior, type BenchLevel, type Candidate, type CandidateStyle, type Fact, type Task, type TranscriptTurn } from "./types";
 
 /**
@@ -21,7 +21,7 @@ export const LEVEL_MAX_CHARS: Record<BenchLevel, number> = { low: 80, medium: 22
 
 const LEVEL_RULES: Record<BenchLevel, string> = {
   high: `精通（${LEVEL_ANCHORS.high}）：答得像做过这件事的人，先说机制，再说当时为什么选这个方案而不是另一个、代价是什么，最后说怎么确认它有效。写完自查：这一答里有没有 (1) 一个具体数字或量级，(2) 一次"选 A 没选 B 是因为"，(3) 一句"怎么验证 / 怎么量的"；缺哪条补哪条。数字只能用简历上有的，或从简历数字合理推出的量级（比如"大概几百 QPS"），不许编新的精确数字。回答 200 到 ${LEVEL_MAX_CHARS.high} 字。`,
-  medium: `半懂（${LEVEL_ANCHORS.medium}）：说得出术语和这个东西怎么工作、自己怎么用；但问到取舍、边界、为什么这样选、怎么验证时，用"应该是""大概""当时没细看""记不太清"含糊带过，说不出可验证的细节，不给新数字。回答不超过 ${LEVEL_MAX_CHARS.medium} 字。`,
+  medium: `半懂（${LEVEL_ANCHORS.medium}）：说得出术语和这个东西怎么工作、自己怎么用；但问到取舍、边界、为什么这样选、怎么验证时，用"${HEDGE_PHRASES.vague.slice(0, 6).join('""')}"这类话含糊带过，说不出可验证的细节，不给新数字。回答不超过 ${LEVEL_MAX_CHARS.medium} 字。`,
   low: `不会（${LEVEL_ANCHORS.low}）：开口先说"这块我没怎么做过"或"这个我不太了解"；整段不许出现任何字段名、步骤、机制、数字或工具名，只能说"是同事做的""我只知道有这么个东西""具体怎么做的我说不上来"；被追问就直接答"这个我答不上来"。回答不超过 ${LEVEL_MAX_CHARS.low} 字。`,
 };
 
@@ -122,7 +122,6 @@ export function verifyReply(task: Task, done: Set<number>, output: z.infer<typeo
   return { say: output.say, couldNotAnswer, askedForClarification, factsSaid };
 }
 
-const HOLLOW_DEFLECTION = /(同事统计|同事算的|同事做的|记不清口径|口径.{0,6}记不|说不上来怎么(量|算)|怎么(量|算|统计)的.{0,8}(不清楚|记不清|说不上)|分子分母)/;
 
 const lettersOnly = (value: string) => value.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
 /** 这句话里有没有真的说出埋点：去标点后共享 ≥ 8 字，短埋点要整个包含。 */

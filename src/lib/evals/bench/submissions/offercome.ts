@@ -91,7 +91,12 @@ export async function offercomeSubmission(name: string, options: { base: string;
         },
         async turn({ candidateSaid, turnIndex }) {
           if (!task) throw new Error("start 没调用");
-          const outcome = candidateSaid === null ? await postTurn(options.base, sessionId, { kind: "start" }) : await postTurn(options.base, sessionId, { clientId: `bench-${turnIndex}`, content: candidateSaid, intent: null });
+          // harness 某一步出错时前端会提示"可以重试"，真人会点一次重试；这里也重试一次（同一 clientId，服务端按幂等处理）。
+          const body = candidateSaid === null ? { kind: "start" } : { clientId: `bench-${turnIndex}`, content: candidateSaid, intent: null };
+          const outcome = await postTurn(options.base, sessionId, body).catch(async (error: unknown) => {
+            if (!(error instanceof Error && /可以重试|data-turn/.test(error.message))) throw error;
+            return postTurn(options.base, sessionId, body);
+          });
           const say = outcome.said.map((m) => m.content).join("\n").trim() || "（面试官沉默）";
           const closing = outcome.said.some((m) => m.kind === "closing") || outcome.phase === "ended";
           if (closing) ended = true;
@@ -106,40 +111,51 @@ export async function offercomeSubmission(name: string, options: { base: string;
           if (!task) throw new Error("start 没调用");
           if (!ended) await endSession(options.base, sessionId);
           await waitFor(options.base, sessionId, (s) => s === "completed", 6 * 60_000, 4_000);
-          const view = await getMockInterviewView(sessionId);
-          if (!view?.report) throw new Error("报告没有生成");
-          const digest = {
-            summary: view.report.summary,
-            strengths: view.report.strengths,
-            weaknesses: view.report.weaknesses,
-            hypotheses: view.report.hypotheses,
-            estimates: view.estimates.map((e) => ({ competency: e.name, mean: e.mean, samples: e.samples })),
-            segments: view.questions.map((q) => ({
-              area: q.segment?.areaName ?? null,
-              score: q.evaluation?.score ?? null,
-              verdict: q.evaluation?.verdict ?? null,
-              weaknesses: q.evaluation?.weaknesses ?? [],
-              resumeChecks: q.evaluation?.resumeChecks ?? [],
-              answer: q.answer,
-            })),
-          };
-          const { output } = await runAgent({
-            agent: "bench_offercome_scorecard",
-            runId: `bench:offercome:${task.id}:scorecard`,
-            config: translator,
-            feature: "InterviewBench",
-            promptVersion: "bench-offercome-v2",
-            schema: scorecardSchema,
-            maxOutputTokens: 1_600,
-            timeoutMs: 90_000,
-            untrustedInputs: "面试报告与候选人发言",
-            system: `把一份模拟面试报告翻译成评分卡。报告里有整体总结、逐段评分与短板（带候选人原话）、简历核对、能力估计（0–1 均值）。岗位能力（用这些 id）：\n${task.competencies.map((c) => `- ${c.id}：${c.name}（${c.description}）`).join("\n")}\n${SCORECARD_INSTRUCTIONS}\n等级只用报告里的证据定，不要自己补判断。红旗映射：简历核对里数字对不上的记 inflated；逐段短板里 kind=error 的记 wrong；候选人对简历上的成果说不出怎么量、说是同事做的、记不清口径的记 hollow（看 answer 与短板原话）；quote 一律用报告里候选人的原话。`,
-            payload: digest,
-            rescue: salvageJson(scorecardSchema),
-          });
-          return output as Scorecard;
+          return translateReport(task, sessionId, translator);
         },
       };
     },
   };
+}
+
+export const OFFERCOME_TRANSLATION_VERSION = "bench-offercome-v3";
+
+/**
+ * 把 harness 的报告翻译成 bench 评分卡。v3：报告里逐段评过、能对上某项能力的段，那项能力必须给等级（v2 曾在能力估计全低于阈值时一项不填）。
+ * 独立导出：`scripts/bench-retranslate.ts` 用它对已跑完的场次统一重翻译，不重跑面试。
+ */
+export async function translateReport(task: TaskForInterviewer, sessionId: string, translator: AiTaskConfig): Promise<Scorecard> {
+  const view = await getMockInterviewView(sessionId);
+  if (!view?.report) throw new Error("报告没有生成");
+  const digest = {
+    summary: view.report.summary,
+    strengths: view.report.strengths,
+    weaknesses: view.report.weaknesses,
+    hypotheses: view.report.hypotheses,
+    estimates: view.estimates.map((e) => ({ competency: e.name, mean: e.mean, samples: e.samples })),
+    segments: view.questions.map((q) => ({
+      area: q.segment?.areaName ?? null,
+      question: q.question,
+      score: q.evaluation?.score ?? null,
+      verdict: q.evaluation?.verdict ?? null,
+      weaknesses: q.evaluation?.weaknesses ?? [],
+      resumeChecks: q.evaluation?.resumeChecks ?? [],
+      answer: q.answer,
+    })),
+  };
+  const { output } = await runAgent({
+    agent: "bench_offercome_scorecard",
+    runId: `bench:offercome:${task.id}:scorecard`,
+    config: translator,
+    feature: "InterviewBench",
+    promptVersion: OFFERCOME_TRANSLATION_VERSION,
+    schema: scorecardSchema,
+    maxOutputTokens: 1_600,
+    timeoutMs: 90_000,
+    untrustedInputs: "面试报告与候选人发言",
+    system: `把一份模拟面试报告翻译成评分卡。报告里有整体总结、逐段评分与短板（带候选人原话）、简历核对、能力估计（0–1 均值）。岗位能力（用这些 id）：\n${task.competencies.map((c) => `- ${c.id}：${c.name}（${c.description}）`).join("\n")}\n${SCORECARD_INSTRUCTIONS}\n等级只用报告里的证据定，不要自己补判断。每一段（segments）先判它主要考哪项能力，被段落考到的能力都必须给等级，依据用那段 answer 里的原话；只有任何一段都没碰到的能力才不填。段落分数只是参考：候选人说不出机制、说是同事做的记 1；讲清怎么做但说不出取舍或验证记 2；有取舍、有数字、有验证记 3。红旗映射：简历核对里数字对不上的记 inflated；逐段短板里 kind=error 的记 wrong；候选人对简历上的成果说不出怎么量、说是同事做的、记不清口径的记 hollow（看 answer 与短板原话）；quote 一律用报告里候选人的原话。`,
+    payload: digest,
+    rescue: salvageJson(scorecardSchema),
+  });
+  return output as Scorecard;
 }

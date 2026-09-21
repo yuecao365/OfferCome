@@ -33,6 +33,7 @@
 | 2026-09-17 → 09-18 | 重建 v5：删实验层、动作层控制、意图归模型、包改方法书、依据分型 | 撤回 / 重说 / 固定句根治 |
 | 2026-09-19 → 09-20 | 备课与面试合并为一个 loop（A 候选人变工具 → B 备课并进 loop → C 删交接产物 → D 三组对照）；包正文不再回放 | 见 §5 数字 |
 | 2026-09-21 | InterviewBench 端到端层（[eval/bench/README.md](../eval/bench/README.md) §2–§6）：面试官接口、30 个开发集任务（真实 JD × 同向简历 × 带隐藏水平与埋点的候选人）、bench 侧候选人模拟器（gpt-5.4-mini）、只读逐字稿与评分卡的评分器（含单测）、三种提交（裸模型 / 固定题本 / 本仓库 harness） | 冒烟 1 任务裸 DeepSeek：跑通；留出集与正式榜未跑 |
+| 2026-09-21（晚） | InterviewBench 开发集两路跑完（裸 DeepSeek vs harness，各 30 场，$2.74）：harness 在证据纪律上稳定占优（依据逐字 0.99 vs 0.96、引用不实/场 0.11 vs 0.53、一段多问 0.25 vs 0.65、泄露 0 vs 1），等级判断不优于基线（κ 0.27 vs 0.43）、红旗命中 15/21 vs 25/29；两家都把 high 判低、几乎全判 no_hire；跑批中评分器补三处、harness 评分卡翻译 v3 统一重出 | 数字与读法在 [eval/bench/results.md](../eval/bench/results.md)；结论口径："harness 的价值在可复核，不在更准" |
 | 2026-09-21（下午） | InterviewBench 端到端层 v2：v1 在开发集跑到 89/120 场时经独立审查（Opus 5 子 agent，只读）判定环境不可信，逐条重建——评分卡三档一对一、模拟器分档字数 + high 自查 + 埋点只做一次、埋点与水平互斥（wrong 只落 medium、hollow 不落 high 且带数字）、面试规范由 bench 公开给所有提交、评分卡翻译模型对齐、hollow 命中只认推脱句或带单位数字、误报按句级豁免、唯一"通过"定义；三轮审查后合格（[eval/bench/README.md](../eval/bench/README.md) 状态行） | 正式跑批被 **OpenAI 额度用完**挡住（模拟器是 gpt-5.4-mini）；v1 结果作废 |
 | 2026-09-20（夜 2） | 走查剩余项（[walkthrough-fixes-plan.md](walkthrough-fixes-plan.md)）：面试官对议程外经历先承认再切（interviewer-v11，`off_resume_intro` 扰动）、按钮行不再冒充候选人发言、内部词拦"材料"、开场按节奏报时长；新建页与列表页文案；资料抽屉数字引用；画像标签人话化、刷新只合成总览 + 本场岗位（8 次调用 → ≤ 2）；**评分模型独立成设置项，默认 gpt-5.4-mini** | 单测 + tsc；模拟 1 场 `off_resume_intro`；真机见下 |
 | 2026-09-20（夜） | InterviewBench 子任务层（[interviewbench-plan.md](interviewbench-plan.md)、[eval/bench/README.md](../eval/bench/README.md)）：从真实面试角度拆六种面试官能力，七个静态子任务共 364 题（真值来自 Beyond the Resumé 的 ML 模拟面试与裁判测试、本仓库评分器用例、27 篇面经的真实提问链）；`npm run bench` 跑任意模型 | 两模型结果见 [eval/bench/results.md](../eval/bench/results.md)：判对错 / 定位错句接近满分（题偏易）；定层级 DeepSeek 压高分（κ 0.51 vs gpt-5.4-mini 0.82）；出评分卡两家 0.66 / 0.63（论文 GPT-5 0.76），都分不开混合型原型；追还是换真值待抽检；S3 待人工标。费用 $0.46 |
@@ -41,7 +42,7 @@
 
 ## 4. 未决问题（按用户是否会感知排序）
 
-- **InterviewBench 开发集 v2 全量未跑**：环境已过三轮独立审查，命令 `npm run bench:e2e -- --set dev --submissions bare:main,bare:openai:gpt-5.4-mini,script:main,offercome --k 1 --label dev-v2`（约 120 场，估 6–8 美元），需要 OpenAI 有额度（候选人模拟器）。跑前探针 dev 服务器。审查留下两条非阻塞局限（README §10）：豁免的句级粒度、重复检测弱。
+- **InterviewBench 留出集未建、正式榜未跑**：开发集两路结果见 [eval/bench/results.md](../eval/bench/results.md) 第二部分。先决问题：模拟器 high 深度不够（换更强模型 = bench 版本加一）；要不要加第三路 `bare:openai:gpt-5.4-mini`（自博弈，约 $1）。
 - **harness 没有"回合上限"输入**：按节奏配额走（13/19/28 回合），bench 给的 10/16/24 用不上，"主动收尾"这一列对它不可比；要不要加这个产品输入，用户定。
 
 | 问题 | 首次 | 状态 / 方向 |
@@ -72,6 +73,7 @@
 | 技能包消融 | 备课出题方向可复现地变化（"预算耗尽"主题 6/10 vs 0/10）；面试层无差异 | 太弱不上简历，作设计事实 |
 | 自适应 vs 固定题本 | 每次追问信息量 +39%（配对 9/10） | 信息量是新词量代理；ρ 上不能写"更准" |
 | 前缀缓存 | 命中约 80–84%；包正文不回放后每场输入 224k → 163k | n=2 |
+| InterviewBench 端到端（2026-09-21，开发集 30 任务，vs 同模型裸提示词基线） | 依据逐字 0.99 vs 0.96；引用不实/场 0.11 vs 0.53；一段多问率 0.25 vs 0.65；泄露 0 vs 1 | 候选人由 gpt-5.4-mini 模拟；k=1；等级一致性与红旗命中 harness 不优于基线，不能写"更准" |
 
 ## 6. 下一步候选（都未放行，等用户定）
 
