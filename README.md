@@ -2,29 +2,36 @@
 
 <h1><img src="docs/images/offercome-logo.png" alt="OfferCome" width="320"></h1>
 
-**A local-first workspace that turns every application and interview into better preparation for the next one.**
+**An open-source, local-first mock interviewer that follows your answer down — and hands you a scorecard where every judgement points at your own words.**
 
 [简体中文](README_CN.md) · [Product Site](https://offercome.yuecao.dev) · [Try in Browser](https://offercome.yuecao.dev/homepage)
 
 ![Next.js](https://img.shields.io/badge/Next.js-16-000000?style=flat-square&logo=nextdotjs)
 ![SQLite](https://img.shields.io/badge/SQLite-Local-003B57?style=flat-square&logo=sqlite)
-![Agent Skills](https://img.shields.io/badge/Agent%20Skills-SKILL.md-8A63D2?style=flat-square)
+![Agent Skills](https://img.shields.io/badge/Agent%20Skills-42%20SKILL.md-8A63D2?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
-[How It Works](#how-it-works) · [Quick Start](#quick-start) · [Features](#features) · [Preview](#project-preview) · [Under the Hood](#under-the-hood)
+[How it questions](#how-it-questions) · [Quick Start](#quick-start) · [Features](#features) · [Under the Hood](#under-the-hood)
 
 </div>
 
-## How It Works
+## How it questions
 
-OfferCome connects applications, resumes, interviews, and review in one workspace. Past answers and capability insights help shape your next practice session.
+An excerpt from a real mock interview (ByteDance · Agent Evaluation Engineer; the candidate is anonymised, the interviewer's lines and its recorded reasons are verbatim from the event log):
 
-```text
-Applications ──▶ Resume & projects ──▶ AI mock interview ──▶ Real interview
-     ▲                                        │                     │
-     │                                        ▼                     ▼
-     └──────────── Capability profile ◀── Review & scoring ◀── Import & transcribe
-```
+> **You said:** Numerator: mean prompt tokens per turn under layered compression; denominator: the mean with full history concatenated. Twenty-odd test sessions. The gap: I only measured length, not task success.
+>
+> **It asked next:** You volunteered that you never compared task success — good. Different direction: a prompt change moves your offline success rate up 3 points. What do you do first to tell real gain from noise?
+>
+> *Why it asked:* the length metric is settled (no success baseline); move to evaluation method and look for noise and decision criteria.
+
+> **You said:** I would script constrained sessions, assert in code at turn twenty, and run the same config twice for a noise floor.
+>
+> **It asked next:** Both right. If two identical runs already differ by 5 points, what happens to your 3-point conclusion — how do you change set size and comparison?
+>
+> *Why it asked:* probe the criterion behind the noise floor.
+
+The interviewer opens with your resume and the target job description, decides on its own whether to press, switch or close, and after the interview a separate scoring agent writes the report. The "why it asked" lines are shown to you in the report, turn by turn, under **How the interviewer questioned you**.
 
 ## Quick Start
 
@@ -34,7 +41,7 @@ Open [OfferCome](https://offercome.yuecao.dev/homepage), add your resume, and co
 
 Model connections, including API keys, are remembered in the browser by default; you can choose session-only storage. The server processes uploaded content and AI requests using your configuration without saving workspace data or keys to its database or files. Clearing site data removes your local copy.
 
-**Boss Zhipin sync, voice answers, interview material import, and web search require local deployment.**
+**Boss Zhipin sync, voice answers and interview material import require local deployment.**
 
 ### Docker (recommended for local use)
 
@@ -69,14 +76,14 @@ Open [http://localhost:3000](http://localhost:3000) and configure **Settings**. 
 
 | Feature | What you can do |
 | --- | --- |
-| **Applications** | Import existing Boss Zhipin records or add applications manually. Track stages and changes in the dashboard. Sync reads your records; it never applies or messages on your behalf. |
-| **Resumes** | Extract internships and projects from PDF, Word, or image resumes. Review and edit the extracted experiences, then use them as interview material. |
-| **AI mock interviews** | Practise with questions grounded in skill packs, your resume, past answers, and profile insights. Get follow-up questions, rubric-based scoring, and an action plan. Voice answers are available locally. |
-| **Interview history** | Record interviews manually, or import recordings, transcripts, and notes locally. Review extracted questions before saving. Upcoming interviews have a preparation page. |
-| **Review** | Group similar questions across interviews, compare your previous answers, and practise again. Browse by project or question bank and correct classifications. |
-| **Capability profile** | Track strengths and gaps across eight dimensions, with feedback supported by excerpts from your answers. Inspect or exclude evidence, protect insights, and launch targeted practice. |
+| **AI mock interviews** | Paste a job description, pick a resume, start. The interviewer prepares its own agenda from the JD and your projects, follows your answers with probes, switches when a topic is exhausted, and closes on its own. Afterwards: a score with the formula shown, where you lost ground and what to practise, what held up, whether your resume claims survived questioning, and the interviewer's turn-by-turn reasoning. Voice answers locally. |
+| **Interview history** | Record interviews manually, or import recordings, transcripts and notes locally. Review extracted questions before saving. Upcoming interviews have a preparation page. |
+| **Review** | Group similar questions across real and mock interviews, compare your previous answers, and practise again. |
+| **Capability profile** | Strengths and gaps across the dimensions the job cares about, each backed by excerpts from your answers; inspect or exclude evidence, launch targeted practice. |
+| **Resumes** | Extract internships and projects from PDF, Word or image resumes; review, edit, and use them as interview material. |
+| **Applications** | Import existing Boss Zhipin records or add applications manually; track stages in the dashboard. Sync reads your records; it never applies or messages on your behalf. |
 
-> **Sync rule:** During a Boss sync, applications still at “Applied” with at least 30 days since their last recorded activity can be marked “Rejected.” Deleted applications stay excluded. See [sync behavior](docs/deployment.md#boss-zhipin-sync).
+> **Sync rule:** During a Boss sync, applications still at "Applied" with at least 30 days since their last recorded activity can be marked "Rejected". Deleted applications stay excluded. See [sync behavior](docs/deployment.md#boss-zhipin-sync).
 
 ## Project Preview
 
@@ -84,13 +91,13 @@ Screenshots use fictional data from a local deployment.
 
 <table>
   <tr>
-    <td width="50%" align="center"><strong>AI Mock Interview</strong><br><img src="docs/images/mock-interview.png" alt="OfferCome AI mock interview"></td>
     <td width="50%" align="center"><strong>Capability Profile</strong><br><img src="docs/images/ability-profile.png" alt="OfferCome capability profile"></td>
+    <td width="50%" align="center"><strong>Interview Review</strong><br><img src="docs/images/interview-review.png" alt="OfferCome interview review"></td>
   </tr>
 </table>
 
 <details>
-<summary>More screenshots and product overview</summary>
+<summary>More screenshots</summary>
 
 <table>
   <tr>
@@ -99,19 +106,20 @@ Screenshots use fictional data from a local deployment.
   </tr>
   <tr>
     <td width="50%" align="center"><strong>Interview History</strong><br><img src="docs/images/interview-history.png" alt="OfferCome interview history"></td>
-    <td width="50%" align="center"><strong>Interview Review</strong><br><img src="docs/images/interview-review.png" alt="OfferCome interview review"></td>
+    <td width="50%" align="center"></td>
   </tr>
 </table>
-
-<a href="https://offercome.yuecao.dev/showcase"><img src="docs/images/hero-en.png" alt="OfferCome — every interview counts" width="820"></a>
 
 </details>
 
 ## Under the Hood
 
-- **Layered interview skills.** Ten `SKILL.md` packs organise questioning guidance into base, domain, and stack layers. The generator loads relevant packs on demand, with a keyword-based fallback. [Explore the packs](src/lib/mock-interviews/skills).
-- **Traceable evidence.** Job-description citations and profile excerpts are checked against their source text. Questions are scored against rubrics created during generation. [Profile implementation](src/lib/candidate-profile).
-- **Shared AI runtime.** `runAgent()` centralises structured output, timeouts, retries, and logging. Local deployments can configure text and speech models separately, including OpenAI-compatible and local endpoints. [Runtime implementation](src/lib/ai/run-agent.ts).
+- **One agent loop, guarded by code.** Every interviewer turn first produces a structured move (signal / action / target / facet / why / ledger) and only then the words. Interview state is a pure projection of an append-only event log, so it can be replayed; the code derives the legal moves for the current state and sends violations back for one retry, then decides the move itself. Ablation on 10 paired sessions: removing the guard drops the behaviour pass rate from 70% to 37%.
+- **Runtime that makes cheap models usable.** Shared `runAgent()` with three tool permission tiers (read / write / confirm), four budgets (steps, tokens, time, cost), a `beforeTool` hook whose failures are fed back as tool results, and a three-stage output contract (schema narrowing → targeted retry with the validation error → caller fallback parsing). Across 1,636 real calls: 78.6% first-try pass, 97.0% usable output after degradation; 8M tokens for $0.46. Prompt layout is designed for prefix caching (stable system prompt, state card last): 84% cache hits. [Runtime](src/lib/ai/run-agent.ts).
+- **Scoring is separate from interviewing.** A different agent, on a different model, scores each segment; it can look up the resume to check numbers, and every quote must be verbatim. Report weaknesses come with a concrete practice, and the report shows the interviewer's own turn-by-turn reasoning.
+- **42 Agent Skills as method books, not question banks.** Two-level, many-to-many packs (base / domain / detail) the interviewer selects from an index and loads on demand. [Explore the packs](src/lib/mock-interviews/skills).
+- **Layered memory.** In-session (state card + the interviewer's evidence ledger), cross-session (a candidate dossier the agent rewrites after each interview), long-term (capability profile).
+- **InterviewBench.** A benchmark that treats any interviewer — a bare model with one prompt, a fixed script, or this system — as a black box: a static layer of 364 items with external ground truth (Beyond the Resumé, real interview write-ups), and an end-to-end layer of 30 real-JD tasks with hidden candidate profiles and planted facts, graded only from the transcript and scorecard. Against a same-model bare-prompt baseline this system's scorecards quote verbatim 0.99 vs 0.96 of the time, with 0.11 vs 0.53 unverifiable quotes per session. [Bench README](eval/bench/README.md).
 
 ## Deployment Notes
 
