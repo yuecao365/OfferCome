@@ -31,8 +31,8 @@ export default function ApplicationTrendChartInner({
         <AreaChart data={data} margin={{ bottom: 0, left: 0, right: 8, top: 8 }}>
           <defs>
             <linearGradient id="applicationTrend" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stopColor="var(--brand)" stopOpacity={0.14} />
-              <stop offset="100%" stopColor="var(--brand)" stopOpacity={0} />
+              <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.18} />
+              <stop offset="100%" stopColor="var(--chart-1)" stopOpacity={0} />
             </linearGradient>
           </defs>
           <XAxis
@@ -56,12 +56,12 @@ export default function ApplicationTrendChartInner({
             labelFormatter={(label) => `${granularityLabel}：${String(label)}`}
           />
           <Area
-            activeDot={{ fill: "var(--brand)", r: 3, strokeWidth: 0 }}
+            activeDot={{ fill: "var(--chart-1)", r: 3, strokeWidth: 0 }}
             animationDuration={400}
             dataKey="count"
             dot={false}
             fill="url(#applicationTrend)"
-            stroke="var(--brand)"
+            stroke="var(--chart-1)"
             strokeWidth={1.5}
             type="monotone"
           />

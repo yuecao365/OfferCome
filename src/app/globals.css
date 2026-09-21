@@ -5,79 +5,85 @@
    发丝线分隔表面，投影只留给浮层；数字用等宽/表格数字。
    ============================================================ */
 :root {
-  /* 五色板（用户 2026-09-22 定）：沙 #D6C6A3 / 赭金 #B48D33 / 银灰 #A8ACB2 / 板岩蓝 #606A7B / 藏青 #323B57。
-     浅色：纸底偏沙，藏青做文字与按钮（唯一强调色），赭金只做点亮底与标记，银灰做辅助文字与分隔。 */
-  --background: #f3efe6;
-  --foreground: #323b57;
-  --surface: #faf8f3;
-  --surface-subtle: #eee9dd;
-  --surface-raised: #faf8f3;
-  --surface-sunken: #e6dfcf;
-  --muted: #e2dccd;
-  --muted-foreground: #606a7b;
-  --border: rgb(50 59 87 / 0.12);
-  --border-strong: rgb(50 59 87 / 0.22);
-  --brand: #323b57;
-  --brand-hover: #262d44;
-  --brand-foreground: #f3efe6;
-  --accent: rgb(180 141 51 / 0.16);
-  --accent-strong: rgb(180 141 51 / 0.28);
-  --accent-foreground: #7c6120;
-  --ring: #323b57;
-  --info: #606a7b;
-  --info-soft: rgb(96 106 123 / 0.12);
-  --info-strong: #4a5364;
-  --success: #6b7c4f;
-  --success-soft: rgb(107 124 79 / 0.12);
-  --success-strong: #55643e;
-  --warning: #b48d33;
-  --warning-soft: rgb(180 141 51 / 0.14);
-  --warning-strong: #8a6b22;
-  --danger: #a8524d;
-  --danger-soft: rgb(168 82 77 / 0.1);
-  --danger-strong: #86403c;
-  --app-shadow-card: 0 1px 2px rgb(50 59 87 / 0.05);
-  --app-shadow-raised: 0 1px 2px rgb(50 59 87 / 0.05), 0 8px 24px -12px rgb(50 59 87 / 0.16);
-  --app-shadow-overlay: 0 16px 48px -12px rgb(50 59 87 / 0.24), 0 0 0 1px rgb(50 59 87 / 0.06);
+  /* 参考"AI Command Center"式的工作台：浅灰底 → 纯白卡片浮起 → 卡内浅灰凹陷块，三层表面靠明度与柔和投影分层，不靠边框。
+     近黑做主按钮与文字；橙色只做数据强调与点亮；紫色做第二条数据线；绿 / 红只做状态。 */
+  --background: #eef0f3;
+  --foreground: #16181d;
+  --surface: #ffffff;
+  --surface-subtle: #f5f6f8;
+  --surface-raised: #ffffff;
+  --surface-sunken: #e6e8ec;
+  --muted: #e3e6eb;
+  --muted-foreground: #6b7280;
+  --border: rgb(22 24 29 / 0.06);
+  --border-strong: rgb(22 24 29 / 0.12);
+  --brand: #1c1e24;
+  --brand-hover: #2b2e36;
+  --brand-foreground: #ffffff;
+  --accent: rgb(232 134 46 / 0.12);
+  --accent-strong: rgb(232 134 46 / 0.22);
+  --accent-foreground: #b35f13;
+  --ring: #1c1e24;
+  --info: #5b4bff;
+  --info-soft: rgb(91 75 255 / 0.1);
+  --info-strong: #4a3ce0;
+  --success: #22a06b;
+  --success-soft: rgb(34 160 107 / 0.12);
+  --success-strong: #178a5a;
+  --warning: #e8862e;
+  --warning-soft: rgb(232 134 46 / 0.12);
+  --warning-strong: #b35f13;
+  --danger: #e5484d;
+  --danger-soft: rgb(229 72 77 / 0.1);
+  --danger-strong: #c73b40;
+  --chart-1: #e8862e;
+  --chart-2: #5b4bff;
+  --chart-3: #9aa0aa;
+  --app-shadow-card: 0 1px 2px rgb(22 24 29 / 0.04), 0 8px 24px -14px rgb(22 24 29 / 0.1);
+  --app-shadow-raised: 0 2px 4px rgb(22 24 29 / 0.04), 0 16px 40px -16px rgb(22 24 29 / 0.16);
+  --app-shadow-overlay: 0 24px 64px -16px rgb(22 24 29 / 0.24), 0 0 0 1px rgb(22 24 29 / 0.05);
   --app-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --app-ease-move: cubic-bezier(0.77, 0, 0.175, 1);
   --app-ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 [data-theme="dark"] {
-  /* 深色：藏青底，沙色做正文，赭金做按钮（藏青底上藏青按钮没有对比），银灰做辅助文字。 */
-  --background: #1c2237;
-  --foreground: #e9e1cf;
-  --surface: #232a42;
-  --surface-subtle: #29314b;
-  --surface-raised: #2f3752;
-  --surface-sunken: #161b2c;
-  --muted: #303852;
-  --muted-foreground: #a8acb2;
-  --border: rgb(233 225 207 / 0.1);
-  --border-strong: rgb(233 225 207 / 0.18);
-  --brand: #c9a24a;
-  --brand-hover: #d9b565;
-  --brand-foreground: #1c2237;
-  --accent: rgb(201 162 74 / 0.14);
-  --accent-strong: rgb(201 162 74 / 0.24);
-  --accent-foreground: #e0c37e;
-  --ring: #c9a24a;
-  --info: #9ea9bd;
-  --info-soft: rgb(158 169 189 / 0.12);
-  --info-strong: #c0c8d6;
-  --success: #a3b585;
-  --success-soft: rgb(163 181 133 / 0.12);
-  --success-strong: #c3d1ab;
-  --warning: #d9b565;
-  --warning-soft: rgb(217 181 101 / 0.12);
-  --warning-strong: #e8cd8c;
-  --danger: #d4877f;
-  --danger-soft: rgb(212 135 127 / 0.12);
-  --danger-strong: #e6aca6;
-  --app-shadow-card: inset 0 1px 0 rgb(233 225 207 / 0.04);
-  --app-shadow-raised: inset 0 1px 0 rgb(233 225 207 / 0.05), 0 8px 24px -12px rgb(0 0 0 / 0.5);
-  --app-shadow-overlay: inset 0 1px 0 rgb(233 225 207 / 0.06), 0 24px 64px -16px rgb(0 0 0 / 0.7), 0 0 0 1px rgb(233 225 207 / 0.06);
+  /* 深色同一套关系：深灰底 → 稍亮卡片 → 更亮凹陷块；浅色做主按钮，橙 / 紫做数据。 */
+  --background: #0f1013;
+  --foreground: #ecedef;
+  --surface: #16171b;
+  --surface-subtle: #1b1d22;
+  --surface-raised: #1e2026;
+  --surface-sunken: #0b0c0e;
+  --muted: #22242b;
+  --muted-foreground: #8f95a1;
+  --border: rgb(255 255 255 / 0.07);
+  --border-strong: rgb(255 255 255 / 0.14);
+  --brand: #ecedef;
+  --brand-hover: #ffffff;
+  --brand-foreground: #16181d;
+  --accent: rgb(240 150 74 / 0.14);
+  --accent-strong: rgb(240 150 74 / 0.24);
+  --accent-foreground: #f0a45e;
+  --ring: #ecedef;
+  --info: #8d81ff;
+  --info-soft: rgb(141 129 255 / 0.12);
+  --info-strong: #aca3ff;
+  --success: #34c18a;
+  --success-soft: rgb(52 193 138 / 0.12);
+  --success-strong: #6fd6ab;
+  --warning: #f0964a;
+  --warning-soft: rgb(240 150 74 / 0.12);
+  --warning-strong: #f5b47d;
+  --danger: #ef6b70;
+  --danger-soft: rgb(239 107 112 / 0.12);
+  --danger-strong: #f59a9d;
+  --chart-1: #f0964a;
+  --chart-2: #8d81ff;
+  --chart-3: #5c626d;
+  --app-shadow-card: inset 0 1px 0 rgb(255 255 255 / 0.04), 0 8px 24px -14px rgb(0 0 0 / 0.5);
+  --app-shadow-raised: inset 0 1px 0 rgb(255 255 255 / 0.05), 0 16px 40px -16px rgb(0 0 0 / 0.6);
+  --app-shadow-overlay: inset 0 1px 0 rgb(255 255 255 / 0.06), 0 24px 64px -16px rgb(0 0 0 / 0.7), 0 0 0 1px rgb(255 255 255 / 0.06);
 }
 
 @theme inline {
@@ -110,6 +116,9 @@
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);
   --color-danger-strong: var(--danger-strong);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
   --shadow-card: var(--app-shadow-card);
   --shadow-raised: var(--app-shadow-raised);
   --shadow-overlay: var(--app-shadow-overlay);
@@ -124,10 +133,10 @@
   --font-mono:
     "GeistMono", "PingFang SC", "HarmonyOS Sans SC", "MiSans",
     "Microsoft YaHei", ui-monospace, Consolas, monospace;
-  /* 圆角只有三档：控件 / 面板 / 浮层 */
-  --radius-control: 6px;
-  --radius-panel: 10px;
-  --radius-overlay: 12px;
+  /* 圆角只有三档：控件 / 面板 / 浮层。按钮、徽章、分段控件另用胶囊（rounded-full）。 */
+  --radius-control: 10px;
+  --radius-panel: 16px;
+  --radius-overlay: 20px;
   /* 展示级数字：北极星指标、报告总分 */
   --text-display: 2.75rem;
   --text-display--line-height: 3rem;
@@ -345,37 +354,30 @@ html[data-theme="dark"] {
 
 /* ============================================================
    Showcase（宣传页）：独立作用域，不跟随产品的明暗主题。
-   配色与产品同一套五色板：沙 / 赭金 / 银灰 / 板岩蓝 / 藏青；藏青是唯一的按钮色，赭金只做点亮底与标记。
+   配色与产品同一套：浅灰底 / 白卡 / 近黑按钮，橙色只做点亮。
    ============================================================ */
 .showcase-light {
   color-scheme: light;
-  --sc-sand: #d6c6a3;
-  --sc-gold: #b48d33;
-  --sc-silver: #a8acb2;
-  --sc-slate: #606a7b;
-  --sc-navy: #323b57;
-  --sc-paper: #f3efe6;
-
-  --background: var(--sc-paper);
-  --foreground: var(--sc-navy);
-  --surface: #faf8f3;
-  --surface-subtle: #eee9dd;
-  --surface-raised: #faf8f3;
-  --surface-sunken: #e6dfcf;
-  --muted: #e2dccd;
-  --muted-foreground: var(--sc-slate);
-  --border: rgb(50 59 87 / 0.12);
-  --border-strong: rgb(50 59 87 / 0.22);
-  --brand: var(--sc-navy);
-  --brand-hover: #262d44;
-  --brand-foreground: var(--sc-paper);
-  --accent: rgb(180 141 51 / 0.16);
-  --accent-strong: rgb(180 141 51 / 0.28);
-  --accent-foreground: #7c6120;
-  --ring: var(--sc-navy);
-  --app-shadow-card: 0 1px 2px rgb(50 59 87 / 0.05);
-  --app-shadow-raised: 0 1px 2px rgb(50 59 87 / 0.05), 0 24px 48px -24px rgb(50 59 87 / 0.18);
-  --app-shadow-overlay: 0 16px 40px -16px rgb(50 59 87 / 0.22), 0 0 0 1px rgb(50 59 87 / 0.05);
+  --background: #eef0f3;
+  --foreground: #16181d;
+  --surface: #ffffff;
+  --surface-subtle: #f5f6f8;
+  --surface-raised: #ffffff;
+  --surface-sunken: #e6e8ec;
+  --muted: #e3e6eb;
+  --muted-foreground: #6b7280;
+  --border: rgb(22 24 29 / 0.06);
+  --border-strong: rgb(22 24 29 / 0.12);
+  --brand: #1c1e24;
+  --brand-hover: #2b2e36;
+  --brand-foreground: #ffffff;
+  --accent: rgb(232 134 46 / 0.12);
+  --accent-strong: rgb(232 134 46 / 0.22);
+  --accent-foreground: #b35f13;
+  --ring: #1c1e24;
+  --app-shadow-card: 0 1px 2px rgb(22 24 29 / 0.04), 0 8px 24px -14px rgb(22 24 29 / 0.1);
+  --app-shadow-raised: 0 2px 4px rgb(22 24 29 / 0.04), 0 16px 40px -16px rgb(22 24 29 / 0.16);
+  --app-shadow-overlay: 0 24px 64px -16px rgb(22 24 29 / 0.24), 0 0 0 1px rgb(22 24 29 / 0.05);
 }
 
 /* 标题与大数字：宋体，比正文重一档 */
@@ -384,18 +386,17 @@ html[data-theme="dark"] {
   font-weight: 600;
 }
 
-/* 首屏回放窗口：藏青底，用自己的一组变量 */
+/* 首屏回放窗口：近黑底，橙色标出"为什么这么问" */
 .showcase-light .sc-window {
-  --sc-line: rgb(233 225 207 / 0.16);
-  --sc-dim: var(--sc-silver);
-  --sc-you: #3d465f;
-  --sc-ink: var(--sc-navy);
-  --sc-mint: #d9b565;
-  background: var(--sc-navy);
-  border-color: rgb(233 225 207 / 0.14);
-  color: #e9e1cf;
+  --sc-line: rgb(255 255 255 / 0.12);
+  --sc-dim: #8f95a1;
+  --sc-you: #2a2d35;
+  --sc-paper: #ecedef;
+  --sc-mint: #f0964a;
+  background: #16181d;
+  border-color: rgb(255 255 255 / 0.1);
+  color: #ecedef;
 }
-.showcase-light .sc-window { --sc-paper: #e9e1cf; }
 
 @keyframes sc-rise {
   from { opacity: 0; transform: translateY(8px); }

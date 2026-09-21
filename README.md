@@ -17,7 +17,7 @@
 
 ## How it questions
 
-An excerpt from a real mock interview (ByteDance · Agent Evaluation Engineer; the candidate is anonymised, the interviewer's lines and its recorded reasons are verbatim from the event log):
+An excerpt from a real mock interview (an Agent Evaluation Engineer role at a large tech company; company and candidate anonymised, the interviewer's lines and its recorded reasons are verbatim from the event log):
 
 > **You said:** Numerator: mean prompt tokens per turn under layered compression; denominator: the mean with full history concatenated. Twenty-odd test sessions. The gap: I only measured length, not task success.
 >

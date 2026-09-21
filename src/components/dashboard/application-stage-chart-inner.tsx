@@ -17,11 +17,11 @@ import type { ApplicationStage } from "@/lib/applications/types";
 /** 颜色只表达语义：未推进为灰，推进中为品牌色，结果态用成功/失败色。 */
 const stageColors: Record<ApplicationStage, string> = {
   applied: "var(--muted-foreground)",
-  assessment: "var(--brand)",
-  first_interview: "var(--brand)",
-  second_interview: "var(--brand)",
-  third_interview: "var(--brand)",
-  hr_interview: "var(--brand)",
+  assessment: "var(--chart-2)",
+  first_interview: "var(--chart-1)",
+  second_interview: "var(--chart-1)",
+  third_interview: "var(--chart-1)",
+  hr_interview: "var(--chart-1)",
   offer: "var(--success)",
   rejected: "var(--danger)",
 };

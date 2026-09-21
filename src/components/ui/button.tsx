@@ -20,8 +20,8 @@ const variants: Record<ButtonVariant, string> = {
 };
 
 const sizes: Record<ButtonSize, string> = {
-  sm: "h-7 gap-1.5 px-2.5 text-xs",
-  md: "h-8 gap-2 px-3 text-[0.8125rem]",
+  sm: "h-7 gap-1.5 px-3 text-xs",
+  md: "h-8 gap-2 px-3.5 text-[0.8125rem]",
   icon: "size-8 justify-center p-0",
   "icon-sm": "size-7 justify-center p-0",
 };
@@ -36,7 +36,7 @@ export function buttonClassName({
   className?: string;
 } = {}): string {
   return cn(
-    "inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-control border font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-app focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 motion-safe:active:scale-[0.97]",
+    "inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-full border font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-app focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 motion-safe:active:scale-[0.97]",
     variants[variant],
     sizes[size],
     className,

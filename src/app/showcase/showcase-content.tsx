@@ -64,7 +64,7 @@ function ReportExcerpt({ copy, language }: { copy: ShowcaseCopy; language: Langu
   const report = reportExcerpts[language];
   const labels = copy.reportLabels;
   return (
-    <div className="rounded-panel border border-border bg-surface p-5 sm:p-6">
+    <div className="rounded-panel bg-surface p-5 shadow-card sm:p-6">
       <div className="grid gap-6 border-b border-border pb-5 sm:grid-cols-[auto_minmax(0,1fr)] sm:gap-10">
         <div>
           <p className="text-[13px] text-muted-foreground">{labels.score}</p>
@@ -267,7 +267,7 @@ export function ShowcaseContent({ displayFontVariable }: { displayFontVariable: 
       {/* ============ CTA ============ */}
       <section className="relative mx-auto max-w-7xl px-5 pb-20 sm:px-8">
         <Reveal>
-          <div className="flex flex-col gap-8 rounded-panel border border-border bg-surface p-8 sm:p-12 lg:flex-row lg:items-end lg:justify-between">
+          <div className="flex flex-col gap-8 rounded-panel bg-surface p-8 shadow-raised sm:p-12 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <h2 className="sc-display max-w-2xl text-2xl leading-snug tracking-tight sm:text-3xl">{content.ctaTitle}</h2>
               <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground">{content.ctaDescription}</p>

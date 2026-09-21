@@ -8,7 +8,7 @@ export type SegmentedLinkItem = {
   active: boolean;
 };
 
-/** 一组互斥的链接选项（时间范围、来源、分类）：浅填充指示当前项，不用实心强调色。 */
+/** 一组互斥的链接选项（时间范围、来源、分类）：胶囊分段，当前项实心近黑。 */
 export function SegmentedLinks({
   items,
   ariaLabel,
@@ -21,15 +21,15 @@ export function SegmentedLinks({
   return (
     <nav
       aria-label={ariaLabel}
-      className={cn("inline-flex items-center gap-0.5 rounded-control bg-surface-sunken p-0.5", className)}
+      className={cn("inline-flex items-center gap-0.5 rounded-full bg-surface-sunken p-0.5", className)}
     >
       {items.map((item) => (
         <Link
           aria-current={item.active ? "page" : undefined}
           className={cn(
-            "inline-flex h-7 items-center whitespace-nowrap rounded-[4px] px-2.5 text-xs transition-colors duration-150",
+            "inline-flex h-7 items-center whitespace-nowrap rounded-full px-3 text-xs transition-colors duration-150",
             item.active
-              ? "bg-surface font-medium text-foreground shadow-card"
+              ? "bg-brand font-medium text-brand-foreground shadow-card"
               : "text-muted-foreground hover:text-foreground",
           )}
           href={item.href}

@@ -251,7 +251,7 @@ export function DesktopSidebar({
   onToggle: () => void;
 }) {
   return (
-    <aside className="sticky top-0 hidden h-screen flex-col border-r border-border bg-surface-sunken lg:flex">
+    <aside className="sticky top-0 hidden h-screen flex-col border-r border-border bg-surface lg:flex">
       <ProductMark collapsed={collapsed} homeHref={homeHref} />
       <Navigation
         active={active}

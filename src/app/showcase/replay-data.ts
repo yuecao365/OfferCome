@@ -1,7 +1,7 @@
 import type { Language } from "./copy";
 
 /**
- * 宣传页用的真实场次节选：2026-09-20 一场本地模拟面试（字节跳动 · Agent 评测工程师），候选人已匿名，
+ * 宣传页用的真实场次节选：2026-09-20 一场本地模拟面试（某大厂 · Agent 评测工程师），公司与候选人已匿名，
  * 面试官的每句话与它写下的 why 都是事件日志原文（`InterviewEvent` 的 interviewer_said.why），候选人的话做了删节。
  * 这是静态数据：宣传页不调模型，也不读库。
  */
@@ -20,7 +20,7 @@ export type ReplayScript = {
 
 export const replayScripts: Record<Language, ReplayScript> = {
   zh: {
-    title: "面试 · 字节跳动 · Agent 评测工程师",
+    title: "面试 · Agent 评测工程师",
     progress: "话题 2 / 4",
     lines: [
       {
@@ -66,7 +66,7 @@ export const replayScripts: Record<Language, ReplayScript> = {
     ],
   },
   en: {
-    title: "Interview · ByteDance · Agent Evaluation Engineer",
+    title: "Interview · Agent Evaluation Engineer",
     progress: "topic 2 / 4",
     lines: [
       {

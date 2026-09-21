@@ -23,7 +23,7 @@ export function Badge({
   return (
     <span
       className={cn(
-        "inline-flex h-6 items-center gap-1.5 whitespace-nowrap rounded-control border border-border bg-surface px-2 text-xs font-medium text-foreground",
+        "inline-flex h-6 items-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-surface-subtle px-2.5 text-xs font-medium text-foreground",
         tone === "success" && "border-success/25 bg-success-soft text-success-strong",
         className,
       )}
