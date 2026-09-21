@@ -10,6 +10,7 @@ import { AREA_KIND_LABELS, KIND_WEIGHT, type AreaKind } from "@/lib/mock-intervi
 import type { MockInterviewReport as ReportData } from "@/lib/mock-interviews/report";
 import type { MockInterviewView } from "@/lib/mock-interviews/types";
 
+import { InterviewerTrail } from "./interviewer-trail";
 import { QuestionDimensionScores } from "./mock-interview-report-visuals";
 
 /**
@@ -269,6 +270,7 @@ export function MockInterviewReport({ session }: { session: MockInterviewView })
 
       <Hypotheses items={report.hypotheses} />
       <Estimates items={session.estimates} />
+      {session.trail ? <InterviewerTrail trail={session.trail} /> : null}
 
       <section className="grid gap-3">
         <h3 className="text-sm font-semibold text-foreground">逐段反馈</h3>
@@ -278,9 +280,9 @@ export function MockInterviewReport({ session }: { session: MockInterviewView })
       </section>
 
       <p className="text-xs text-muted-foreground">
-        想看面试官每回合怎么决定的：
+        开发者视角（每回合的模型调用、工具、开销）：
         <Link className="ml-1 underline-offset-4 hover:underline" href={`/interviews/mock/${session.id}/trace`}>
-          决策记录
+          开发者记录
         </Link>
       </p>
     </div>

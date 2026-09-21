@@ -6,6 +6,7 @@ import { parseJsonArray, parseJsonObject, parseJsonValue } from "@/lib/json";
 
 import { estimate, type Estimate, type Observation } from "@/lib/interview/estimator";
 import { ledgerOf, parseEventRow, type InterviewEvent } from "@/lib/interview/events";
+import { reviewTrail, trailMessagesOfEvents } from "@/lib/interview/review-trail";
 import { renderLedger } from "@/lib/interview/state";
 import { planQuota } from "@/lib/interview/progress";
 import { loadEvaluationRuns } from "@/lib/interview/eval/facts";
@@ -106,6 +107,15 @@ function buildConversation(session: SessionWithConversation) {
   });
 }
 
+/** 面试官思路：完成后才给；从事件日志投影。 */
+function buildTrail(session: SessionWithConversation) {
+  if (session.status !== "completed") return null;
+  const brief = parseStoredBrief(session.briefJson);
+  if (!brief) return null;
+  const events = session.events.map(parseEventRow).filter((item): item is InterviewEvent => item !== null);
+  return reviewTrail(brief.areas, trailMessagesOfEvents(events));
+}
+
 export async function getMockInterviewView(id: string): Promise<MockInterviewView | null> {
   const session = await loadSessionForView(id);
   if (!session) return null;
@@ -137,6 +147,7 @@ export async function getMockInterviewView(id: string): Promise<MockInterviewVie
     materials: { resumeText: session.resumeTextSnapshot, jobDescription: session.jdTextSnapshot },
     conversation: buildConversation(session),
     estimates: buildEstimates(session),
+    trail: buildTrail(session),
     questions: session.interview.questions.map((question) => {
       const completedEvaluation =
         session.status === "completed" ? question.evaluation : null;

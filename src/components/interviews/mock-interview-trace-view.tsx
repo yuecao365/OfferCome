@@ -10,8 +10,8 @@ import type { TraceStep } from "@/lib/interview/trace-steps";
 import type { MockInterviewTrace } from "@/lib/mock-interviews/types";
 
 /**
- * trace 页：按回合展示候选人的话、面试官的话、面试官这回合重写的笔记、时钟估计与模型开销。
- * 全部从事件日志推导。只读，给开发者与评测看，不给候选人看。
+ * 开发者记录页：按回合展示候选人的话、面试官的话、证据账、模型开销与每步输入输出。
+ * 全部从事件日志推导。只读，给开发者与评测看；候选人看的是报告页里的"面试官是怎么问你的"（interviewer-trail.tsx）。
  */
 
 const KIND_LABELS: Record<string, string> = {
@@ -93,7 +93,7 @@ export function MockInterviewTraceView({ trace }: { trace: MockInterviewTrace })
           </ButtonLink>
         }
         description={`${INTERVIEW_PACE_LABELS[trace.pace]}节奏 · 配额 ${trace.plan.length} 份（${AREA_KINDS.map((kind) => `${AREA_KIND_LABELS[kind]} ${trace.plan.filter((item) => item.kind === kind).length}`).join(" / ")}）· 备课材料 ${trace.areas.length} 份`}
-        title={`决策记录 · ${trace.companyName} · ${trace.jobTitle}`}
+        title={`开发者记录 · ${trace.companyName} · ${trace.jobTitle}`}
       />
       <Dashboard trace={trace} />
       {trace.postmortem ? (

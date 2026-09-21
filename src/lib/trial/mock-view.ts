@@ -1,4 +1,5 @@
 import { planQuota } from "@/lib/interview/progress";
+import { reviewTrail } from "@/lib/interview/review-trail";
 import { renderLedger } from "@/lib/interview/state";
 import { conversationView, traceTurns } from "@/lib/interview/views";
 import { buildSegmentInfo } from "@/lib/mock-interviews/segment-info";
@@ -34,6 +35,7 @@ export function trialInterviewToView(interview: TrialInterview): MockInterviewVi
       ? conversationView({ brief: interview.brief, status: interview.status, startedAt: interview.startedAt, ledger: renderLedger(interview.brief, interview.ledger), messages: interview.messages })
       : null,
     estimates: [],
+    trail: completed && interview.brief ? reviewTrail(interview.brief.areas, interview.messages) : null,
     questions: interview.questions.map((segment, index) => ({
       id: segment.id,
       question: segment.question,

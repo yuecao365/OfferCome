@@ -52,7 +52,7 @@ export const POST = withTrialAiResponse<Body>(async (body) => {
           context,
         });
         return {
-          newMessages: result.said.map((line) => ({ id: crypto.randomUUID(), turnIndex, role: line.role, kind: line.kind, content: line.content, topic: line.topic ?? null, facet: line.facet ?? null, action: line.action ?? null, signal: line.signal ?? null })),
+          newMessages: result.said.map((line) => ({ id: crypto.randomUUID(), turnIndex, role: line.role, kind: line.kind, content: line.content, topic: line.topic ?? null, facet: line.facet ?? null, action: line.action ?? null, signal: line.signal ?? null, why: line.why ?? null, ledger: line.ledger ?? null })),
           phase: result.phase,
           progress: result.progress,
           endedBy: result.endedBy,

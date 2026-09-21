@@ -35,7 +35,8 @@ export type EndedBy = "interviewer" | "candidate";
 
 export type TurnResult = {
   events: NewEvent[];
-  said: { role: "interviewer" | "candidate"; kind: string; content: string; topic?: string | null; facet?: number | null; action?: Action | null; signal?: Signal | null }[];
+  /** 面试官那句带 why（为什么这么问）与 ledger（这回合写的证据账），给候选人看的"面试官思路"用；体验版靠它们存进会话文档。 */
+  said: { role: "interviewer" | "candidate"; kind: string; content: string; topic?: string | null; facet?: number | null; action?: Action | null; signal?: Signal | null; why?: string | null; ledger?: string | null }[];
   progress: { covered: number; quota: number };
   phase: TurnPhase;
   endedBy: EndedBy | null;
@@ -162,10 +163,11 @@ export async function runTurn(input: { runId: string; config: AiTaskConfig; stat
   for (const reason of violations) events.push(event("fallback_used", { reason: `重出：${reason}`, original: null }, result.runId));
   const reply = output.reply.trim();
   events.push(event("interviewer_said", { content: reply, kind, topic: state.phase === "opening" ? null : materialId, facet, action: proposal.action, signal, why: output.why.slice(0, 120) }, result.runId));
-  said.push({ role: "interviewer", kind, content: reply, topic: state.phase === "opening" ? null : materialId, facet, action: proposal.action, signal });
   const ledger = output.ledger.trim();
   const ledgerMaterial = before.currentId;
-  if (ledger && ledgerMaterial && candidate && !ablated("ledger")) events.push(event("ledger_written", { materialId: ledgerMaterial, text: ledger.slice(0, 200) }, result.runId));
+  const ledgerWritten = Boolean(ledger && ledgerMaterial && candidate && !ablated("ledger"));
+  said.push({ role: "interviewer", kind, content: reply, topic: state.phase === "opening" ? null : materialId, facet, action: proposal.action, signal, why: output.why.slice(0, 120), ledger: ledgerWritten ? ledger.slice(0, 200) : null });
+  if (ledgerWritten && ledgerMaterial) events.push(event("ledger_written", { materialId: ledgerMaterial, text: ledger.slice(0, 200) }, result.runId));
   const ended = proposal.action === "end";
   if (ended) events.push(event("ended", { by: "interviewer" }));
   const after = stateOf(state.brief, stateEventsOf([...state.events, ...events.map((item, index) => asEvent(item, state.events.length + index))]));

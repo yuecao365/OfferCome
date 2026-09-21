@@ -25,6 +25,9 @@ export type ConversationMessage = {
   facet?: number | null;
   action?: Action | null;
   signal?: Signal | null;
+  /** 面试官这一步的理由与这回合写的证据账（给候选人看的"面试官思路"）；旧消息没有。 */
+  why?: string | null;
+  ledger?: string | null;
 };
 
 /** 体验版没有事件日志：从消息合成状态需要的事件。 */

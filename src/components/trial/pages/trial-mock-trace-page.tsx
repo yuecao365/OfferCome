@@ -17,7 +17,7 @@ export function TrialMockTracePage({ id }: { id: string }) {
       <EmptyState
         action={<ButtonLink href="/interviews/mock">返回模拟面试列表</ButtonLink>}
         description="这场面试不在当前浏览器中，或者还没有备课完成。"
-        title="没有决策记录"
+        title="没有开发者记录"
       />
     );
   }

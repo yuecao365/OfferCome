@@ -6,6 +6,8 @@ import type { InterviewStatus } from "@/lib/interviews/types";
 import type { Conversation, Trace } from "@/lib/interview/views";
 
 import type { InterviewMaterials } from "./materials";
+import type { ReviewTrail } from "@/lib/interview/review-trail";
+
 import type { AnswerExemplar, EvaluationStrength, EvaluationWeakness, ResumeCheck } from "./question-evaluation";
 import type { MockInterviewReport } from "./report";
 
@@ -116,6 +118,8 @@ export type MockInterviewView = {
   conversation?: MockInterviewConversation | null;
   /** 事后的能力估计（完成后才有；没有岗位能力清单为空）。 */
   estimates: Estimate[];
+  /** 面试官思路（完成后才有）：每一步为什么这么问、记了什么存疑；纯投影。 */
+  trail: ReviewTrail | null;
   questions: {
     id: string;
     question: string;
