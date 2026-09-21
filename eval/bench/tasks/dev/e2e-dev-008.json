@@ -69,7 +69,14 @@
     "type": "wrong",
     "topic": "Redis 缓存一致性",
     "says": "Redis 里的 Lua 脚本和 MySQL 事务只要放在同一个方法里，基本就能保证强一致性；脚本先执行、事务后提交，数据库回滚的话 Redis 也会自动回滚。",
-    "whyWrong": "Redis Lua 和 MySQL 事务不在同一个原子事务域内，彼此不会自动回滚；通常只能靠补偿、幂等或最终一致性方案处理时序问题。"
+    "whyWrong": "Redis Lua 和 MySQL 事务不在同一个原子事务域内，彼此不会自动回滚；通常只能靠补偿、幂等或最终一致性方案处理时序问题。",
+    "competencyId": "mysql-redis"
+   },
+   {
+    "type": "hollow",
+    "topic": "大数据/评测指标",
+    "competencyId": "distributed-service-apis",
+    "resume": "后者在自建的 60 条问答评测集上命中率提高 18 个百分点"
    }
   ],
   "behavior": "help_loop"

@@ -66,16 +66,10 @@
   },
   "facts": [
    {
-    "type": "wrong",
-    "topic": "MySQL 联合索引",
-    "says": "‘按分类 + 价格区间 + 发布时间’这种查询，只要把三个字段都建成联合索引，MySQL 就一定会把范围查询也完全走成等值匹配，扫描行数会直接降到接近 1。",
-    "whyWrong": "联合索引对最左前缀和范围条件的利用有边界，价格区间一旦是范围查询，后续列通常无法继续高效用于索引过滤，不可能保证接近 1 行扫描。"
-   },
-   {
-    "type": "wrong",
-    "topic": "WebSocket 即时聊天",
-    "says": "WebSocket 天然是双向可靠消息通道，所以断线重连后消息不会丢，也不需要额外做消息去重，客户端只要重连就会自动补齐。",
-    "whyWrong": "WebSocket 只提供连接级通信，不保证业务消息不丢不重；断线重连后是否补发、如何去重需要应用层自己设计。"
+    "type": "hollow",
+    "topic": "distributed-service-apis",
+    "competencyId": "distributed-service-apis",
+    "resume": "列表接口 P95 延迟从 420ms 降至 90ms"
    }
   ],
   "behavior": "long_answers"

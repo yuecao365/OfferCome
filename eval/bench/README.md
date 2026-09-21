@@ -6,7 +6,7 @@
 
 评的不是"像不像真人面试"（那需要真人），是**面对一个水平已知的候选人，面试官能不能面出正确的结论**，以及过程是否专业、稳定、省回合。
 
-状态（2026-09-20）：子任务层已建并有两模型结果（`results.md`）；端到端层已建：`tasks/dev/` 30 个任务、bench 侧候选人模拟器、评分器、三种提交（裸模型 `bare:<模型>`、固定题本 `script:<模型>`、本仓库 `offercome`），`npm run bench:e2e` 三种提交各在 2 个任务上跑通；开发集全量、留出集与正式榜未跑。冒烟里三家对高水平候选人都系统性低估（等级精确率 0.1–0.2），是提交的问题还是模拟器"高水平"不够像，要在开发集全量上再看。
+状态（2026-09-21，bench v2）：子任务层已建并有两模型结果（`results.md`）；端到端层已建：`tasks/dev/` 30 个任务、bench 侧候选人模拟器、评分器、三种提交（裸模型 `bare:<模型>`、固定题本 `script:<模型>`、本仓库 `offercome`）。v1 在开发集上跑过一轮后经独立审查发现环境本身不可信（评分卡四档压三档有损、模拟器答不到 high、埋点落在 high 能力上自相矛盾、泄露与"答不上后仍追"规则大量误报），v2 逐条修掉，旧结果作废（`runs/e2e-dev-v1-*` 只留作对照，不上榜）。开发集全量 v2、留出集与正式榜未跑。
 
 ---
 
@@ -27,9 +27,9 @@
 
 ```ts
 interface Interviewer {
-  /** 一场开始：拿到岗位与简历，可以在这里备课。返回值 bench 不看。 */
-  start(input: { taskId: string; jobTitle: string; jobDescription: string; resume: string; budget: { maxTurns: number } }): Promise<void>;
-  /** 每回合：拿到候选人刚说的话（开场为 null），返回面试官的下一句；返回 { end: true } 表示收尾。 */
+  /** 一场开始：拿到岗位、简历、能力清单、回合预算与面试规范（norms），可以在这里备课。候选人档案不给。 */
+  start(input: { id: string; job: { title; company; description; source }; resume: { text; source }; competencies: Competency[]; budget: { pace; maxTurns }; norms: string }): Promise<void>;
+  /** 每回合：拿到候选人刚说的话（开场为 null），返回面试官的下一句；返回 { end: true } 表示主动收尾。 */
   turn(input: { candidateSaid: string | null; turnIndex: number }): Promise<{ say: string; end?: boolean }>;
   /** 面试结束：交评分卡（格式见 §5）。 */
   scorecard(): Promise<Scorecard>;
@@ -39,9 +39,10 @@ interface Interviewer {
 约束：
 
 - 面试官每回合只能说一段话；一段话里问几个问题由它定，但评分器会数问号（§6 专业项）。
-- `maxTurns` 由任务的节奏给（见 §3），到了 bench 强制结束并索要评分卡。
-- 提交者可以用任意模型、任意内部结构；bench 记录它声明的模型家族（用于 §6 的家族对照），不做限制。
-- 提交写在 `src/lib/evals/bench/submissions/`，实现 `Submission { name, family, create(): Interviewer }`；跑法 `npm run bench:e2e -- --set dev --submissions bare:main,script:main,offercome --k 1`。
+- `maxTurns` 由任务的节奏给（见 §3），到了 bench 强制结束并索要评分卡；强制结束不算主动收尾（§6.4）。接口给了回合上限，用不用得上看提交（本仓库 harness 的适配层没法往下传），bench 不替谁收尾。
+- 提交者可以用任意模型、任意内部结构；bench 记录它声明的面试模型与评分卡模型（`models: { interviewer, scorecard }`，两者可以不同），不做限制。
+- `norms` 是 bench 公开给所有提交的同一段面试规范（`types.ts` 的 `INTERVIEW_NORMS`：一次围绕一个点、顺着答案追、核实简历、答不上就换、不透露评分标准、预算内主动收尾）。它是 §6.4 专业项的大白话版，公开是为了没有哪个提交"偷看了评分表"：裸模型把它放进系统提示词；固定题本用不上；本仓库 harness 有自己的规范、不吃这段。每个提交在 `notes` 里写自己吃不吃、还有什么不对等，榜上照抄。
+- 提交写在 `src/lib/evals/bench/submissions/`，实现 `Submission { name, models, notes, create(): Interviewer }`；跑法 `npm run bench:e2e -- --set dev --submissions bare:main,script:main,offercome --k 1`。所有提交的评分卡说明（等级锚点、红旗定义）是同一份文字（`bare.ts` 的 `SCORECARD_INSTRUCTIONS`），提交者不能另写一套等级定义。
 
 ---
 
@@ -56,20 +57,20 @@ interface Interviewer {
   "job": { "title": "AI Agent 开发工程师", "company": "字节跳动", "description": "…真实 JD 全文…", "source": "eval/jd/bytedance-agent-eval-engineer-aily.json" },
   "resume": { "text": "…简历全文…", "source": "eval/resumes/synthetic-ai-llm.md" },
   "competencies": [
-    { "id": "agent-runtime", "name": "Agent 运行时与工具调用", "weight": 3 },
-    { "id": "eval", "name": "评测与回归", "weight": 3 },
-    { "id": "llm-basics", "name": "大模型基础", "weight": 2 },
-    { "id": "backend", "name": "后端工程", "weight": 1 }
+    { "id": "agent-runtime", "name": "Agent 运行时与工具调用", "description": "agent 循环、工具协议、失败恢复", "weight": 3 },
+    { "id": "eval", "name": "评测与回归", "description": "评测集、指标、回归门禁", "weight": 3 },
+    { "id": "llm-basics", "name": "大模型基础", "description": "上下文、采样、提示词与微调的边界", "weight": 2 },
+    { "id": "backend", "name": "后端工程", "description": "接口、存储、消息队列", "weight": 1 }
   ],
   "budget": { "pace": "standard", "maxTurns": 16 },
   "candidate": {
     "style": "shaky",
     "seed": 7,
-    "levels": { "agent-runtime": "high", "eval": "medium", "llm-basics": "medium", "backend": "low" },
+    "levels": { "agent-runtime": "high", "eval": "medium", "llm-basics": "medium", "backend": "medium" },
     "facts": [
-      { "type": "wrong", "topic": "消息队列", "says": "ack 机制保证消息只会被消费一次" },
-      { "type": "inflated", "topic": "接口性能", "resume": "P95 1.6 秒", "says": "P95 0.8 秒" },
-      { "type": "hollow", "topic": "RAG 项目", "resume": "召回准确率提升 30%", "canExplain": false }
+      { "type": "wrong", "topic": "消息队列", "competencyId": "backend", "says": "ack 机制保证消息只会被消费一次", "whyWrong": "ack 只保证至少一次" },
+      { "type": "inflated", "topic": "接口性能", "competencyId": "backend", "resume": "P95 1.6 秒", "says": "P95 0.8 秒" },
+      { "type": "hollow", "topic": "RAG 项目", "competencyId": "eval", "resume": "召回准确率提升 30%" }
     ],
     "behavior": "humble_lead"
   }
@@ -80,22 +81,22 @@ interface Interviewer {
 
 - `competencies`：从 JD 抽出的岗位能力清单，带权重（核心 3 / 重要 2 / 边缘 1）。这是评分卡的维度，也是"回合花在哪"的真值。抽取由 bench 构建时做一次并人工过一遍，之后固定。
 - `budget`：节奏决定回合上限（quick 10 / standard 16 / deep 24）。所有提交面对同一上限。
-- `candidate.levels`：每项能力的真实水平，三档：`low` 只到名词、`medium` 说清机制、`high` 讲到取舍与验证。由代码按 `seed` 采样，`style` 决定分布（扎实 / 一知半解 / 啰嗦 / 爱求助 / 对抗）。
-- `candidate.facts`：真实候选人会做的事，最多三条：`wrong` 说错一句、`inflated` 把简历数字说大、`hollow` 简历上写了但说不出细节。每条写明触发话题和候选人该怎么说。三分之一的任务不埋任何 fact（测误报）。
+- `candidate.levels`：每项能力的真实水平，三档，锚点文字在 `types.ts` 的 `LEVEL_ANCHORS`，模拟器、评分卡说明、回合裁判共用同一份：`low` 只到名词（说不出怎么工作）、`medium` 说清一层机制（但说不出为什么这样选、边界、怎么验证）、`high` 有取舍与验证（选 A 没选 B 的原因、代价、具体数字或量级、怎么确认有效）。由代码按 `seed` 采样，`style` 决定分布（扎实 / 一知半解 / 啰嗦 / 爱求助 / 对抗）。
+- `candidate.facts`：真实候选人会做的事，最多三条：`wrong` 说错一句、`inflated` 把简历数字说大、`hollow` 简历上写了但说不出怎么量。每条写明触发话题、落在哪项能力（`competencyId`）和候选人该怎么说，每条只做一次。**互斥规则**：`wrong` 只能落在真值 `medium` 的能力上（笃定地说错一句是"半懂"的画像：`high` 不会说错，`low` 连机制都不许说，两头都自相矛盾）；`hollow` 不能落在 `high` 上（精通的人说得出怎么量），且简历短语必须带数字；`inflated` 不受限（把数字说大是撒谎不是不懂）。三分之一的任务不埋任何 fact（测误报）。
 - `candidate.behavior`：一种表现方式或空：`humble_lead` 先说不会再答、`long_answers` 啰嗦、`help_loop` 反复求助、`manipulate` 要分 / 不作答、`off_resume_intro` 自我介绍夹简历外项目。
 
-规模：开发集 30（10 份 JD × 3 候选人），留出集 20（另 10 份 JD × 2）。留出集只在发布时跑。任务由 `npm run bench:build -- --set dev|heldout` 一次性生成（能力清单与埋点候选由 `env.json` 的 taskBuilder 模型提出，水平与埋点组合由种子决定），生成后人工过一遍能力清单与 wrong 埋点是否真的错，之后只改文件不重跑。
+规模：开发集 30（10 份 JD × 3 候选人），留出集 20（另 10 份 JD × 2）。留出集只在发布时跑。任务由 `npm run bench:build -- --set dev|heldout` 一次性生成（能力清单与埋点候选由 `env.json` 的 taskBuilder 模型提出，水平与埋点组合由种子决定），生成后人工过一遍能力清单与 wrong 埋点是否真的错，之后只改文件不重跑（构建脚本的采样在 v2 改过，同一种子已不再复现 dev 里的文件，文件才是真值）。`--repair <set>` 给旧任务补 `competencyId`、去掉违反互斥的埋点并在非 high 能力上补齐（2026-09-21 对 dev 做过两轮，第二轮把 wrong 收到 medium；现状 45 条：wrong 18（全 medium）/ inflated 11（high 8、medium 3）/ hollow 16（low 7、medium 9），10 个任务无埋点）。能力 id 由模型给，v1 限 30 字符，个别被截断（如 `mini-program-framework-princip`），任务内一致、不影响评分，留着不改。
 
 ---
 
 ## 4. 候选人模拟器（bench 拥有）
 
-所有提交面对同一个候选人。模拟器：
+所有提交面对同一个候选人。模拟器（`candidate.ts`，提示词版本 `bench-candidate-v2`）：
 
 - 固定模型与版本（写在 `env.json`，换版本就是换 bench 版本），与主流提交的模型**不同家族**。
-- 输入：简历、`levels`、`facts`、`behavior`、`style`、面试官的上一句。输出：候选人的一句话。
-- 三条硬约束（沿用 Beyond the Resumé）：**不主动交代证据**（没问到的不说）、**只答被问到的**、**按水平答**（`low` 的能力被追到机制层就答不上；`high` 的能力被问到取舍能答出取舍）。
-- `facts` 在触发话题第一次被问到时必须按 `says` 说出；`behavior` 按其定义每回合生效。
+- 输入：简历、`levels`、`facts`、`behavior`、`style`、整段对话。输出：候选人的一句话，外加 bench 侧才用的标记：`couldNotAnswer`（答不上）、`askedForClarification`（没答内容、只在问题目什么意思）、`factsSaid`（这句做了哪几条埋点）。三个标记都不信自报，用文字复核：说错 / 夸大要在这句里逐字出现（≥ 8 字重叠），答不出细节要有"同事统计 / 记不清口径"这类推脱话；答不上要有推脱语；求澄清要短（≤ 60 字）且有求澄清的话。
+- 三条硬约束（沿用 Beyond the Resumé）：**不主动交代证据**（没问到的不说）、**只答被问到的**、**按水平答**。按水平答有可执行的形状：每档有字数上限（low 80 / medium 220 / high 500，`long_answers` 行为覆盖为 450–650）；`high` 有三条自查（一个数字或量级、一次"选 A 没选 B 是因为"、一句"怎么验证"）；`medium` 被问取舍 / 边界 / 验证时含糊；`low` 整段不许出现字段名、步骤、机制、数字。除埋点外不许编简历上没有的数字。
+- `facts` 在触发话题第一次被问到时必须按 `says` 说出，每条只做一次（做过的在下一回合的提示词里标为已做）；`behavior` 按其定义生效，`humble_lead` 只在自我介绍后的前两答开头。
 - 模拟器自己不知道评分标准，也不知道面试官是谁。
 
 局限（随结果一起报）：候选人是 LLM 模拟的，比真人整齐、偏配合；偏差方向已知，幅度未对真人校准。
@@ -121,7 +122,7 @@ interface Interviewer {
 }
 ```
 
-- `level`：1 不会 / 2 知道 / 3 会用 / 4 有判断。对应真值 `low` = 1–2、`medium` = 3、`high` = 4（评分器按这个映射比）。
+- `level`：三档，与真值一对一：1 = `low`、2 = `medium`、3 = `high`，锚点文字同 §3（v1 的四档压三档有损，已废）。每项能力只填一条，重复的只计第一条；对不上任务能力 id 的记为 `unknownIds`，不计入一致性。
 - `evidence` 与 `redFlags.quote` 必须逐字来自逐字稿里候选人的话（去标点后为子串）。
 - `overall`：`strong_no_hire` / `no_hire` / `hire` / `strong_hire`。
 - 没问到的能力可以不填；评分器记为"未评"，不当错，但影响覆盖。
@@ -136,47 +137,50 @@ interface Interviewer {
 
 | 指标 | 算法 | 真值 |
 |---|---|---|
-| 等级一致性 | 评分卡各项 `level` 映射到三档后与 `levels` 比，报精确率与二次加权 κ | 候选人档案 |
-| 结论单调性 | 同一岗位下，真值平均水平高的候选人 `overall` 不低于低的；报违反的配对比例 | 候选人档案 |
-| 依据真实率 | `evidence` 逐字出现在候选人发言里的比例 | 逐字稿 |
+| 等级一致性 | 评分卡各项 `level`（三档一对一）与 `levels` 比，报精确率、相邻率（差 ≤ 1 档）与二次加权 κ（不足 10 对不报） | 候选人档案 |
+| 结论单调性 | 同一岗位下，真值加权均值相差 ≥ 0.15 的两个候选人，高的 `overall` 不低于低的；报违反的配对数 / 配对数 | 候选人档案 |
+| 依据真实率 | `evidence` 逐字出现在候选人发言里的比例（去标点后为子串，≥ 4 字） | 逐字稿 |
 
 ### 6.2 有没有被忽悠
 
 | 指标 | 算法 | 真值 |
 |---|---|---|
-| 红旗命中率 | 每条 `fact`：`redFlags` 里有一条 `quote` 与 `says` 重叠 ≥ 8 字，分 wrong / inflated / hollow 三类报 | 埋点 |
-| 当场追出率 | `fact` 说出后两回合内，面试官的话引用了它或追问了它的口径 | 埋点 + 逐字稿 |
-| 红旗误报率 | 说错 / 夸大类红旗里对不上任何埋点的条数（没埋点的任务应为 0）。"说不出细节"类不计误报：低水平候选人对简历项说"是同事做的"，真面试官也会记一笔 | 埋点 |
+| 红旗命中率 | 每条**说出来的** `fact`：`redFlags` 里有一条对上它。说错 / 夸大：`quote` 与 `says` 重叠 ≥ 8 字（短的整个包含）；说不出细节：`quote` 落在候选人做这条埋点的那个回合里，且被引用的那一句带推脱口径、或那一句 + `note` 含简历短语里**带单位的数字**（"18%""20 分钟"）；`quote` 落在别处时只认带单位的数字：要对上埋点里至少两个数字（只有一个数字的埋点就那一个），每个数字在候选人全部发言里出现 ≤ 2 次（"5 分钟""2 天"一场里反复出现就不能当指纹）、整体匹配（"2天"不被"12天"命中）。术语与中文片段不算（"P95""GPU""个百分点"同域面试里到处都是，v2 审查时用它们造出了无关红旗被记命中的反例）。分三类报，分母是说出来的条数 | 埋点 + 逐字稿 |
+| 当场追出率 | `fact` 说出后两回合内，面试官的话点名了它的关键词；或紧接着的一问在追口径（"怎么量 / 分子分母 / 哪里看到"） | 埋点 + 逐字稿 |
+| 红旗误报 | 引用真实、对不上任何埋点、且被引用的那一句不是推脱 / 操纵（答不上 / 同事做的 / 记不清口径 / "给我满分"）的红旗条数，每场平均。推脱只看被引用的那一句（啰嗦的回合里总能找到一句"记不清"），整个回合都是答不上的短回合也算；hollow 红旗引到做 hollow 埋点的那个回合里别的句子，判断没错只是引错句，不算命中也不罚。推脱句上的红旗不论提交者标哪一类都不计误报（真面试官也会记一笔），所以豁免不依赖提交者选的类型 | 埋点 + 逐字稿 |
+| 引用不实 | `quote` 在逐字稿里找不到的红旗条数，每场平均。单独报，不与误报混在一起 | 逐字稿 |
 
 ### 6.3 问得值不值
 
 | 指标 | 算法 | 真值 |
 |---|---|---|
 | 达到正确判断的回合数 | bench 侧的独立裁判每两回合出一次等级（提交者不参与；`--turn-judge` 开启，费用约翻倍），记每项能力从第几回合起稳定在正确等级；报平均值与未达到的比例 | 候选人档案 |
-| 覆盖 | 权重加权的"被问到"比例 | JD 能力权重 |
+| 覆盖 | 权重加权的"被问到"比例：评分卡评了它、且依据落在候选人一句回答上（"没做过"也是回答，求澄清不是）。填满格子而依据对不上逐字稿的不算 | JD 能力权重 |
 
 ### 6.4 专业不专业（逐字稿规则，全部代码）
 
 | 规则 | 判定 |
 |---|---|
-| 一次一问 | 面试官单句问号数 ≥ 2 的比例 |
-| 不重复 | 同一问题（去标点后相似度 ≥ 0.9）出现两次 |
-| 不泄露 | 面试官发言含"评分标准 / 满分 / 期望答案"类字样 |
-| 说不会就换 | 候选人连续两句表示不会（模拟器按 `low` 水平作答时会标记）后，面试官仍在同一能力上追 |
-| 按时收尾 | 在 `maxTurns` 内主动收尾并交了评分卡 |
+| 一段一问 | 面试官一段话里问了 ≥ 2 个**不同**问题的段数比例：按问号切句，"还是 / 或者"接的备选项、与前一问相似度 ≥ 0.3 的复述不算新问题。**只报不设门禁**：在 v1 逐字稿上抽 25 条人工看，多数是围绕一个点的连续追问（"怎么测的？样本量多大？"），真面试官也这么问，阈值没有真人数据可校 |
+| 不重复 | 一句问题与之前某句问题相似度 ≥ 0.6（字符 3-gram Dice） |
+| 不泄露 | 面试官说出这场的评分口径："按评分标准…""这题的标准答案是…""给你满分"；"不方便透露评分标准"这类拒绝、"你会怎么设计评分标准"这类业务话题不算 |
+| 说不会就换 | 候选人连续两句答不上（求澄清不算、不中断连续）之后，面试官下一句仍与上一问相似度 ≥ 0.3 且带问号 |
+| 主动收尾 | 面试官自己返回 `end: true`（在 `maxTurns` 内）并交了评分卡；bench 到上限强制结束的不算。**只报不设门禁**：固定题本由构造恒过，裸模型每回合被告知第几回合，本仓库 harness 没有回合上限的输入、按自己的节奏配额走（13/19/28 回合，超过 bench 的 10/16/24）必被掐断，三家起点不同，这一列只能各自解读 |
 | 接话（唯一用裁判的项，**未实现**） | 追问是否顺着候选人上一句：裁判用与提交不同家族的模型，先过冻结校准集（人工标注 40 条，κ ≥ 0.6 才报），并做打乱配对的关系测试。等 s3 标注完成后再建 |
+
+单场"通过"（全 bench 只有这一个定义，§6.5 的 pass^3 也用它）：评了至少一半能力且覆盖 ≥ 0.5、相邻率 1.0 且精确率 ≥ 0.5、误报 0 且引用不实 0、说出来的埋点至少抓到一条（不然什么都不标就白过误报这道门）、不泄露。也就是说"通过"实质是判断 + 红旗，专业项（一段多问、重复、答不上后仍追、主动收尾）只报不进门，"不泄露"进门但几乎不触发。
 
 ### 6.5 稳不稳
 
 | 指标 | 算法 |
 |---|---|
-| pass^3 | 留出集每任务跑 3 次；一次"通过" = 等级一致性 κ ≥ 0.6 且红旗误报为 0 且专业项全过；三次全过才算 |
+| pass^3 | 留出集每任务跑 3 次；一次"通过"用 §6.4 末尾的单场定义；三次全过才算 |
 | 等级复跑方差 | 三次评分卡各项等级的标准差 |
 | 对抗稳健 | `manipulate` / `help_loop` 任务上的判断一致性不低于无 behavior 任务 |
 
 ### 6.6 效率
 
-回合数、每场 token 与成本、回合延迟 p95，由提交者自报或 bench 记账。
+回合数由 bench 记（主表最后一列）。每场 token 与成本、回合延迟 p95 **未实现**（模型调用都经 `runAgent` 落 AgentRun 表、带 `bench-e2e:<label>` 标签，可事后按标签汇总）。
 
 ---
 
@@ -205,15 +209,15 @@ npm run bench -- --tasks s3 --models main --label <label>      # 生成下一问
 
 ## 8. 榜
 
-基线是裸模型：GPT、Claude、DeepSeek 各配同一句"你是这个岗位的技术面试官，先看 JD 和简历，面完给评分卡"。然后是固定题本（按简历顺序出题、问完打分，不自适应）。然后是本仓库的面试官 harness 及其关掉某个部件的版本。每行报 §6 全部指标，表下固定一段局限（§4）。
+基线是裸模型：各家模型配同一句"你是这个岗位的技术面试官，先看 JD 和简历，围绕岗位能力面一场，面完给评分卡"加 bench 公开的 `norms`（§2），只换模型。然后是固定题本（开场出好题、按顺序问完打分，不自适应；不吃 `norms`；由构造保证在预算内收尾）。然后是本仓库的面试官 harness（自己从 JD 抽能力、自己的规范；报告经翻译成评分卡，翻译模型与裸模型基线填评分卡的是同一个，harness 内部逐段评分用它自己的评分模型）及其关掉某个部件的版本。每行报 §6 全部指标与该提交的 `notes`，表下固定一段局限（§4）。`bare:openai:gpt-5.4-mini` 与候选人模拟器、回合裁判是同一个模型，是自博弈，榜上标注。
 
 ---
 
 ## 9. 预注册与版本
 
 - 任务集、评分器代码、裁判校准集在跑留出集之前进仓库；跑完不改口径。
-- `env.json` 记模拟器模型与版本、裁判模型与版本、种子；任一变动 bench 版本号加一，旧结果不跨版本比。
-- 每次运行产物带 git commit、提交者声明的模型家族、k、费用。
+- `env.json` 记模拟器模型与版本、裁判模型与版本（种子在每个任务文件里）；任一变动 bench 版本号加一，旧结果不跨版本比。
+- 每次运行产物带 git commit、提交者声明的面试 / 评分卡模型与 `notes`、k；费用未实现（见 §6.6）。
 
 ## 10. 局限
 
@@ -221,6 +225,10 @@ npm run bench -- --tasks s3 --models main --label <label>      # 生成下一问
 - 岗位能力清单与权重由构建时抽取并人工确认，是任务的一部分，不是被测系统的产出。
 - 人工标注只有一人（s3、接话裁判校准），报自身复标一致性作上限。
 - 子任务层的英文题候选人由 GPT-5 模拟，比真人整齐。
+- 端到端层的专业项全是词面规则（3-gram 相似度、问号、词表），没有裁判：换题 / 重复的阈值是拍的，能抓明显的，抓不到换着说法的（v1 90 场里"重复"只抓到 1 条逐字重复）；一段多问只报不设门禁；"依据落在哪句上"只查逐字，不查那句是否真在谈这项能力。
+- 三个提交拿到的信息不完全对等：裸模型与固定题本拿到 bench 的能力清单与回合上限，harness 自己从 JD 抽能力、按自己的配额定长短（它的产品设计如此，给 harness 加"回合上限"输入是产品侧待办）；榜上按 `notes` 如实标。
+- 误报豁免看被引用的那一句：面试官专挑候选人一段实质回答里的"这块记不清了"去引用可以免罚，但抓不到分（命中要么逐字对上 `says`、要么落在推脱句上）；句子最长见过 188 字，句级粒度不算细。
+- v1 环境的缺陷（见状态行）说明"bench 自己也要被审"：v2 的修法是让一位没参与构建的审查者读代码与逐字稿，逐条列出真值自相矛盾、规则误报与模拟器做不到的地方，修完再跑。之后每次改 bench 都应这样过一遍。
 
 ## 11. 目录
 
@@ -233,7 +241,7 @@ eval/bench/
   external/btr/          Beyond the Resumé ML 子集快照（MIT）
   tasks/dev|heldout/     端到端任务（dev 已建 30 个；heldout 待建）
   env.json               模拟器 / 裁判 / 任务生成的模型版本
-  ../../src/lib/evals/bench/   types、candidate（模拟器）、grade（评分器）、submissions/{bare,script,offercome}
-  ../../scripts/bench-build-tasks.ts、bench-e2e.ts
+  ../../src/lib/evals/bench/   types（含 LEVEL_ANCHORS）、candidate（模拟器）、grade（评分器）、submissions/{bare,script,offercome}
+  ../../scripts/bench-build-tasks.ts（--set 造 / --repair 修）、bench-e2e.ts（--recompute 用当前评分器重算旧产物）
   runs/                  运行产物（不进仓库）
 ```

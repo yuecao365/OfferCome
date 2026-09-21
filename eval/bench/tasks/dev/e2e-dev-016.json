@@ -66,21 +66,17 @@
   },
   "facts": [
    {
-    "type": "wrong",
-    "topic": "IPC 通信设计",
-    "says": "Electron 里 IPC 最适合直接传复杂对象和函数，这样主进程拿到后可以继续调用页面里的方法，和普通前后端 RPC 一样。",
-    "whyWrong": "IPC 只能传递可序列化的数据，函数和页面上下文不能直接跨进程传递；主进程也不能直接调用渲染进程里的方法。"
-   },
-   {
     "type": "inflated",
     "topic": "预约请求",
     "resume": "活动期累计支撑 1.2 万次预约请求",
-    "says": "活动高峰期整体大概撑住了 2.5 万次预约请求，峰值时也没出明显问题。"
+    "says": "活动高峰期整体大概撑住了 2.5 万次预约请求，峰值时也没出明显问题。",
+    "competencyId": "frontend-performance"
    },
    {
     "type": "hollow",
-    "topic": "AI 辅助编码",
-    "resume": "尝试使用 Cursor / Copilot 辅助补全样板代码与测试用例"
+    "topic": "性能优化数据",
+    "competencyId": "react-vue-framework",
+    "resume": "连续操作 20 分钟场景下内存占用峰值下降约 18%"
    }
   ],
   "behavior": "help_loop"

@@ -66,16 +66,24 @@
   },
   "facts": [
    {
-    "type": "wrong",
-    "topic": "overlayfs 与镜像分层",
-    "says": "镜像层拆得越细越好，因为 overlayfs 会把所有层在启动时一次性完全合并，所以层越多只会增加一次性合并成本，不会影响后续拉取效率。",
-    "whyWrong": "overlayfs 通常是按需访问和叠加，不是启动时把所有层完全合并；层数过多会增加元数据、解压和 I/O 负担，也会影响分发与缓存命中。"
-   },
-   {
     "type": "inflated",
     "topic": "调度实验规模",
     "resume": "在 3 类混合作业压测下",
-    "says": "在 6 类混合作业压测下做了完整验证。"
+    "says": "在 6 类混合作业压测下做了完整验证。",
+    "competencyId": "kubernetes-architecture"
+   },
+   {
+    "type": "wrong",
+    "topic": "kubernetes-architecture",
+    "competencyId": "kubernetes-architecture",
+    "says": "Kubernetes 里只要给 Pod 设好 requests 和 priority，调度器就会自动把同一组训练 Pod 绑定成一个整体，要么一起上节点，要么一起失败，所以 gang 调度其实可以直接靠原生调度器实现。",
+    "whyWrong": "原生 Kubernetes 调度器只负责单个 Pod 的调度决策，不会天然做 gang 语义的成组原子调度；这类能力通常要靠 Volcano 之类的批调度器或额外的控制器实现。"
+   },
+   {
+    "type": "hollow",
+    "topic": "performance-optimization",
+    "competencyId": "performance-optimization",
+    "resume": "使测试场景下单 Pod 启动耗时由平均 95 秒降至 63 秒"
    }
   ],
   "behavior": "manipulate"

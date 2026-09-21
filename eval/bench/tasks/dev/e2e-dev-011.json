@@ -73,10 +73,17 @@
   },
   "facts": [
    {
+    "type": "hollow",
+    "topic": "高并发与性能优化",
+    "competencyId": "high-concurrency-performance",
+    "resume": "列表接口 P95 延迟从 420ms 降至 90ms"
+   },
+   {
     "type": "wrong",
-    "topic": "Redis 与 MySQL 一致性",
-    "says": "大促库存超卖那次，Redis 和 MySQL 只要把 Lua 脚本包进事务里就能保证绝对一致，事务提交后 Redis 里的库存自然会跟着回滚，不需要再做别的补偿。",
-    "whyWrong": "Redis Lua 和 MySQL 事务不是同一个事务域，不能互相回滚；时序缺口通常要靠幂等、版本号、补偿或消息一致性方案解决，不是“包进事务”就能统一提交/回滚。"
+    "topic": "multithreading-concurrency",
+    "competencyId": "multithreading-concurrency",
+    "says": "给热点计数器直接加 `synchronized` 就够了，JVM 会把它升级成偏向锁，多个线程并发时实际还是无锁的。",
+    "whyWrong": "偏向锁并不意味着多线程下“实际还是无锁”；一旦出现真正的竞争，就会撤销偏向并进入更重的锁状态，`synchronized` 仍然会带来排队、阻塞和上下文切换开销，不能把它当成并发下的无损方案。"
    }
   ],
   "behavior": "help_loop"

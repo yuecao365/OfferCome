@@ -66,22 +66,24 @@
   },
   "facts": [
    {
-    "type": "wrong",
-    "topic": "小程序框架原理 / 渲染机制",
-    "says": "小程序的页面其实就是直接跑在微信内置的浏览器里，所以它和普通 H5 一样，JS 可以直接操作 DOM，框架层主要只是帮你做一些兼容处理。",
-    "whyWrong": "小程序不是直接暴露浏览器 DOM 的 Web 页面，视图层和逻辑层是分离的，不能像 H5 那样直接操作 DOM；框架不只是兼容层，而是承担了组件、数据绑定和渲染调度等核心机制。"
-   },
-   {
-    "type": "wrong",
-    "topic": "性能优化 / 首屏白屏",
-    "says": "首屏白屏一般只要把图片都改成懒加载就能解决，因为白屏的根因通常是图片没加载完，和 JS 体积关系不大。",
-    "whyWrong": "首屏白屏往往和主包体积、首屏 JS 执行、路由初始化、首屏数据请求等都有关系，图片懒加载只能缓解非首屏资源，不是主要根因。"
-   },
-   {
     "type": "inflated",
     "topic": "性能优化",
     "resume": "将页面首屏可交互时间由 3.1s 优化至 2.2s",
-    "says": "把页面首屏可交互时间从 3.1s 优化到了 1.6s 左右，提升接近一半。"
+    "says": "把页面首屏可交互时间从 3.1s 优化到了 1.6s 左右，提升接近一半。",
+    "competencyId": "frontend-optimization"
+   },
+   {
+    "type": "wrong",
+    "topic": "ai-coding-agent",
+    "competencyId": "ai-coding-agent",
+    "says": "做 Agent 时只要把所有工具都放进 system prompt，模型就会自己选最优工具；真正的工具路由和状态管理可以省掉，最多再加点提示词约束就够了。",
+    "whyWrong": "工具可用性和调用时机不会因为写进 system prompt 就自动稳定成立；Agent 仍需要显式的工具选择、状态维护、失败重试和边界控制，否则很容易出现误调用、循环调用或上下文漂移。"
+   },
+   {
+    "type": "hollow",
+    "topic": "ai-coding-agent",
+    "competencyId": "ai-coding-agent",
+    "resume": "日常使用中将单次内容产出时间从约 15 分钟缩短至 5 分钟内"
    }
   ],
   "behavior": null

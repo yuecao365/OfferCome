@@ -67,20 +67,16 @@
   "facts": [
    {
     "type": "wrong",
-    "topic": "Kubernetes 调度插件",
-    "says": "我在 Go 自定义调度插件里主要是把 GPU 显存需求直接作为硬约束接到 Filter 阶段，这样一旦显存不够就不会进入后面的打分流程，等待时间下降主要靠减少了无效排队。",
-    "whyWrong": "显存需求通常更适合作为打分或资源可行性判断的一部分，是否硬约束取决于调度策略；把它简单等同于 Filter 阶段的硬门槛会过度简化 Volcano/K8s 调度链路。"
-   },
-   {
-    "type": "wrong",
-    "topic": "镜像分层与启动优化",
-    "says": "镜像分层优化之后，节点只要第一次拉过基础层，后面同仓库的新镜像基本就不会再走网络了，因为 containerd 会自动把所有层都共享成同一个缓存。",
-    "whyWrong": "镜像层可复用不等于“后续基本不走网络”，不同镜像层内容、tag、manifest 变化都会影响拉取；containerd 的缓存也不是把所有层合并成一个通用缓存。"
+    "topic": "大规模沙盒与评估平台 / Agent 评估",
+    "competencyId": "sandbox-platform",
+    "says": "做 Agent 评估时，只要把沙盒容器镜像固定住就够了，不需要再额外固定随机种子和外部工具版本，因为结果波动主要来自模型本身。",
+    "whyWrong": "Agent 评估的可复现性不仅取决于容器镜像，还强依赖随机种子、工具链版本、系统时间/网络等外部条件；很多波动正是由工具调用和环境差异引入的，不是只靠镜像固定就能消掉。"
    },
    {
     "type": "hollow",
-    "topic": "缩短同类问题定位时间",
-    "resume": "帮助团队缩短同类问题定位时间"
+    "topic": "Kubernetes 调度优化实验",
+    "competencyId": "sandbox-platform",
+    "resume": "在 3 类混合作业压测下，集群平均等待时间下降约 22%"
    }
   ],
   "behavior": "off_resume_intro"

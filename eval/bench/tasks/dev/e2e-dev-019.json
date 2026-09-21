@@ -67,15 +67,16 @@
   "facts": [
    {
     "type": "wrong",
-    "topic": "接口自动化与回归",
-    "says": "我做接口自动化时一般会把所有用例都放进一个 pytest 类里，这样执行顺序就固定了，回归时更容易保证前置数据不被打乱。",
-    "whyWrong": "pytest 的用例执行顺序不应该依赖类内顺序来保证稳定性，回归稳定性应靠用例隔离、独立数据和显式依赖管理，而不是把顺序固定当成核心手段。"
-   },
-   {
-    "type": "wrong",
     "topic": "Cookie/Session",
     "says": "Cookie/Session 里真正保存登录态的是 Cookie，本质上 session 只是浏览器本地的一段缓存，所以服务端不用维护会话状态。",
-    "whyWrong": "通常是 Cookie 保存 session id，实际会话状态由服务端 session 或 token 体系维护；把 session 等同于浏览器本地缓存是机制性错误。"
+    "whyWrong": "通常是 Cookie 保存 session id，实际会话状态由服务端 session 或 token 体系维护；把 session 等同于浏览器本地缓存是机制性错误。",
+    "competencyId": "llm-knowledge"
+   },
+   {
+    "type": "hollow",
+    "topic": "测试数据构造",
+    "competencyId": "llm-knowledge",
+    "resume": "减少人工造数时间约 70%"
    }
   ],
   "behavior": "humble_lead"

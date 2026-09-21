@@ -69,19 +69,22 @@
     "type": "wrong",
     "topic": "Prompt diff / 失败样本回放",
     "says": "Prompt diff 的核心是把两版 prompt 做字符串 diff，再对比最终回答是否变化；中间步骤其实没必要单独回放，因为模型内部推理不可见，回放也看不出什么。",
-    "whyWrong": "对 Agent 调试来说，关键恰恰是对比中间步骤、工具入参出参和失败样本回放，这些外显轨迹能帮助定位规划、参数和外部依赖问题，而不只是最终答案差异。"
+    "whyWrong": "对 Agent 调试来说，关键恰恰是对比中间步骤、工具入参出参和失败样本回放，这些外显轨迹能帮助定位规划、参数和外部依赖问题，而不只是最终答案差异。",
+    "competencyId": "agent-debugging-tooling"
    },
    {
     "type": "wrong",
     "topic": "Agent tracing / observability",
     "says": "我们做 tracing 的时候，最关键其实是把每个 tool call 的输入输出都完整落库，链路就一定能还原出来；只要有 prompt、response 和耗时，根因分析基本就够了，不需要专门做 span/trace 的上下文关联。",
-    "whyWrong": "tracing 不只是存日志；如果没有稳定的 trace/span 关联、父子关系和跨服务上下文传播，链路很容易断，无法可靠还原多轮 Agent 的执行路径。"
+    "whyWrong": "tracing 不只是存日志；如果没有稳定的 trace/span 关联、父子关系和跨服务上下文传播，链路很容易断，无法可靠还原多轮 Agent 的执行路径。",
+    "competencyId": "agent-tracing-observability"
    },
    {
     "type": "inflated",
     "topic": "评测平台吞吐",
     "resume": "单批次可稳定跑完 500 条测试任务",
-    "says": "后面我把并发和队列做了一轮优化，单批次基本能稳定跑一千条左右。"
+    "says": "后面我把并发和队列做了一轮优化，单批次基本能稳定跑一千条左右。",
+    "competencyId": "platform-architecture"
    }
   ],
   "behavior": "humble_lead"

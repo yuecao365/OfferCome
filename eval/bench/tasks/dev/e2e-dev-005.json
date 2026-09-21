@@ -69,12 +69,14 @@
     "type": "wrong",
     "topic": "Agent tracing / observability",
     "says": "我们做 tracing 的时候其实把 prompt、工具调用和模型响应都串成一条同步链路，只有前一个步骤完全结束后下一个步骤才会开始，这样才能保证日志顺序绝对一致。",
-    "whyWrong": "Agent 的执行链路通常不是靠“同步串行”来保证顺序的；真实场景里会有并发、异步重试和回调，tracing 只是记录与关联这些事件，不是把执行机制改成纯同步。"
+    "whyWrong": "Agent 的执行链路通常不是靠“同步串行”来保证顺序的；真实场景里会有并发、异步重试和回调，tracing 只是记录与关联这些事件，不是把执行机制改成纯同步。",
+    "competencyId": "agent-eval-system"
    },
    {
     "type": "hollow",
     "topic": "工具调用成功率下降",
-    "resume": "提前发现网页检索工具调用成功率下降约 9 个百分点"
+    "resume": "提前发现网页检索工具调用成功率下降约 9 个百分点",
+    "competencyId": "metric-design"
    }
   ],
   "behavior": "long_answers"

@@ -1,19 +1,41 @@
-import { normalizedText } from "@/lib/text/similarity";
+import { normalizedText, questionSimilarity } from "@/lib/text/similarity";
 
-import { BENCH_LEVELS, type BenchLevel, type Episode, type Fact, type Task, type TranscriptTurn } from "./types";
+import { BENCH_LEVELS, LEVEL_OF_RATING, type BenchLevel, type Episode, type Fact, type Task, type TranscriptTurn } from "./types";
 
 /**
- * InterviewBench 端到端层评分器（README §6，去掉了"回合分配"）。
- * 只读逐字稿与评分卡，全部纯函数；不读任何提交者内部状态。
+ * InterviewBench 端到端层评分器（README §6）。只读逐字稿与评分卡，全部纯函数；不读任何提交者内部状态。
+ * v2（2026-09-21 审查后）：三档一对一映射；同一能力只计一次；hollow 用词级命中；"答不上"与"求澄清"分开；
+ * 换题用词面重叠判而不是固定词表；泄露排除否定句；覆盖要求实质答过；主动收尾才算按时收尾。
  */
 
 const lettersOnly = (value: string) => normalizedText(value).replace(/[^\p{L}\p{N}]/gu, "");
+const dense = (value: string) => value.replace(/\s+/g, "");
+/** text（去空白后）里是否以整体出现这个带单位的数字："2天"不被"12天"命中，"18%"不被"118%"命中。 */
+function countNumber(text: string, number: string): number {
+  const haystack = dense(text);
+  let from = 0;
+  let count = 0;
+  while (from <= haystack.length - number.length) {
+    const at = haystack.indexOf(number, from);
+    if (at < 0) break;
+    if (!/\d/.test(haystack[at - 1] ?? "")) count += 1;
+    from = at + 1;
+  }
+  return count;
+}
+const hasNumber = (text: string, number: string) => countNumber(text, number) > 0;
 
 /** 引用逐字来自候选人的话：去标点后是某句候选人发言的子串，且不短于 4 个字符。 */
 export function quoteInTranscript(transcript: TranscriptTurn[], quote: string): boolean {
+  return quoteTurn(transcript, quote) !== null;
+}
+
+/** 引用落在哪一句候选人发言上；没有返回 null。 */
+export function quoteTurn(transcript: TranscriptTurn[], quote: string): Extract<TranscriptTurn, { role: "candidate" }> | null {
   const needle = lettersOnly(quote);
-  if (needle.length < 4) return false;
-  return transcript.some((turn) => turn.role === "candidate" && lettersOnly(turn.text).includes(needle));
+  if (needle.length < 4) return null;
+  for (const turn of transcript) if (turn.role === "candidate" && lettersOnly(turn.text).includes(needle)) return turn;
+  return null;
 }
 
 /** 两段文字去标点后共享 ≥ minChars 的连续片段。 */
@@ -26,15 +48,32 @@ export function overlaps(a: string, b: string, minChars = 8): boolean {
   return false;
 }
 
-/** 评分卡的 1–4 级映射到三档：1、2 → low，3 → medium，4 → high。 */
-export function levelOf(rating: 1 | 2 | 3 | 4): BenchLevel {
-  return rating <= 2 ? "low" : rating === 3 ? "medium" : "high";
+/** 带单位 / 小数 / 百分号的数字（"1.6秒""30%""11个百分点"）；裸整数不算，"100"到处都是。 */
+export function unitNumbersOf(text: string): string[] {
+  return [...new Set((text.match(/\d+(?:\.\d+)?\s*(?:%|万|亿|倍|次|条|ms|s|秒|QPS|qps|TPS|tps|天|小时|分钟|k|K|w|W|\+|个百分点|个点|GB|MB|G|M)/g) ?? []).map((n) => n.replace(/\s+/g, "")))];
 }
+
+/** 关键词：带单位的数字、英文词、4 字以上的中文连续片段（前几个）。只用于"当场追出"（面试官有没有点名它），不用于 hollow 命中。 */
+export function keywordsOf(text: string): string[] {
+  const words = (text.match(/[A-Za-z][A-Za-z0-9_.-]{2,}|[一-龥]{4,}/g) ?? []).slice(0, 6);
+  return [...new Set([...unitNumbersOf(text), ...words])].filter((w) => w.length >= 2);
+}
+
+/** 文本里包含 quote 的那一句（按句号 / 问号 / 感叹号 / 分号切）；找不到返回整段。 */
+export function sentenceContaining(text: string, quote: string): string {
+  const needle = lettersOnly(quote);
+  for (const sentence of text.split(/(?<=[。！？!?；;\n])/)) if (needle.length >= 4 && lettersOnly(sentence).includes(needle)) return sentence;
+  return text;
+}
+
+/** 两句话像不像：字符 3-gram 的 Dice 系数（0–1），中英文都适用；换题 / 重复 / 一段多问都用它。 */
+export const similarity = (a: string, b: string): number => questionSimilarity(a, b);
+
 const levelIndex = (level: BenchLevel) => BENCH_LEVELS.indexOf(level);
 
-/** 三档序数的二次加权 κ；不足两对返回 null。 */
+/** 三档序数的二次加权 κ；不足 10 对返回 null（单场不报）。 */
 export function weightedKappa(pairs: [BenchLevel, BenchLevel][]): number | null {
-  if (pairs.length < 2) return null;
+  if (pairs.length < 10) return null;
   const k = BENCH_LEVELS.length;
   const o = Array.from({ length: k }, () => Array(k).fill(0) as number[]);
   for (const [a, b] of pairs) o[levelIndex(a)][levelIndex(b)] += 1;
@@ -52,30 +91,55 @@ export function weightedKappa(pairs: [BenchLevel, BenchLevel][]): number | null 
   return den === 0 ? null : 1 - num / den;
 }
 
+/** "推脱语"：这句是不是在说自己答不上 / 不是自己做的 / 记不清口径。 */
+export const DEFLECTION = /(不会|不了解|不太了解|不熟|说不上来|答不上|没做过|没怎么做|不是我(做|写|负责)|同事(做|写|搞|负责|统计|算)|记不清|记不太清|不清楚|说不清)/;
+/** 操纵 / 不作答：要分、让面试官问 AI。评分卡引用这种话记一笔不算误报。 */
+export const MANIPULATION = /(给我满分|给我个分|直接给分|问问 ?AI|你先说答案|评分标准是什么)/;
+/** 求澄清：没听懂、要求具体一点。 */
+export const CLARIFICATION = /(没太懂|没听懂|不太明白|能具体点|具体一点|哪个方向|什么意思|再说一遍)/;
+
 // ------------------------------------------------------------------ 6.1 判断对不对
 
 export type JudgementGrade = {
-  /** (真值, 评分卡) 三档配对，只算评了的能力。 */
+  /** (真值, 评分卡) 三档配对，每项能力只计第一次评的那条。 */
   pairs: [BenchLevel, BenchLevel][];
   exact: number;
+  adjacent: number;
   rated: number;
   total: number;
+  /** 评分卡里对不上任务能力 id 的条数（提交者篡改或编造 id）。 */
+  unknownIds: number;
   /** 依据逐字来自候选人发言的比例。 */
   evidenceVerbatim: { ok: number; total: number };
 };
 
 export function gradeJudgement(task: Task, episode: Episode): JudgementGrade {
   const pairs: [BenchLevel, BenchLevel][] = [];
+  const seen = new Set<string>();
   let ok = 0;
   let total = 0;
+  let unknownIds = 0;
   for (const rating of episode.scorecard?.ratings ?? []) {
     const truth = task.candidate.levels[rating.competencyId];
-    if (!truth) continue;
-    pairs.push([truth, levelOf(rating.level)]);
+    if (!truth) {
+      unknownIds += 1;
+      continue;
+    }
+    if (seen.has(rating.competencyId)) continue;
+    seen.add(rating.competencyId);
+    pairs.push([truth, LEVEL_OF_RATING[rating.level]]);
     total += 1;
     if (quoteInTranscript(episode.transcript, rating.evidence)) ok += 1;
   }
-  return { pairs, exact: pairs.filter(([a, b]) => a === b).length, rated: pairs.length, total: task.competencies.length, evidenceVerbatim: { ok, total } };
+  return {
+    pairs,
+    exact: pairs.filter(([a, b]) => a === b).length,
+    adjacent: pairs.filter(([a, b]) => Math.abs(levelIndex(a) - levelIndex(b)) <= 1).length,
+    rated: pairs.length,
+    total: task.competencies.length,
+    unknownIds,
+    evidenceVerbatim: { ok, total },
+  };
 }
 
 /** 候选人真实水平的加权均值（0–1），比总体结论单调性用。 */
@@ -113,47 +177,79 @@ export function gradeMonotonicity(items: { task: Task; episode: Episode }[]): { 
 
 export type FactGrade = { fact: Fact; said: boolean; saidAt: number | null; flagged: boolean; probed: boolean };
 
+const HOLLOW_DEFLECTION = /(同事统计|同事算的|同事做的|记不清口径|口径.{0,6}记不|说不上来怎么(量|算)|怎么(量|算|统计)的.{0,8}(不清楚|记不清|说不上)|分子分母)/;
+
 function factText(fact: Fact): string {
   return fact.type === "hollow" ? fact.resume : fact.says;
 }
 
-/** 红旗是否指向这条埋点：短的埋点（如「P95 0.8 秒」）要整个包含，长的共享 ≥ 8 字即可。 */
-function flagMatches(flag: { quote: string; note: string }, fact: Fact): boolean {
-  const target = lettersOnly(factText(fact));
-  const haystack = lettersOnly(flag.quote + (fact.type === "hollow" ? flag.note : ""));
-  return target.length <= 8 ? target.length >= 3 && haystack.includes(target) : overlaps(haystack, target);
+/**
+ * 红旗是否指向这条埋点。说错 / 夸大：quote 与 says 逐字重叠（短的整个包含）。
+ * 答不出细节：quote 落在候选人做这条埋点的那个回合里，且被引用的那一句带推脱口径、或那一句 + note 含简历短语里带单位的数字；
+ * 或（quote 落在别处时）quote + note 含那个带单位的数字，且这个数字在候选人全部发言里出现不超过两次（"5分钟""2天"这类短数字
+ * 一场里反复出现就不能当指纹）。数字整体匹配（"2天"不被"12天"命中）。术语与中文片段不算（"P95""GPU""个百分点"同域面试里到处都是）。
+ * 候选人不会复述简历原句，所以不要求与 resume 逐字重叠。
+ */
+function flagMatches(flag: { quote: string; note: string }, fact: Fact, saidTurns: Extract<TranscriptTurn, { role: "candidate" }>[], transcript: TranscriptTurn[]): boolean {
+  if (fact.type !== "hollow") {
+    const target = lettersOnly(fact.says);
+    const haystack = lettersOnly(flag.quote);
+    return target.length <= 8 ? target.length >= 3 && haystack.includes(target) : overlaps(haystack, target);
+  }
+  const numbers = unitNumbersOf(fact.resume);
+  const hit = quoteTurn(transcript, flag.quote);
+  if (hit && saidTurns.some((turn) => turn.index === hit.index)) {
+    const sentence = sentenceContaining(hit.text, flag.quote);
+    if (HOLLOW_DEFLECTION.test(sentence) || numbers.some((n) => hasNumber(`${sentence} ${flag.note}`, n))) return true;
+  }
+  // 落在别处：要对上埋点里至少两个数字（只有一个数字的埋点就那一个），且这些数字在候选人全部发言里都不常见（≤ 2 次）。
+  const candidateText = transcript.filter((turn) => turn.role === "candidate").map((turn) => turn.text).join("\n");
+  const matched = numbers.filter((n) => countNumber(candidateText, n) <= 2 && hasNumber(`${flag.quote} ${flag.note}`, n));
+  return numbers.length > 0 && matched.length >= Math.min(2, numbers.length);
 }
 
-/** 每条埋点：候选人说了没、评分卡红旗里有没有引用到、说出后两回合内面试官有没有追它。 */
-export function gradeFacts(task: Task, episode: Episode): { facts: FactGrade[]; falsePositives: number } {
+/**
+ * 每条埋点：候选人说了没、评分卡红旗里有没有对上、说出后有没有被追（两回合内点名它的关键词，或紧接着的一问在追口径）。
+ * 红旗分三类记：对上埋点或落在推脱 / 操纵句上的（不计）、引用对不上逐字稿的（unverified）、引用真实但对不上任何埋点的（falsePositives）。
+ */
+export function gradeFacts(task: Task, episode: Episode): { facts: FactGrade[]; falsePositives: number; unverifiedFlags: number } {
+  const candidateTurns = episode.transcript.filter((turn): turn is Extract<TranscriptTurn, { role: "candidate" }> => turn.role === "candidate");
+  const flags = episode.scorecard?.redFlags ?? [];
   const facts = task.candidate.facts.map((fact, index): FactGrade => {
-    const saidTurn = episode.transcript.find((turn) => turn.role === "candidate" && turn.factsSaid.includes(index));
-    const said = Boolean(saidTurn);
-    const saidAt = saidTurn ? saidTurn.index : null;
-    const flagged = (episode.scorecard?.redFlags ?? []).some((flag) => flagMatches(flag, fact));
+    const saidTurns = candidateTurns.filter((turn) => turn.factsSaid.includes(index));
+    const said = saidTurns.length > 0;
+    const saidAt = said ? saidTurns[0].index : null;
+    const flagged = flags.some((flag) => flagMatches(flag, fact, saidTurns, episode.transcript));
     let probed = false;
     if (saidAt !== null) {
       const next = episode.transcript.filter((turn) => turn.role === "interviewer" && turn.index > saidAt).slice(0, 2);
       const keywords = keywordsOf(factText(fact));
-      probed = next.some((turn) => keywords.some((word) => turn.text.includes(word)) || /口径|怎么算|怎么量|分子|分母|确认一下|哪里看到|依据/.test(turn.text));
+      probed = next.some((turn) => keywords.some((word) => turn.text.includes(word))) || (next.length > 0 && /口径|怎么算|怎么量|分子|分母|确认一下|哪里看到|依据|怎么得出|怎么测/.test(next[0].text));
     }
     return { fact, said, saidAt, flagged, probed };
   });
-  // 误报：说错 / 夸大类红旗没对上任何埋点的条数。"说不出细节"类不计误报：低水平候选人对简历项说"是同事做的"，真面试官也会记一笔，
-  // 它对不对取决于候选人档案里那项能力是不是 low，不是埋点能穷尽的。
-  const flags = (episode.scorecard?.redFlags ?? []).filter((flag) => flag.type !== "hollow");
-  const matched = flags.filter((flag) => task.candidate.facts.some((fact) => flagMatches(flag, fact)));
-  return { facts, falsePositives: flags.length - matched.length };
+  // 误报：引用真实、对不上任何埋点、且引用的那一句不是推脱 / 操纵（答不上 / 同事做的 / 记不清口径 / 给我满分）的红旗。
+  // 推脱句上的红旗不论提交者标的是哪一类都不计误报：真面试官也会记一笔，它对不对不是埋点能穷尽的。
+  // 推脱只看被引用的那一句（不是整个回合，啰嗦的回合里总能找到一句"记不清"）；整个回合都是答不上的短回合也算。
+  let falsePositives = 0;
+  let unverifiedFlags = 0;
+  for (const flag of flags) {
+    if (task.candidate.facts.some((fact, index) => flagMatches(flag, fact, candidateTurns.filter((turn) => turn.factsSaid.includes(index)), episode.transcript))) continue;
+    const turn = quoteTurn(episode.transcript, flag.quote);
+    if (turn === null) {
+      unverifiedFlags += 1;
+      continue;
+    }
+    const sentence = sentenceContaining(turn.text, flag.quote);
+    // 引用落在做了 hollow 埋点的那个回合上（只是没引到推脱那句）：判断没错、引错了句子，不算命中也不罚误报。
+    const onHollowTurn = flag.type === "hollow" && turn.factsSaid.some((index) => task.candidate.facts[index]?.type === "hollow");
+    const excused = onHollowTurn || (turn.couldNotAnswer && lettersOnly(turn.text).length <= 150) || DEFLECTION.test(sentence) || MANIPULATION.test(sentence);
+    if (!excused) falsePositives += 1;
+  }
+  return { facts, falsePositives, unverifiedFlags };
 }
 
-/** 埋点原话里的关键词：数字带单位、和 4 字以上的连续片段的前几个，用来判面试官有没有追它。 */
-function keywordsOf(text: string): string[] {
-  const numbers = text.match(/\d+(?:\.\d+)?\s*(?:%|万|亿|倍|次|条|ms|s|秒|QPS|qps|TPS|tps)?/g) ?? [];
-  const words = (text.match(/[A-Za-z][A-Za-z0-9_.-]{2,}|[一-龥]{4,}/g) ?? []).slice(0, 4);
-  return [...new Set([...numbers.map((n) => n.replace(/\s+/g, "")), ...words])].filter((w) => w.length >= 2);
-}
-
-// ------------------------------------------------------------------ 6.3 问得值不值（回合分配已砍）
+// ------------------------------------------------------------------ 6.3 问得值不值
 
 /** 每项能力从第几回合起稳定在正确等级；没达到为 null。需要 episode.turnScorecards。 */
 export function turnsToCorrect(task: Task, episode: Episode): Record<string, number | null> | null {
@@ -164,6 +260,7 @@ export function turnsToCorrect(task: Task, episode: Episode): Record<string, num
     let stableFrom: number | null = null;
     for (const snapshot of episode.turnScorecards) {
       const level = snapshot.levels[competency.id] ?? null;
+      if (level === null) continue; // 裁判这回合判不出：保持上一状态，不当判错
       if (level === truth) stableFrom = stableFrom ?? snapshot.afterTurn;
       else stableFrom = null;
     }
@@ -172,54 +269,93 @@ export function turnsToCorrect(task: Task, episode: Episode): Record<string, num
   return out;
 }
 
-/** 权重加权的"被问到"比例：评分卡评了的能力算问到。 */
+/** 权重加权的覆盖：一项能力算问到，要评分卡评了它、且依据落在候选人一句回答上（"没做过"也是回答，求澄清不是）。填满格子不算。 */
 export function coverage(task: Task, episode: Episode): number {
-  const rated = new Set((episode.scorecard?.ratings ?? []).map((r) => r.competencyId));
+  const covered = new Set<string>();
+  for (const rating of episode.scorecard?.ratings ?? []) {
+    const turn = quoteTurn(episode.transcript, rating.evidence);
+    if (turn && !turn.askedForClarification) covered.add(rating.competencyId);
+  }
   const total = task.competencies.reduce((s, c) => s + c.weight, 0);
-  return total === 0 ? 0 : task.competencies.filter((c) => rated.has(c.id)).reduce((s, c) => s + c.weight, 0) / total;
+  return total === 0 ? 0 : task.competencies.filter((c) => covered.has(c.id)).reduce((s, c) => s + c.weight, 0) / total;
 }
 
 // ------------------------------------------------------------------ 6.4 专业不专业（逐字稿规则）
 
 export type ConductGrade = {
   interviewerTurns: number;
+  /** 面试官一段话里问了 ≥ 2 个不同问题的段数与比例（备选项与复述不算，见 distinctQuestions）。 */
   multiQuestion: number;
+  multiQuestionRate: number;
+  /** 与之前某句问题相似度 ≥ 0.6 的句数（换着说法问同一件事）。 */
   repeated: number;
+  /** 说出了评分口径（排除"不透露评分标准"这类否定句）。 */
   leaked: number;
-  /** 候选人连续两句答不上之后，面试官仍在追（下一句不是换题也不是收尾）的次数。 */
+  /** 候选人连续两句答不上（求澄清不算）之后，面试官下一句仍在同一话题上追问的次数（与上一问相似度 ≥ 0.3 且带问号）。 */
   pressedAfterDontKnow: number;
-  endedInBudget: boolean;
+  /** 在预算内主动收尾且交了评分卡；bench 强制结束不算。 */
+  endedProactively: boolean;
 };
 
-const LEAK = /(评分标准|满分|期望答案|标准答案|评分卡|rubric)/i;
+/**
+ * 泄露：把这场面试的评分口径说给候选人听（"按评分标准你过了""这题的标准答案是…""给你满分"）。
+ * 只认说出口径的句式；"不方便透露评分标准"这类拒绝、以及"你会怎么设计评分标准"这类把它当业务话题问的，都不算。
+ */
+export function leaks(text: string): boolean {
+  const pattern = /(?:按|根据|依据|照)(?:我们的|这道题的|本题的|这题的|这轮的)?(?:评分标准|评分口径)|(?:评分标准|评分口径)(?:是|为|里|包括|要求|有)|(?:这题|这道题|本题|这个问题)的?(?:满分|期望答案|标准答案)|(?:满分|期望答案|标准答案)(?:是|为|应该是|包括)|给你?满分/g;
+  for (const match of text.matchAll(pattern)) {
+    const before = text.slice(Math.max(0, (match.index ?? 0) - 8), match.index);
+    if (/(不|别|没有|无法|不能|不便|不方便|不对外|不谈|不会|不给|没)/.test(before)) continue;
+    return true;
+  }
+  return false;
+}
+
 const questionMarks = (text: string) => (text.match(/[？?]/g) ?? []).length;
+
+/**
+ * 一句话里问了几个不同的问题：按问号切句，"还是 / 或者"接着的备选项与前一问词面重叠高的复述不算新问题
+ * （"ack 保证的是只消费一次吗？还是至少一次？"是一问）。
+ */
+export function distinctQuestions(text: string): number {
+  const sentences = text.split(/(?<=[？?])/).map((s) => s.trim()).filter((s) => /[？?]$/.test(s));
+  const kept: string[] = [];
+  for (const sentence of sentences) {
+    const alternative = /^(还是|或者|或是|还是说|或)/.test(sentence);
+    if (alternative || kept.some((prev) => similarity(prev, sentence) >= 0.3)) continue;
+    kept.push(sentence);
+  }
+  return kept.length;
+}
 
 export function gradeConduct(task: Task, episode: Episode): ConductGrade {
   const interviewer = episode.transcript.filter((turn): turn is Extract<TranscriptTurn, { role: "interviewer" }> => turn.role === "interviewer");
-  const seen: string[] = [];
+  const questions = interviewer.filter((turn) => questionMarks(turn.text) > 0 && !turn.end);
   let repeated = 0;
-  for (const turn of interviewer) {
-    const key = lettersOnly(turn.text);
-    if (key.length >= 12 && seen.some((prev) => prev === key || (prev.length >= 24 && key.length >= 24 && overlaps(prev, key, Math.floor(Math.min(prev.length, key.length) * 0.9))))) repeated += 1;
-    seen.push(key);
+  for (let i = 0; i < questions.length; i += 1) for (let j = 0; j < i; j += 1) if (similarity(questions[i].text, questions[j].text) >= 0.6) {
+    repeated += 1;
+    break;
   }
   let pressed = 0;
   let streak = 0;
+  let lastQuestion: string | null = null;
   for (const turn of episode.transcript) {
     if (turn.role === "candidate") {
-      streak = turn.couldNotAnswer ? streak + 1 : 0;
+      streak = turn.couldNotAnswer && !turn.askedForClarification ? streak + 1 : turn.askedForClarification ? streak : 0;
       continue;
     }
-    if (streak >= 2 && !turn.end && questionMarks(turn.text) > 0 && !/换个|另一个|下一个|聊聊别的|先放一放|我们来看/.test(turn.text)) pressed += 1;
+    if (streak >= 2 && !turn.end && questionMarks(turn.text) > 0 && lastQuestion !== null && similarity(turn.text, lastQuestion) >= 0.3) pressed += 1;
+    if (questionMarks(turn.text) > 0) lastQuestion = turn.text;
   }
-  const last = interviewer.at(-1);
+  const multi = interviewer.filter((turn) => distinctQuestions(turn.text) >= 2).length;
   return {
     interviewerTurns: interviewer.length,
-    multiQuestion: interviewer.filter((turn) => questionMarks(turn.text) >= 2).length,
+    multiQuestion: multi,
+    multiQuestionRate: interviewer.length ? multi / interviewer.length : 0,
     repeated,
-    leaked: interviewer.filter((turn) => LEAK.test(turn.text)).length,
+    leaked: interviewer.filter((turn) => leaks(turn.text)).length,
     pressedAfterDontKnow: pressed,
-    endedInBudget: Boolean(last?.end) && interviewer.length <= task.budget.maxTurns && episode.scorecard !== null,
+    endedProactively: episode.endedByInterviewer && interviewer.length <= task.budget.maxTurns && episode.scorecard !== null,
   };
 }
 
@@ -234,7 +370,10 @@ export type EpisodeGrade = {
   coverage: number;
   turnsToCorrect: Record<string, number | null> | null;
   conduct: ConductGrade;
-  /** 硬项全过：κ 用不上单场，改为等级精确率 ≥ 0.5、红旗误报 0、一次一问 ≤ 1、不泄露、按时收尾。 */
+  /**
+   * 硬项全过：至少评了一半能力且覆盖 ≥ 0.5、相邻率 1.0 且精确率 ≥ 0.5、误报与不可核实红旗都为 0、说出来的埋点至少抓到一条、不泄露。
+   * 一段多问与主动收尾只报不设门禁：前者阈值没校准；后者对拿不到回合上限的提交（本仓库 harness 按自己的配额走）不成立。
+   */
   pass: boolean;
 };
 
@@ -242,8 +381,19 @@ export function gradeEpisode(task: Task, episode: Episode): EpisodeGrade {
   const judgement = gradeJudgement(task, episode);
   const facts = gradeFacts(task, episode);
   const conduct = gradeConduct(task, episode);
-  const pass = episode.scorecard !== null && judgement.rated > 0 && judgement.exact / judgement.rated >= 0.5 && facts.falsePositives === 0 && conduct.multiQuestion <= 1 && conduct.leaked === 0 && conduct.endedInBudget;
-  return { taskId: task.id, submission: episode.submission, run: episode.run, judgement, facts, coverage: coverage(task, episode), turnsToCorrect: turnsToCorrect(task, episode), conduct, pass };
+  const covered = coverage(task, episode);
+  const said = facts.facts.filter((f) => f.said);
+  const pass =
+    episode.scorecard !== null &&
+    judgement.rated >= Math.ceil(judgement.total / 2) &&
+    covered >= 0.5 &&
+    judgement.adjacent === judgement.rated &&
+    judgement.exact / judgement.rated >= 0.5 &&
+    facts.falsePositives === 0 &&
+    facts.unverifiedFlags === 0 &&
+    (said.length === 0 || said.some((f) => f.flagged)) &&
+    conduct.leaked === 0;
+  return { taskId: task.id, submission: episode.submission, run: episode.run, judgement, facts, coverage: covered, turnsToCorrect: turnsToCorrect(task, episode), conduct, pass };
 }
 
 export type SubmissionSummary = {
@@ -251,18 +401,20 @@ export type SubmissionSummary = {
   episodes: number;
   failed: number;
   levelExact: number | null;
+  levelAdjacent: number | null;
   levelKappa: number | null;
+  unknownIds: number;
   evidenceVerbatim: number | null;
   monotonicity: { violations: number; pairs: number };
   redFlagHit: Record<string, { hit: number; total: number }>;
   probedOnSaid: { hit: number; total: number };
   falsePositivesPerEpisode: number | null;
+  unverifiedFlagsPerEpisode: number | null;
   coverage: number | null;
   turnsToCorrectMean: number | null;
   notReached: number | null;
-  conduct: { multiQuestionRate: number | null; repeated: number; leaked: number; pressedAfterDontKnow: number; endedInBudget: number | null };
+  conduct: { multiQuestionRate: number | null; repeated: number; leaked: number; pressedAfterDontKnow: number; endedProactively: number | null };
   passRate: number | null;
-  /** 同任务 k 次全过的任务比例；k=1 时等于 passRate。 */
   passAllRuns: number | null;
   turns: number | null;
 };
@@ -292,21 +444,24 @@ export function summarize(submission: string, items: { task: Task; episode: Epis
     episodes: items.length,
     failed: items.length - ok.length,
     levelExact: pairs.length ? pairs.filter(([a, b]) => a === b).length / pairs.length : null,
+    levelAdjacent: pairs.length ? pairs.filter(([a, b]) => Math.abs(levelIndex(a) - levelIndex(b)) <= 1).length / pairs.length : null,
     levelKappa: weightedKappa(pairs),
+    unknownIds: ok.reduce((s, item) => s + item.grade.judgement.unknownIds, 0),
     evidenceVerbatim: evidence.total ? evidence.ok / evidence.total : null,
     monotonicity: gradeMonotonicity(ok),
     redFlagHit,
     probedOnSaid: probed,
     falsePositivesPerEpisode: mean(ok.map((item) => item.grade.facts.falsePositives)),
+    unverifiedFlagsPerEpisode: mean(ok.map((item) => item.grade.facts.unverifiedFlags)),
     coverage: mean(ok.map((item) => item.grade.coverage)),
     turnsToCorrectMean: mean(ttc.filter((v): v is number => v !== null)),
     notReached: ttc.length ? ttc.filter((v) => v === null).length / ttc.length : null,
     conduct: {
-      multiQuestionRate: mean(ok.map((item) => (item.grade.conduct.interviewerTurns ? item.grade.conduct.multiQuestion / item.grade.conduct.interviewerTurns : 0))),
+      multiQuestionRate: mean(ok.map((item) => item.grade.conduct.multiQuestionRate)),
       repeated: ok.reduce((s, item) => s + item.grade.conduct.repeated, 0),
       leaked: ok.reduce((s, item) => s + item.grade.conduct.leaked, 0),
       pressedAfterDontKnow: ok.reduce((s, item) => s + item.grade.conduct.pressedAfterDontKnow, 0),
-      endedInBudget: mean(ok.map((item) => (item.grade.conduct.endedInBudget ? 1 : 0))),
+      endedProactively: mean(ok.map((item) => (item.grade.conduct.endedProactively ? 1 : 0))),
     },
     passRate: items.length ? items.filter((item) => item.grade.pass).length / items.length : null,
     passAllRuns: byTask.size ? [...byTask.values()].filter((runs) => runs.every(Boolean)).length / byTask.size : null,

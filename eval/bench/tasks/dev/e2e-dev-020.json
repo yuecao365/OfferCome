@@ -66,22 +66,24 @@
   },
   "facts": [
    {
-    "type": "wrong",
-    "topic": "接口自动化与回归",
-    "says": "我做接口自动化时一般会把所有用例都放进一个 pytest 类里，这样执行顺序就固定了，回归时更容易保证前置数据不被打乱。",
-    "whyWrong": "pytest 的用例执行顺序不应该依赖类内顺序来保证稳定性，回归稳定性应靠用例隔离、独立数据和显式依赖管理，而不是把顺序固定当成核心手段。"
-   },
-   {
-    "type": "wrong",
-    "topic": "Cookie/Session",
-    "says": "Cookie/Session 里真正保存登录态的是 Cookie，本质上 session 只是浏览器本地的一段缓存，所以服务端不用维护会话状态。",
-    "whyWrong": "通常是 Cookie 保存 session id，实际会话状态由服务端 session 或 token 体系维护；把 session 等同于浏览器本地缓存是机制性错误。"
-   },
-   {
     "type": "inflated",
     "topic": "页面自动化场景",
     "resume": "累计执行 40 余个场景",
-    "says": "累计执行 80 余个场景"
+    "says": "累计执行 80 余个场景",
+    "competencyId": "evaluation-tooling"
+   },
+   {
+    "type": "wrong",
+    "topic": "RAG",
+    "competencyId": "llm-knowledge",
+    "says": "RAG 其实就是把向量库里检索到的内容直接拼进 Prompt，后面的模型会自动把缺失信息补全，所以检索阶段只要拿到大概相关的文档就行，不用太在意召回和排序质量。",
+    "whyWrong": "RAG 的核心效果很依赖检索质量，尤其是召回、排序、切片和上下文组织；如果检索到的内容不准或不全，生成模型通常只会放大错误，而不是“自动补全”出可靠答案。"
+   },
+   {
+    "type": "hollow",
+    "topic": "测试效率量化",
+    "competencyId": "llm-knowledge",
+    "resume": "回归测试耗时由约 3 小时缩短至 50 分钟"
    }
   ],
   "behavior": "long_answers"

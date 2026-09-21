@@ -69,12 +69,14 @@
     "type": "wrong",
     "topic": "虚拟列表与图片按需解码",
     "says": "虚拟列表最核心的作用其实是减少图片解码次数，因为列表项被回收后图片就会自动释放 GPU 内存，所以只要上虚拟列表，内存峰值一定会明显下降。",
-    "whyWrong": "虚拟列表主要减少同时渲染的 DOM 数量和组件开销，不会自动保证图片 GPU 内存释放；图片资源是否释放还取决于缓存、引用和解码策略。"
+    "whyWrong": "虚拟列表主要减少同时渲染的 DOM 数量和组件开销，不会自动保证图片 GPU 内存释放；图片资源是否释放还取决于缓存、引用和解码策略。",
+    "competencyId": "frontend-performance"
    },
    {
     "type": "hollow",
-    "topic": "AI 辅助编码",
-    "resume": "尝试使用 Cursor / Copilot 辅助补全样板代码与测试用例"
+    "topic": "frontend-performance",
+    "competencyId": "frontend-performance",
+    "resume": "连续操作 20 分钟场景下内存占用峰值下降约 18%"
    }
   ],
   "behavior": "help_loop"

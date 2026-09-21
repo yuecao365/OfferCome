@@ -346,6 +346,8 @@ topic 裁判校准 0.96–0.97（冻结集 80 条）。读法：噪声最高 0.1
 
 与上面"自己造数据自己评"的评测不同，InterviewBench 从真实面试的角度评"一个模型当面试官的基本功"，真值尽量外部：Beyond the Resumé（MBZUAI）的模拟面试与裁判测试、真实面经的提问链。设计与结果见 [interviewbench-plan.md](interviewbench-plan.md)、[eval/bench/README.md](../eval/bench/README.md)、[eval/bench/results.md](../eval/bench/results.md)。
 
+端到端层（bench v2，2026-09-21）：bench 拥有任务、候选人模拟器与评分器，提交者只实现 `Interviewer`；三种提交（裸模型、固定题本、本仓库 harness）。v1 的环境缺陷与 v2 的修法记在 README 状态行与 §10；"bench 自己也要被审"的做法：让没参与构建的审查者（Opus 5 子 agent，只读、不调模型）读代码与旧逐字稿，列出真值自相矛盾、规则误报、模拟器做不到的地方，修完再审，三轮合格才花钱跑。开发集 v2 全量待 OpenAI 额度恢复后跑（`--label dev-v2`），旧 `runs/e2e-dev-v1-*` 只作规则回归用。
+
 ## 8. 边界
 
 - **裁判会跨天漂移**：topic 裁判（deepseek-chat）一天之内把同一批简报的覆盖率从 0.15–0.21 判成 0.37–0.47（§7.5），校准集测不出来。跨天的数字不比，产物里存的简报全文就是为了能重判。

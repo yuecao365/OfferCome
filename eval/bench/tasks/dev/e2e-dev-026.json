@@ -66,21 +66,17 @@
   },
   "facts": [
    {
-    "type": "wrong",
-    "topic": "containerd / 节点预热",
-    "says": "节点预热本质上就是把镜像提前拉到内存里，所以只要预热做得够早，后续 Pod 启动就不会再产生磁盘和网络开销。",
-    "whyWrong": "常见预热更多是预拉取到本地镜像缓存/磁盘层面，不等于“拉到内存”；运行时仍可能有解压、挂载、元数据访问等开销。"
-   },
-   {
     "type": "inflated",
     "topic": "Kubernetes 集群运维",
     "resume": "支持 100+ 节点测试环境",
-    "says": "支持 200+ 节点级别测试环境的日常发布与问题排查。"
+    "says": "支持 200+ 节点级别测试环境的日常发布与问题排查。",
+    "competencyId": "kubernetes-architecture"
    },
    {
     "type": "hollow",
     "topic": "GPU 利用率提升",
-    "resume": "测试期间 GPU 利用率提升约 11 个百分点"
+    "resume": "测试期间 GPU 利用率提升约 11 个百分点",
+    "competencyId": "performance-optimization"
    }
   ],
   "behavior": null

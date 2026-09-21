@@ -73,22 +73,17 @@
   },
   "facts": [
    {
-    "type": "wrong",
-    "topic": "RAG 检索与切分",
-    "says": "RAG 里按标题层级切分一定比固定长度切分更准，因为标题层级本身就是语义边界，所以向量检索基本不需要再做召回和重排了。",
-    "whyWrong": "层级切分不一定总更准，效果依赖文档结构和任务；RAG 仍然需要召回策略、top-k、重排和上下文拼接，不能因为切分方式更好就省掉检索链路。"
-   },
-   {
-    "type": "wrong",
-    "topic": "Redis 与 MySQL 一致性",
-    "says": "大促库存超卖那次，Redis 和 MySQL 只要把 Lua 脚本包进事务里就能保证绝对一致，事务提交后 Redis 里的库存自然会跟着回滚，不需要再做别的补偿。",
-    "whyWrong": "Redis Lua 和 MySQL 事务不是同一个事务域，不能互相回滚；时序缺口通常要靠幂等、版本号、补偿或消息一致性方案解决，不是“包进事务”就能统一提交/回滚。"
-   },
-   {
     "type": "inflated",
     "topic": "退款状态机重构",
     "resume": "将 7 种状态、23 条流转规则收敛为配置化的状态表",
-    "says": "把原来 7 种状态、23 条流转规则扩成了一个接近 50 条规则的配置化状态机，基本把这块的流转逻辑都统一掉了。"
+    "says": "把原来 7 种状态、23 条流转规则扩成了一个接近 50 条规则的配置化状态机，基本把这块的流转逻辑都统一掉了。",
+    "competencyId": "distributed-middleware"
+   },
+   {
+    "type": "hollow",
+    "topic": "校园二手交易平台后端",
+    "competencyId": "high-concurrency-performance",
+    "resume": "列表接口 P95 延迟从 420ms 降至 90ms"
    }
   ],
   "behavior": "humble_lead"

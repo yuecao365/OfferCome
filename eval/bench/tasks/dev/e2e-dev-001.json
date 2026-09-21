@@ -69,19 +69,22 @@
     "type": "wrong",
     "topic": "A/B testing",
     "says": "A/B 测试里只要保证两组样本量差不多，指标差异大概就有意义了，Agent 这种系统波动比较大，没必要特别做分层或显著性检验。",
-    "whyWrong": "Agent 评测通常噪声更大，必须考虑分层、置信区间和显著性判断，否则样本波动、任务分布差异都可能把结论带偏。"
+    "whyWrong": "Agent 评测通常噪声更大，必须考虑分层、置信区间和显著性判断，否则样本波动、任务分布差异都可能把结论带偏。",
+    "competencyId": "eval-qa-pipeline"
    },
    {
     "type": "wrong",
     "topic": "自动化 eval pipeline",
     "says": "回归检测主要看最终成功率就行，平均步数和工具报错率这些中间指标更像是参考项，只有结果变差才说明模型真的退化了。",
-    "whyWrong": "很多 Agent 回归会先体现在过程指标上，例如步数增加、错误重试变多、工具调用成功率下降；只看最终成功率会漏掉大量“结果没变但代价变高”的退化。"
+    "whyWrong": "很多 Agent 回归会先体现在过程指标上，例如步数增加、错误重试变多、工具调用成功率下降；只看最终成功率会漏掉大量“结果没变但代价变高”的退化。",
+    "competencyId": "eval-qa-pipeline"
    },
    {
     "type": "inflated",
     "topic": "评测平台吞吐",
     "resume": "单批次可稳定跑完 500 条测试任务",
-    "says": "后面我把并发和队列做了一轮优化，单批次基本能稳定跑一千条左右。"
+    "says": "后面我把并发和队列做了一轮优化，单批次基本能稳定跑一千条左右。",
+    "competencyId": "platform-architecture"
    }
   ],
   "behavior": "help_loop"

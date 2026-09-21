@@ -5,19 +5,22 @@ import { runAgent } from "@/lib/ai/run-agent";
 import { salvageJson } from "@/lib/ai/salvage-json";
 
 import type { Interviewer, Scorecard, Submission, TaskForInterviewer } from "../types";
-import { SCORECARD_INSTRUCTIONS, scorecardSchema } from "./bare";
+import { conversationText, SCORECARD_INSTRUCTIONS, scorecardSchema } from "./bare";
 
 /**
  * 基线二：固定题本。开场用模型按 JD 与简历一次出好 N 道题（每项能力至少一道，按权重分配），
  * 然后不看回答、按顺序问完，最后让模型读整场对话填评分卡。它和裸模型的差别只有一个：不自适应。
+ * 题本长度 = 回合上限 - 2（自我介绍 + 收尾），所以它总在预算内主动收尾。
  */
 
 const planSchema = z.object({ questions: z.array(z.object({ competencyId: z.string(), question: z.string().min(1).max(300) })).min(3).max(30) });
 
 export function scriptSubmission(name: string, config: AiTaskConfig): Submission {
+  const model = `${config.provider}:${config.model}`;
   return {
     name,
-    family: config.provider,
+    models: { interviewer: model, scorecard: model },
+    notes: "开场一次出好题本、不看回答按顺序问；不吃 bench 的面试规范；题本长度 = 回合上限 - 2，所以总在预算内主动收尾（构造保证，不是它会看时间）。",
     create(): Interviewer {
       let task: TaskForInterviewer | null = null;
       let questions: string[] = [];
@@ -32,7 +35,7 @@ export function scriptSubmission(name: string, config: AiTaskConfig): Submission
             runId: `bench:script:${input.id}:plan`,
             config,
             feature: "InterviewBench",
-            promptVersion: "bench-script-v1",
+            promptVersion: "bench-script-v2",
             schema: planSchema,
             maxOutputTokens: 1_600,
             timeoutMs: 90_000,
@@ -66,13 +69,13 @@ export function scriptSubmission(name: string, config: AiTaskConfig): Submission
             runId: `bench:script:${task.id}:scorecard`,
             config,
             feature: "InterviewBench",
-            promptVersion: "bench-script-v1",
+            promptVersion: "bench-script-v2",
             schema: scorecardSchema,
             maxOutputTokens: 1_600,
             timeoutMs: 90_000,
             untrustedInputs: "简历与对话",
             system: `你是刚面完这位候选人的技术面试官，现在填评分卡。岗位能力：\n${task.competencies.map((c) => `- ${c.id}：${c.name}（${c.description}）`).join("\n")}\n${SCORECARD_INSTRUCTIONS}`,
-            payload: { resume: task.resume.text, conversation: history.map((h) => `${h.role === "interviewer" ? "面试官" : "候选人"}：${h.text}`).join("\n") },
+            payload: { resume: task.resume.text, conversation: conversationText(history) },
             rescue: salvageJson(scorecardSchema),
           });
           return output as Scorecard;
