@@ -91,8 +91,8 @@ Screenshots use fictional data from a local deployment.
 
 <table>
   <tr>
-    <td width="50%" align="center"><strong>Capability Profile</strong><br><img src="docs/images/ability-profile.png" alt="OfferCome capability profile"></td>
-    <td width="50%" align="center"><strong>Interview Review</strong><br><img src="docs/images/interview-review.png" alt="OfferCome interview review"></td>
+    <td width="50%" align="center" valign="top"><strong>Capability Profile</strong><br><img src="docs/images/ability-profile.png" alt="OfferCome capability profile"></td>
+    <td width="50%" align="center" valign="top"><strong>Interview Review</strong><br><img src="docs/images/interview-review.png" alt="OfferCome interview review"></td>
   </tr>
 </table>
 
@@ -101,12 +101,12 @@ Screenshots use fictional data from a local deployment.
 
 <table>
   <tr>
-    <td width="50%" align="center"><strong>Dashboard</strong><br><img src="docs/images/dashboard.png" alt="OfferCome dashboard"></td>
-    <td width="50%" align="center"><strong>Applications</strong><br><img src="docs/images/applications.png" alt="OfferCome applications"></td>
+    <td width="50%" align="center" valign="top"><strong>Dashboard</strong><br><img src="docs/images/dashboard.png" alt="OfferCome dashboard"></td>
+    <td width="50%" align="center" valign="top"><strong>Applications</strong><br><img src="docs/images/applications.png" alt="OfferCome applications"></td>
   </tr>
   <tr>
-    <td width="50%" align="center"><strong>Interview History</strong><br><img src="docs/images/interview-history.png" alt="OfferCome interview history"></td>
-    <td width="50%" align="center"></td>
+    <td width="50%" align="center" valign="top"><strong>Interview History</strong><br><img src="docs/images/interview-history.png" alt="OfferCome interview history"></td>
+    <td width="50%" align="center" valign="top"></td>
   </tr>
 </table>
 

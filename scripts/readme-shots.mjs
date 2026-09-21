@@ -14,13 +14,13 @@ const EDGE = process.env.README_SHOTS_BROWSER ?? String.raw`C:\Program Files (x8
 const PORT = 9333;
 const SIDEBAR = 240;
 const WIDTH = 1280;
-/** 页面 → 输出名、视口高度、等待毫秒（图谱要等 G6 分包与布局）。 */
+/** 页面 → 输出名、视口高度、等待毫秒（图谱要等 G6 分包与布局）。README 里同一行的两张图高度必须一致，否则表格错位。 */
 const PAGES = [
-  { name: "dashboard", path: "/", height: 1100, wait: 8000 },
+  { name: "dashboard", path: "/", height: 1250, wait: 8000 },
   { name: "applications", path: "/applications", height: 1250, wait: 8000 },
-  { name: "interview-history", path: "/interviews/history", height: 700, wait: 8000 },
-  { name: "interview-review", path: "/interviews/review", height: 520, wait: 8000 },
-  { name: "ability-profile", path: "/interviews/profile", height: 1100, wait: 15000 },
+  { name: "interview-history", path: "/interviews/history", height: 740, wait: 8000 },
+  { name: "interview-review", path: "/interviews/review", height: 720, wait: 8000 },
+  { name: "ability-profile", path: "/interviews/profile", height: 720, wait: 15000 },
 ];
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));

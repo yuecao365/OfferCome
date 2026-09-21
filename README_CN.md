@@ -91,8 +91,8 @@ npm run dev
 
 <table>
   <tr>
-    <td width="50%" align="center"><strong>能力画像</strong><br><img src="docs/images/ability-profile.png" alt="OfferCome 能力画像"></td>
-    <td width="50%" align="center"><strong>面试复盘</strong><br><img src="docs/images/interview-review.png" alt="OfferCome 面试复盘"></td>
+    <td width="50%" align="center" valign="top"><strong>能力画像</strong><br><img src="docs/images/ability-profile.png" alt="OfferCome 能力画像"></td>
+    <td width="50%" align="center" valign="top"><strong>面试复盘</strong><br><img src="docs/images/interview-review.png" alt="OfferCome 面试复盘"></td>
   </tr>
 </table>
 
@@ -101,12 +101,12 @@ npm run dev
 
 <table>
   <tr>
-    <td width="50%" align="center"><strong>数据概览</strong><br><img src="docs/images/dashboard.png" alt="OfferCome 数据概览"></td>
-    <td width="50%" align="center"><strong>投递岗位</strong><br><img src="docs/images/applications.png" alt="OfferCome 投递岗位"></td>
+    <td width="50%" align="center" valign="top"><strong>数据概览</strong><br><img src="docs/images/dashboard.png" alt="OfferCome 数据概览"></td>
+    <td width="50%" align="center" valign="top"><strong>投递岗位</strong><br><img src="docs/images/applications.png" alt="OfferCome 投递岗位"></td>
   </tr>
   <tr>
-    <td width="50%" align="center"><strong>历史面试</strong><br><img src="docs/images/interview-history.png" alt="OfferCome 历史面试"></td>
-    <td width="50%" align="center"></td>
+    <td width="50%" align="center" valign="top"><strong>历史面试</strong><br><img src="docs/images/interview-history.png" alt="OfferCome 历史面试"></td>
+    <td width="50%" align="center" valign="top"></td>
   </tr>
 </table>
 
