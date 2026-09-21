@@ -1,0 +1,89 @@
+{
+ "id": "e2e-dev-001",
+ "set": "dev",
+ "job": {
+  "title": "混元AI Agent Harness Engineer（北京/深圳，TEG）",
+  "company": "腾讯",
+  "description": "职位描述\n1.参与设计并实现 Agent 执行全链路的 tracing & observability 系统；\n2.参与构建 Agent 质量评估体系：自动化 eval pipeline、A/B testing、regression detection；\n3.开发 Agent debugging 工具；\n4.参与核心支撑平台（标注、SBS 评测、数据管道）的架构设计与开发；\n5.和 AI 研究团队零距离，能第一时间触碰最新的模型能力，并与团队紧密协作，将大模型与 Agent 协同进化的研究成果工程化落地；\n6.探索并实践 AI Agent的日常工作流。\n职位要求\n1.使用 Cursor / Claude Code / Codex 等进行重度编程，对 agentic coding 的能力边界和 failure mode 有切身的体感；\n2.极客精神，喜欢折腾新技术，享受新技术带来的生产力突破，拥有一定的全栈工程能力和系统设计功底；\n3.熟悉 AI/Agent 技术栈，了解 LLM、Agent framework、prompt engineering；\n4.代码质量要求严格，代码是给未来的 AI 和人一起维护的，可读性、架构性等缺一不可；\n5.对Code Agent的未来有深刻思考，希望加入这股生产力变革的浪潮之中。",
+  "source": "eval/jd/tencent-hunyuan-agent-harness-engineer.json"
+ },
+ "resume": {
+  "text": "周景川\n13900000000 | zhoujingchuan.ai@example.com | github.com/zhoujingchuan-lab\n\n教育背景\n北京邮电大学 计算机科学与技术 本科 2022年9月 – 2026年6月（预计）\n· GPA 3.62 / 4.00，专业排名前 20%\n· 主修课程：数据结构、操作系统、计算机网络、数据库系统、软件工程、机器学习基础\n\n实习经历\n某智能平台公司 AI 工程部 Agent 平台开发实习生 2025年6月 – 2025年9月\n· 参与内部 LLM Agent 实验平台的后端开发，使用 Python（FastAPI）与 PostgreSQL 维护任务执行、结果记录与评测数据管理接口，支持研究同学配置多轮任务与批量回放。\n· 参与搭建 Agent 调用链 tracing 原型，记录 prompt、工具调用、模型响应、耗时与错误信息等关键节点，补齐 12 类事件埋点，帮助团队将一次复杂任务的排查时间从平均 1 小时缩短到 20 分钟左右。\n· 协助开发自动化 eval pipeline，编写数据清洗与评测脚本，支持按版本比较成功率、平均步数和工具报错率，在一次模型升级回归中提前发现网页检索工具调用成功率下降约 9 个百分点。\n· 使用 pytest 补充接口与评测逻辑测试用例 50 余条，并接入 CI，实习期间拦截 3 次因字段兼容性引发的回归问题。\n\n项目经历\nAgent 运行观测与调试平台 2025年10月 – 2026年2月\n基于 Python + FastAPI + React + PostgreSQL 开发的 Agent tracing 与 debugging 工具，用于可视化展示任务执行轨迹、定位失败步骤并对比不同版本表现。\n· 设计任务、步骤、工具调用、模型输出四类核心数据模型，支持按 trace_id 聚合完整执行链路，并提供时间线视图与错误筛选，单次查询 3000+ 步骤日志时页面首屏加载时间控制在 1.5 秒内。\n· 接入 OpenTelemetry 风格埋点，记录 token 数、首字延迟、工具耗时与重试次数等指标，基于 Grafana 看板观察到某文件解析工具 P95 耗时长期高于 2.8 秒，优化缓存后下降至 1.6 秒。\n· 实现 Prompt diff、工具输入输出对比和失败样本回放功能，方便定位是模型规划问题、工具参数错误还是外部依赖异常；在自建 80 条 case 的调试集中，人工定位根因的平均时间缩短约 35%。\n· 为关键接口和日志解析模块编写单元测试 45 条，使用 Docker Compose 搭建本地开发环境，减少多人协作时的环境不一致问题。\n\nAgent 自动评测与回归检测系统 2025年3月 – 2025年8月\n面向工具型 Agent 的离线评测项目，使用 Python、Celery、Redis 和 ECharts 构建批量评测、A/B 对比与回归告警流程。\n· 搭建 eval pipeline，支持从数据集读取任务、并发执行 Agent、汇总成功率/步骤数/成本等指标，单批次可稳定跑完 500 条测试任务。\n· 设计“最终结果 + 关键中间步骤”双层评分方式：最终结果由规则校验，过程质量由人工标注样本反哺 prompt 规则，在一版日程规划 Agent 上比只看最终结果更早发现 14 条工具选择错误。\n· 实现 A/B testing 页面，按模型版本、prompt 版本和工具版本查看指标波动，并加入简单阈值告警；一次改动后及时发现平均步骤数从 4.3 上升到 5.1，避免了无效推理链路上线。\n· 使用 pandas 清洗评测日志，统一异常类型与字段命名，减少后续分析脚本中的重复处理逻辑约 30%。\n\n技能\n· 语言：Python、TypeScript、Java、SQL\n· 框架与组件：FastAPI、React、PostgreSQL、Redis、Celery、Docker\n· AI / Agent：LLM 应用开发、Agent workflow、Function Calling、Prompt 设计、RAG、自动化评测、A/B Testing、Tracing / Observability\n· 工具：Git、Linux、Pytest、Grafana、Cursor / Claude Code / Codex 辅助编程\n",
+  "source": "eval/resumes/synthetic-ai-llm.md"
+ },
+ "competencies": [
+  {
+   "id": "agent-tracing-observability",
+   "name": "Agent 可观测性与链路追踪",
+   "description": "围绕 Agent 执行全链路做 tracing、日志、指标和可观测性设计，能定位一次执行中的关键状态与问题来源。",
+   "weight": 3
+  },
+  {
+   "id": "eval-qa-pipeline",
+   "name": "评测体系与质量回归",
+   "description": "构建自动化 eval pipeline、A/B testing 和 regression detection，用来衡量 Agent/模型改动是否带来质量提升或退",
+   "weight": 3
+  },
+  {
+   "id": "agent-debugging-tooling",
+   "name": "Agent 调试工具开发",
+   "description": "为 Agent 的执行过程开发调试工具，支持复现、诊断、分析失败案例和定位行为异常。",
+   "weight": 3
+  },
+  {
+   "id": "platform-architecture",
+   "name": "平台与数据管道架构设计",
+   "description": "设计并实现标注、评测和数据管道等核心支撑平台，考察系统设计、工程实现和可扩展性。",
+   "weight": 2
+  },
+  {
+   "id": "llm-agent-stack",
+   "name": "LLM 与 Agent 技术栈理解",
+   "description": "理解 LLM、Agent framework、prompt engineering 等基础技术，能结合业务场景解释 Agent 的实现与边界。",
+   "weight": 2
+  },
+  {
+   "id": "agentic-coding",
+   "name": "Agentic Coding 实战能力",
+   "description": "熟练使用 Cursor、Claude Code、Codex 等工具进行重度编程，理解 agentic coding 的能力边界与常见 failure mode。",
+   "weight": 2
+  }
+ ],
+ "budget": {
+  "pace": "standard",
+  "maxTurns": 16
+ },
+ "candidate": {
+  "style": "solid",
+  "seed": 1001,
+  "levels": {
+   "agent-tracing-observability": "high",
+   "eval-qa-pipeline": "medium",
+   "agent-debugging-tooling": "high",
+   "platform-architecture": "high",
+   "llm-agent-stack": "high",
+   "agentic-coding": "high"
+  },
+  "facts": [
+   {
+    "type": "wrong",
+    "topic": "A/B testing",
+    "says": "A/B 测试里只要保证两组样本量差不多，指标差异大概就有意义了，Agent 这种系统波动比较大，没必要特别做分层或显著性检验。",
+    "whyWrong": "Agent 评测通常噪声更大，必须考虑分层、置信区间和显著性判断，否则样本波动、任务分布差异都可能把结论带偏。"
+   },
+   {
+    "type": "wrong",
+    "topic": "自动化 eval pipeline",
+    "says": "回归检测主要看最终成功率就行，平均步数和工具报错率这些中间指标更像是参考项，只有结果变差才说明模型真的退化了。",
+    "whyWrong": "很多 Agent 回归会先体现在过程指标上，例如步数增加、错误重试变多、工具调用成功率下降；只看最终成功率会漏掉大量“结果没变但代价变高”的退化。"
+   },
+   {
+    "type": "inflated",
+    "topic": "评测平台吞吐",
+    "resume": "单批次可稳定跑完 500 条测试任务",
+    "says": "后面我把并发和队列做了一轮优化，单批次基本能稳定跑一千条左右。"
+   }
+  ],
+  "behavior": "help_loop"
+ }
+}

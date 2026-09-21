@@ -1,0 +1,88 @@
+{
+ "id": "e2e-dev-013",
+ "set": "dev",
+ "job": {
+  "title": "微信小程序-前端开发工程师（WXG）",
+  "company": "腾讯",
+  "description": "职位描述\n1.负责短剧、小说等行业项目的前端开发工作；\n2.负责小程序基础框架的开发迭代；\n3.负责研发流程 AI Coding 基建的探索及改造。\n职位要求\n1.1 年及以上工作经验，本科及以上学历，计算机基础扎实；\n2.熟悉小程序开发及前端开发知识体系，了解小程序框架的原理，至少熟悉一种前端常见框架的原理，有深入理解；\n3.对 AI Coding 有深入的实践，熟悉 Agent 工程的搭建；\n4.具备较好的优化意识，有较强的问题分析解决能力，有较好的沟通能力，责任心强，有热情。",
+  "source": "eval/jd/tencent-miniprogram-frontend.json"
+ },
+ "resume": {
+  "text": "姓名：周予航\n电话：13900000000 | 邮箱：zhouyuhang.frontend@example.com | GitHub：github.com/zhouyuhang-fe\n\n教育背景\n华南理工大学 软件工程 本科 2022年9月 – 2026年6月（预计）\n· GPA 3.52 / 4.00，专业排名前 25%\n· 主修课程：数据结构、计算机网络、操作系统、数据库系统、软件工程、人机交互\n\n实习经历\n某互动娱乐公司 技术中台部 前端开发实习生 2025年6月 – 2025年9月\n· 参与游戏官网活动页与营销落地页开发，使用 Vue3 + TypeScript 完成 8 个专题页面的搭建与联调，覆盖 PC 与移动端，统一抽离通用报名、弹窗、分享等模块，重复开发工作量减少约 30%。\n· 负责一个基于 Electron 的运营工具内嵌页面维护，排查高分辨率屏幕下样式错位与首屏白屏问题，通过资源懒加载和路由拆分将页面首屏可交互时间由 3.1s 优化至 2.2s。\n· 配合后端与算法同学接入文案生成接口，完成 prompt 参数配置、结果流式展示和异常兜底逻辑，支持运营同学生成活动标题与描述，日常使用中将单次内容产出时间从约 15 分钟缩短至 5 分钟内。\n· 补充埋点与简单监控看板，定位一次活动上线后的图片资源加载异常，修复 CDN 缓存配置后，活动页报错率由 1.8% 降至 0.4%。\n\n项目经历\n电竞赛事互动官网与小程序 2024年10月 – 2025年4月\n基于 React + TypeScript + Vite + Taro 开发的赛事专题项目，包含官网主站、赛程页、战队介绍页与小程序预约模块。\n· 负责首页、赛程详情和选手数据展示模块开发，封装卡片、轮播、倒计时等 12 个通用组件，支持多端复用，后续新专题页面搭建时间由 2 天缩短至 1 天左右。\n· 针对移动端弱网场景进行优化，采用图片分级加载、路由预加载与本地缓存策略，核心页面 Lighthouse 性能评分从 68 提升至 84。\n· 实现预约报名、赛事提醒、分享裂变等交互功能，完成与 Node.js 接口的联调，并处理表单校验、重复提交和状态回显问题，活动期累计支撑 1.2 万次预约请求。\n· 接入前端埋点和错误上报，按设备类型拆分分析页面跳出情况，发现某安卓机型视频组件兼容问题并修复，页面停留时长提升约 11%。\n\nAI 创意互动展示桌面应用 2025年5月 – 2025年12月\n面向线下展会场景的互动展示 Demo，基于 Electron + Vue3 + TypeScript 开发，结合大模型 API、语音输入与海报生成功能。\n· 负责 Electron 主进程与渲染进程通信设计，使用 IPC 实现素材选择、任务状态同步和本地文件导出，完成 Windows 环境下的打包与基本异常处理。\n· 开发“输入关键词生成活动海报文案”功能，接入大模型 API，设计 prompt 模板与参数面板，并增加加载态、重试和内容审核提示，保证现场演示流程稳定。\n· 为提升展示流畅度，优化大图资源加载和动画渲染，使用虚拟列表管理素材库、按需解码图片资源，连续操作 20 分钟场景下内存占用峰值下降约 18%。\n· 引入 ESLint + Prettier + Husky 规范提交流程，并尝试使用 Cursor / Copilot 辅助补全样板代码与测试用例，减少低级样式与类型错误，项目开发后期每周回归问题数由 9 个降至 5 个。\n\n技能\n· 语言：JavaScript、TypeScript、HTML5、CSS3、Node.js（熟悉）、Python（基础）\n· 框架与工程化：React、Vue3、Taro、Vite、Webpack、Electron、Pinia\n· 前端能力：响应式布局、移动端适配、组件封装、性能优化、埋点监控、接口联调\n· AI 应用：大模型 API 接入、Prompt 设计、流式输出交互、AI 辅助编码工具（Copilot、Cursor）\n· 工具：Git、Linux、npm/pnpm、Figma、Postman\n",
+  "source": "eval/resumes/synthetic-frontend.md"
+ },
+ "competencies": [
+  {
+   "id": "mini-program-development",
+   "name": "小程序开发",
+   "description": "考察小程序页面、组件、生命周期、通信、路由、构建发布等基本开发能力，以及在小程序场景下解决业务问题的经验。",
+   "weight": 3
+  },
+  {
+   "id": "mini-program-framework-princip",
+   "name": "小程序框架原理",
+   "description": "考察对小程序运行机制、渲染流程、数据绑定、通信机制和框架底层实现思路的理解，能否解释“为什么这样设计”。",
+   "weight": 3
+  },
+  {
+   "id": "frontend-framework-principles",
+   "name": "前端框架原理",
+   "description": "考察至少一种常见前端框架的核心原理，如响应式、虚拟 DOM、调度机制、组件化和状态管理等。",
+   "weight": 3
+  },
+  {
+   "id": "front-end-framework-engineer",
+   "name": "前端基础框架开发",
+   "description": "考察基础框架或公共能力的设计与迭代能力，包括抽象封装、工程化治理、可扩展性、稳定性和兼容性处理。",
+   "weight": 3
+  },
+  {
+   "id": "ai-coding-agent",
+   "name": "AI Coding 与 Agent 工程",
+   "description": "考察 AI Coding 实践经验、Agent 架构搭建、工具调用、工作流编排、提示词/上下文管理和落地改造能力。",
+   "weight": 2
+  },
+  {
+   "id": "frontend-optimization",
+   "name": "前端优化",
+   "description": "考察性能优化与问题定位能力，如包体积、首屏、渲染、网络、缓存、内存和耗时分析等。",
+   "weight": 2
+  }
+ ],
+ "budget": {
+  "pace": "standard",
+  "maxTurns": 16
+ },
+ "candidate": {
+  "style": "solid",
+  "seed": 1013,
+  "levels": {
+   "mini-program-development": "high",
+   "mini-program-framework-princip": "medium",
+   "frontend-framework-principles": "high",
+   "front-end-framework-engineer": "high",
+   "ai-coding-agent": "high",
+   "frontend-optimization": "high"
+  },
+  "facts": [
+   {
+    "type": "wrong",
+    "topic": "小程序框架原理 / 渲染机制",
+    "says": "小程序的页面其实就是直接跑在微信内置的浏览器里，所以它和普通 H5 一样，JS 可以直接操作 DOM，框架层主要只是帮你做一些兼容处理。",
+    "whyWrong": "小程序不是直接暴露浏览器 DOM 的 Web 页面，视图层和逻辑层是分离的，不能像 H5 那样直接操作 DOM；框架不只是兼容层，而是承担了组件、数据绑定和渲染调度等核心机制。"
+   },
+   {
+    "type": "wrong",
+    "topic": "性能优化 / 首屏白屏",
+    "says": "首屏白屏一般只要把图片都改成懒加载就能解决，因为白屏的根因通常是图片没加载完，和 JS 体积关系不大。",
+    "whyWrong": "首屏白屏往往和主包体积、首屏 JS 执行、路由初始化、首屏数据请求等都有关系，图片懒加载只能缓解非首屏资源，不是主要根因。"
+   },
+   {
+    "type": "hollow",
+    "topic": "内存优化",
+    "resume": "连续操作 20 分钟场景下内存占用峰值下降约 18%"
+   }
+  ],
+  "behavior": "help_loop"
+ }
+}

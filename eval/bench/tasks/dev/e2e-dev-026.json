@@ -1,0 +1,88 @@
+{
+ "id": "e2e-dev-026",
+ "set": "dev",
+ "job": {
+  "title": "AI Infra工程师-容器方向（实习）",
+  "company": "阿里巴巴",
+  "description": "职位描述\n你将成为大模型技术落地的\"算力内核设计者\"。你将深入 Kubernetes 生态，参与构建支撑超大规模 AI 集群的容器化基础设施，通过对调度、存储、网络等核心组件的深度定制与优化，打破大模型训练与推理的工程瓶颈。你的代码将直接优化 Agent 的冷启动速度，提升 GPU 集群的吞吐量与资源利用率，为 AI 时代的算力底座注入极致性能。\n具体职责包括：\n1. AI 容器调度与编排优化\n2. AI 高性能存储与网络底座\n3. AI 工程平台架构设计与效率提升\n4. AI 基础设施极致加速\n职位要求\n1. 基础条件：计算机、软件工程等相关专业优先；热衷于数据结构和算法；有 K8s 或容器相关开源社区贡献或高性能存储/网络开发经验者加分\n2. 专业能力：扎实的 Linux 系统底层基础、Go/Java/Python/C++ 语言能力、Kubernetes 架构深入理解、AI 推理/训练资源特征理解\n3. 能力特质：极致的性能追求、工程化思维、跨域协同、极客精神",
+  "source": "eval/jd/alibaba-ai-infra-container.json"
+ },
+ "resume": {
+  "text": "# 虚构姓名\n13900000000 | candidate.infra@example.com | github.com/fake-infra-dev\n\n## 教育背景\n某211大学 计算机科学与技术 本科 2022年9月 – 2026年6月（预计）\n- GPA 3.54 / 4.00，专业排名前 30%\n- 主修课程：操作系统、计算机网络、数据结构与算法、数据库系统、分布式系统、编译原理\n\n## 实习经历\n某云计算公司 基础设施平台部 容器开发实习生 2025年7月 – 2025年9月\n- 参与内部 Kubernetes 集群的运维与功能开发，协助维护节点生命周期管理脚本和常用诊断工具，支持 100+ 节点测试环境的日常发布与问题排查。\n- 参与一项 AI 推理任务冷启动优化，排查镜像拉取慢与容器初始化耗时偏高的问题，配合调整镜像分层与节点预热策略，使测试场景下单 Pod 启动耗时由平均 95 秒降至 63 秒。\n- 编写基于 Python 的集群巡检脚本，覆盖 GPU 节点状态、磁盘空间、容器运行时健康检查等 20 余项规则，减少人工巡检时间约 50%。\n- 协助分析一次训练任务调度拥塞问题，通过梳理 Pod 资源请求、节点污点容忍和本地存储占用情况，补充告警与排查文档，帮助团队缩短同类问题定位时间。\n\n## 项目经历\n### 面向 GPU 作业的 Kubernetes 调度优化实验 2025年1月 – 2025年5月\n基于 Kubernetes + Volcano + Prometheus 搭建的小型 AI 任务调度实验平台，模拟训练/推理混部场景，验证 GPU 资源分配与排队策略。\n- 使用 Go 编写自定义调度插件，结合作业队列优先级、GPU 显存需求和节点空闲资源做打分，在 3 类混合作业压测下，集群平均等待时间下降约 22%。\n- 为训练任务增加 gang 调度与超时回收策略，减少因资源不足导致的长时间排队和碎片化占用，测试期间 GPU 利用率提升约 11 个百分点。\n- 接入 Prometheus + Grafana 监控 Pod 调度时延、节点资源利用率和任务成功率，整理 15 组实验数据，对比默认调度器与改进策略的差异。\n- 编写部署文档与压测脚本，支持在 6 台服务器环境中一键复现实验流程，便于同学协作验证。\n\n### 容器镜像分发与节点缓存加速项目 2024年7月 – 2024年12月\n面向实验室推理服务场景设计的镜像分发优化方案，基于 containerd、Nginx 缓存和 Python 自动化脚本，目标是减少大镜像重复拉取带来的启动开销。\n- 统计常用推理镜像的层复用情况，重新拆分基础环境与业务层，控制镜像重复内容；在 8 个节点的测试环境下，重复部署场景的镜像拉取流量下降约 35%。\n- 配置节点侧缓存代理与预拉取任务，对高频镜像做定时预热，服务更新后的平均首包启动时间缩短约 28%。\n- 使用 Linux 工具链排查 overlayfs 占用异常与磁盘 inode 紧张问题，补充镜像清理策略和告警阈值，降低因磁盘问题导致的部署失败次数。\n- 基于 Python 编写镜像分发测试脚本，自动记录拉取耗时、网络吞吐和缓存命中率，累计完成 50 余轮对比测试。\n\n## 技能\n- 语言：Go、Python、C++、SQL\n- 基础设施与平台：Kubernetes、Docker、containerd、Volcano、Prometheus、Grafana\n- 系统与网络：Linux、Shell、常见网络排障工具、进程/文件系统/容器基础\n- 存储与数据：MySQL、Redis、对象存储基础、本地缓存与镜像分层优化\n- 工具：Git、GitHub Actions、pytest、Makefile\n",
+  "source": "eval/resumes/synthetic-infra.md"
+ },
+ "competencies": [
+  {
+   "id": "kubernetes-architecture",
+   "name": "Kubernetes 架构与调度编排",
+   "description": "考察对 Kubernetes 核心架构、控制面/数据面、调度流程、资源分配与编排机制的理解，尤其是面向 AI 训练/推理场景的定制与优化能力。",
+   "weight": 3
+  },
+  {
+   "id": "linux-systems",
+   "name": "Linux 系统底层基础",
+   "description": "考察对 Linux 内核、进程/线程、CPU 与内存管理、I/O、cgroup/namespace 等底层机制的理解，能否支撑容器与集群性能优化。",
+   "weight": 3
+  },
+  {
+   "id": "performance-optimization",
+   "name": "高性能系统优化",
+   "description": "考察对性能瓶颈分析与优化的能力，包括延迟、吞吐、资源利用率、冷启动等指标的定位与改进方法。",
+   "weight": 3
+  },
+  {
+   "id": "container-runtime",
+   "name": "容器与基础设施工程",
+   "description": "考察对容器、镜像、运行时、编排链路及其工程实现的理解，能否处理容器化基础设施相关问题。",
+   "weight": 2
+  },
+  {
+   "id": "storage-networking",
+   "name": "高性能存储与网络",
+   "description": "考察对分布式存储、网络通信、带宽/时延优化、数据传输路径等的理解，尤其是 AI 集群场景下的基础设施能力。",
+   "weight": 2
+  },
+  {
+   "id": "programming-language",
+   "name": "系统开发语言能力",
+   "description": "考察用 Go、Java、Python 或 C++ 进行系统开发、接口实现、性能敏感代码编写与问题排查的能力。",
+   "weight": 2
+  }
+ ],
+ "budget": {
+  "pace": "deep",
+  "maxTurns": 24
+ },
+ "candidate": {
+  "style": "shaky",
+  "seed": 1026,
+  "levels": {
+   "kubernetes-architecture": "medium",
+   "linux-systems": "medium",
+   "performance-optimization": "medium",
+   "container-runtime": "low",
+   "storage-networking": "medium",
+   "programming-language": "medium"
+  },
+  "facts": [
+   {
+    "type": "wrong",
+    "topic": "containerd / 节点预热",
+    "says": "节点预热本质上就是把镜像提前拉到内存里，所以只要预热做得够早，后续 Pod 启动就不会再产生磁盘和网络开销。",
+    "whyWrong": "常见预热更多是预拉取到本地镜像缓存/磁盘层面，不等于“拉到内存”；运行时仍可能有解压、挂载、元数据访问等开销。"
+   },
+   {
+    "type": "inflated",
+    "topic": "Kubernetes 集群运维",
+    "resume": "支持 100+ 节点测试环境",
+    "says": "支持 200+ 节点级别测试环境的日常发布与问题排查。"
+   },
+   {
+    "type": "hollow",
+    "topic": "GPU 利用率提升",
+    "resume": "测试期间 GPU 利用率提升约 11 个百分点"
+   }
+  ],
+  "behavior": null
+ }
+}

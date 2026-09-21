@@ -1,0 +1,77 @@
+{
+ "id": "e2e-dev-012",
+ "set": "dev",
+ "job": {
+  "title": "微信-后台开发工程师-AI方向（WXG）",
+  "company": "腾讯",
+  "description": "职位描述\n1.负责微信核心应用后台C++研发，打造高并发、高可用、低延迟后台服务；\n2.完成核心模块开发、性能调优、线上故障排查与稳定性保障；\n3.对接中间件，参与分布式业务逻辑实现，支撑亿级用户业务稳定迭代。\n职位要求\n1.计算机相关专业，扎实计算机基础；\n2.有C++后台开发经验，精通C++11及以上特性，熟练Linux开发调试、网络编程与多线程开发；\n3.熟悉高并发系统、常用后端中间件，具备线上问题排查能力；\n4.有探索技术的热情、乐于挑战困难问题、有良好的沟通和协作能力。",
+  "source": "eval/jd/tencent-wechat-backend-ai.json"
+ },
+ "resume": {
+  "text": "林一鸣\r\n13800000000 | linyiming.dev@example.com | github.com/linyiming-dev\r\n\r\n教育背景\r\n华中科技大学 计算机科学与技术 本科 2023年9月 – 2027年6月（预计）\r\n· GPA 3.78 / 4.00，专业排名前 15%\r\n· 主修课程：数据结构、操作系统、计算机网络、数据库系统、分布式系统\r\n\r\n实习经历\r\n某电商公司 交易平台部 后端开发实习生 2025年7月 – 2025年9月\r\n· 参与订单履约服务的 Java（Spring Boot）开发，负责退款状态机的重构，将 7 种状态、23 条流转规则收敛为配置化的状态表，减少重复判断代码约 40%。\r\n· 排查一次大促期间的库存超卖问题：定位到 Redis Lua 脚本与 MySQL 事务的时序缺口，引入基于版本号的乐观锁并补充压测用例，复现率从每万单 3 次降为 0。\r\n· 编写接口自动化用例 120 余条，接入 CI，在灰度发布前拦截 2 次回归缺陷。\r\n\r\n项目经历\r\n校园二手交易平台后端 2024年10月 – 2025年5月\r\n基于 Spring Boot + MySQL + Redis 的三端（Web、小程序、管理后台）交易平台，日活约 800。\r\n· 设计商品、订单、消息三大模块的表结构与 REST 接口，引入 Redis 缓存热门商品列表，列表接口 P95 延迟从 420ms 降至 90ms。\r\n· 实现基于 WebSocket 的买卖双方即时聊天，处理断线重连与消息去重；用消息队列（RabbitMQ）异步发送站内通知，解耦下单与通知。\r\n· 引入慢查询日志与索引优化，针对\"按分类 + 价格区间 + 发布时间\"的组合查询建立联合索引，扫描行数下降两个数量级。\r\n\r\n课程问答助手（基于 LLM 的 RAG 应用） 2025年10月 – 2026年1月\r\n用 Python（FastAPI）开发的课程资料问答机器人，覆盖操作系统与计算机网络两门课的讲义与历年题。\r\n· 构建文档切分、向量化（bge-m3）与检索链路，对比固定长度切分与按标题层级切分，后者在自建的 60 条问答评测集上命中率提高 18 个百分点。\r\n· 设计结构化输出格式，要求模型引用讲义页码作为证据，并用代码校验引用页码是否存在，将无依据回答的比例从 27% 降到 6%。\r\n· 实现工具调用：让模型可以调用\"查询作业截止日期\"和\"检索历年题\"两个函数，并对工具参数做 JSON Schema 校验与失败重试。\r\n· 用 pytest 为检索与校验逻辑编写单元测试 40 余条，接入 GitHub Actions。\r\n\r\n技能\r\n· 语言：Java、Python、Go（入门）、SQL\r\n· 框架与组件：Spring Boot、MyBatis、FastAPI、MySQL、Redis、RabbitMQ、Docker\r\n· AI 应用：LangChain、RAG、Function Calling、Prompt 设计、pgvector\r\n· 工具：Git、Linux、Cursor / Claude Code 辅助编程\r\n",
+  "source": "eval/resumes/synthetic-backend.md"
+ },
+ "competencies": [
+  {
+   "id": "cpp11-backend-dev",
+   "name": "C++后台开发",
+   "description": "考察是否能用 C++11 及以上完成后台服务开发，包括语言特性、工程实践和服务端代码质量。",
+   "weight": 3
+  },
+  {
+   "id": "linux-debugging",
+   "name": "Linux开发与调试",
+   "description": "考察在 Linux 环境下进行编译、调试、排障和性能分析的能力。",
+   "weight": 2
+  },
+  {
+   "id": "network-programming",
+   "name": "网络编程",
+   "description": "考察对 TCP/IP、Socket、连接管理、收发流程等网络编程基础的理解与实现能力。",
+   "weight": 2
+  },
+  {
+   "id": "multithreading-concurrency",
+   "name": "多线程与并发",
+   "description": "考察线程、锁、同步、并发安全以及多线程性能与正确性设计能力。",
+   "weight": 3
+  },
+  {
+   "id": "high-concurrency-performance",
+   "name": "高并发与性能优化",
+   "description": "考察高并发服务设计、性能调优、低延迟优化和高可用保障能力。",
+   "weight": 3
+  },
+  {
+   "id": "distributed-middleware",
+   "name": "分布式与中间件",
+   "description": "考察分布式业务逻辑实现以及常用后端中间件的使用、对接和问题处理能力。",
+   "weight": 2
+  },
+  {
+   "id": "production-troubleshooting",
+   "name": "线上故障排查",
+   "description": "考察对线上问题的定位、分析、复现和稳定性治理能力。",
+   "weight": 3
+  }
+ ],
+ "budget": {
+  "pace": "standard",
+  "maxTurns": 16
+ },
+ "candidate": {
+  "style": "shaky",
+  "seed": 1012,
+  "levels": {
+   "cpp11-backend-dev": "medium",
+   "linux-debugging": "medium",
+   "network-programming": "medium",
+   "multithreading-concurrency": "low",
+   "high-concurrency-performance": "medium",
+   "distributed-middleware": "medium",
+   "production-troubleshooting": "medium"
+  },
+  "facts": [],
+  "behavior": "long_answers"
+ }
+}

@@ -1,0 +1,70 @@
+{
+ "id": "e2e-dev-009",
+ "set": "dev",
+ "job": {
+  "title": "混元后台开发工程师（深圳/北京，TEG）",
+  "company": "腾讯",
+  "description": "职位描述\n1.研发混元官网，混元AI Studio等产品，支持基础模型和模型应用的上线，提供更友好的用户体验；\n2.建设基础模型API和垂类模型API服务，支持司内外业务接入；\n3.探索AI原生的创新产品，实践并落地最新的模型能力；\n4.研发内部工具，提升团队工作效率和团队协同效率。\n职位要求\n1.计算机或相关专业本科及以上学历；\n2.3年及以上Linux后台开发经验，熟悉系统运维的基础知识，能够排查实际问题；\n3.精通GO，C++，JAVA和Python开发语言中的一种或多种，熟悉常见rpc框架；\n4.熟悉Mysql，Redis等常见开源组件，Flink，Hadoop，Kafka等大数据套件，掌握适用场景；\n5.具备owner意识，能主动推进项目进展，承担更多责任，具备团队协作意识，和良好的沟通能力。",
+  "source": "eval/jd/tencent-hunyuan-backend.json"
+ },
+ "resume": {
+  "text": "林一鸣\r\n13800000000 | linyiming.dev@example.com | github.com/linyiming-dev\r\n\r\n教育背景\r\n华中科技大学 计算机科学与技术 本科 2023年9月 – 2027年6月（预计）\r\n· GPA 3.78 / 4.00，专业排名前 15%\r\n· 主修课程：数据结构、操作系统、计算机网络、数据库系统、分布式系统\r\n\r\n实习经历\r\n某电商公司 交易平台部 后端开发实习生 2025年7月 – 2025年9月\r\n· 参与订单履约服务的 Java（Spring Boot）开发，负责退款状态机的重构，将 7 种状态、23 条流转规则收敛为配置化的状态表，减少重复判断代码约 40%。\r\n· 排查一次大促期间的库存超卖问题：定位到 Redis Lua 脚本与 MySQL 事务的时序缺口，引入基于版本号的乐观锁并补充压测用例，复现率从每万单 3 次降为 0。\r\n· 编写接口自动化用例 120 余条，接入 CI，在灰度发布前拦截 2 次回归缺陷。\r\n\r\n项目经历\r\n校园二手交易平台后端 2024年10月 – 2025年5月\r\n基于 Spring Boot + MySQL + Redis 的三端（Web、小程序、管理后台）交易平台，日活约 800。\r\n· 设计商品、订单、消息三大模块的表结构与 REST 接口，引入 Redis 缓存热门商品列表，列表接口 P95 延迟从 420ms 降至 90ms。\r\n· 实现基于 WebSocket 的买卖双方即时聊天，处理断线重连与消息去重；用消息队列（RabbitMQ）异步发送站内通知，解耦下单与通知。\r\n· 引入慢查询日志与索引优化，针对\"按分类 + 价格区间 + 发布时间\"的组合查询建立联合索引，扫描行数下降两个数量级。\r\n\r\n课程问答助手（基于 LLM 的 RAG 应用） 2025年10月 – 2026年1月\r\n用 Python（FastAPI）开发的课程资料问答机器人，覆盖操作系统与计算机网络两门课的讲义与历年题。\r\n· 构建文档切分、向量化（bge-m3）与检索链路，对比固定长度切分与按标题层级切分，后者在自建的 60 条问答评测集上命中率提高 18 个百分点。\r\n· 设计结构化输出格式，要求模型引用讲义页码作为证据，并用代码校验引用页码是否存在，将无依据回答的比例从 27% 降到 6%。\r\n· 实现工具调用：让模型可以调用\"查询作业截止日期\"和\"检索历年题\"两个函数，并对工具参数做 JSON Schema 校验与失败重试。\r\n· 用 pytest 为检索与校验逻辑编写单元测试 40 余条，接入 GitHub Actions。\r\n\r\n技能\r\n· 语言：Java、Python、Go（入门）、SQL\r\n· 框架与组件：Spring Boot、MyBatis、FastAPI、MySQL、Redis、RabbitMQ、Docker\r\n· AI 应用：LangChain、RAG、Function Calling、Prompt 设计、pgvector\r\n· 工具：Git、Linux、Cursor / Claude Code 辅助编程\r\n",
+  "source": "eval/resumes/synthetic-backend.md"
+ },
+ "competencies": [
+  {
+   "id": "linux-backend-troubleshooting",
+   "name": "Linux后台开发与问题排查",
+   "description": "能在Linux环境下进行后台服务开发，并对线上实际问题做基础定位与排查。",
+   "weight": 3
+  },
+  {
+   "id": "language-proficiency",
+   "name": "编程语言实现能力",
+   "description": "对Go、C++、Java、Python中的一种或多种有扎实掌握，能用于服务端开发与问题分析。",
+   "weight": 3
+  },
+  {
+   "id": "rpc-framework",
+   "name": "RPC框架与服务通信",
+   "description": "理解常见RPC框架的使用方式、调用链路和适用场景，能支撑API服务设计与接入。",
+   "weight": 3
+  },
+  {
+   "id": "mysql-redis",
+   "name": "MySQL与Redis",
+   "description": "熟悉MySQL和Redis等常见组件，理解它们在业务中的使用场景、读写特点和基本性能问题。",
+   "weight": 3
+  },
+  {
+   "id": "distributed-service-apis",
+   "name": "后端API服务设计",
+   "description": "能够围绕基础模型API和业务接入场景设计稳定、可扩展的后端服务接口与服务架构。",
+   "weight": 2
+  },
+  {
+   "id": "bigdata-stack",
+   "name": "大数据组件与场景理解",
+   "description": "了解Flink、Hadoop、Kafka等大数据组件的基本能力，并能判断各自适用的业务场景。",
+   "weight": 2
+  }
+ ],
+ "budget": {
+  "pace": "standard",
+  "maxTurns": 16
+ },
+ "candidate": {
+  "style": "needy",
+  "seed": 1009,
+  "levels": {
+   "linux-backend-troubleshooting": "medium",
+   "language-proficiency": "medium",
+   "rpc-framework": "high",
+   "mysql-redis": "low",
+   "distributed-service-apis": "medium",
+   "bigdata-stack": "medium"
+  },
+  "facts": [],
+  "behavior": null
+ }
+}

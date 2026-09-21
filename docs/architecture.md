@@ -122,6 +122,7 @@ docs/              文档（入口见 AGENTS.md）
 | `ablate -- --off packs --seeds 2 --pace standard [--reuse date]` | 消融（写 / 删 `eval/ablation.json` 作进程间开关） |
 | （设置）`settings/ai.ts` | 三个 AI 任务：`transcription` / `text` / `scoring`（评分模型，缺省规则见 pipeline §7），设置页各一张卡 |
 | `harness-report` | 零成本盘点：输出契约救回率、预算、缓存、估计器预检 |
+| `bench:build` / `bench:e2e` | InterviewBench 端到端层：造任务、跑提交（`src/lib/evals/bench/`：types / candidate / grade / submissions），产物 `eval/bench/runs/e2e-*.json` |
 | `bench` | InterviewBench 子任务层：`--tasks s1,…,s6 --models main,openai:gpt-5.4-mini --label x`，数据在 `eval/bench/`，产物 `eval/bench/runs/` |
 | `compare-runs a.json A b.json B` | 两批 run 配对（只作发布门禁） |
 | `replay <sessionId>`、`resegment <id>`、`recall <resumeId>`、`postmortem <id>` | 事件重建、重切、看档案、单场复盘（均不调模型） |

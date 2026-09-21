@@ -1,0 +1,70 @@
+{
+ "id": "e2e-dev-018",
+ "set": "dev",
+ "job": {
+  "title": "Marvis高级前端开发工程师（PCG）",
+  "company": "腾讯",
+  "description": "职位描述\n1.负责 Marvis AI Agent 产品桌面端的架构设计与开发工作；\n2.负责独立模块，与各方紧密协作，参与需求分析、方案设计、开发交付与迭代优化，推动项目落地；\n3.持续优化桌面端性能，提升应用响应速度和稳定性，确保良好的用户体验；\n4.关注前端和 AI 技术发展趋势，结合业务场景进行落地实践，提升开发效率和产品质量。\n职位要求\n1.计算机相关专业本科及以上学历，具备扎实的计算机基础能力；\n2.三年以上前端开发经验，具备复杂应用架构设计能力，熟练掌握 HTML5、CSS3、JavaScript/TypeScript 等前端技术和 React、Vue 或类似前端框架；\n3.熟练使用AI编程工具（如 Codebuddy、Cursor 等），能广泛使用 AI 完成业务开发和问题处理；\n4.对 AI 前沿技术有浓厚兴趣，愿意主动探索 AI 在业务场景的创新应用；\n5.具备良好的沟通能力和问题解决能力，有较强的责任心，能高效配合团队完成项目交付。",
+  "source": "eval/jd/tencent-marvis-frontend.json"
+ },
+ "resume": {
+  "text": "姓名：周予航\n电话：13900000000 | 邮箱：zhouyuhang.frontend@example.com | GitHub：github.com/zhouyuhang-fe\n\n教育背景\n华南理工大学 软件工程 本科 2022年9月 – 2026年6月（预计）\n· GPA 3.52 / 4.00，专业排名前 25%\n· 主修课程：数据结构、计算机网络、操作系统、数据库系统、软件工程、人机交互\n\n实习经历\n某互动娱乐公司 技术中台部 前端开发实习生 2025年6月 – 2025年9月\n· 参与游戏官网活动页与营销落地页开发，使用 Vue3 + TypeScript 完成 8 个专题页面的搭建与联调，覆盖 PC 与移动端，统一抽离通用报名、弹窗、分享等模块，重复开发工作量减少约 30%。\n· 负责一个基于 Electron 的运营工具内嵌页面维护，排查高分辨率屏幕下样式错位与首屏白屏问题，通过资源懒加载和路由拆分将页面首屏可交互时间由 3.1s 优化至 2.2s。\n· 配合后端与算法同学接入文案生成接口，完成 prompt 参数配置、结果流式展示和异常兜底逻辑，支持运营同学生成活动标题与描述，日常使用中将单次内容产出时间从约 15 分钟缩短至 5 分钟内。\n· 补充埋点与简单监控看板，定位一次活动上线后的图片资源加载异常，修复 CDN 缓存配置后，活动页报错率由 1.8% 降至 0.4%。\n\n项目经历\n电竞赛事互动官网与小程序 2024年10月 – 2025年4月\n基于 React + TypeScript + Vite + Taro 开发的赛事专题项目，包含官网主站、赛程页、战队介绍页与小程序预约模块。\n· 负责首页、赛程详情和选手数据展示模块开发，封装卡片、轮播、倒计时等 12 个通用组件，支持多端复用，后续新专题页面搭建时间由 2 天缩短至 1 天左右。\n· 针对移动端弱网场景进行优化，采用图片分级加载、路由预加载与本地缓存策略，核心页面 Lighthouse 性能评分从 68 提升至 84。\n· 实现预约报名、赛事提醒、分享裂变等交互功能，完成与 Node.js 接口的联调，并处理表单校验、重复提交和状态回显问题，活动期累计支撑 1.2 万次预约请求。\n· 接入前端埋点和错误上报，按设备类型拆分分析页面跳出情况，发现某安卓机型视频组件兼容问题并修复，页面停留时长提升约 11%。\n\nAI 创意互动展示桌面应用 2025年5月 – 2025年12月\n面向线下展会场景的互动展示 Demo，基于 Electron + Vue3 + TypeScript 开发，结合大模型 API、语音输入与海报生成功能。\n· 负责 Electron 主进程与渲染进程通信设计，使用 IPC 实现素材选择、任务状态同步和本地文件导出，完成 Windows 环境下的打包与基本异常处理。\n· 开发“输入关键词生成活动海报文案”功能，接入大模型 API，设计 prompt 模板与参数面板，并增加加载态、重试和内容审核提示，保证现场演示流程稳定。\n· 为提升展示流畅度，优化大图资源加载和动画渲染，使用虚拟列表管理素材库、按需解码图片资源，连续操作 20 分钟场景下内存占用峰值下降约 18%。\n· 引入 ESLint + Prettier + Husky 规范提交流程，并尝试使用 Cursor / Copilot 辅助补全样板代码与测试用例，减少低级样式与类型错误，项目开发后期每周回归问题数由 9 个降至 5 个。\n\n技能\n· 语言：JavaScript、TypeScript、HTML5、CSS3、Node.js（熟悉）、Python（基础）\n· 框架与工程化：React、Vue3、Taro、Vite、Webpack、Electron、Pinia\n· 前端能力：响应式布局、移动端适配、组件封装、性能优化、埋点监控、接口联调\n· AI 应用：大模型 API 接入、Prompt 设计、流式输出交互、AI 辅助编码工具（Copilot、Cursor）\n· 工具：Git、Linux、npm/pnpm、Figma、Postman\n",
+  "source": "eval/resumes/synthetic-frontend.md"
+ },
+ "competencies": [
+  {
+   "id": "desktop-frontend-architecture",
+   "name": "桌面端前端架构设计",
+   "description": "围绕桌面端应用的模块划分、工程结构、技术选型和可维护性进行设计，面试常会考你如何搭建复杂前端应用。",
+   "weight": 3
+  },
+  {
+   "id": "javascript-typescript",
+   "name": "JavaScript/TypeScript基础",
+   "description": "考察语言基础、异步机制、原型与作用域、类型系统、工程化写法等，属于前端开发的底层能力。",
+   "weight": 3
+  },
+  {
+   "id": "react-vue-framework",
+   "name": "前端框架能力",
+   "description": "围绕 React、Vue 或同类框架的组件设计、状态管理、生命周期/渲染机制和常见性能问题展开。",
+   "weight": 3
+  },
+  {
+   "id": "frontend-performance",
+   "name": "前端性能优化",
+   "description": "关注首屏、交互响应、渲染性能、资源加载和稳定性优化，面试常用来判断复杂应用交付能力。",
+   "weight": 3
+  },
+  {
+   "id": "desktop-app-development",
+   "name": "桌面应用开发",
+   "description": "针对桌面端场景的窗口管理、跨平台适配、系统能力调用和桌面应用工程实践进行考察。",
+   "weight": 2
+  },
+  {
+   "id": "ai-assisted-development",
+   "name": "AI辅助开发实践",
+   "description": "考察使用 Codebuddy、Cursor 等 AI 工具提升编码、排错和交付效率的实际经验与方法。",
+   "weight": 2
+  }
+ ],
+ "budget": {
+  "pace": "standard",
+  "maxTurns": 16
+ },
+ "candidate": {
+  "style": "needy",
+  "seed": 1018,
+  "levels": {
+   "desktop-frontend-architecture": "medium",
+   "javascript-typescript": "medium",
+   "react-vue-framework": "high",
+   "frontend-performance": "medium",
+   "desktop-app-development": "medium",
+   "ai-assisted-development": "medium"
+  },
+  "facts": [],
+  "behavior": "humble_lead"
+ }
+}
