@@ -78,9 +78,10 @@ export function runWithTrialAiConfig<T>(
  * 交给 assertAiConfigured 给出统一的引导报错。
  */
 export function getTrialAiTaskConfig(task: AiTask): AiTaskConfig {
-  if (task === "text" && isTrialMode()) {
+  // 访客只带一个 Key：文本与评分都用它（评分换模型是本地版的事）。
+  if ((task === "text" || task === "scoring") && isTrialMode()) {
     const bound = storage.getStore();
-    if (bound) return bound;
+    if (bound) return { ...bound, task };
   }
   return { ...DEFAULT_AI_CONFIGS[task], apiKey: null };
 }

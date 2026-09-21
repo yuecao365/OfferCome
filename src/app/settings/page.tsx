@@ -22,13 +22,14 @@ export default async function SettingsPage() {
   return (
     <AppShell active="settings">
       <PageHeader
-        description="分别配置语音转写和文本理解模型。API Key 只保存在本机服务端。"
+        description="分别配置语音转写、文本理解和面试评分模型。API Key 只保存在本机服务端。"
         title="设置"
       />
 
       <div className="grid gap-5">
         <AiTaskSettingsCard initial={settings.transcription} />
         <AiTaskSettingsCard initial={settings.text} />
+        <AiTaskSettingsCard initial={settings.scoring} />
       </div>
     </AppShell>
   );

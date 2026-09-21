@@ -1,4 +1,4 @@
-export const AI_TASKS = ["transcription", "text"] as const;
+export const AI_TASKS = ["transcription", "text", "scoring"] as const;
 export type AiTask = (typeof AI_TASKS)[number];
 
 const AI_PROVIDERS = [
@@ -51,9 +51,7 @@ export const PROVIDER_LABELS: Record<AiProvider, string> = {
   local: "本地模型服务",
 };
 
-export const TASK_PROVIDERS: Record<AiTask, readonly AiProvider[]> = {
-  transcription: ["openai", "qwen", "bytedance", "compatible", "local"],
-  text: [
+const TEXT_PROVIDERS: readonly AiProvider[] = [
     "openai",
     "anthropic",
     "qwen",
@@ -64,8 +62,23 @@ export const TASK_PROVIDERS: Record<AiTask, readonly AiProvider[]> = {
     "bytedance",
     "compatible",
     "local",
-  ],
+  ];
+
+export const TASK_PROVIDERS: Record<AiTask, readonly AiProvider[]> = {
+  transcription: ["openai", "qwen", "bytedance", "compatible", "local"],
+  text: TEXT_PROVIDERS,
+  scoring: TEXT_PROVIDERS,
 };
+
+const TEXT_BASE_URLS: Partial<Record<AiProvider, string>> = {
+    anthropic: "https://api.anthropic.com/v1",
+    qwen: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    kimi: "https://api.moonshot.cn/v1",
+    deepseek: "https://api.deepseek.com",
+    glm: "https://open.bigmodel.cn/api/paas/v4",
+    minimax: "https://api.minimaxi.com/v1",
+    bytedance: "https://ark.cn-beijing.volces.com/api/v3",
+  };
 
 const PROVIDER_BASE_URLS: Record<
   AiTask,
@@ -75,15 +88,8 @@ const PROVIDER_BASE_URLS: Record<
     qwen: "https://dashscope.aliyuncs.com/compatible-mode/v1",
     bytedance: "https://openspeech.bytedance.com/api/v3/auc/bigmodel",
   },
-  text: {
-    anthropic: "https://api.anthropic.com/v1",
-    qwen: "https://dashscope.aliyuncs.com/compatible-mode/v1",
-    kimi: "https://api.moonshot.cn/v1",
-    deepseek: "https://api.deepseek.com",
-    glm: "https://open.bigmodel.cn/api/paas/v4",
-    minimax: "https://api.minimaxi.com/v1",
-    bytedance: "https://ark.cn-beijing.volces.com/api/v3",
-  },
+  text: TEXT_BASE_URLS,
+  scoring: TEXT_BASE_URLS,
 };
 
 export function getDefaultBaseURL(
@@ -112,26 +118,17 @@ export const DEFAULT_AI_CONFIGS: Record<AiTask, Omit<AiTaskConfig, "apiKey">> = 
     baseURL: null,
     requiresApiKey: true,
   },
+  // 评分模型：InterviewBench S5 上 gpt-5.4-mini 定层级 κ 0.82，deepseek-v4-flash 0.51（压高分），默认用它；没配 OpenAI key 时回落到文本模型（settings/ai.ts）。
+  scoring: {
+    task: "scoring",
+    provider: "openai",
+    model: "gpt-5.4-mini",
+    baseURL: null,
+    requiresApiKey: true,
+  },
 };
 
-export const MODEL_OPTIONS: Record<
-  AiTask,
-  Partial<Record<AiProvider, readonly string[]>>
-> = {
-  transcription: {
-    openai: ["gpt-transcribe", "gpt-4o-transcribe", "gpt-4o-mini-transcribe"],
-    qwen: [
-      "qwen3-asr-flash",
-      "qwen3-asr-flash-2026-02-10",
-      "qwen3-asr-flash-2025-09-08",
-    ],
-    bytedance: [
-      "volc.seedasr.auc",
-      "volc.bigasr.auc",
-      "volc.bigasr.auc_turbo",
-    ],
-  },
-  text: {
+const TEXT_MODEL_OPTIONS: Partial<Record<AiProvider, readonly string[]>> = {
     openai: [
       "gpt-5.6-sol",
       "gpt-5.6-terra",
@@ -203,7 +200,27 @@ export const MODEL_OPTIONS: Record<
       "doubao-seed-2-0-code",
       "doubao-seed-character",
     ],
+  };
+
+export const MODEL_OPTIONS: Record<
+  AiTask,
+  Partial<Record<AiProvider, readonly string[]>>
+> = {
+  transcription: {
+    openai: ["gpt-transcribe", "gpt-4o-transcribe", "gpt-4o-mini-transcribe"],
+    qwen: [
+      "qwen3-asr-flash",
+      "qwen3-asr-flash-2026-02-10",
+      "qwen3-asr-flash-2025-09-08",
+    ],
+    bytedance: [
+      "volc.seedasr.auc",
+      "volc.bigasr.auc",
+      "volc.bigasr.auc_turbo",
+    ],
   },
+  text: TEXT_MODEL_OPTIONS,
+  scoring: TEXT_MODEL_OPTIONS,
 };
 
 const TRANSCRIPTION_ONLY_MODEL_PATTERN =

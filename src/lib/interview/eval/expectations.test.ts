@@ -146,3 +146,14 @@ test("自谦开头但有内容：signal 判成没信息算不通过，按内容�
   const short = checkExpectations({ brief, events: [said("probe", null), answered("answered"), said("switch", "q1"), answered("dont_know", "这个我没做过。"), said("switch", "q2")], perturbations: ["humble_lead"] });
   assert.equal(find(short, "humble_lead_read_as_answer").applies, false, "真的只说没做过不适用");
 });
+
+test("自我介绍夹了简历外的项目：面试官下一句接住算通过，直接切议程算不通过", () => {
+  seq = 0;
+  const intro = "我叫小王，做过助手项目，业余还做了一个叫星图的多 agent 调度小工具。";
+  const cold = checkExpectations({ brief, events: [said("probe", null), answered("answered", intro), said("switch", "p1-overview", null, "先聊 Study Assistant，主循环你负责哪段？"), answered("answered")], perturbations: ["off_resume_intro"] });
+  assert.equal(find(cold, "off_resume_acknowledged").applies, true);
+  assert.equal(find(cold, "off_resume_acknowledged").passed, false);
+  seq = 0;
+  const warm = checkExpectations({ brief, events: [said("probe", null), answered("answered", intro), said("switch", "p1-overview", null, "星图简历上没有，我们先聊简历上的 Study Assistant：主循环你负责哪段？"), answered("answered")], perturbations: ["off_resume_intro"] });
+  assert.equal(find(warm, "off_resume_acknowledged").passed, true);
+});

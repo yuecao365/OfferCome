@@ -113,9 +113,17 @@ function useTypewriter(text: string, enabled: boolean, onTick?: () => void): str
   return enabled ? text.slice(0, shown) : text;
 }
 
+/** 按钮替候选人说的固定句 → 系统行文案：这些不是候选人说的话，不该长得像他的发言。 */
+const CONTROL_LINES: Record<string, string> = Object.fromEntries(
+  Object.entries(CONTROL_PLACEHOLDERS).map(([control, text]) => [text, { skip: "你跳过了这题", repeat: "你请面试官再说一遍", end: "你结束了面试", hint: "你要了一个提示" }[control] ?? "你按了一个按钮"]),
+);
+
 export function MockInterviewBubble({ message, typewriter = false, onTick }: { message: ConversationMessage; typewriter?: boolean; onTick?: () => void }) {
   const interviewer = message.role === "interviewer";
   const content = useTypewriter(message.content, typewriter && interviewer, onTick);
+  if (!interviewer && message.kind === "control") {
+    return <p className="text-center text-xs text-muted-foreground">{CONTROL_LINES[message.content] ?? message.content}</p>;
+  }
   return (
     <div className={interviewer ? "flex justify-start" : "flex justify-end"}>
       <div
@@ -135,8 +143,8 @@ export function MockInterviewBubble({ message, typewriter = false, onTick }: { m
 function ProgressBar({ progress, ended }: { progress: ProgressSummary; ended: boolean }) {
   const covered = ended ? progress.quota : progress.covered;
   return (
-    <p aria-label="面试进度" className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground" title="按聊完的材料数计，不按时间；中途离开再回来不受影响">
-      材料 {covered} / {progress.quota}
+    <p aria-label="面试进度" className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground" title="按聊完的话题数计，不按时间；中途离开再回来不受影响">
+      话题 {covered} / {progress.quota}
     </p>
   );
 }

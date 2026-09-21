@@ -100,10 +100,10 @@ export function CandidateInsightCard({
           <Badge tone="brand">{PROFILE_INSIGHT_KIND_LABELS[insight.kind]}</Badge>
           <Badge>{PROFILE_DIMENSION_LABELS[insight.dimension]}</Badge>
           {insight.isUserLocked ? <Badge tone="success"><LockKeyhole aria-hidden="true" className="size-3" />已保护</Badge> : null}
-          {insight.hasConflict ? <Badge tone="warning"><AlertTriangle aria-hidden="true" className="size-3" />存在反向证据</Badge> : null}
+          {insight.hasConflict ? <Badge tone="warning"><AlertTriangle aria-hidden="true" className="size-3" />有相反的证据，点开看</Badge> : null}
         </div>
-        <span className="text-xs font-semibold text-muted-foreground">
-          {insight.levelLabel} · {insight.trend === "up" ? "上升" : insight.trend === "down" ? "下降" : insight.trend === "stable" ? "稳定" : "趋势待积累"} · 证据{insight.confidenceLabel}
+        <span className="text-xs text-muted-foreground" title="等级按各场评分加权；趋势看最近几场相对更早几场；证据量看场次数、真实面试占比与新鲜度">
+          当前{insight.levelLabel}，最近{insight.trend === "up" ? "在上升" : insight.trend === "down" ? "在下降" : insight.trend === "stable" ? "稳定" : "场次还少看不出趋势"}，证据{insight.confidenceLabel}
         </span>
       </div>
 

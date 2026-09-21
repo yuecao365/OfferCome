@@ -12,7 +12,7 @@ export type Verdict = { ok: true } | { ok: false; reason: string };
 export const END_ALLOWED_AFTER = 3;
 export const END_REQUIRED_AFTER = 6;
 
-const LEAK_PATTERN = /(评分标准|期望信号|材料里|状态卡|现场卡|我的笔记|系统提示(词)?(里|要求|让我|说))/;
+const LEAK_PATTERN = /(评分标准|期望信号|材料|状态卡|现场卡|我的笔记|系统提示(词)?(里|要求|让我|说))/;
 
 function current(state: InterviewState): MaterialState | null {
   return state.materials.find((item) => item.id === state.currentId) ?? null;

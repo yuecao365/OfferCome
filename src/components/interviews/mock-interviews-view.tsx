@@ -30,11 +30,13 @@ function progressLabel(session: MockInterviewListItem): string {
   return `${session.questionCount} 个话题`;
 }
 
-function statusLabel(status: string): string {
-  if (status === "completed") return "已完成";
-  if (status === "ready_to_evaluate" || status === "evaluating") return "评分中";
-  if (status === "generation_failed") return "生成未完成";
-  return "进行中";
+function statusLabel(session: MockInterviewListItem): string {
+  const { status } = session;
+  if (status === "completed") return session.questionCount === 0 ? "已完成 · 未作答" : "已完成";
+  if (status === "ready_to_evaluate") return "待出报告 · 点进去生成";
+  if (status === "evaluating") return "评分中";
+  if (status === "generation_failed") return "备课未完成";
+  return "进行中 · 点进去继续";
 }
 
 /**
@@ -54,7 +56,7 @@ export function MockInterviewsView({
   return (
     <>
       <PageHeader
-        description="结合目标岗位描述、所选简历、历史面试和已确认画像生成逐题训练，完成后获得有证据的评分与建议。"
+        description="贴一份岗位描述、选一份简历，面试官备课后像真实面试一样对话追问；结束后给出带原话依据的评分、短板与练法。"
         title="AI 模拟面试"
       />
 
@@ -90,7 +92,7 @@ export function MockInterviewsView({
                           : "info"
                     }
                   >
-                    {statusLabel(session.status)}
+                    {statusLabel(session)}
                   </Badge>
                 </Link>
                 <div className="shrink-0 pr-3">

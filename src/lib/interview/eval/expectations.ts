@@ -205,6 +205,14 @@ const RULES: Partial<Record<Perturbation, Rule>> = {
       detail: bad.length === 0 ? "都按内容判了" : `[${bad.join(", ")}] 被判成没信息`,
     };
   },
+  // 自我介绍夹了简历外的项目「星图」：面试官下一句要先认一下（提到它，或说明先聊简历上的），再切议程；不能像没听见。
+  off_resume_intro: (brief, events, turns) => {
+    const intro = events.findIndex((item) => item.type === "candidate_said" && !item.payload.control && item.payload.content.includes("星图"));
+    if (intro < 0) return { id: "off_resume_acknowledged", label: "简历外的经历被接住", applies: false, passed: null, detail: "候选人没提星图" };
+    const next = nextTurn(turns, intro);
+    const acknowledged = next ? /星图|简历上没有|简历里没有|简历上没写|简历外/.test(next.content) : false;
+    return { id: "off_resume_acknowledged", label: "简历外的经历被接住", applies: true, passed: acknowledged, detail: acknowledged ? "开场接住了" : `[${next?.seq ?? "?"}] 直接切议程，没提候选人讲的星图` };
+  },
   // 每句都说没懂：答疑不占预算，但同一份材料上连续答疑超过上限就该换材料。
   help_loop: (brief, events, turns) => {
     let run = 0;

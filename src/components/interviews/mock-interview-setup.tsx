@@ -136,7 +136,7 @@ export function MockInterviewSetup({
       <Card className="p-5">
         <div className="mb-5 border-b border-border pb-4">
           <h2 className="text-sm font-semibold text-foreground">目标岗位与岗位描述</h2>
-          <p className="mt-1 text-[0.8125rem] text-muted-foreground">岗位名称和公司为必填；岗位描述可以上传文件或粘贴文本，二选一即可。</p>
+          <p className="mt-1 text-[0.8125rem] text-muted-foreground">公司、岗位名称、岗位描述都必填；岗位描述上传文件或粘贴文本都行。</p>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           <FieldLabel>
@@ -193,7 +193,7 @@ export function MockInterviewSetup({
           <summary className="flex cursor-pointer select-none flex-wrap items-baseline gap-x-3 gap-y-1 [&::-webkit-details-marker]:hidden">
             <h2 className="text-sm font-semibold text-foreground">面试设置</h2>
             <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground group-open:hidden">
-              {resumes.find((resume) => resume.isDefault)?.name ?? resumes[0]?.name} · 第一轮 · {INTERVIEW_PACE_LABELS[DEFAULT_INTERVIEW_PACE]}节奏（{quotaLabel(DEFAULT_INTERVIEW_PACE)}）· 文字作答（可用麦克风输入）
+              {resumes.find((resume) => resume.isDefault)?.name ?? resumes[0]?.name} · {INTERVIEW_PACE_LABELS[DEFAULT_INTERVIEW_PACE]}节奏（{quotaLabel(DEFAULT_INTERVIEW_PACE)}）· 文字作答（可用麦克风输入）
             </span>
             <span className="text-xs text-muted-foreground group-open:hidden">调整</span>
             <span className="w-full text-[0.8125rem] text-muted-foreground group-open:block hidden">选择面试使用的简历、节奏和作答方式。节奏定这场聊几份材料，长短由聊完为止，不按时间。作答打字或按麦克风说话都行，转写后可以改再发。面试官会根据岗位和简历备课，题目在对话中临场提出。</span>
@@ -236,7 +236,7 @@ export function MockInterviewSetup({
 
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="max-w-3xl text-xs leading-5 text-muted-foreground">
-          题目会结合你的简历和过往面试记录生成。
+          面试官会结合岗位描述和你的简历备课，像真实面试一样追问，结束后出报告。
         </p>
         <Button disabled={pending || resumes.length === 0 || !textConfigured} type="submit">
           {pending ? "正在创建" : "开始模拟面试"}

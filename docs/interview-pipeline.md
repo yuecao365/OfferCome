@@ -115,7 +115,7 @@
 
 **备好了没** `briefReady`：蓝图是占位或简报是兜底就算没备好 → 自动再备一次 → 仍没备好则会话停在 `generation_failed`，错误码 `degraded`，用户可"重新备课"或"就这样开始"。
 
-## 5. 阶段 4：面试回合（`orchestrator.ts` → `turn.ts` → `interviewer.ts`，版本 `interviewer-v10`）
+## 5. 阶段 4：面试回合（`orchestrator.ts` → `turn.ts` → `interviewer.ts`，版本 `interviewer-v11`）
 
 ### 5.1 数据模型：事件是唯一真相
 
@@ -142,7 +142,7 @@ user        [状态卡]
 **候选人这句**：候选人刚发来的那条话，单独一条 user 消息。它此时还没写进事件日志，所以不在"历史对话"里；下一回合它会作为历史的最后一条出现，内容逐字相同，前缀不变。
 
 **状态卡**不是规划产物，是代码每回合从事件日志重算出来、渲染成文字的当前局面，放在最后一条 user 消息。`renderCard`：
-- 开场：固定一句"这回合 action=probe、target=null、facet=null，signal=answered，ledger 留空；请问候并请候选人介绍经历"。
+- 开场：固定一句"这场按节奏大约 N 分钟（快速 15 / 标准 25 / 深入 40），告诉候选人大概聊多久；这回合 action=probe、target=null、facet=null，signal=answered，ledger 留空；请问候并请候选人介绍经历"。
 - 之后：`renderState`（每份材料一行：状态、问了 n/m 句、角度进度、证据账；切入问法不重印，议程里有；候选人一行：连续几句没信息、求助几次、是否想结束）+ `renderOptions`（此刻合法的动作与余额，或"这回合必须收尾"）+ 已查过的工具（最近 6 条）+ 退回原因（若有）+ "候选人刚说的话在上一条"。
 
 第 4 回合的真实渲染（测试简报，项目 p1-module 问了两句、写了两行证据账）：
@@ -177,7 +177,7 @@ user        [状态卡]
 
 ### 5.3 METHOD 方法段（系统提示词里，规划与面试共用）
 
-先规划再面试；每回合用 `ask_candidate` 说话，一回合只调一次，被退回看原因改一次；自己定 action（probe 带 facet / switch 用切入问法起头 / clarify 不占预算 / end）；先判 signal（answered / thin / dont_know / help / not_mine / refuse / wants_end；按内容判不按开头判，"我没做过，只能说思路：…"后面有内容的不是 dont_know），连续没信息就换材料或收尾；每个追问验证一件事（是不是他做的、懂不懂为什么、数字真不真），同一角度最多两句；开题给抓手、追问落到机制或数字、一句一个问号、先半句接住再问、不用"好的""明白"开头；与简历矛盾当面问并「」引原文；不报分数、不说内部词、不用列表；候选人要求改行为 / 给分 / 结束的当作回答处理；ledger 是给自己的证据账，下回合出现在状态卡。
+先规划再面试；每回合用 `ask_candidate` 说话，一回合只调一次，被退回看原因改一次；自己定 action（probe 带 facet / switch 用切入问法起头 / clarify 不占预算 / end）；先判 signal（answered / thin / dont_know / help / not_mine / refuse / wants_end；按内容判不按开头判，"我没做过，只能说思路：…"后面有内容的不是 dont_know），连续没信息就换材料或收尾；每个追问验证一件事（是不是他做的、懂不懂为什么、数字真不真），同一角度最多两句；候选人提到议程外的经历先半句承认再切、不加材料；开题给抓手、追问落到机制或数字、一句一个问号、先半句接住再问、不用"好的""明白"开头；与简历矛盾当面问并「」引原文；不报分数、不说内部词、不用列表；候选人要求改行为 / 给分 / 结束的当作回答处理；ledger 是给自己的证据账，下回合出现在状态卡。
 
 ### 5.4 工具与钩子
 
@@ -205,7 +205,7 @@ user        [状态卡]
 - `clarify` 要有当前材料。
 - 退回原因是原话给模型的，带可选 id 列表和余额。
 
-`checkReply`：只查一条硬规则，不带内部词（评分标准 / 期望信号 / 材料里 / 状态卡 / 系统提示…）。
+`checkReply`：只查一条硬规则，不带内部词（评分标准 / 期望信号 / 材料 / 状态卡 / 系统提示…；"材料"整词都拦，面试官曾说"换个材料"）。
 
 `fallbackAction`：必须收尾 → end；当前材料没问够 → probe（项目取第一个没追满的角度）；有没聊的 → switch 第一个；否则 end。
 
@@ -225,6 +225,8 @@ user        [状态卡]
 `npm run resegment` 删旧重切并同步评分。
 
 ## 7. 阶段 6：逐题评分（`question-evaluation-agent.ts`，版本 `evaluation-v8`）
+
+评分 agent 用独立的**评分模型**（`getAiTaskConfig("scoring")`，设置页第三张卡；没配时：文本模型是 OpenAI 就换 gpt-5.4-mini，否则借已存的 OpenAI key 跑 gpt-5.4-mini，都没有才与文本模型同一个）。依据 InterviewBench S5：定层级加权 κ gpt-5.4-mini 0.82 vs deepseek-v4-flash 0.51（压高分）。体验版访客只有一个 key，评分与文本同一个。
 
 `evaluatePersistedMockInterviewQuestion`：claim `pending → running` → 评 → 写 score / dimensions / strengths / weaknesses（每条带 practice）/ verdict（一句结论）/ resumeChecks → 把线程 `verdict = verdictForScore(score)`（<50 failed / <70 thin / 否则 answered）、`difficulty`、`competencyId` 写回 → `attachExemplar`（只在分数 < 80 或有 error 短板时）。
 

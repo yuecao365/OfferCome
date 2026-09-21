@@ -66,7 +66,9 @@ export async function persistProfileViews(
       }
 
       const synthesized = syntheses.get(view.roleKey);
-      const valid = synthesized ? validateSynthesis(synthesized.synthesis, view.observations) : [];
+      // 这次没重新合成的视角：指标已更新，洞察原样保留，不删。
+      if (!synthesized) continue;
+      const valid = validateSynthesis(synthesized.synthesis, view.observations);
       await tx.candidateInsight.deleteMany({
         where: { roleKey: view.roleKey, isUserLocked: false },
       });

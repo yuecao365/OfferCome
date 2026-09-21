@@ -39,6 +39,7 @@
 |---|---|---|
 | 备课 | 进度卡；失败给"重新备课 / 就这样开始" | `generation.prepareMockInterview`：蓝图（JD 分析，同会话重试复用快照）→ 上下文（简历、项目、最近短板、档案）→ 面试官 loop 第一段 `write_plan` 出简报 → `briefReady` 不成自动再备一次 |
 | 面试 | 房间：面试官一次一问，候选人可打字或**语音**（录音 → `/transcribe` → 作为回合发送；面试官按句 speechSynthesis 朗读），可"跳过 / 结束"；顶栏材料进度；资料抽屉看简报 | `orchestrator.startTurn` → `turn.runTurn`：一回合一次非流式调用，模型经 `ask_candidate` 说话；动作先校验（`constraints.checkAction`）再落事件；`clientId` 幂等 |
+| 房间 | 顶栏"话题 n / m"按聊完的话题数计；按钮（跳过 / 再说一遍 / 提示 / 结束）在对话里显示为居中的系统行（"你跳过了这题"），不当候选人发言；资料抽屉高亮面试官引用的简历原句与带单位的数字 | `mock-interview-chat.tsx`、`materials.ts` |
 | 报告 | 从上到下：总分（旁边一行写按哪几种材料、什么权重算的）与两句总评 → 失守在哪、练什么（≤ 5 条，每条短板 + 练法 + 所在段）→ 站得住的（≤ 3）→ 简历上的说法（已验证 / 没讲清展开，没问到合成一行）→ 能力估计（只列测到的，没测到合成一行）→ 逐段反馈默认折叠（折叠行 = 段名 · 分 · 一句结论；展开有题面、维度分与缺口、短板与练法、答得好的、简历核对、我的回答、示范）→ 页尾"决策记录"链接 | `completion.completeMockInterview`：切段（纯代码，没答的最后一问不算）→ 逐题评分（工具契约，单采样）→ 示范（< 80 分或有说错的段）→ 汇总 → 档案 → 入队画像；组件 `mock-interview-report.tsx` 本地版与体验版共用 |
 | trace | `/interviews/mock/[id]/trace`：逐回合动作 / 理由 / 退回原因、每步 token / 缓存 / 成本、复盘失败栏、"重放这一回合"（不落库） | `views.traceTurns`、`replayMockInterviewTurn`、`interview/eval/postmortem` |
 

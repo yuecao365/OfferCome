@@ -1,4 +1,4 @@
-import type { AreaKind, InterviewBrief } from "@/lib/mock-interviews/brief/brief";
+import type { AreaKind, InterviewBrief, InterviewPace } from "@/lib/mock-interviews/brief/brief";
 
 import { planQuota } from "./progress";
 
@@ -48,6 +48,8 @@ export type InterviewState = {
   currentFacet: number | null;
   candidate: { noInfoStreak: number; noInfoTotal: number; helpCount: number; wantsToEnd: boolean };
   phase: "opening" | "running" | "ended";
+  /** 这场的节奏（开场白说时长用）。 */
+  pace: InterviewPace;
 };
 
 /** 同一角度最多追这么多句。 */
@@ -60,7 +62,7 @@ export function stateOf(brief: Pick<InterviewBrief, "pace" | "areas">, events: S
     return { id: item.id, kind: item.kind, name: area.name, entryQuestion: area.entryQuestion, status: "untouched", asked: 0, budget: item.budget, facets: area.kind === "project" ? area.guides.map((text) => ({ text, probes: 0, status: "untouched" as const })) : [], ledger: [] };
   });
   const byId = new Map(materials.map((item) => [item.id, item]));
-  const state: InterviewState = { turn: 0, materials, currentId: null, currentFacet: null, candidate: { noInfoStreak: 0, noInfoTotal: 0, helpCount: 0, wantsToEnd: false }, phase: "opening" };
+  const state: InterviewState = { turn: 0, materials, currentId: null, currentFacet: null, candidate: { noInfoStreak: 0, noInfoTotal: 0, helpCount: 0, wantsToEnd: false }, phase: "opening", pace: brief.pace };
   const leave = (materialId: string | null) => {
     const material = materialId ? byId.get(materialId) : undefined;
     if (!material) return;

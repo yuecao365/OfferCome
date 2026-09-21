@@ -25,7 +25,11 @@ const TASK_CONTENT = {
   },
   text: {
     title: "文本理解",
-    description: "用于从面试文本中识别问题、回答和关联项目，并为后续简历 AI 解析复用。",
+    description: "用于面试官、备课、报告等所有文本 agent，以及简历与面试记录的解析。",
+  },
+  scoring: {
+    title: "面试评分",
+    description: "只用于模拟面试结束后的逐段评分。评分模型与面试官分开，可以选更稳的模型；不配时用文本模型或已存的 OpenAI Key 跑 gpt-5.4-mini。",
   },
 } as const;
 

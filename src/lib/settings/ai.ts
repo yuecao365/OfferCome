@@ -16,6 +16,7 @@ const LEGACY_OPENAI_KEY_SETTING = "openai_api_key";
 const SETTING_KEYS: Record<AiTask, string> = {
   transcription: "ai_transcription_config",
   text: "ai_text_config",
+  scoring: "ai_scoring_config",
 };
 
 function parseStoredConfig(value: string): AiTaskConfig | null {
@@ -37,6 +38,20 @@ async function getLegacyOpenAiKey(): Promise<string | null> {
   return setting?.value.trim() || process.env.OPENAI_API_KEY?.trim() || null;
 }
 
+/**
+ * 评分模型没单独配时的缺省：文本模型是 OpenAI 就换成默认评分模型；否则借用任何已存的 OpenAI key；
+ * 都没有就和文本模型同一个（InterviewBench 显示 DeepSeek 评分压高分，能换就换）。
+ */
+async function defaultScoringConfig(): Promise<AiTaskConfig> {
+  const text = await getAiTaskConfig("text");
+  const defaults = DEFAULT_AI_CONFIGS.scoring;
+  if (text.provider === defaults.provider) return { ...text, task: "scoring", model: defaults.model, baseURL: null };
+  const transcription = await getAiTaskConfig("transcription");
+  const openaiKey = (transcription.provider === "openai" ? transcription.apiKey : null) ?? (await getLegacyOpenAiKey());
+  if (openaiKey) return { ...defaults, apiKey: openaiKey };
+  return { ...text, task: "scoring" };
+}
+
 export async function getAiTaskConfig(task: AiTask): Promise<AiTaskConfig> {
   // 体验模式：配置由访客随请求带上（BYO Key），完全不碰数据库——
   // Key 不落任何服务端存储。
@@ -50,6 +65,7 @@ export async function getAiTaskConfig(task: AiTask): Promise<AiTaskConfig> {
   });
   const stored = setting ? parseStoredConfig(setting.value) : null;
   if (stored) return stored;
+  if (task === "scoring") return defaultScoringConfig();
 
   const defaults = DEFAULT_AI_CONFIGS[task];
   return {
@@ -76,13 +92,15 @@ export function toPublicAiTaskConfig(config: AiTaskConfig): PublicAiTaskConfig {
 }
 
 export async function getPublicAiSettings(): Promise<Record<AiTask, PublicAiTaskConfig>> {
-  const [transcription, text] = await Promise.all([
+  const [transcription, text, scoring] = await Promise.all([
     getAiTaskConfig("transcription"),
     getAiTaskConfig("text"),
+    getAiTaskConfig("scoring"),
   ]);
   return {
     transcription: toPublicAiTaskConfig(transcription),
     text: toPublicAiTaskConfig(text),
+    scoring: toPublicAiTaskConfig(scoring),
   };
 }
 

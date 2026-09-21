@@ -32,3 +32,8 @@ test("按片段把资料切成高亮段，重叠的片段只切一次", () => {
   assert.deepEqual(highlightSegments("", []), [{ text: "", hit: false }]);
   assert.deepEqual(highlightSegments("没有引用", ["不存在"]), [{ text: "没有引用", hit: false }]);
 });
+
+test("面试官不带引号直接追数字（\"这个 40% 怎么量的\"）也算引用；被某句引用包住的数字不重复", () => {
+  assert.deepEqual(quotedFragments([{ role: "interviewer", content: "这个 40% 是怎么量出来的？" }], resume), ["40%"]);
+  assert.deepEqual(quotedFragments([{ role: "interviewer", content: "你写「响应时间下降 40%」，这 40% 怎么算的？" }], resume), ["响应时间下降 40%"]);
+});

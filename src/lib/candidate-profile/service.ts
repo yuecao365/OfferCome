@@ -134,7 +134,11 @@ export async function refreshCandidateProfile({
     const syntheses = new Map<string, Awaited<ReturnType<typeof synthesizeCandidateInsights>>>();
     let provider: string | null = null;
     let model: string | null = null;
+    // 只重新合成有新场次的视角（总览 + 这次处理到的岗位）；其他岗位视角的洞察原样保留。
+    // 之前每次刷新把每个岗位视角都合成一遍，一场面试触发 8 次调用，比面试本身还贵。
+    const touchedRoles = new Set<string>(["all", ...(lease.fullRebuild ? views.map((view) => view.roleKey) : pending.flatMap((item) => (item.roleKey ? [item.roleKey] : [])))]);
     for (const view of views) {
+      if (!touchedRoles.has(view.roleKey)) continue;
       // 门槛下放：1 场面试即可合成"初步印象"（tentative 由合成器按 interviewCount 标注），
       // 冷启动阶段也要有可看的洞察，而不是整页留白。
       const eligibleMetrics = view.metrics.filter((metric) => metric.interviewCount >= 1);

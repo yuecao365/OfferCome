@@ -11,15 +11,25 @@ export type InterviewMaterials = {
 
 /** 提示词要求用「」，模型偶尔写成“”：两种都认。 */
 const QUOTE = /[「“]([^「」“”]{4,120})[」”]/g;
+/** 面试官追口径时常直接说数字（"这个 50% 怎么量的"），不带引号：带单位的数字也算引用。 */
+const NUMBER = /\d+(?:\.\d+)?\s*(?:%|万|亿|倍|次|条|ms|s|秒|QPS|qps|TPS|tps)/g;
 
-/** 面试官消息里用「」或“”括起、且逐字出现在资料里的片段，按出现顺序、去重。 */
+/** 面试官消息里用「」或“”括起、或带单位的数字、且逐字出现在资料里的片段，按出现顺序、去重。 */
 export function quotedFragments(messages: { role: string; content: string }[], source: string): string[] {
   const found: string[] = [];
+  const add = (fragment: string) => {
+    if (fragment && source.includes(fragment) && !found.includes(fragment)) found.push(fragment);
+  };
   for (const message of messages) {
     if (message.role !== "interviewer") continue;
-    for (const match of message.content.matchAll(QUOTE)) {
-      const fragment = match[1].trim();
-      if (fragment && source.includes(fragment) && !found.includes(fragment)) found.push(fragment);
+    for (const match of message.content.matchAll(QUOTE)) add(match[1].trim());
+  }
+  // 数字只在没被某句引用包住时单独算（「响应时间下降 40%」已经含 40%）。
+  for (const message of messages) {
+    if (message.role !== "interviewer") continue;
+    for (const match of message.content.matchAll(NUMBER)) {
+      const number = match[0].trim();
+      if (!found.some((fragment) => fragment.includes(number))) add(number);
     }
   }
   return found;

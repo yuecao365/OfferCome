@@ -161,7 +161,8 @@ export async function evaluateMockInterviewQuestion(input: {
   if (parsed.rubric.length === 0) {
     throw new Error("这道题缺少有效的评分标准。");
   }
-  const config = await getAiTaskConfig("text");
+  // 评分模型独立于面试官（InterviewBench S5：DeepSeek 当评分者压高分，gpt-5.4-mini 定层级 κ 0.82）。
+  const config = await getAiTaskConfig("scoring");
   const startedAt = Date.now();
   const resumeText = input.resumeText ?? "";
   const skillPacks = input.skillPacks ?? [];
