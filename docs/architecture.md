@@ -126,6 +126,7 @@ docs/              文档（入口见 AGENTS.md）
 | `bench` | InterviewBench 子任务层：`--tasks s1,…,s6 --models main,openai:gpt-5.4-mini --label x`，数据在 `eval/bench/`，产物 `eval/bench/runs/` |
 | `compare-runs a.json A b.json B` | 两批 run 配对（只作发布门禁） |
 | `replay <sessionId>`、`resegment <id>`、`recall <resumeId>`、`postmortem <id>` | 事件重建、重切、看档案、单场复盘（均不调模型） |
+| `node scripts/readme-shots.mjs` | README 五张截图（对着 `prisma/demo.db` 虚构数据的 dev 服务器，DevTools 协议拍图、裁掉侧栏、2 倍），写 `docs/images/` |
 
 `eval/`：`jd/`（43 份 JD 含注入 edge 用例）、`resumes/`（5 份合成简历）、`personas/`、`scripts/`、`scorer/`、`judges/`（裁判校准集）、`coverage.json`、`mianjing/`（面经话题表）、`runs/`（产物，只保留 `baseline-* / base-* / fix-*`）。所有评测脚本走 `tsx --conditions=react-server`。
 

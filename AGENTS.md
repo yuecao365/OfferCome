@@ -82,6 +82,7 @@
 
 - **Windows 11**，PowerShell 为主，Bash 工具也可用。`python` 跑含中文脚本要 `PYTHONUTF8=1`；Bash 里 100 行以上 heredoc 会失败，长脚本用 Write 写到 scratchpad 再执行；PowerShell `Select-Object -Last` 会缓冲到结束，看进度改 `*> 文件` 再 tail；`aux/con/nul/prn/com1` 等不能做文件名；**文件名里不能有冒号**（NTFS 把 `a:b.json` 当成 `a` 的备用数据流，目录里显示 0 字节文件，`fs.readFileSync('a:b.json')` 却能读到），模型名一类的字符串进文件名前先清洗。
 - **dev 预览只能用 `http://localhost:3000`**（127.0.0.1 不 hydrate）。用 `preview_start`，不用 Bash 起服务器。隐藏面板下页面停在骨架 / 多个 main 是查看环境假象，先截一张图再查。
+- **截图**：`msedge --headless --screenshot` 会在 CountUp 动画中途出图（数字偏小），且 G6 画布、Recharts 容器画不出来；要可靠的图走 DevTools 协议（`scripts/readme-shots.mjs`，README 用 `career-agent-demo` 配置起在 `prisma/demo.db` 上）。Git Bash 会把 `/interviews/...` 这类参数转成 Windows 路径，传 URL 路径给 node 时加 `MSYS_NO_PATHCONV=1`。
 - **`.next` 缓存损坏**：dev 运行中批量增删 / 改名文件后 API 返回 HTML 404。处置：`preview_stop` → `rm -rf .next` → `preview_start` → 探针 `curl -s -X POST -H "Content-Type: application/json" -d '{}' http://localhost:3000/api/trial/turn`（返回 JSON 即健康）。**付费跑批前必须先探针**；跑批哨兵见整档全挂立即停并 `rm -f eval/ablation.json`。
 - **改 Prisma schema 后**：`npx prisma db push` + `npx prisma generate`，再重启 dev（内存里的客户端还是旧的，每回合落库会失败）。
 - **长任务**（模拟 15 场约 40 分钟）不能放 Bash 后台（10 分钟超时），用 PowerShell `Start-Process` 脱离进程，日志放 scratchpad 用 Monitor 看；跑前确认 OpenAI 额度。
