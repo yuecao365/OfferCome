@@ -5,79 +5,79 @@
    发丝线分隔表面，投影只留给浮层；数字用等宽/表格数字。
    ============================================================ */
 :root {
-  /* 纸与墨（用户 2026-09-22 定的六色板）：深松 #192524 / 板岩青 #3C5759 / 鼠尾草 #959D90 / 薄荷 #D1EBDB / #D0D5CE / 纸白 #EFECE9。
-     板岩青是唯一强调色；薄荷只做点亮底；成功色是压暗的鼠尾草绿，与强调色分开。 */
-  --background: #f3f1ed;
-  --foreground: #192524;
-  --surface: #faf9f6;
-  --surface-subtle: #efece8;
-  --surface-raised: #faf9f6;
-  --surface-sunken: #e8e5df;
-  --muted: #e4e2dc;
-  --muted-foreground: #66716f;
-  --border: rgb(25 37 36 / 0.1);
-  --border-strong: rgb(25 37 36 / 0.18);
-  --brand: #3c5759;
-  --brand-hover: #2f4547;
-  --brand-foreground: #efece9;
-  --accent: #d1ebdb;
-  --accent-strong: #bfe0cd;
-  --accent-foreground: #2c4a4c;
-  --ring: #3c5759;
-  --info: #4a6d8c;
-  --info-soft: rgb(74 109 140 / 0.12);
-  --info-strong: #385670;
-  --success: #4f7d6b;
-  --success-soft: rgb(79 125 107 / 0.12);
-  --success-strong: #3d6454;
-  --warning: #a8752b;
-  --warning-soft: rgb(168 117 43 / 0.12);
-  --warning-strong: #835a1f;
-  --danger: #b2504f;
-  --danger-soft: rgb(178 80 79 / 0.1);
-  --danger-strong: #8f3d3c;
-  --app-shadow-card: 0 1px 2px rgb(25 37 36 / 0.05);
-  --app-shadow-raised: 0 1px 2px rgb(25 37 36 / 0.05), 0 8px 24px -12px rgb(25 37 36 / 0.16);
-  --app-shadow-overlay: 0 16px 48px -12px rgb(25 37 36 / 0.24), 0 0 0 1px rgb(25 37 36 / 0.06);
+  /* 五色板（用户 2026-09-22 定）：沙 #D6C6A3 / 赭金 #B48D33 / 银灰 #A8ACB2 / 板岩蓝 #606A7B / 藏青 #323B57。
+     浅色：纸底偏沙，藏青做文字与按钮（唯一强调色），赭金只做点亮底与标记，银灰做辅助文字与分隔。 */
+  --background: #f3efe6;
+  --foreground: #323b57;
+  --surface: #faf8f3;
+  --surface-subtle: #eee9dd;
+  --surface-raised: #faf8f3;
+  --surface-sunken: #e6dfcf;
+  --muted: #e2dccd;
+  --muted-foreground: #606a7b;
+  --border: rgb(50 59 87 / 0.12);
+  --border-strong: rgb(50 59 87 / 0.22);
+  --brand: #323b57;
+  --brand-hover: #262d44;
+  --brand-foreground: #f3efe6;
+  --accent: rgb(180 141 51 / 0.16);
+  --accent-strong: rgb(180 141 51 / 0.28);
+  --accent-foreground: #7c6120;
+  --ring: #323b57;
+  --info: #606a7b;
+  --info-soft: rgb(96 106 123 / 0.12);
+  --info-strong: #4a5364;
+  --success: #6b7c4f;
+  --success-soft: rgb(107 124 79 / 0.12);
+  --success-strong: #55643e;
+  --warning: #b48d33;
+  --warning-soft: rgb(180 141 51 / 0.14);
+  --warning-strong: #8a6b22;
+  --danger: #a8524d;
+  --danger-soft: rgb(168 82 77 / 0.1);
+  --danger-strong: #86403c;
+  --app-shadow-card: 0 1px 2px rgb(50 59 87 / 0.05);
+  --app-shadow-raised: 0 1px 2px rgb(50 59 87 / 0.05), 0 8px 24px -12px rgb(50 59 87 / 0.16);
+  --app-shadow-overlay: 0 16px 48px -12px rgb(50 59 87 / 0.24), 0 0 0 1px rgb(50 59 87 / 0.06);
   --app-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --app-ease-move: cubic-bezier(0.77, 0, 0.175, 1);
   --app-ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 [data-theme="dark"] {
-  /* 深松底，薄荷做强调（深底上板岩青对比不够）；纸白做正文。 */
-  --background: #141d1c;
-  --foreground: #efece9;
-  --surface: #192524;
-  --surface-subtle: #1d2a29;
-  --surface-raised: #22302f;
-  --surface-sunken: #0f1616;
-  --muted: #24322f;
-  --muted-foreground: #9aa8a4;
-  --border: rgb(239 236 233 / 0.09);
-  --border-strong: rgb(239 236 233 / 0.16);
-  --brand: #d1ebdb;
-  --brand-hover: #e0f2e7;
-  --brand-foreground: #192524;
-  --accent: rgb(209 235 219 / 0.12);
-  --accent-strong: rgb(209 235 219 / 0.2);
-  --accent-foreground: #d1ebdb;
-  --ring: #d1ebdb;
-  --info: #8fb3d3;
-  --info-soft: rgb(143 179 211 / 0.12);
-  --info-strong: #b3cde4;
-  --success: #9fc9b3;
-  --success-soft: rgb(159 201 179 / 0.12);
-  --success-strong: #c2ded0;
-  --warning: #d6ab63;
-  --warning-soft: rgb(214 171 99 / 0.12);
-  --warning-strong: #e8c68a;
-  --danger: #d98a86;
-  --danger-soft: rgb(217 138 134 / 0.12);
-  --danger-strong: #ecb0ad;
-  --app-shadow-card: inset 0 1px 0 rgb(239 236 233 / 0.04);
-  --app-shadow-raised: inset 0 1px 0 rgb(239 236 233 / 0.05), 0 8px 24px -12px rgb(0 0 0 / 0.5);
-  --app-shadow-overlay: inset 0 1px 0 rgb(239 236 233 / 0.06), 0 24px 64px -16px rgb(0 0 0 / 0.7), 0 0 0 1px rgb(239 236 233 / 0.06);
+  /* 深色：藏青底，沙色做正文，赭金做按钮（藏青底上藏青按钮没有对比），银灰做辅助文字。 */
+  --background: #1c2237;
+  --foreground: #e9e1cf;
+  --surface: #232a42;
+  --surface-subtle: #29314b;
+  --surface-raised: #2f3752;
+  --surface-sunken: #161b2c;
+  --muted: #303852;
+  --muted-foreground: #a8acb2;
+  --border: rgb(233 225 207 / 0.1);
+  --border-strong: rgb(233 225 207 / 0.18);
+  --brand: #c9a24a;
+  --brand-hover: #d9b565;
+  --brand-foreground: #1c2237;
+  --accent: rgb(201 162 74 / 0.14);
+  --accent-strong: rgb(201 162 74 / 0.24);
+  --accent-foreground: #e0c37e;
+  --ring: #c9a24a;
+  --info: #9ea9bd;
+  --info-soft: rgb(158 169 189 / 0.12);
+  --info-strong: #c0c8d6;
+  --success: #a3b585;
+  --success-soft: rgb(163 181 133 / 0.12);
+  --success-strong: #c3d1ab;
+  --warning: #d9b565;
+  --warning-soft: rgb(217 181 101 / 0.12);
+  --warning-strong: #e8cd8c;
+  --danger: #d4877f;
+  --danger-soft: rgb(212 135 127 / 0.12);
+  --danger-strong: #e6aca6;
+  --app-shadow-card: inset 0 1px 0 rgb(233 225 207 / 0.04);
+  --app-shadow-raised: inset 0 1px 0 rgb(233 225 207 / 0.05), 0 8px 24px -12px rgb(0 0 0 / 0.5);
+  --app-shadow-overlay: inset 0 1px 0 rgb(233 225 207 / 0.06), 0 24px 64px -16px rgb(0 0 0 / 0.7), 0 0 0 1px rgb(233 225 207 / 0.06);
 }
 
 @theme inline {
@@ -345,38 +345,37 @@ html[data-theme="dark"] {
 
 /* ============================================================
    Showcase（宣传页）：独立作用域，不跟随产品的明暗主题。
-   配色是纸与墨：深松 #192524 / 板岩青 #3C5759 / 鼠尾草 #959D90 / 薄荷 #D1EBDB / #D0D5CE / 纸白 #EFECE9。
-   页面上不出现产品的翡翠绿；板岩青是唯一的按钮 / 强调色，薄荷只做点亮底色。
+   配色与产品同一套五色板：沙 / 赭金 / 银灰 / 板岩蓝 / 藏青；藏青是唯一的按钮色，赭金只做点亮底与标记。
    ============================================================ */
 .showcase-light {
   color-scheme: light;
-  --sc-ink: #192524;
-  --sc-slate: #3c5759;
-  --sc-sage: #959d90;
-  --sc-mint: #d1ebdb;
-  --sc-ash: #d0d5ce;
-  --sc-paper: #efece9;
+  --sc-sand: #d6c6a3;
+  --sc-gold: #b48d33;
+  --sc-silver: #a8acb2;
+  --sc-slate: #606a7b;
+  --sc-navy: #323b57;
+  --sc-paper: #f3efe6;
 
   --background: var(--sc-paper);
-  --foreground: var(--sc-ink);
-  --surface: #f6f4f1;
-  --surface-subtle: #e9e7e2;
-  --surface-raised: #f6f4f1;
-  --surface-sunken: #e2e2dc;
-  --muted: var(--sc-ash);
-  --muted-foreground: #5f6b69;
-  --border: rgb(25 37 36 / 0.1);
-  --border-strong: rgb(25 37 36 / 0.2);
-  --brand: var(--sc-slate);
-  --brand-hover: #2f4547;
+  --foreground: var(--sc-navy);
+  --surface: #faf8f3;
+  --surface-subtle: #eee9dd;
+  --surface-raised: #faf8f3;
+  --surface-sunken: #e6dfcf;
+  --muted: #e2dccd;
+  --muted-foreground: var(--sc-slate);
+  --border: rgb(50 59 87 / 0.12);
+  --border-strong: rgb(50 59 87 / 0.22);
+  --brand: var(--sc-navy);
+  --brand-hover: #262d44;
   --brand-foreground: var(--sc-paper);
-  --accent: var(--sc-mint);
-  --accent-strong: #bfe0cd;
-  --accent-foreground: #2c4a4c;
-  --ring: var(--sc-slate);
-  --app-shadow-card: 0 1px 2px rgb(25 37 36 / 0.05);
-  --app-shadow-raised: 0 1px 2px rgb(25 37 36 / 0.05), 0 24px 48px -24px rgb(25 37 36 / 0.18);
-  --app-shadow-overlay: 0 16px 40px -16px rgb(25 37 36 / 0.22), 0 0 0 1px rgb(25 37 36 / 0.05);
+  --accent: rgb(180 141 51 / 0.16);
+  --accent-strong: rgb(180 141 51 / 0.28);
+  --accent-foreground: #7c6120;
+  --ring: var(--sc-navy);
+  --app-shadow-card: 0 1px 2px rgb(50 59 87 / 0.05);
+  --app-shadow-raised: 0 1px 2px rgb(50 59 87 / 0.05), 0 24px 48px -24px rgb(50 59 87 / 0.18);
+  --app-shadow-overlay: 0 16px 40px -16px rgb(50 59 87 / 0.22), 0 0 0 1px rgb(50 59 87 / 0.05);
 }
 
 /* 标题与大数字：宋体，比正文重一档 */
@@ -385,15 +384,18 @@ html[data-theme="dark"] {
   font-weight: 600;
 }
 
-/* 首屏回放窗口：深松色底，用自己的一组变量，不套产品的暗色主题 */
+/* 首屏回放窗口：藏青底，用自己的一组变量 */
 .showcase-light .sc-window {
-  --sc-line: rgb(239 236 233 / 0.14);
-  --sc-dim: #9fb0ad;
-  --sc-you: #2b3d3d;
-  background: var(--sc-ink);
-  border-color: rgb(239 236 233 / 0.12);
-  color: var(--sc-paper);
+  --sc-line: rgb(233 225 207 / 0.16);
+  --sc-dim: var(--sc-silver);
+  --sc-you: #3d465f;
+  --sc-ink: var(--sc-navy);
+  --sc-mint: #d9b565;
+  background: var(--sc-navy);
+  border-color: rgb(233 225 207 / 0.14);
+  color: #e9e1cf;
 }
+.showcase-light .sc-window { --sc-paper: #e9e1cf; }
 
 @keyframes sc-rise {
   from { opacity: 0; transform: translateY(8px); }
