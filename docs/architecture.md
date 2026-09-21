@@ -70,7 +70,7 @@ docs/              文档（入口见 AGENTS.md）
 | 路由 | 页面 | View | 取数 |
 |---|---|---|---|
 | `/`（trial 下 `/homepage`） | 数据概览 | `DashboardView` | `applications/queries.getApplicationStats`、`interviews/queries.getInterviewStats`、`upcoming` |
-| `/showcase` | 宣传页（体验版根域名落点） | `ShowcaseContent` | — |
+| `/showcase` | 宣传页（体验版根域名落点） | `ShowcaseContent`、`InterviewReplay`（真实场次回放）、`replay-data.ts`（静态节选）、`copy.tsx`（中英文案） | — |
 | `/applications` | 投递列表 | `ApplicationsView` | `applications/queries` |
 | `/resumes` | 简历中心 | `ResumesView` | `resumes/queries` |
 | `/interviews` | 面试工作台总览 | `InterviewsWorkspaceView` | `interviews/queries.getInterviewWorkspaceData` |

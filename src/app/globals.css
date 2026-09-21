@@ -341,141 +341,68 @@ html[data-theme="dark"] {
 }
 
 /* ============================================================
-   Showcase（宣传页）：独立浅色作用域 + 专属动效。
-   宣传页不跟随产品的明暗主题，始终以浅色呈现。
+   Showcase（宣传页）：独立作用域，不跟随产品的明暗主题。
+   配色是纸与墨：深松 #192524 / 板岩青 #3C5759 / 鼠尾草 #959D90 / 薄荷 #D1EBDB / #D0D5CE / 纸白 #EFECE9。
+   页面上不出现产品的翡翠绿；板岩青是唯一的按钮 / 强调色，薄荷只做点亮底色。
    ============================================================ */
 .showcase-light {
   color-scheme: light;
-  --background: #fafafa;
-  --foreground: #18181b;
-  --surface: #ffffff;
-  --surface-subtle: #f6f6f7;
-  --surface-raised: #ffffff;
-  --surface-sunken: #f2f2f3;
-  --muted: #efeff1;
-  --muted-foreground: #6f6f76;
-  --border: rgb(9 9 11 / 0.08);
-  --border-strong: rgb(9 9 11 / 0.15);
-  --brand: #1a7f5f;
-  --brand-hover: #156a4f;
-  --brand-foreground: #ffffff;
-  --accent: rgb(26 127 95 / 0.1);
-  --accent-strong: rgb(26 127 95 / 0.18);
-  --accent-foreground: #156a4f;
-  --ring: #1a7f5f;
-  --app-shadow-card: 0 1px 2px rgb(9 9 11 / 0.04);
-  --app-shadow-raised: 0 1px 2px rgb(9 9 11 / 0.04), 0 24px 48px -24px rgb(9 9 11 / 0.18);
-  --app-shadow-overlay: 0 16px 40px -16px rgb(9 9 11 / 0.2), 0 0 0 1px rgb(9 9 11 / 0.04);
+  --sc-ink: #192524;
+  --sc-slate: #3c5759;
+  --sc-sage: #959d90;
+  --sc-mint: #d1ebdb;
+  --sc-ash: #d0d5ce;
+  --sc-paper: #efece9;
+
+  --background: var(--sc-paper);
+  --foreground: var(--sc-ink);
+  --surface: #f6f4f1;
+  --surface-subtle: #e9e7e2;
+  --surface-raised: #f6f4f1;
+  --surface-sunken: #e2e2dc;
+  --muted: var(--sc-ash);
+  --muted-foreground: #5f6b69;
+  --border: rgb(25 37 36 / 0.1);
+  --border-strong: rgb(25 37 36 / 0.2);
+  --brand: var(--sc-slate);
+  --brand-hover: #2f4547;
+  --brand-foreground: var(--sc-paper);
+  --accent: var(--sc-mint);
+  --accent-strong: #bfe0cd;
+  --accent-foreground: #2c4a4c;
+  --ring: var(--sc-slate);
+  --app-shadow-card: 0 1px 2px rgb(25 37 36 / 0.05);
+  --app-shadow-raised: 0 1px 2px rgb(25 37 36 / 0.05), 0 24px 48px -24px rgb(25 37 36 / 0.18);
+  --app-shadow-overlay: 0 16px 40px -16px rgb(25 37 36 / 0.22), 0 0 0 1px rgb(25 37 36 / 0.05);
 }
 
-/* 首屏点阵，取自能力画像画布的底纹，向下渐隐 */
-.showcase-light .sc-dots {
-  background-image: radial-gradient(rgb(9 9 11 / 0.14) 0.8px, transparent 0.8px);
-  background-size: 24px 24px;
-  mask-image: linear-gradient(to bottom, #000 0%, transparent 100%);
+/* 标题与大数字：宋体，比正文重一档 */
+.showcase-light .sc-display {
+  font-family: var(--font-sc-display), "Noto Serif SC", "Songti SC", serif;
+  font-weight: 600;
+}
+
+/* 首屏回放窗口：深松色底，用自己的一组变量，不套产品的暗色主题 */
+.showcase-light .sc-window {
+  --sc-line: rgb(239 236 233 / 0.14);
+  --sc-dim: #9fb0ad;
+  --sc-you: #2b3d3d;
+  background: var(--sc-ink);
+  border-color: rgb(239 236 233 / 0.12);
+  color: var(--sc-paper);
 }
 
 @keyframes sc-rise {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
-
-@keyframes sc-draw {
-  to { stroke-dashoffset: 0; }
-}
-
-@keyframes sc-grow-x {
-  from { transform: scaleX(0); }
-  to { transform: scaleX(1); }
-}
-
-@keyframes sc-pop {
-  from { opacity: 0; transform: scale(0.6); }
-  to { opacity: 1; transform: scale(1); }
-}
-
-@keyframes sc-slide-down {
-  from { opacity: 0; transform: translateY(-8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes sc-ticker {
-  to { transform: translateX(-50%); }
-}
-
-@keyframes sc-ticker-reverse {
-  from { transform: translateX(-50%); }
-  to { transform: translateX(0); }
-}
-
-@keyframes sc-orbit {
-  to { stroke-dashoffset: -1; }
-}
-
-@keyframes sc-spin {
-  to { transform: rotate(360deg); }
-}
-
 .sc-rise { animation: sc-rise 520ms var(--app-ease-out) both; }
-
-.sc-chartline path {
-  stroke-dasharray: 1;
-  stroke-dashoffset: 1;
-  animation: sc-draw 800ms var(--app-ease-out) 500ms both;
-}
-.sc-chartline circle { animation: sc-rise 300ms var(--app-ease-out) 1200ms both; }
-
-/* ---- 闭环演示：每幕元素先隐藏，加上 -in 后按各自 delay 进场 ---- */
-.sc-row,
-.sc-rise-soft,
-.sc-type { opacity: 0; }
-.sc-row-in,
 .sc-rise-soft-in { animation: sc-rise 420ms var(--app-ease-out) both; }
-.sc-type-in { animation: sc-rise 600ms var(--app-ease-out) 200ms both; }
-
-.sc-toast { opacity: 0; }
-.sc-toast-in { animation: sc-slide-down 420ms var(--app-ease-out) 900ms both; }
-
-.sc-bar { transform: scaleX(0); transform-origin: left; }
-.sc-bar-in { animation: sc-grow-x 700ms var(--app-ease-out) both; }
-
-.sc-edge { stroke-dasharray: 1; stroke-dashoffset: 1; }
-.sc-edge-in { animation: sc-draw 600ms var(--app-ease-out) both; }
-
-.sc-node { opacity: 0; }
-.sc-node-in { animation: sc-pop 420ms var(--app-ease-out) both; }
 
 @keyframes sc-blink {
   50% { opacity: 0; }
 }
 .sc-caret { animation: sc-blink 1s steps(1) infinite; }
-
-/* 底部四个 tab 的自动播放进度 */
-.sc-progress { animation: sc-grow-x linear both; }
-
-/* 技能包主题带：两行反向滚动，悬停暂停 */
-.sc-ticker {
-  width: max-content;
-  animation: sc-ticker 28s linear infinite;
-}
-.sc-ticker[data-reverse] { animation-name: sc-ticker-reverse; }
-.sc-ticker:hover { animation-play-state: paused; }
-
-/* 暗色闭环环：一段弧沿环行进，光点同步绕圈 */
-.sc-orbit {
-  stroke-dasharray: 0.16 0.84;
-  animation: sc-orbit 6s linear infinite;
-}
-.sc-orbit-dot {
-  transform-origin: 160px 160px;
-  animation: sc-spin 6s linear infinite;
-}
-
-.sc-dots-dark {
-  background-image: radial-gradient(rgb(255 255 255 / 0.12) 0.8px, transparent 0.8px);
-  background-size: 24px 24px;
-  mask-image: radial-gradient(60% 80% at 75% 50%, #000, transparent);
-}
 
 /* 滚动进入视口后显示；reduced-motion 时直接可见 */
 .sc-reveal {
