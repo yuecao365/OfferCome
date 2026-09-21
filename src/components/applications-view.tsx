@@ -6,7 +6,7 @@ import { ApplicationFilters } from "@/components/application-filters";
 import { ApplicationsTable } from "@/components/applications-table";
 import { PageHeader } from "@/components/page-header";
 import { SyncBossButton } from "@/components/sync-boss-button";
-import { StatTiles } from "@/components/stat-tiles";
+import { accentIf, StatTiles } from "@/components/stat-tiles";
 import { Card } from "@/components/ui/card";
 import { ListPagination } from "@/components/ui/list-pagination";
 import type { ApplicationInterviewContext } from "@/components/application-interview-actions";
@@ -42,7 +42,7 @@ function tilesOf(stats: { total: number; stageCounts: Record<ApplicationStage, n
   const interviewing = INTERVIEWING.reduce((sum, stage) => sum + (stats.stageCounts[stage] ?? 0), 0);
   return [
     { label: "全部投递", value: stats.total, note: `已拒绝 ${stats.stageCounts.rejected ?? 0}` },
-    { label: "待跟进", value: stats.stageCounts.applied ?? 0, note: "仍停留在「已投递」" },
+    { label: "待跟进", value: stats.stageCounts.applied ?? 0, note: "仍停留在「已投递」", tone: accentIf(stats.stageCounts.applied ?? 0) },
     { label: "面试中", value: interviewing, note: "笔试到 HR 面之间" },
     { label: "Offer", value: stats.stageCounts.offer ?? 0, note: "当前处于 Offer 阶段" },
   ];

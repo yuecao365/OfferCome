@@ -8,7 +8,7 @@ import { NextActionCard } from "@/components/dashboard/next-action-card";
 import { UpcomingInterviewsCard } from "@/components/interviews/upcoming-interviews-card";
 import { PageHeader } from "@/components/page-header";
 import { SegmentedLinks } from "@/components/ui/segmented-links";
-import { StatTiles } from "@/components/stat-tiles";
+import { accentIf, StatTiles } from "@/components/stat-tiles";
 import { StageBadge } from "@/components/stage-badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -72,7 +72,7 @@ export function DashboardView({
       <StatTiles
         tiles={[
           { label: "投递岗位", value: stats.total, note: stats.recent7Days > 0 ? `最近 7 天 +${stats.recent7Days}` : "最近 7 天暂无新增" },
-          { label: "7 天新增", value: stats.recent7Days, note: "按投递或首次发现时间" },
+          { label: "7 天新增", value: stats.recent7Days, note: "按投递或首次发现时间", tone: accentIf(stats.recent7Days) },
           { label: "真实面试", value: interviewStats.total, note: "已记录的面试" },
           { label: "Offer", value: stats.stageCounts.offer, note: "当前处于 Offer 阶段" },
         ]}

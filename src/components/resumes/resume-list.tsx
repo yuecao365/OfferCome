@@ -32,7 +32,7 @@ export function ResumeList({ resumes, selectedId, actions }: ResumeListProps) {
   }
 
   return (
-    <section aria-labelledby="resume-list-title" className="overflow-hidden rounded-panel border border-border bg-surface">
+    <section aria-labelledby="resume-list-title" className="overflow-hidden rounded-panel bg-surface shadow-card">
       <div className="border-b border-border px-4 py-3">
         <h2 className="text-sm font-semibold text-foreground" id="resume-list-title">
           简历版本 · {resumes.length}

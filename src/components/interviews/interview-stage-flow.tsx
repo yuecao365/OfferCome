@@ -16,22 +16,23 @@ function StageNode({
 }: {
   count: number;
   label: string;
-  tone?: "default" | "success";
+  /** accent：Offer 这一格，且只在数字大于 0 时点亮；0 没什么可强调的。 */
+  tone?: "default" | "accent";
 }) {
   return (
     <div
       className={cn(
         "min-w-0 flex-1 rounded-control border px-3 py-2.5",
-        tone === "success" ? "border-success/25 bg-success-soft" : "border-border bg-surface-subtle",
+        tone === "accent" ? "border-accent-strong bg-accent" : "border-border bg-surface-subtle",
       )}
     >
-      <p className={cn("text-xs", tone === "success" ? "text-success-strong" : "text-muted-foreground")}>
+      <p className={cn("text-xs", tone === "accent" ? "text-accent-foreground" : "text-muted-foreground")}>
         {label}
       </p>
       <p
         className={cn(
           "mt-1 text-xl font-medium tabular-nums leading-7",
-          tone === "success" ? "text-success-strong" : count > 0 ? "text-foreground" : "text-muted-foreground",
+          tone === "accent" ? "text-accent-foreground" : count > 0 ? "text-foreground" : "text-muted-foreground",
         )}
       >
         {count}
@@ -66,7 +67,7 @@ export function InterviewStageFlow({ progress }: { progress: InterviewStageProgr
             <Connector active={stage.count > 0} />
           </div>
         ))}
-        <StageNode count={progress.offer} label="Offer" tone="success" />
+        <StageNode count={progress.offer} label="Offer" tone={progress.offer > 0 ? "accent" : "default"} />
       </div>
 
       <div className="md:hidden">
@@ -76,7 +77,7 @@ export function InterviewStageFlow({ progress }: { progress: InterviewStageProgr
             <Connector active={stage.count > 0} vertical />
           </div>
         ))}
-        <StageNode count={progress.offer} label="Offer" tone="success" />
+        <StageNode count={progress.offer} label="Offer" tone={progress.offer > 0 ? "accent" : "default"} />
       </div>
 
       <div className="mt-4 flex flex-col gap-1 border-t border-border pt-3 text-xs leading-5 text-muted-foreground sm:flex-row sm:items-center sm:justify-between">

@@ -2,13 +2,15 @@
 
 > 现状描述（2026-09-20）。功能行为或入口变化时原地更新。每个功能：用户能做什么、入口、实现要点、体验版差异。模拟面试的逐步实现单独在 [interview-pipeline.md](interview-pipeline.md)。
 
+**指标突出规则（全站）**：`StatTiles` 一排里最多一张 `tone="accent"`，给"要你动手"的那个数（待跟进、进行中、7 天新增、待确认项目……），橙色数字 + 点亮卡底；`accentIf(n)` 只在 n > 0 时点亮，0 不强调。其余数字保持中性，页面层次靠这一处对比。
+
 ## 1. 数据概览（`/`）
 
-投递统计与趋势、面试统计、待面日程、"开始清单"（数据驱动隐藏）。版式：四张指标卡一排（投递岗位 / 7 天新增 / 真实面试 / Offer，`useCountUp`）→ 左宽右窄（趋势图 | 下一步行动 + 即将到来的面试）→ 阶段分布 | 最近投递（最多 5 条）。取数 `applications/queries.getApplicationStats`、`applications/analytics.buildApplicationTrend`、`interviews/queries.getInterviewStats`、`interviews/upcoming`。
+投递统计与趋势、面试统计、待面日程、"开始清单"（数据驱动隐藏）。版式：四张指标卡一排（投递岗位 / 7 天新增 / 真实面试 / Offer，`useCountUp`；7 天新增 > 0 点亮）→ 左宽右窄（趋势图 | 下一步行动 + 即将到来的面试）→ 阶段分布 | 最近投递（最多 5 条）。取数 `applications/queries.getApplicationStats`、`applications/analytics.buildApplicationTrend`、`interviews/queries.getInterviewStats`、`interviews/upcoming`。
 
 ## 2. 投递管理（`/applications`）
 
-- 手工新增 / 编辑 / 删除投递，推进阶段，筛选（阶段、来源、关键词），从投递直接"记录面试"或"开模拟面试"。版式：四张指标卡（全部 / 待跟进 / 面试中 / Offer，全量口径不受筛选影响）→ 一张卡装筛选条、表格、分页。
+- 手工新增 / 编辑 / 删除投递，推进阶段，筛选（阶段、来源、关键词），从投递直接"记录面试"或"开模拟面试"。版式：四张指标卡（全部 / 待跟进 / 面试中 / Offer，全量口径不受筛选影响；待跟进 > 0 点亮）→ 一张卡装筛选条、表格、分页。
 - 数据表 `BossContact`（历史命名，实为所有投递；新代码一律 application 语义）。删除进 `DismissedApplication` 黑名单，同步时跳过。
 - **Boss 直聘同步**（仅本地）：`npm run boss:login` 或按钮拉起本机 Chrome / Edge 登录；同步用手写 CDP 客户端（`boss/cdp.ts`，只开 Network + DOM 域，屏幕外窗口）翻"沟通过"标签页的经典分页，从 `Network.getResponseBody` 解析 `geekGetJob`（`code===0` 判成败；`totalCount` 是历史计数不是可拉取数）。**同步规则**：仍在"已投递"且 30 天无动静的标"已拒绝"（`autoRejectedAt`）。禁 Node 直连 / headless / Playwright（账号曾被封）。
 - 体验版：无 Boss 同步（需浏览器扩展，未做），其余相同。
@@ -17,11 +19,13 @@
 
 - 上传 PDF / Word / 图片（`documents/extract-text.ts`，pdfjs 需 cmaps 否则中文丢字），设默认简历，内嵌预览，原件在 `.local/uploads`（`resumes/storage.ts` 防路径穿越）。
 - 上传后规则 + 模型抽取实习 / 项目（`experience-agent.ts`，`resume-experience-v2-title-only`），进确认面板；用户编辑即清 `autoExtractedAt`。项目条目 `ResumeProject` 是模拟面试的材料来源。
+- 版式：三张指标卡（简历版本，备注默认简历名 / 已抽取项目 / 待你确认 = 仍带 `autoExtractedAt` 的条目，> 0 点亮）→ 左窄右宽（版本列表 | 预览）→ 项目确认面板。
 - 体验版：文件进 IndexedDB，解析走 `/api/trial/resume`。
 
 ## 4. 面试记录与导入（`/interviews`、`/interviews/history`）
 
-- 手工记录真实面试（公司、轮次、日期、题目与回答）；工作台页看阶段流、转化率、日程。
+- 手工记录真实面试（公司、轮次、日期、题目与回答）；工作台页看阶段流、转化率、日程（工作台指标卡"当前 Offer"与阶段流的 Offer 格都只在 > 0 时点亮）。
+- 历史面试页版式：四张指标卡（真实面试 / 进行中 / 待面 / Offer，只算真实面试、不受筛选影响；进行中 > 0 点亮）→ 一张卡装筛选条（来源筛选区分真实与模拟）、列表、分页。
 - **导入**：录音（≤ 25MB，超限 `audio-splitter` 动态加载 ffmpeg 切块）或逐字稿 / 笔记 → 转写（OpenAI / 通义 / 豆包，可带说话人分离）→ `draft.structureInterviewText` 结构化成问答草稿（启发式 + 模型 `interview-draft-v1`）→ 用户审核后落库。材料类型与"哪位是我"自动推断，不问用户。语音指标 `voice-metrics.ts` 只作辅助信号。
 - 即将到来的面试有**备战页** `/interviews/prepare/[id]`：按薄弱维度（`prepare-rules.pickWeakDimensions`）挑复习点，可直接开针对练习。
 - 体验版：录音导入未做（整场录音待定），文本导入相同。

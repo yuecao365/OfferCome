@@ -10,7 +10,7 @@ import { InterviewStageFlow } from "@/components/interviews/interview-stage-flow
 import { InterviewWorkspaceLinks } from "@/components/interviews/interview-workspace-links";
 import { UpcomingInterviewsCard } from "@/components/interviews/upcoming-interviews-card";
 import { PageHeader } from "@/components/page-header";
-import { StatTiles } from "@/components/stat-tiles";
+import { accentIf, StatTiles } from "@/components/stat-tiles";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { buildCareerFlowSnapshot } from "@/lib/applications/analytics";
@@ -127,7 +127,7 @@ export function InterviewsWorkspaceView({
             ),
           },
           { label: "模拟训练", value: workspace.completedMockCount, note: "已完成的模拟面试" },
-          { label: "当前 Offer", value: progress.offer, note: "处于 Offer 阶段的岗位" },
+          { label: "当前 Offer", value: progress.offer, note: "处于 Offer 阶段的岗位", tone: accentIf(progress.offer) },
           { label: "模拟均分", suffix: "分", value: Math.round(workspace.averageMockScore ?? 0), note: "已完成模拟面试的平均总分" },
         ]}
       />

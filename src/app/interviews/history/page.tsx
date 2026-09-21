@@ -6,6 +6,7 @@ import { InterviewHistoryView } from "@/components/interviews/interview-history-
 import { TrialInterviewHistoryPage } from "@/components/trial/pages/trial-interview-history-page";
 import {
   getInterviews,
+  getInterviewStats,
   getResumeProjectOptions,
 } from "@/lib/interviews/queries";
 import { parseInterviewFilters } from "@/lib/interviews/types";
@@ -30,10 +31,11 @@ export default async function InterviewHistoryPage({
   await connection();
 
   const filters = parseInterviewFilters(await searchParams);
-  const [interviewPage, resumeProjects, transcriptionConfig] = await Promise.all([
+  const [interviewPage, resumeProjects, transcriptionConfig, stats] = await Promise.all([
     getInterviews(filters),
     getResumeProjectOptions(),
     getAiTaskConfig("transcription"),
+    getInterviewStats(),
   ]);
 
   return (
@@ -42,6 +44,7 @@ export default async function InterviewHistoryPage({
         filters={filters}
         interviewPage={interviewPage}
         resumeProjects={resumeProjects}
+        stats={stats}
         transcriptionConfigured={isAiTaskConfigured(transcriptionConfig)}
       />
     </AppShell>

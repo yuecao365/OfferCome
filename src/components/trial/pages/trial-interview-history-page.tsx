@@ -9,7 +9,7 @@ import {
   deleteTrialInterviewRecord,
   updateTrialInterviewRecord,
 } from "@/lib/trial/interview-actions";
-import { queryInterviews } from "@/lib/trial/workspace-interviews";
+import { interviewStats, queryInterviews } from "@/lib/trial/workspace-interviews";
 import { trialResumeProjectOptions } from "@/lib/trial/workspace-resume";
 import { useTrialWorkspace } from "@/lib/trial/workspace-store";
 
@@ -34,6 +34,7 @@ export function TrialInterviewHistoryPage() {
     <InterviewHistoryView
       filters={filters}
       interviewPage={interviewPage}
+      stats={workspace ? interviewStats(workspace) : undefined}
       list={{
         editActionFor: (id) => updateTrialInterviewRecord.bind(null, id),
         deleteActionFor: (id) => async () => deleteTrialInterviewRecord(id),

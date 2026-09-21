@@ -4,7 +4,9 @@ import type { ComponentProps } from "react";
 import { InterviewList } from "@/components/interviews/interview-list";
 import { NewInterviewModal } from "@/components/interviews/interview-modals";
 import { PageHeader } from "@/components/page-header";
+import { accentIf, StatTiles } from "@/components/stat-tiles";
 import { ButtonLink } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { FilterForm } from "@/components/ui/filter-form";
 import { FilterMore, FilterSearch, FilterSelect, FilterToolbar } from "@/components/ui/filter-toolbar";
 import { FieldLabel, Input, Select } from "@/components/ui/form-controls";
@@ -18,17 +20,20 @@ import {
   INTERVIEW_STATUSES,
   type InterviewFilters,
   type InterviewListItem,
+  type InterviewStats,
   type ResumeProjectOption,
 } from "@/lib/interviews/types";
 
 /**
  * 历史面试页的呈现层。本地版（服务端取数）和体验版（浏览器取数）
  * 渲染同一个组件——界面一致不靠约定靠结构。
+ * 版式：四张指标卡（真实面试 / 进行中 / 待面 / Offer，进行中 > 0 点亮）→ 一张卡装筛选条、列表、分页。
  */
 export function InterviewHistoryView({
   filters,
   interviewPage,
   resumeProjects,
+  stats,
   transcriptionConfigured,
   newInterview,
   list,
@@ -41,6 +46,8 @@ export function InterviewHistoryView({
     page: number;
   };
   resumeProjects: ResumeProjectOption[];
+  /** 真实面试的全量统计（不受筛选影响）；有就在顶部放指标卡。 */
+  stats?: InterviewStats;
   transcriptionConfigured: boolean;
   /** 体验版在此注入浏览器动作与导入开关。 */
   newInterview?: Pick<
@@ -86,6 +93,17 @@ export function InterviewHistoryView({
         title="历史面试"
       />
 
+      {stats ? (
+        <StatTiles
+          tiles={[
+            { label: "真实面试", value: stats.total, note: "已记录的真实面试" },
+            { label: "进行中", value: stats.active, note: "还没出结果的", tone: accentIf(stats.active) },
+            { label: "待面", value: stats.preparing, note: "已排期、还没面" },
+            { label: "Offer", value: stats.offers, note: "面出 Offer 的" },
+          ]}
+        />
+      ) : null}
+      <Card className="grid gap-4 p-4 sm:p-5">
       <FilterForm action="/interviews/history">
         <FilterToolbar>
           <FilterSearch label="搜索">
@@ -171,6 +189,7 @@ export function InterviewHistoryView({
         totalPages={interviewPage.totalPages}
         unit="场"
       />
+      </Card>
     </>
   );
 }
