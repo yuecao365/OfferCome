@@ -8,7 +8,7 @@ import { NextActionCard } from "@/components/dashboard/next-action-card";
 import { UpcomingInterviewsCard } from "@/components/interviews/upcoming-interviews-card";
 import { PageHeader } from "@/components/page-header";
 import { SegmentedLinks } from "@/components/ui/segmented-links";
-import { StatHero } from "@/components/stat-hero";
+import { CountUp } from "@/components/ui/count-up";
 import { StageBadge } from "@/components/stage-badge";
 import { ButtonLink } from "@/components/ui/button";
 import {
@@ -28,6 +28,7 @@ import type {
   ApplicationStats,
   ApplicationTrendRange,
 } from "@/lib/applications/types";
+import { cn } from "@/lib/cn";
 import { formatDateTime } from "@/lib/format/date";
 import type { InterviewStats } from "@/lib/interviews/types";
 import type { UpcomingInterviews } from "@/lib/interviews/upcoming";
@@ -36,9 +37,26 @@ function trendHref(range: ApplicationTrendRange, homeHref: string): string {
   return range === "14d" ? homeHref : `${homeHref}?trend=${range}`;
 }
 
+/** 首屏指标：四张等宽白卡一排，第一张是北极星数字，字号大一档。 */
+function StatTiles({ tiles }: { tiles: { label: string; value: number; note: string }[] }) {
+  return (
+    <section aria-label="关键指标" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {tiles.map((tile, index) => (
+        <Card className="p-5" key={tile.label}>
+          <p className="text-[0.8125rem] text-muted-foreground">{tile.label}</p>
+          <p className={cn("mt-2 tabular-nums text-foreground", index === 0 ? "text-display" : "text-3xl font-medium leading-9")}>
+            <CountUp value={tile.value} />
+          </p>
+          <p className="mt-2 text-xs text-muted-foreground">{tile.note}</p>
+        </Card>
+      ))}
+    </section>
+  );
+}
+
 /**
- * 数据概览页的呈现层。本地版（服务端取数）和体验版（浏览器取数）
- * 渲染同一个组件，统计口径来自共享的纯函数。
+ * 数据概览页的呈现层。本地版（服务端取数）和体验版（浏览器取数）渲染同一个组件，统计口径来自共享的纯函数。
+ * 版式：四张指标卡一排 → 左宽右窄（趋势图 | 下一步行动 + 即将到来的面试）→ 阶段分布 | 最近投递。
  */
 export function DashboardView({
   stats,
@@ -74,36 +92,29 @@ export function DashboardView({
 
       {gettingStarted}
 
-      <StatHero
-        badge={
-          stats.recent7Days > 0 ? (
-            <span className="font-mono text-xs font-medium text-brand">
-              +{stats.recent7Days}
-            </span>
-          ) : null
-        }
-        label="投递岗位"
-        note={stats.recent7Days > 0 ? "最近 7 天新增，按投递或首次发现时间统计" : "最近 7 天暂无新增"}
+      <StatTiles
         tiles={[
-          { label: "7 天新增", value: stats.recent7Days },
-          { label: "真实面试", value: interviewStats.total },
-          { label: "Offer", value: stats.stageCounts.offer },
+          { label: "投递岗位", value: stats.total, note: stats.recent7Days > 0 ? `最近 7 天 +${stats.recent7Days}` : "最近 7 天暂无新增" },
+          { label: "7 天新增", value: stats.recent7Days, note: "按投递或首次发现时间" },
+          { label: "真实面试", value: interviewStats.total, note: "已记录的面试" },
+          { label: "Offer", value: stats.stageCounts.offer, note: "当前处于 Offer 阶段" },
         ]}
-        value={stats.total}
       />
 
-      <UpcomingInterviewsCard interviews={upcomingInterviews} />
-
       {stats.total === 0 ? (
-        <EmptyState
-          action={<ButtonLink href="/applications">新建或同步投递</ButtonLink>}
-          description="目前没有可用于分析的岗位记录。你可以手动新建投递，或同步已有的 Boss 直聘记录。"
-          title="工作台还没有数据"
-        />
+        <>
+          <UpcomingInterviewsCard interviews={upcomingInterviews} />
+          <EmptyState
+            action={<ButtonLink href="/applications">新建或同步投递</ButtonLink>}
+            description="目前没有可用于分析的岗位记录。你可以手动新建投递，或同步已有的 Boss 直聘记录。"
+            title="工作台还没有数据"
+          />
+        </>
       ) : (
         <>
-          <section>
-            <Card>
+          {/* 第二行：左宽右窄。左边趋势图是主视觉，右边是"接下来做什么"。 */}
+          <section className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,0.9fr)]">
+            <Card className="flex flex-col">
               <CardHeader className="gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <CardTitle>投递趋势</CardTitle>
@@ -120,7 +131,7 @@ export function DashboardView({
                   }))}
                 />
               </CardHeader>
-              <CardContent>
+              <CardContent className="flex-1">
                 <ApplicationTrendChart
                   data={stats.trend}
                   granularityLabel={trendOption.granularityLabel}
@@ -128,9 +139,14 @@ export function DashboardView({
                 />
               </CardContent>
             </Card>
+            <div className="grid content-start gap-4">
+              <NextActionCard applications={stats} interviews={interviewStats} />
+              <UpcomingInterviewsCard interviews={upcomingInterviews} />
+            </div>
           </section>
 
-          <section className="grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)]">
+          {/* 第三行：阶段分布与最近投递并排。 */}
+          <section className="grid gap-4 xl:grid-cols-2">
             <Card>
               <CardHeader>
                 <CardTitle>岗位阶段分布</CardTitle>
@@ -140,10 +156,6 @@ export function DashboardView({
                 <ApplicationStageChart data={stageChartData} />
               </CardContent>
             </Card>
-            <NextActionCard applications={stats} interviews={interviewStats} />
-          </section>
-
-          <section>
             <Card>
               <CardHeader className="flex-row items-center justify-between">
                 <div>
@@ -156,7 +168,7 @@ export function DashboardView({
               </CardHeader>
               <CardContent className="py-1">
                 <div className="divide-y divide-border">
-                  {stats.recentApplications.map((application) => (
+                  {stats.recentApplications.slice(0, 5).map((application) => (
                     <Link
                       className="group relative -mx-2 flex items-center justify-between gap-4 rounded-control px-2 py-3 transition-colors duration-150 hover:bg-surface-subtle"
                       href="/applications"

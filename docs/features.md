@@ -4,7 +4,7 @@
 
 ## 1. 数据概览（`/`）
 
-投递统计与趋势、面试统计、待面日程、"开始清单"（数据驱动隐藏）。Hero 大数字用 `useCountUp`。取数 `applications/queries.getApplicationStats`、`applications/analytics.buildApplicationTrend`、`interviews/queries.getInterviewStats`、`interviews/upcoming`。
+投递统计与趋势、面试统计、待面日程、"开始清单"（数据驱动隐藏）。版式：四张指标卡一排（投递岗位 / 7 天新增 / 真实面试 / Offer，`useCountUp`）→ 左宽右窄（趋势图 | 下一步行动 + 即将到来的面试）→ 阶段分布 | 最近投递（最多 5 条）。取数 `applications/queries.getApplicationStats`、`applications/analytics.buildApplicationTrend`、`interviews/queries.getInterviewStats`、`interviews/upcoming`。
 
 ## 2. 投递管理（`/applications`）
 
@@ -40,7 +40,7 @@
 | 备课 | 进度卡；失败给"重新备课 / 就这样开始" | `generation.prepareMockInterview`：蓝图（JD 分析，同会话重试复用快照）→ 上下文（简历、项目、最近短板、档案）→ 面试官 loop 第一段 `write_plan` 出简报 → `briefReady` 不成自动再备一次 |
 | 面试 | 房间：面试官一次一问，候选人可打字或**语音**（录音 → `/transcribe` → 作为回合发送；面试官按句 speechSynthesis 朗读），可"跳过 / 结束"；顶栏材料进度；资料抽屉看简报 | `orchestrator.startTurn` → `turn.runTurn`：一回合一次非流式调用，模型经 `ask_candidate` 说话；动作先校验（`constraints.checkAction`）再落事件；`clientId` 幂等 |
 | 房间 | 顶栏"话题 n / m"按聊完的话题数计；按钮（跳过 / 再说一遍 / 提示 / 结束）在对话里显示为居中的系统行（"你跳过了这题"），不当候选人发言；资料抽屉高亮面试官引用的简历原句与带单位的数字 | `mock-interview-chat.tsx`、`materials.ts` |
-| 报告 | 首屏只放主要判断，从上到下：总分（旁边一行写怎么算的）与两句总评 → 失守在哪、练什么（首屏最多 3 条，每条短板 + 练法 + 所在段，其余在逐段里）→ 站得住的（一行，≤ 2 条）→ 简历上的说法（只列判过的，一条一行结论）→ 能力估计（一行，只列测到的）→ **面试官是怎么问你的**（按材料分组，每组一行小结；默认只列被追到 / 记了存疑 / 没答上的回合，一行"动作 + 为什么这么问"，存疑的多一行它记下的话；其余回合折在"其余 N 回合"；展开一行看原对话；旧场次没有 why 就只列动作）→ 逐段反馈默认折叠（折叠行 = 段名 · 分 · 一句结论；展开有题面、维度分与缺口、短板与练法、答得好的、简历核对、我的回答、示范）→ 页尾"开发者记录"链接 | `completion.completeMockInterview`：切段（纯代码，没答的最后一问不算）→ 逐题评分（工具契约，单采样）→ 示范（< 80 分或有说错的段）→ 汇总 → 档案 → 入队画像；组件 `mock-interview-report.tsx` 本地版与体验版共用；面试官思路是纯投影 `interview/review-trail.ts`（本地从事件、体验版从消息，面试官消息带 `why` / `ledger`），组件 `interviewer-trail.tsx` |
+| 报告 | 首屏只放主要判断。版式：第一行两张卡（总分 + 怎么算的 | 总评 + 查看能力画像）→ 第二行左宽右窄（左：失守在哪、练什么，最多 3 条，每条短板 + 练法 + 所在段，其余在逐段里；右：站得住的 ≤ 2 条、简历上的说法只列判过的、能力估计只列测到的，三张小卡竖排）→ **面试官是怎么问你的**（按材料分组，每组一行小结；默认只列被追到 / 记了存疑 / 没答上的回合，一行"动作 + 为什么这么问"，存疑的多一行它记下的话；其余回合折在"其余 N 回合"；展开一行看原对话；旧场次没有 why 就只列动作）→ 逐段反馈默认折叠（折叠行 = 段名 · 分 · 一句结论；展开有题面、维度分与缺口、短板与练法、答得好的、简历核对、我的回答、示范）→ 页尾"开发者记录"链接 | `completion.completeMockInterview`：切段（纯代码，没答的最后一问不算）→ 逐题评分（工具契约，单采样）→ 示范（< 80 分或有说错的段）→ 汇总 → 档案 → 入队画像；组件 `mock-interview-report.tsx` 本地版与体验版共用；面试官思路是纯投影 `interview/review-trail.ts`（本地从事件、体验版从消息，面试官消息带 `why` / `ledger`），组件 `interviewer-trail.tsx` |
 | 开发者记录（trace） | `/interviews/mock/[id]/trace`：给开发与评测看，逐回合动作 / 理由 / 退回原因、每步 token / 缓存 / 成本、复盘失败栏、"重放这一回合"（不落库）；候选人看的是报告页里的"面试官是怎么问你的" | `views.traceTurns`、`replayMockInterviewTurn`、`interview/eval/postmortem` |
 
 - **节奏 = 覆盖配额**（项目 / 基础题 / 场景题：快速 1+2+1，标准 2+3+1，深入 3+4+2），每份材料有句数预算，没有时钟。

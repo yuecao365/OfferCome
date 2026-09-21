@@ -14,7 +14,7 @@ import { InterviewerTrail } from "./interviewer-trail";
 import { QuestionDimensionScores } from "./mock-interview-report-visuals";
 
 /**
- * 报告页，从上到下：总分与两句总评 → 失守与练法（最多 3 条）→ 站得住的（一行）→ 简历上的说法（只列判过的）→ 能力估计（一行）→ 面试官思路 → 逐段（默认折叠）。
+ * 报告页版式：首屏两张卡（总分 | 总评）→ 左宽右窄（失守与练法 ≤ 3 条 | 站得住的 / 简历上的说法 / 能力估计三张小卡）→ 面试官思路 → 逐段（默认折叠）。
  * 首屏只放主要判断，细节都折叠在逐段里；开发者记录只留页尾一个链接。本地版与体验版共用。
  */
 
@@ -65,9 +65,9 @@ function Hypotheses({ items }: { items: ReportData["hypotheses"] }) {
   const judged = items.filter((item) => item.status !== "open");
   if (items.length === 0) return null;
   return (
-    <Card className="p-4">
+    <Card className="p-5">
       <h3 className="text-sm font-semibold text-foreground">简历上的说法经不经得起问</h3>
-      <div className="mt-3 grid gap-3">
+      <div className="mt-2 grid gap-2">
         {judged.map((item) => {
           const status = HYPOTHESIS_STATUS[item.status] ?? HYPOTHESIS_STATUS.open;
           return (
@@ -88,9 +88,9 @@ function Estimates({ items }: { items: MockInterviewView["estimates"] }) {
   const measured = items.filter((item) => item.samples > 0);
   if (measured.length === 0) return null;
   return (
-    <section className="grid gap-2">
+    <Card className="p-5">
       <h3 className="text-sm font-semibold text-foreground">能力估计</h3>
-      <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm leading-6 text-muted-foreground">
+      <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm leading-6 text-muted-foreground">
         {measured.map((item) => (
           <li className="flex items-center gap-1.5" key={item.competencyId}>
             <span className="text-foreground">{item.name}</span>
@@ -98,7 +98,7 @@ function Estimates({ items }: { items: MockInterviewView["estimates"] }) {
           </li>
         ))}
       </ul>
-    </section>
+    </Card>
   );
 }
 
@@ -203,55 +203,63 @@ export function MockInterviewReport({ session }: { session: MockInterviewView })
   if (!report) return null;
 
   return (
-    <div className="reveal-group grid gap-6">
-      <section className="grid gap-6 border-b border-border pb-6 md:grid-cols-[auto_minmax(0,1fr)] md:gap-10">
-        <div>
+    <div className="reveal-group grid gap-4">
+      {/* 首屏：左总分卡，右总评卡 */}
+      <section className="grid gap-4 md:grid-cols-[minmax(220px,0.35fr)_minmax(0,1fr)]">
+        <Card className="p-5">
           <p className="text-[0.8125rem] text-muted-foreground">面试总分</p>
           <p className="mt-1 text-display tabular-nums text-foreground">
             {report.totalScore}
             <span className="ml-1 text-sm font-normal tracking-normal text-muted-foreground">/ 100</span>
           </p>
-          <p className="mt-1 max-w-56 text-xs leading-5 text-muted-foreground">{scoreFormula(session.questions)}</p>
-        </div>
-        <div>
+          <p className="mt-3 text-xs leading-5 text-muted-foreground">{scoreFormula(session.questions)}</p>
+        </Card>
+        <Card className="flex flex-col p-5">
           <h3 className="text-sm font-semibold text-foreground">总体评价</h3>
-          <p className="mt-2 whitespace-pre-wrap text-[0.8125rem] leading-6 text-muted-foreground">{report.summary}</p>
-          <ButtonLink className="mt-3" href="/interviews/profile" size="sm" variant="outline">
-            查看能力画像
-          </ButtonLink>
+          <p className="mt-2 flex-1 whitespace-pre-wrap text-[0.8125rem] leading-6 text-muted-foreground">{report.summary}</p>
+          <div className="mt-4">
+            <ButtonLink href="/interviews/profile" size="sm" variant="outline">
+              查看能力画像
+            </ButtonLink>
+          </div>
+        </Card>
+      </section>
+
+      {/* 第二行：左宽右窄。失守是主卡；右边三张小卡是"站得住的 / 简历说法 / 能力估计"。 */}
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(300px,0.8fr)]">
+        <Card className="p-5">
+          <h3 className="text-sm font-semibold text-foreground">失守在哪、练什么</h3>
+          <ul className="mt-3 grid gap-4 text-sm leading-6 text-muted-foreground">
+            {report.weaknesses.length === 0 ? <li>没有明显短板。</li> : null}
+            {report.weaknesses.slice(0, MAX_WEAKNESSES).map((item) => (
+              <li className="rounded-control bg-surface-subtle p-3" key={item.point}>
+                <div>
+                  <Badge tone="warning">{WEAKNESS_KIND_LABELS[item.kind] ?? item.kind}</Badge>
+                  <span className="ml-2 text-foreground">{item.point}</span>
+                  {item.areaName ? <MetaText className="ml-2">{item.areaName}</MetaText> : null}
+                </div>
+                {item.practice ? <p className="mt-1 pl-1">练：{item.practice}</p> : null}
+              </li>
+            ))}
+            {report.weaknesses.length > MAX_WEAKNESSES ? <li className="text-xs">其余 {report.weaknesses.length - MAX_WEAKNESSES} 条在逐段反馈里。</li> : null}
+          </ul>
+        </Card>
+        <div className="grid content-start gap-4">
+          {report.strengths.length > 0 ? (
+            <Card className="p-5">
+              <h3 className="text-sm font-semibold text-foreground">站得住的</h3>
+              <ul className="mt-2 grid gap-1.5 text-sm leading-6 text-muted-foreground">
+                {report.strengths.slice(0, MAX_STRENGTHS).map((item) => (
+                  <li key={item.point}>· {item.point}</li>
+                ))}
+              </ul>
+            </Card>
+          ) : null}
+          <Hypotheses items={report.hypotheses} />
+          <Estimates items={session.estimates} />
         </div>
       </section>
 
-      <Card className="p-4">
-        <h3 className="text-sm font-semibold text-foreground">失守在哪、练什么</h3>
-        <ul className="mt-3 grid gap-3 text-sm leading-6 text-muted-foreground">
-          {report.weaknesses.length === 0 ? <li>没有明显短板。</li> : null}
-          {report.weaknesses.slice(0, MAX_WEAKNESSES).map((item) => (
-            <li key={item.point}>
-              <div>
-                <Badge tone="warning">{WEAKNESS_KIND_LABELS[item.kind] ?? item.kind}</Badge>
-                <span className="ml-2 text-foreground">{item.point}</span>
-                {item.areaName ? <MetaText className="ml-2">{item.areaName}</MetaText> : null}
-              </div>
-              {item.practice ? <p className="pl-1">练：{item.practice}</p> : null}
-            </li>
-          ))}
-          {report.weaknesses.length > MAX_WEAKNESSES ? <li className="text-xs">其余 {report.weaknesses.length - MAX_WEAKNESSES} 条在逐段反馈里。</li> : null}
-        </ul>
-      </Card>
-
-      {report.strengths.length > 0 ? (
-        <p className="text-sm leading-6 text-muted-foreground">
-          <span className="font-semibold text-foreground">站得住的：</span>
-          {report.strengths
-            .slice(0, MAX_STRENGTHS)
-            .map((item) => item.point)
-            .join("；")}
-        </p>
-      ) : null}
-
-      <Hypotheses items={report.hypotheses} />
-      <Estimates items={session.estimates} />
       {session.trail ? <InterviewerTrail trail={session.trail} /> : null}
 
       <section className="grid gap-3">
