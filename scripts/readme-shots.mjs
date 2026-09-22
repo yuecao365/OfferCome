@@ -3,7 +3,7 @@
 // 跑法：preview_start "career-agent-demo"（或 DATABASE_URL=file:./prisma/demo.db npm run dev），然后
 //   node scripts/readme-shots.mjs
 // 为什么不用 msedge --screenshot：那条路径下 G6 画布（能力画像）画不出来、Recharts 的 ResizeObserver 也没跑完；
-// 走 DevTools 协议等页面真正稳定后 Page.captureScreenshot 就都正常。clip 直接裁掉 240px 侧栏，2 倍缩放。
+// 走 DevTools 协议等页面真正稳定后 Page.captureScreenshot 就都正常。clip 直接裁掉 240px 侧栏，2 倍缩放，浅色主题。
 import { spawn } from "node:child_process";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -14,6 +14,8 @@ const EDGE = process.env.README_SHOTS_BROWSER ?? String.raw`C:\Program Files (x8
 const PORT = 9333;
 const SIDEBAR = 240;
 const WIDTH = 1280;
+/** README 用浅色版（README_SHOTS_THEME=dark 可切深色）。 */
+const THEME = process.env.README_SHOTS_THEME === "dark" ? "dark" : "light";
 /** 页面 → 输出名、视口高度、等待毫秒（图谱要等 G6 分包与布局）。README 里同一行的两张图高度必须一致，否则表格错位。 */
 const PAGES = [
   { name: "dashboard", path: "/", height: 1250, wait: 8000 },
@@ -57,6 +59,10 @@ try {
   });
 
   await send("Page.enable");
+  // 主题脚本读 localStorage 决定明暗；README 用浅色版，所以在任何页面脚本之前先写好偏好。
+  await send("Page.addScriptToEvaluateOnNewDocument", {
+    source: `try { localStorage.setItem("career-agent-theme", ${JSON.stringify(THEME)}); } catch {}`,
+  });
   for (const page of PAGES) {
     await send("Emulation.setDeviceMetricsOverride", { width: WIDTH, height: page.height, deviceScaleFactor: 2, mobile: false });
     const nav = await send("Page.navigate", { url: `${BASE}${page.path}` });
