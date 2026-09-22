@@ -1,7 +1,7 @@
 import type { InterviewBrief } from "@/lib/mock-interviews/brief/brief";
 import { questionSimilarity } from "@/lib/text/similarity";
 
-import { planQuota } from "../progress";
+import { planMaterials } from "../progress";
 import { isNoInfo, replyKindOf, transcriptOf, type InterviewEvent, type ReplyKind, type TranscriptLine } from "../events";
 import { SIGNALS } from "../state";
 import { evaluationTrajectoryMetrics, type EvaluationRunFact } from "./metrics";
@@ -11,7 +11,7 @@ import { evaluationTrajectoryMetrics, type EvaluationRunFact } from "./metrics";
  * 底线触发次数，再拼一句归因。真实场次的失败先在这里露出来，进失败清单（docs/interview-failures.md），再回灌模拟器。零模型调用。
  */
 
-export type ViolationRule = "repeat" | "multi_ask" | "over_budget" | "stuck_after_dont_know";
+export type ViolationRule = "repeat" | "multi_ask" | "over_reference" | "stuck_after_dont_know";
 
 export type Postmortem = {
   /** 备课备好了没（占位蓝图 / 兜底简报 = 没备好）。 */
@@ -30,7 +30,7 @@ export type Postmortem = {
 export const VIOLATION_LABELS: Record<ViolationRule, string> = {
   repeat: "同一题重复问",
   multi_ask: "一句多问",
-  over_budget: "预算用完还在问",
+  over_reference: "超过参考句数一倍还在问",
   stuck_after_dont_know: "两次答不上还没换题",
 };
 
@@ -65,7 +65,8 @@ export function postmortem(input: { events: InterviewEvent[]; brief: InterviewBr
     if (line.content.length > LONG_ANSWER_CHARS) replies.long += 1;
   }
   const violations: Postmortem["violations"] = [];
-  const budgets = new Map((input.brief ? planQuota(input.brief) : []).map((item) => [item.id, item.budget]));
+  // 句数只是参考（agent-freedom-plan）：超过参考值一倍才提出来看，不算违规。
+  const references = new Map((input.brief ? planMaterials(input.brief) : []).map((item) => [item.id, item.reference * 2]));
   const askedOn = new Map<string, number>();
   const said: TranscriptLine[] = [];
   for (const item of input.events) {
@@ -78,7 +79,7 @@ export function postmortem(input: { events: InterviewEvent[]; brief: InterviewBr
     if (line.topic && line.kind === "say") {
       const asked = (askedOn.get(line.topic) ?? 0) + 1;
       askedOn.set(line.topic, asked);
-      if (asked > (budgets.get(line.topic) ?? Infinity)) violations.push({ seq: item.seq, rule: "over_budget", text: line.content });
+      if (asked > (references.get(line.topic) ?? Infinity)) violations.push({ seq: item.seq, rule: "over_reference", text: line.content });
     }
     const previous = currentTopic(before);
     if (trailingDontKnows(before) >= 2 && previous !== null && (line.topic ?? previous) === previous) violations.push({ seq: item.seq, rule: "stuck_after_dont_know", text: line.content });

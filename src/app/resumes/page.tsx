@@ -38,7 +38,6 @@ export default async function ResumesPage({
   return (
     <AppShell active="resumes">
       <ResumesView
-        description="管理本地简历版本。PDF 和图片可直接预览，Word 文件可下载后查看。"
         preview={
           selectedResume ? (
             <ResumePreview

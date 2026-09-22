@@ -9,7 +9,7 @@ export const maxDuration = 60;
 type Body = {
   jobTitle: string;
   brief: InterviewBrief;
-  ledger: string;
+  notes: string;
   threads: OutcomeThread[];
   questions: OutcomeQuestion[];
 };
@@ -19,7 +19,7 @@ export const POST = withTrialAi<Body>(async (body) => {
   const areas = areaOutcomes(body.brief, body.threads, body.questions);
   const answered = body.questions.some((question) => !question.skipped && question.evaluation);
   const summary = answered
-    ? await summarizeMockInterview(summaryInput({ jobTitle: body.jobTitle, brief: body.brief, areas, ledger: typeof body.ledger === "string" ? body.ledger : "" }))
+    ? await summarizeMockInterview(summaryInput({ jobTitle: body.jobTitle, brief: body.brief, areas, notes: typeof body.notes === "string" ? body.notes : "" }))
     : ALL_SKIPPED_SUMMARY;
   return { report: buildReport(areas, summary) };
 });

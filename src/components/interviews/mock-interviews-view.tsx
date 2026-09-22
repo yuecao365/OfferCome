@@ -56,7 +56,6 @@ export function MockInterviewsView({
   return (
     <>
       <PageHeader
-        description="贴一份岗位描述、选一份简历，面试官备课后像真实面试一样对话追问；结束后给出带原话依据的评分、短板与练法。"
         title="AI 模拟面试"
       />
 

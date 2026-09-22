@@ -4,11 +4,10 @@ import type { ReactNode } from "react";
 
 import { ApplicationStageChart } from "@/components/dashboard/application-stage-chart";
 import { ApplicationTrendChart } from "@/components/dashboard/application-trend-chart";
-import { NextActionCard } from "@/components/dashboard/next-action-card";
 import { UpcomingInterviewsCard } from "@/components/interviews/upcoming-interviews-card";
 import { PageHeader } from "@/components/page-header";
 import { SegmentedLinks } from "@/components/ui/segmented-links";
-import { accentIf, StatTiles } from "@/components/stat-tiles";
+import { accentIf, StatTiles, toneIf } from "@/components/stat-tiles";
 import { StageBadge } from "@/components/stage-badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,6 +21,7 @@ import type {
   ApplicationStats,
   ApplicationTrendRange,
 } from "@/lib/applications/types";
+import { cn } from "@/lib/cn";
 import { formatDateTime } from "@/lib/format/date";
 import type { InterviewStats } from "@/lib/interviews/types";
 import type { UpcomingInterviews } from "@/lib/interviews/upcoming";
@@ -33,7 +33,7 @@ function trendHref(range: ApplicationTrendRange, homeHref: string): string {
 
 /**
  * 数据概览页的呈现层。本地版（服务端取数）和体验版（浏览器取数）渲染同一个组件，统计口径来自共享的纯函数。
- * 版式：四张指标卡一排 → 左宽右窄（趋势图 | 下一步行动 + 即将到来的面试）→ 阶段分布 | 最近投递。
+ * 版式：四张指标卡一排 → 左宽右窄（趋势图 | 即将到来的面试）→ 阶段分布 | 最近投递。
  */
 export function DashboardView({
   stats,
@@ -53,6 +53,8 @@ export function DashboardView({
 }) {
   const trendOption = getApplicationTrendRangeOption(trendRange);
   const stageChartData = buildApplicationStageChartData(stats.stageCounts);
+  // 面试日程卡在没有待面 / 待补录时不渲染，趋势图就占满一行，不留空列。
+  const hasSchedule = upcomingInterviews.upcoming.length + upcomingInterviews.awaitingRecord.length > 0;
 
   return (
     <>
@@ -63,7 +65,6 @@ export function DashboardView({
             管理投递
           </ButtonLink>
         }
-        description="汇总岗位投递和面试记录，快速判断整体进展、近期变化与下一步重点。"
         title="数据概览"
       />
 
@@ -74,7 +75,7 @@ export function DashboardView({
           { label: "投递岗位", value: stats.total, note: stats.recent7Days > 0 ? `最近 7 天 +${stats.recent7Days}` : "最近 7 天暂无新增" },
           { label: "7 天新增", value: stats.recent7Days, note: "按投递或首次发现时间", tone: accentIf(stats.recent7Days) },
           { label: "真实面试", value: interviewStats.total, note: "已记录的面试" },
-          { label: "Offer", value: stats.stageCounts.offer, note: "当前处于 Offer 阶段" },
+          { label: "Offer", value: stats.stageCounts.offer, note: "当前处于 Offer 阶段", tone: toneIf(stats.stageCounts.offer, "success") },
         ]}
       />
 
@@ -89,8 +90,8 @@ export function DashboardView({
         </>
       ) : (
         <>
-          {/* 第二行：左宽右窄。左边趋势图是主视觉，右边是"接下来做什么"。 */}
-          <section className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,0.9fr)]">
+          {/* 第二行：左宽右窄。左边趋势图是主视觉，右边是即将到来的面试（没有就通栏）。 */}
+          <section className={cn("grid gap-4", hasSchedule && "xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,0.9fr)]")}>
             <Card className="flex flex-col">
               <CardHeader className="gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div>
@@ -116,10 +117,7 @@ export function DashboardView({
                 />
               </CardContent>
             </Card>
-            <div className="grid content-start gap-4">
-              <NextActionCard applications={stats} interviews={interviewStats} />
-              <UpcomingInterviewsCard interviews={upcomingInterviews} />
-            </div>
+            <UpcomingInterviewsCard interviews={upcomingInterviews} />
           </section>
 
           {/* 第三行：阶段分布与最近投递并排。 */}
@@ -127,7 +125,6 @@ export function DashboardView({
             <Card>
               <CardHeader>
                 <CardTitle>岗位阶段分布</CardTitle>
-                <CardDescription>查看岗位当前主要卡在哪个环节，优先处理数量集中的阶段。</CardDescription>
               </CardHeader>
               <CardContent>
                 <ApplicationStageChart data={stageChartData} />
@@ -137,7 +134,6 @@ export function DashboardView({
               <CardHeader className="flex-row items-center justify-between">
                 <div>
                   <CardTitle>最近投递</CardTitle>
-                  <CardDescription>最近新增或同步的岗位记录。</CardDescription>
                 </div>
                 <Link className="text-xs text-muted-foreground hover:text-foreground" href="/applications">
                   查看全部

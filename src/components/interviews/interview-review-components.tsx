@@ -24,13 +24,11 @@ import {
 export function ReviewScopeCard({
   href,
   title,
-  description,
   count,
   isActive,
 }: {
   href: string;
   title: string;
-  description: string;
   count: number;
   isActive: boolean;
 }) {
@@ -45,7 +43,6 @@ export function ReviewScopeCard({
     >
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-medium text-foreground">{title}</span>
-        <span className="mt-0.5 block text-[0.8125rem] leading-5 text-muted-foreground">{description}</span>
       </span>
       <span className="shrink-0 text-lg font-medium tabular-nums text-foreground">{count}</span>
       <ArrowRight

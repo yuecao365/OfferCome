@@ -7,7 +7,7 @@ import { claimSession } from "@/lib/mock-interviews/session-state";
 import { getAiTaskConfig } from "@/lib/settings/ai";
 
 import { dossierOf } from "./dossier-doc";
-import { appendEvents, ledgerOf, parseEventRow, type InterviewEvent } from "./events";
+import { appendEvents, notesOf, parseEventRow, type InterviewEvent } from "./events";
 import { loadSkillPacks } from "@/lib/mock-interviews/skills/loader";
 import { packsForInterview } from "@/lib/mock-interviews/skills/selector";
 
@@ -73,7 +73,7 @@ export async function startTurn(input: { sessionId: string; candidate: Candidate
     finalize: async () => {
       const result = await runTurn({ runId: `turn:${input.sessionId}:${turnIndex}`, config, state, candidate: input.candidate, context });
       const newMessages = await persistTurn(loaded, turnIndex, input.candidate, result);
-      return { newMessages, phase: result.phase, progress: result.progress, endedBy: result.endedBy, coveredCount: result.progress.covered, ledger: ledgerOf(result.events.map((item, index) => ({ ...item, seq: index, runId: item.runId ?? null, at: new Date() }) as InterviewEvent))[0] ?? null };
+      return { newMessages, phase: result.phase, progress: result.progress, endedBy: result.endedBy, coveredCount: result.progress.covered, notes: notesOf(result.events.map((item, index) => ({ ...item, seq: index, runId: item.runId ?? null, at: new Date() }) as InterviewEvent)) };
     },
   };
 }
@@ -118,7 +118,7 @@ async function persistTurn(loaded: Loaded, turnIndex: number, candidate: Candida
   return created;
 }
 
-export type ReplayTurnResult = { say: string; kind: string; action: string | null; why: string | null; guard: string | null; ledger: string | null; runId: string | null; durationMs: number };
+export type ReplayTurnResult = { say: string; kind: string; action: string | null; guard: string | null; notes: string | null; runId: string | null; durationMs: number };
 
 /**
  * 重放到某一步（G6 步调试）：把事件日志回到第 turnIndex 回合之前，用现在的代码与提示词再跑那一回合，不落库、不改这场。
@@ -141,14 +141,12 @@ export async function replayMockInterviewTurn(sessionId: string, turnIndex: numb
   const result = await runTurn({ runId: `replay:${sessionId}:${turnIndex}:${Date.now()}`, config: await getAiTaskConfig("text"), state, candidate, context });
   const spoken = result.said.find((line) => line.role === "interviewer");
   const guard = result.events.find((item) => item.type === "fallback_used");
-  const ledger = result.events.find((item) => item.type === "ledger_written");
   return {
     say: spoken?.content ?? "",
     kind: spoken?.kind ?? "say",
     action: spoken?.action ?? null,
-    why: result.events.flatMap((item) => (item.type === "interviewer_said" ? [item.payload.why ?? null] : []))[0] ?? null,
     guard: guard?.type === "fallback_used" ? guard.payload.reason : null,
-    ledger: ledger?.type === "ledger_written" ? ledger.payload.text : null,
+    notes: spoken?.notes ?? null,
     runId: result.runId,
     durationMs: Date.now() - startedAt,
   };

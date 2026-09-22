@@ -7,8 +7,8 @@ import {
   fallbackBrief,
   basisAccepted,
   fallbackHypothesis,
-  quickTarget,
-  SCENARIOS_PER_PACE,
+  fallbackJdHypothesis,
+  MAX_SCENARIOS,
   parseStoredBrief,
   briefReady,
   type BriefOutput,
@@ -78,15 +78,15 @@ test("项目：模型先写到的排前面，每个项目一份材料，没写�
   assert.equal(kept[1].entryQuestion, "主循环怎么做的？");
   assert.equal(kept[0].name, "校园二手平台");
   assert.deepEqual(kept[0].rubric.map((item) => item.name), ["事实与细节", "取舍与复盘", "表达结构"]);
-  // 模型一个都没给：按简历顺序，每个项目一份，兜底问法与通用线索。
+  // 模型一个都没给：兜底只聊简历上的第一个项目（项目追问不能空），兜底问法与通用线索。
   const fallback = projectAreas(build({}));
-  assert.equal(fallback.length, 2);
+  assert.equal(fallback.length, 1);
   assert.match(fallback[0].entryQuestion, /Study Assistant/);
   assert.equal(fallback[0].guides.length, 3);
   assert.equal(projectAreas(build({}, { projects: [] })).length, 0);
 });
 
-test("基础题：取配额那么多道；引用类验逐字（空格换行不计），推断类不引原文也算数；skill 必须是备课用的包", () => {
+test("基础题：模型写几道就几道（上限 6，不按配额截也不补）；引用类验逐字（空格换行不计），推断类不引原文也算数", () => {
   const brief = build({
     quick: [
       quickOut("缓存一致性"),
@@ -96,18 +96,16 @@ test("基础题：取配额那么多道；引用类验逐字（空格换行不�
     ],
   });
   const quick = brief.areas.filter((area) => area.kind === "quick");
-  assert.equal(quick.length, quickTarget("standard", 2), "标准档 3 道");
-  assert.deepEqual(quick.map((area) => [area.id, area.name]), [["q1", "缓存一致性"], ["q2", "MySQL 索引"], ["q3", "消息队列"]]);
+  assert.equal(quick.length, 4, "模型写了四道就四道");
+  assert.deepEqual(quick.map((area) => [area.id, area.name]), [["q1", "缓存一致性"], ["q2", "MySQL 索引"], ["q3", "消息队列"], ["q4", "多余的第四道"]]);
   assert.deepEqual(quick[0].basis, { kind: "resume", quote: "库存超卖排查", note: "简历里做过" });
   assert.equal(quick[1].basis?.kind, "jd");
   assert.equal(quick[2].basis, null, "改写过的引用不算依据");
   assert.deepEqual(quick[0].rubric.map((item) => item.name), ["准确性", "原理深度", "表达结构"]);
-  // 模型只写了一道：从领域包的主题清单按顺序补到配额，补的没有依据、不与已有的重名。
-  const filled = build({ quick: [quickOut("MySQL 索引")] }).areas.filter((area) => area.kind === "quick");
-  assert.deepEqual(filled.map((area) => [area.name, area.basis === null]), [["MySQL 索引", false], ["缓存一致性", true], ["消息队列可靠投递", true]]);
-  // 简历没有项目：项目配额让给基础题。
-  assert.equal(build({}, { projects: [], pace: "quick" }).areas.filter((area) => area.kind === "quick").length, quickTarget("quick", 0));
-  assert.equal(quickTarget("quick", 0), 3);
+  // 模型只写了一道：就一道，不从主题清单补。
+  const one = build({ quick: [quickOut("MySQL 索引")] }).areas.filter((area) => area.kind === "quick");
+  assert.deepEqual(one.map((area) => [area.name, area.basis === null]), [["MySQL 索引", false]]);
+  assert.equal(build({}, { projects: [], pace: "quick" }).areas.filter((area) => area.kind === "quick").length, 0, "模型没写就没有");
 });
 
 test("依据：引用类必须给 quote 且逐字（PDF 换行插进来的空格不算改写）；落差与模式类不给 quote 也成立", () => {
@@ -126,17 +124,15 @@ test("依据：引用类必须给 quote 且逐字（PDF 换行插进来的空格
   assert.equal(ok({ kind: "gap", quote: "编的一句 JD", note: "n" }), false, "给了 quote 就要验");
 });
 
-test("场景题按节奏取数，JD 原句必须逐字、能力 id 必须在蓝图里，不够时代码兜底", () => {
-  const brief = build({ scenarios: [scenarioOut(), scenarioOut({ name: "多余的" })] });
+test("场景题模型写几道就几道（上限 2），JD 原句必须逐字、能力 id 必须在蓝图里，不补", () => {
+  const brief = build({ quick: [quickOut("缓存一致性")], scenarios: [scenarioOut(), scenarioOut({ name: "多余的" }), scenarioOut({ name: "第三道" })] });
   const scenarios = brief.areas.filter((area) => area.kind === "scenario");
-  assert.equal(scenarios.length, SCENARIOS_PER_PACE.standard);
+  assert.equal(scenarios.length, MAX_SCENARIOS);
   assert.deepEqual(scenarios[0].competencyIds, ["api"]);
   assert.equal(scenarios[0].jdEvidence, "参与 API 设计与自动化测试");
   const rewritten = build({ scenarios: [scenarioOut({ jdEvidence: "把 API 做好（改写）" })] });
   assert.equal(rewritten.areas.find((area) => area.kind === "scenario")?.jdEvidence, null);
-  const deep = build({}, { pace: "deep" });
-  assert.equal(deep.areas.filter((area) => area.kind === "scenario").length, SCENARIOS_PER_PACE.deep);
-  assert.ok(deep.areas.find((area) => area.kind === "scenario")?.entryQuestion.includes("对外接口"), "兜底场景题落在蓝图核心能力上");
+  assert.equal(build({}, { pace: "deep" }).areas.filter((area) => area.kind === "scenario").length, 0, "模型没写就没有");
   // 顺序：项目 → 题池 → 场景。
   assert.deepEqual([...new Set(brief.areas.map((area) => area.kind))], ["project", "quick", "scenario"]);
 });
@@ -145,14 +141,28 @@ test("简历假设：证据逐字、按 projectId 或简历段落挂到项目；
   const brief = build({
     projects: [projectOut("p1"), projectOut("p2")],
     hypotheses: [
-      { id: "H1", text: "验证 50% 怎么量的", evidence: "平均 prompt 长度降低约 50%", projectId: null },
-      { id: "H2", text: "改写过的证据", evidence: "prompt 长度降低了一半", projectId: "p1" },
+      { id: "H1", source: "resume", text: "验证 50% 怎么量的", evidence: "平均 prompt 长度降低约 50%", projectId: null },
+      { id: "H2", source: "resume", text: "改写过的证据", evidence: "prompt 长度降低了一半", projectId: "p1" },
     ],
   });
-  assert.deepEqual(brief.hypotheses.map((item) => [item.id, item.projectId]), [["H1", "p1"], ["H-p2", "p2"]]);
+  assert.deepEqual(brief.hypotheses.map((item) => [item.id, item.projectId]), [["H1", "p1"], ["H-p2", "p2"], ["J-api", null]], "模型没写岗位假设：从蓝图第一条 JD 能力兜底一条");
   assert.equal(brief.hypotheses[1].evidence, "退款状态机重构，重复判断代码减少约四成");
   assert.equal(fallbackHypothesis("简历里没提这个项目", { id: "x", name: "不存在的项目" }), null);
   assert.equal(fallbackHypothesis("Study Assistant 2026年4月–现在", projects[0]), null);
+});
+
+test("岗位假设：证据逐字出自 JD 才收，projectId 可空；写了就不再兜底；兜底简报也带一条", () => {
+  const brief = build({
+    hypotheses: [
+      { id: "J1", source: "jd", text: "岗位要求智能对话融入产品，简历没提，验证是否碰过", evidence: "将智能对话能力融入产品", projectId: null },
+      { id: "J2", source: "jd", text: "改写过的 JD", evidence: "要会做对话机器人", projectId: null },
+    ],
+  });
+  assert.deepEqual(brief.hypotheses.filter((item) => item.source === "jd").map((item) => [item.id, item.evidence, item.projectId]), [["J1", "将智能对话能力融入产品", null]]);
+  assert.deepEqual(fallbackJdHypothesis(blueprint)?.id, "J-api");
+  assert.equal(fallbackJdHypothesis({ competencies: [] }), null);
+  const fallback = fallbackBrief({ blueprint, jobDescription, resumeText, projects, topicNames, skillPacks: ["backend"], pace: "quick", askIntro: true });
+  assert.deepEqual(fallback.hypotheses.map((item) => [item.source, item.evidence]), [["jd", "参与 API 设计与自动化测试"]]);
 });
 
 test("兜底简报：基础题从主题清单按配额取、没有依据；蓝图的业务带进简报", () => {

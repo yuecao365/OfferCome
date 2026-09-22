@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { ACTIONS, NO_INFO_SIGNALS, SIGNALS, type Signal, type StateEvent } from "./state";
+import { ACTIONS, NO_INFO_SIGNALS, SIGNALS, type Signal, type FacetRef, type StateEvent } from "./state";
 
 /**
  * 面试的事件日志（interview-system-design.md §6.6）：一场里发生的一切，按 seq 追加写。
@@ -60,15 +60,14 @@ export const eventPayloadSchemas = {
     kind: z.string(),
     /** 这句聊哪份材料（材料 id，代码指派；F1–F2 是模型自报）；开场、告别为 null；旧事件没有。 */
     topic: z.string().nullable().optional(),
-    /** 这句追问的角度（材料 guides 的下标）；切入问法为 null。 */
-    facet: z.number().int().nullable().optional(),
+    /** 这句追问的角度：模型自写的一句（agent-freedom-plan §2.3）；旧事件是备课 leads 的下标。切入问法为 null。 */
+    facet: z.union([z.string(), z.number().int()]).nullable().optional(),
     /** 这回合的动作与理由、候选人那句的信号（模型提、代码校验，v5）；旧事件没有。 */
     action: z.enum(ACTIONS).nullable().optional(),
     signal: z.enum(SIGNALS).nullable().optional(),
-    why: z.string().nullable().optional(),
   }),
-  /** 证据账：模型每回合对候选人那段写的一行，挂在材料上（v5）。 */
-  ledger_written: z.object({ materialId: z.string(), text: z.string() }),
+  /** 面试笔记：模型每回合整份重写的 Markdown（notes.ts）。 */
+  notes_written: z.object({ content: z.string() }),
   /** 面试官查了资料（技能包 / 简历段落）。 */
   tool_called: z.object({ name: z.string(), argument: z.string().nullable() }),
   /** 模型没说出话，代码接了一句。 */
@@ -129,22 +128,24 @@ export async function appendEvents(sink: EventSink, sessionId: string, events: N
 }
 
 /** at：这句落下的时刻（事件的 createdAt），纯逻辑测试可以不带。topic / facet 见 interviewer_said。 */
-export type TranscriptLine = { seq: number; role: "interviewer" | "candidate"; content: string; kind: string | null; control: CandidateControl | null; at?: Date; topic?: string | null; facet?: number | null; signal?: Signal | null };
+export type TranscriptLine = { seq: number; role: "interviewer" | "candidate"; content: string; kind: string | null; control: CandidateControl | null; at?: Date; topic?: string | null; facet?: FacetRef; signal?: Signal | null };
 
-/** 证据账条目（ledger_written）。 */
-export function ledgerOf(events: InterviewEvent[]): { materialId: string; text: string }[] {
-  return events.flatMap((item) => (item.type === "ledger_written" ? [item.payload] : []));
+/** 最新一版面试笔记；没写过为 null。 */
+export function notesOf(events: InterviewEvent[]): string | null {
+  let latest: string | null = null;
+  for (const item of events) if (item.type === "notes_written" && item.payload.content.trim()) latest = item.payload.content;
+  return latest;
 }
 
 /** 事件 → 面试状态的输入（state.ts）。旧事件没有 action / signal：面试官那句按 kind 推（aside → clarify、closing → end、其余 probe；换材料由 topic 变化推）。 */
 export function stateEventsOf(events: InterviewEvent[]): StateEvent[] {
   return events.flatMap((item): StateEvent[] => {
-    if (item.type === "candidate_said") return [{ type: "candidate_said", seq: item.seq, signal: item.payload.signal ?? null, control: item.payload.control }];
+    if (item.type === "candidate_said") return [{ type: "candidate_said", seq: item.seq, signal: item.payload.signal ?? null, control: item.payload.control, content: item.payload.content }];
     if (item.type === "interviewer_said") {
       const action = item.payload.action ?? (item.payload.kind === "aside" ? "clarify" : item.payload.kind === "closing" ? "end" : "probe");
       return [{ type: "interviewer_said", seq: item.seq, action, materialId: item.payload.topic ?? null, facet: item.payload.facet ?? null }];
     }
-    if (item.type === "ledger_written") return [{ type: "ledger_written", seq: item.seq, materialId: item.payload.materialId, text: item.payload.text }];
+    if (item.type === "notes_written") return [{ type: "notes_written", seq: item.seq, content: item.payload.content }];
     if (item.type === "ended") return [{ type: "ended", seq: item.seq }];
     return [];
   });

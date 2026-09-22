@@ -139,12 +139,11 @@ export function MockInterviewBubble({ message, typewriter = false, onTick }: { m
   );
 }
 
-/** 进度：聊到第几份材料、共几份；由服务端每回合给（覆盖配额，不是时间）。 */
-function ProgressBar({ progress, ended }: { progress: ProgressSummary; ended: boolean }) {
-  const covered = ended ? progress.quota : progress.covered;
+/** 进度：碰过几份材料、备课共几份（含备选，面试官不一定都聊）；由服务端每回合给，结束后也照实显示。 */
+function ProgressBar({ progress }: { progress: ProgressSummary }) {
   return (
-    <p aria-label="面试进度" className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground" title="按聊完的话题数计，不按时间；中途离开再回来不受影响">
-      话题 {covered} / {progress.quota}
+    <p aria-label="面试进度" className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground" title="备课的材料里聊到了几份；备选材料面试官不一定都聊，不按时间计">
+      材料 {progress.covered} / {progress.quota}
     </p>
   );
 }
@@ -293,7 +292,7 @@ export function MockInterviewChat({
         <p className="min-w-0 flex-1 truncate text-sm font-medium">
           {session.companyName} · {session.jobTitle}
         </p>
-        <ProgressBar ended={ended} progress={progress} />
+        <ProgressBar progress={progress} />
         <Button aria-pressed={materialsOpen} onClick={() => setMaterialsOpen((open) => !open)} size="sm" type="button" variant="ghost">
           <FileText aria-hidden="true" className="size-3.5" strokeWidth={1.5} />
           资料

@@ -67,7 +67,7 @@ export async function offercomeSubmission(name: string, options: { base: string;
   return {
     name,
     models: { interviewer: modelName(interviewerConfig), scorecard: modelName(translator) },
-    notes: `本仓库 harness 经本地 API 驱动；它自己从 JD 抽能力、有自己的面试规范，不吃 bench 的 norms 也拿不到 bench 的能力清单；没有回合上限的输入，只按节奏配额走（quick/standard/deep 计划 13/19/28 回合，超过 bench 的 10/16/24），所以到上限一律被 bench 掐断，"主动收尾"对它不可比；报告由 harness 内部评分模型 ${modelName(internalScoring)} 产出，再由 ${modelName(translator)} 翻译成评分卡。`,
+    notes: `本仓库 harness 经本地 API 驱动；它自己从 JD 抽能力、有自己的面试规范，不吃 bench 的 norms 也拿不到 bench 的能力清单；没有回合上限的输入，长短由面试官看笔记里待验证的说法与最近几句的信息量自己定（2026-09-22 起无配额、无时钟），超过 bench 的 10/16/24 就被 bench 掐断，"主动收尾"这一列要连同被掐断的场次一起读；报告由 harness 内部评分模型 ${modelName(internalScoring)} 产出，再由 ${modelName(translator)} 翻译成评分卡。`,
     create(): Interviewer {
       let task: TaskForInterviewer | null = null;
       let sessionId = "";

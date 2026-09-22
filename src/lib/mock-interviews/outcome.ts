@@ -52,13 +52,13 @@ export function areaOutcomes(_brief: InterviewBrief, threads: OutcomeThread[], q
   });
 }
 
-export function summaryInput(input: { jobTitle: string; brief: InterviewBrief; areas: AreaOutcome[]; ledger: string }): SummaryInput {
+export function summaryInput(input: { jobTitle: string; brief: InterviewBrief; areas: AreaOutcome[]; notes: string }): SummaryInput {
   return {
     jobTitle: input.jobTitle,
     pace: input.brief.pace,
     areas: input.areas.map((area) => area.summary),
-    ledger: input.ledger,
-    hypotheses: input.brief.hypotheses.map((hypothesis) => hypothesis.text),
+    notes: input.notes,
+    hypotheses: input.brief.hypotheses.map((hypothesis) => ({ text: hypothesis.text, source: hypothesis.source })),
   };
 }
 

@@ -73,8 +73,8 @@ export type TrialInterview = {
   generationError: string | null;
   blueprint: MockInterviewJobBlueprint | null;
   brief: InterviewBrief | null;
-  /** 面试官的证据账：每回合一行，挂在材料上（与本地版的 ledger_written 事件同义）。 */
-  ledger: { materialId: string; text: string }[];
+  /** 面试官的最新一版笔记（与本地版的 notes_written 事件同义）。 */
+  notes: string | null;
   messages: ConversationMessage[];
   questions: TrialSegment[];
   report: MockInterviewReport | null;
@@ -95,7 +95,7 @@ export function createTrialInterview(input: { job: TrialJobInput; resume: TrialR
     generationError: null,
     blueprint: null,
     brief: null,
-    ledger: [],
+    notes: null,
     messages: [],
     questions: [],
     report: null,
@@ -124,13 +124,13 @@ export function retryGeneration(interview: TrialInterview): TrialInterview {
 
 /* ------------------------------ 面试中 ------------------------------ */
 
-/** 把一个回合的结果应用到文档：新消息、证据账、阶段，与本地版 persistTurn 同语义。 */
+/** 把一个回合的结果应用到文档：新消息、笔记、阶段，与本地版 persistTurn 同语义。 */
 export function applyTurnPayload(interview: TrialInterview, payload: TurnPayload): TrialInterview {
   return {
     ...interview,
     startedAt: interview.startedAt ?? new Date().toISOString(),
     messages: [...interview.messages, ...payload.newMessages],
-    ledger: payload.ledger ? [...interview.ledger, payload.ledger] : interview.ledger,
+    notes: payload.notes ?? interview.notes,
     status: payload.phase === "ended" ? "ready_to_evaluate" : interview.status,
   };
 }

@@ -4,7 +4,7 @@ import type { ProfileDimension } from "@/lib/candidate-profile/types";
 import { isVerbatimEvidence } from "@/lib/text/evidence";
 import { denseText, normalizedText } from "@/lib/text/similarity";
 
-import { QUOTA } from "@/lib/interview/progress";
+import { REFERENCE_COUNT } from "@/lib/interview/progress";
 
 import type { MockInterviewJobBlueprint } from "../types";
 
@@ -45,16 +45,6 @@ export function isAreaKind(value: unknown): value is AreaKind {
   return typeof value === "string" && (AREA_KINDS as readonly string[]).includes(value);
 }
 
-/**
- * 节奏 → 一场的总回合数（面试官说话的次数，含开场与收尾）与场景题数。
- * 总回合数是唯一的硬数字：用完就收尾；怎么分配由面试官的计划定。
- */
-/** 每档备几道场景题（配额见 interview/progress.ts）。 */
-export const SCENARIOS_PER_PACE: Record<InterviewPace, number> = {
-  quick: 1,
-  standard: 1,
-  deep: 2,
-};
 
 /** 项目追问的角度（旧简报每个面一道材料；新简报只作线索与旧数据的标签）。 */
 export const PROJECT_ANGLE_ORDER = ["overview", "module", "hardest", "outcome", "redo"] as const;
@@ -66,8 +56,9 @@ export const PROJECT_ANGLES: Record<ProjectAngle, { label: string; question: (pr
   outcome: { label: "效果与预期", question: (name) => `「${name}」达到你的预期了吗？预期是什么、怎么量的？` },
   redo: { label: "取舍与重做", question: (name) => `如果重做「${name}」，你会改哪里？当时为什么没这么做？` },
 };
-/** 最多给几个项目备材料（先写与岗位最相关的）。 */
-export const MAX_PROJECTS = 3;
+/** 最多给几个项目备材料（schema 上限；聊几个由模型按岗位相关度定，参考值见 interview/progress.ts）。 */
+export const MAX_PROJECTS = 4;
+export const MAX_SCENARIOS = 2;
 
 export function isProjectAngle(value: unknown): value is ProjectAngle {
   return typeof value === "string" && (PROJECT_ANGLE_ORDER as readonly string[]).includes(value);
@@ -76,13 +67,9 @@ export function isProjectAngle(value: unknown): value is ProjectAngle {
 /** 总分按话题的种类加权：项目 3、场景 2、基础 1。 */
 export const KIND_WEIGHT: Record<AreaKind, number> = { project: 3, quick: 1, scenario: 2 };
 
-export const MAX_HYPOTHESES = 6;
-/** 备几道基础题：配额里的基础题数；简历没有项目时项目配额让给基础题（与 progress.planQuota 同口径）。 */
-export function quickTarget(pace: InterviewPace, projectCount: number): number {
-  const quota = QUOTA[pace];
-  return quota.quick + (projectCount === 0 ? quota.project : 0);
-}
-const MAX_QUICK = Math.max(...INTERVIEW_PACES.map((pace) => quickTarget(pace, 0)));
+export const MAX_HYPOTHESES = 8;
+/** 基础题的 schema 上限；备几道由模型定，参考值见 interview/progress.ts。 */
+export const MAX_QUICK = 6;
 
 export const BASIS_KINDS = ["resume", "jd", "gap", "pattern"] as const;
 export type BasisKind = (typeof BASIS_KINDS)[number];
@@ -149,6 +136,10 @@ export function rubricForArea(kind: AreaKind): RubricItem[] {
 const signals = z.array(z.string().min(1).max(200)).min(1).max(5);
 
 /** 发给模型的简报 schema：严格模式，全部字段 required，可空用 nullable。 */
+/** 假设的来源：简历上的说法，或岗位要求（JD 是岗位特异性的唯一来源，至少要验一条）。 */
+export const HYPOTHESIS_SOURCES = ["resume", "jd"] as const;
+export type HypothesisSource = (typeof HYPOTHESIS_SOURCES)[number];
+
 export const briefOutputSchema = z.object({
   /** 项目 × 角度；先出现的项目是最相关的。 */
   projects: z
@@ -159,7 +150,7 @@ export const briefOutputSchema = z.object({
         /** 一句切入问法：一个问题，给一个抓手。 */
         question: z.string().min(1).max(500),
         /** 面试里要验证的点（最多 3 条）：追问时拿着它们顺着候选人的话去验。 */
-        leads: z.array(z.string().min(1).max(200)).max(3),
+        leads: z.array(z.string().min(1).max(200)).max(5),
         expectedSignals: signals,
       }),
     )
@@ -195,16 +186,18 @@ export const briefOutputSchema = z.object({
         expectedSignals: signals,
       }),
     )
-    .max(2),
+    .max(MAX_SCENARIOS),
   hypotheses: z
     .array(
       z.object({
         id: z.string().min(1).max(40),
-        /** 要验证什么，例如"简历称 prompt 长度降低约 50%，验证度量方法与基线"。 */
+        /** resume：简历上的说法要验；jd：岗位要求要验（候选人碰过没有、到什么程度）。 */
+        source: z.enum(HYPOTHESIS_SOURCES),
+        /** 要验证什么，例如"简历称 prompt 长度降低约 50%，验证度量方法与基线"或"岗位要求工具调用异常恢复，简历没提，验证是否有实践"。 */
         text: z.string().min(1).max(300),
-        /** 简历原文逐字片段。 */
+        /** 逐字片段：source=resume 引简历原文，source=jd 引 JD 原文。 */
         evidence: z.string().min(1).max(300),
-        /** 属于哪个简历项目（projects[].id）；对不上时由代码按简历段落归属。 */
+        /** 属于哪个简历项目（projects[].id）；resume 类对不上时由代码按简历段落归属；jd 类可为 null，也可指向最适合验它的项目。 */
         projectId: z.string().min(1).max(60).nullable(),
       }),
     )
@@ -232,8 +225,8 @@ export type InterviewArea = {
   rubric: RubricItem[];
 };
 
-/** 简历假设挂在项目上：该项目的任何角度里都可以验。 */
-export type InterviewHypothesis = { id: string; text: string; evidence: string; projectId: string | null };
+/** 要在面试里验证的一条说法：简历假设挂在项目上，该项目的任何角度里都可以验；岗位假设载体不限（项目追问、基础题或场景题都行）。 */
+export type InterviewHypothesis = { id: string; source: HypothesisSource; text: string; evidence: string; projectId: string | null };
 
 export type InterviewBrief = {
   version: typeof BRIEF_VERSION;
@@ -302,9 +295,26 @@ export function fallbackHypothesis(
   if (!evidence) return null;
   return {
     id: `H-${project.id}`,
+    source: "resume",
     text: `简历写「${evidence}」：问是怎么做的、怎么量的、基线是什么、哪部分是本人做的`,
     evidence,
     projectId: project.id,
+  };
+}
+
+/**
+ * 模型没写岗位假设时的兜底：拿蓝图里第一条来自 JD 的核心能力（没有就第一条），让每场至少有一条岗位要求在账上。
+ * 与项目假设的兜底同一哲学：不替模型决定怎么问，只保证要验的东西不缺席。
+ */
+export function fallbackJdHypothesis(blueprint: Pick<MockInterviewJobBlueprint, "competencies">): InterviewHypothesis | null {
+  const competency = blueprint.competencies.find((item) => item.origin === "jd") ?? blueprint.competencies[0];
+  if (!competency) return null;
+  return {
+    id: `J-${competency.id}`,
+    source: "jd",
+    text: `岗位要求「${competency.name}」：问候选人碰过没有、做到什么程度、能不能把手上的经验接过去`,
+    evidence: competency.jdEvidence,
+    projectId: null,
   };
 }
 
@@ -332,8 +342,7 @@ function projectArea(project: Project, rank: number, written: ProjectAreaInput):
   };
 }
 
-/** 项目材料：每个项目（最多 MAX_PROJECTS 个）一份；模型写了的用模型的问法与线索，没写的用兜底。 */
-/** 只建这场要聊的那几份项目材料（按节奏配额）：多建的永远问不到，却会跟着议程每回合回放给模型。 */
+/** 项目材料：每个项目一份（最多 MAX_PROJECTS 个）；模型写了的用模型的问法与线索，没写的用兜底问法。 */
 function projectAreas(ranked: Project[], limit: number, written: (project: Project) => ProjectAreaInput): InterviewArea[] {
   return ranked.slice(0, limit).map((project, rank) => projectArea(project, rank, written(project)));
 }
@@ -357,18 +366,13 @@ function quickArea(written: QuickInput, id: string): InterviewArea {
   };
 }
 
-/** 模型没写够基础题时的兜底：从领域包的常考主题清单里按顺序补，没有依据（面试官会先问他碰过没有）。 */
+/** 兜底简报的基础题：从领域包的常考主题清单里按顺序取，没有依据（面试官会先问他碰过没有）。只在模型整体失败时用。 */
 function fallbackQuick(name: string): QuickInput {
   return { name, question: `聊聊${name}：它解决什么问题、最关键的一个机制是什么？`, basis: null, followUp: "追问它的边界与出问题时怎么查", expectedSignals: ["机制准确", "说得出边界"] };
 }
 
-function quickAreas(written: QuickInput[], topicNames: string[], target: number): InterviewArea[] {
-  const picked = written.slice(0, target);
-  for (const name of topicNames) {
-    if (picked.length >= target) break;
-    if (!picked.some((item) => normalizedText(item.name) === normalizedText(name))) picked.push(fallbackQuick(name));
-  }
-  return picked.map((item, index) => quickArea(item, `q${index + 1}`));
+function quickAreas(written: QuickInput[]): InterviewArea[] {
+  return written.slice(0, MAX_QUICK).map((item, index) => quickArea(item, `q${index + 1}`));
 }
 
 function fallbackScenarioArea(blueprint: MockInterviewJobBlueprint, id: string): InterviewArea {
@@ -408,10 +412,10 @@ function attachHypothesis(resume: string, evidence: string, projects: Project[])
 
 /** 校招还是社招的兜底判断（模型没产出时）：JD 或简历提到届别 / 应届 / 实习 / 在读就按校招。 */
 /**
- * 模型产出 → 冻结的简报。规则全部由代码把关：
- * - 项目：projectId 必须存在；先出现的项目排前面，最多 MAX_PROJECTS 个，每个项目一份材料，模型没写的用兜底问法；
- * - 基础题：模型按 JD 与简历定，取配额那么多道；依据写了 quote 就必须逐字出自来源（不合格标为无依据）；skill 必须是备课用的包名；不够的从领域包主题清单补；
- * - 场景题数按节奏，JD 原句必须逐字，能力 id 必须在蓝图里；不够时代码兜底；
+ * 模型产出 → 冻结的简报（agent-freedom-plan §2.7：聊什么、聊几份由模型定，代码只管真实性与上限，不补足配额）：
+ * - 项目：模型写了的才聊（projectId 必须存在，先写到的排前面，最多 MAX_PROJECTS 个）；一个都没写而简历有项目时兜底聊第一个；
+ * - 基础题：模型写几道就几道（≤ MAX_QUICK）；依据写了 quote 就必须逐字出自来源（不合格标为无依据）；
+ * - 场景题：模型写几道就几道（≤ MAX_SCENARIOS）；JD 原句必须逐字，能力 id 必须在蓝图里；
  * - 假设的简历证据必须逐字出现在简历里，挂到项目上；每个被问的项目至少一条，没有就从简历里兜底。
  */
 export function buildBriefFromOutput(input: {
@@ -420,38 +424,33 @@ export function buildBriefFromOutput(input: {
   jobDescription: string;
   resumeText: string;
   projects: Project[];
-  /** 领域包常考主题清单的主题名：模型没写够基础题时补。 */
+  /** 领域包常考主题清单的主题名：只有兜底简报用它（fallbackBrief）。 */
   topicNames: string[];
   skillPacks: string[];
   pace: InterviewPace;
   askIntro: boolean;
 }): InterviewBrief {
   const { output } = input;
-  const scenarioCount = SCENARIOS_PER_PACE[input.pace];
   const competencyIds = new Set(input.blueprint.competencies.map((item) => item.id));
   const projectsById = new Map(input.projects.map((project) => [project.id, project]));
   const resume = denseText(input.resumeText);
 
-  // 项目顺序：模型先写到的排前面；没写到的按简历顺序排在后面。
+  // 项目：模型先写到的排前面，只聊它写了的；一个都没写而简历有项目时兜底聊第一个（项目追问是这个产品的核心，不能空）。
   const ranked: Project[] = [];
   for (const raw of output.projects) {
     const project = projectsById.get(raw.projectId);
     if (project && !ranked.includes(project)) ranked.push(project);
   }
-  for (const project of input.projects) if (!ranked.includes(project)) ranked.push(project);
-  const projects = projectAreas(ranked, QUOTA[input.pace].project, (project) => {
+  if (ranked.length === 0 && input.projects.length > 0) ranked.push(input.projects[0]);
+  const projects = projectAreas(ranked, MAX_PROJECTS, (project) => {
     const raw = output.projects.find((item) => item.projectId === project.id);
     return raw ? { question: raw.question, leads: raw.leads, expectedSignals: raw.expectedSignals } : null;
   });
 
   const sources = { resumeText: input.resumeText, jobDescription: input.jobDescription };
-  const quick = quickAreas(
-    output.quick.map((item) => ({ ...item, basis: basisAccepted(item.basis, sources) ? item.basis : null })),
-    input.topicNames,
-    quickTarget(input.pace, projects.length),
-  );
+  const quick = quickAreas(output.quick.map((item) => ({ ...item, basis: basisAccepted(item.basis, sources) ? item.basis : null })));
 
-  const scenarios: InterviewArea[] = output.scenarios.slice(0, scenarioCount).map((raw, index) => {
+  const scenarios: InterviewArea[] = output.scenarios.slice(0, MAX_SCENARIOS).map((raw, index) => {
     const jdEvidence = raw.jdEvidence && isVerbatimEvidence(input.jobDescription, raw.jdEvidence) ? raw.jdEvidence : null;
     return {
       id: `s${index + 1}`,
@@ -468,21 +467,26 @@ export function buildBriefFromOutput(input: {
       rubric: rubricForArea("scenario"),
     };
   });
-  while (scenarios.length < scenarioCount) scenarios.push(fallbackScenarioArea(input.blueprint, `s${scenarios.length + 1}`));
 
-  // 假设挂到项目上：该项目的任何角度里都能验。
+  // 假设：简历类的证据逐字出自简历并挂到项目上；岗位类的证据逐字出自 JD，载体不限。
   const hypotheses: InterviewHypothesis[] = output.hypotheses
-    .filter((item) => isVerbatimEvidence(input.resumeText, item.evidence))
+    .filter((item) => isVerbatimEvidence(item.source === "jd" ? input.jobDescription : input.resumeText, item.evidence))
     .map((item) => ({
       id: item.id,
+      source: item.source,
       text: item.text,
       evidence: item.evidence,
-      projectId: (item.projectId && projectsById.has(item.projectId) ? item.projectId : null) ?? attachHypothesis(resume, item.evidence, input.projects),
+      projectId: (item.projectId && projectsById.has(item.projectId) ? item.projectId : null) ?? (item.source === "jd" ? null : attachHypothesis(resume, item.evidence, input.projects)),
     }));
   for (const project of ranked.slice(0, MAX_PROJECTS)) {
     if (hypotheses.some((item) => item.projectId === project.id)) continue;
     const fallback = fallbackHypothesis(input.resumeText, project, input.projects);
     if (fallback && hypotheses.length < MAX_HYPOTHESES && !hypotheses.some((item) => item.evidence === fallback.evidence)) hypotheses.push(fallback);
+  }
+  // 每场至少一条岗位要求在账上（JD 是岗位特异性的唯一来源）：模型没写就兜底一条，超出上限时它优先于最后一条简历假设。
+  if (!hypotheses.some((item) => item.source === "jd")) {
+    const fallback = fallbackJdHypothesis(input.blueprint);
+    if (fallback) hypotheses.splice(Math.min(hypotheses.length, MAX_HYPOTHESES - 1), 0, fallback);
   }
 
   return {
@@ -511,17 +515,17 @@ export function fallbackBrief(input: {
   pace: InterviewPace;
   askIntro: boolean;
 }): InterviewBrief {
-  const scenarioCount = SCENARIOS_PER_PACE[input.pace];
-  const projects = projectAreas(input.projects, QUOTA[input.pace].project, () => null);
-  const quick = quickAreas([], input.topicNames, quickTarget(input.pace, projects.length));
-  const scenarios = Array.from({ length: scenarioCount }, (_, index) => fallbackScenarioArea(input.blueprint, `s${index + 1}`));
+  const reference = REFERENCE_COUNT[input.pace];
+  const projects = projectAreas(input.projects, reference.project, () => null);
+  const quick = quickAreas(input.topicNames.slice(0, reference.quick + (projects.length === 0 ? reference.project : 0)).map(fallbackQuick));
+  const scenarios = Array.from({ length: reference.scenario }, (_, index) => fallbackScenarioArea(input.blueprint, `s${index + 1}`));
   return {
     version: BRIEF_VERSION,
     pace: input.pace,
     product: input.blueprint.business?.product ?? null,
     askIntro: input.askIntro,
     areas: [...projects, ...quick, ...scenarios],
-    hypotheses: [],
+    hypotheses: [fallbackJdHypothesis(input.blueprint)].filter((item): item is InterviewHypothesis => item !== null),
     skillPacks: input.skillPacks,
     source: "fallback",
   };
@@ -546,7 +550,9 @@ export function parseStoredBrief(json: string | null): InterviewBrief | null {
       isInterviewPace(value.pace ?? "") &&
       Array.isArray(value.areas) &&
       value.areas.every((area) => isAreaKind(area.kind));
-    return usable ? (value as InterviewBrief) : null;
+    if (!usable) return null;
+    // 2026-09-22 之前的简报没有假设来源：都是简历假设。
+    return { ...(value as InterviewBrief), hypotheses: (value.hypotheses ?? []).map((item) => ({ ...item, source: item.source ?? "resume" })) };
   } catch {
     return null;
   }

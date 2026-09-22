@@ -9,13 +9,13 @@ import path from "node:path";
  * 文件不存在时（也就是真实使用时）恒为全开，所以产品路径上这几处判断永远走 false 分支。
  */
 
-export const ABLATIONS = ["packs", "constraints", "ledger", "statecard", "basis", "asktool"] as const;
+export const ABLATIONS = ["packs", "constraints", "notes", "statecard", "basis", "asktool"] as const;
 export type Ablation = (typeof ABLATIONS)[number];
 
 export const ABLATION_LABELS: Record<Ablation, string> = {
   packs: "技能包",
   constraints: "动作约束与重出",
-  ledger: "证据账",
+  notes: "面试笔记",
   statecard: "状态卡",
   basis: "依据门禁",
   asktool: "提问工具",

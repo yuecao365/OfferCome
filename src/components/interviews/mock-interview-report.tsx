@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { MetaText } from "@/components/ui/data-table";
 import { cn } from "@/lib/cn";
 import { levelLabel } from "@/lib/interview/estimator";
-import { AREA_KIND_LABELS, KIND_WEIGHT, type AreaKind } from "@/lib/mock-interviews/brief/brief";
+import { AREA_KIND_LABELS, KIND_WEIGHT, type AreaKind, type HypothesisSource } from "@/lib/mock-interviews/brief/brief";
 import type { MockInterviewReport as ReportData } from "@/lib/mock-interviews/report";
 import type { MockInterviewView } from "@/lib/mock-interviews/types";
 
@@ -14,8 +14,8 @@ import { InterviewerTrail } from "./interviewer-trail";
 import { QuestionDimensionScores } from "./mock-interview-report-visuals";
 
 /**
- * 报告页版式：首屏两张卡（总分 | 总评）→ 左宽右窄（失守与练法 ≤ 3 条 | 站得住的 / 简历上的说法 / 能力估计三张小卡）→ 面试官思路 → 逐段（默认折叠）。
- * 首屏只放主要判断，细节都折叠在逐段里；开发者记录只留页尾一个链接。本地版与体验版共用。
+ * 报告页版式：首屏两张卡（总分 | 总评）→ 失守与练法（≤ 3 条并排）→ 站得住的 → 备课要验证的说法（岗位要求在前）→ 能力估计 → 面试官思路 → 逐段（默认折叠）。
+ * 首屏之后全部通栏、按内容长高：一场面试短板 1 条还是 3 条、有没有测到能力，都不会留出整块空白。细节折叠在逐段里；开发者记录只留页尾一个链接。本地版与体验版共用。
  */
 
 type Question = MockInterviewView["questions"][number];
@@ -61,36 +61,40 @@ function scoreFormula(questions: Question[]): string {
   return `${counted} 段按材料权重加权${weights ? `（${weights}）` : ""}${notes.length > 0 ? `；${notes.join("；")}` : ""}`;
 }
 
+const HYPOTHESIS_SOURCE_LABELS: Record<HypothesisSource, string> = { jd: "岗位要求", resume: "简历" };
+
+/** 备课时列的要验证的说法：岗位要求的在前（那是这份 JD 唯一进面试的地方），简历上的在后；只列这场验过的。 */
 function Hypotheses({ items }: { items: ReportData["hypotheses"] }) {
-  const judged = items.filter((item) => item.status !== "open");
   if (items.length === 0) return null;
+  const judged = [...items.filter((item) => item.status !== "open")].sort((a, b) => Number((b.source ?? "resume") === "jd") - Number((a.source ?? "resume") === "jd"));
   return (
     <Card className="p-5">
-      <h3 className="text-sm font-semibold text-foreground">简历上的说法经不经得起问</h3>
+      <h3 className="text-sm font-semibold text-foreground">备课要验证的说法，验出来了什么</h3>
       <div className="mt-2 grid gap-2">
         {judged.map((item) => {
           const status = HYPOTHESIS_STATUS[item.status] ?? HYPOTHESIS_STATUS.open;
           return (
             <div className="flex flex-wrap items-start gap-2" key={item.text}>
               <Badge tone={status.tone}>{status.label}</Badge>
-              <p className="text-sm leading-6 text-foreground">{item.verdict ?? item.text}</p>
+              <MetaText className="leading-6">{HYPOTHESIS_SOURCE_LABELS[item.source ?? "resume"]}</MetaText>
+              <p className="min-w-0 flex-1 basis-64 text-sm leading-6 text-foreground">{item.verdict ?? item.text}</p>
             </div>
           );
         })}
-        {judged.length === 0 ? <p className="text-sm leading-6 text-muted-foreground">这场没有问到简历上的说法。</p> : null}
+        {judged.length === 0 ? <p className="text-sm leading-6 text-muted-foreground">这场没有验到备课时列的说法。</p> : null}
       </div>
     </Card>
   );
 }
 
-/** 事后的能力估计：只列测到的，一行一项：名字 + 档位。没测到的不提。 */
+/** 事后的能力估计：只列测到的，一行胶囊：名字 + 档位。没测到的不提，没测到任何一项就不出这张卡。 */
 function Estimates({ items }: { items: MockInterviewView["estimates"] }) {
   const measured = items.filter((item) => item.samples > 0);
   if (measured.length === 0) return null;
   return (
     <Card className="p-5">
       <h3 className="text-sm font-semibold text-foreground">能力估计</h3>
-      <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm leading-6 text-muted-foreground">
+      <ul className="mt-2 flex flex-wrap gap-x-5 gap-y-1.5 text-sm leading-6 text-muted-foreground">
         {measured.map((item) => (
           <li className="flex items-center gap-1.5" key={item.competencyId}>
             <span className="text-foreground">{item.name}</span>
@@ -225,40 +229,37 @@ export function MockInterviewReport({ session }: { session: MockInterviewView })
         </Card>
       </section>
 
-      {/* 第二行：左宽右窄。失守是主卡；右边三张小卡是"站得住的 / 简历说法 / 能力估计"。 */}
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(300px,0.8fr)]">
+      {/* 失守是主卡：短板并排成格，几条就几格，不留空列。 */}
+      <Card className="p-5">
+        <h3 className="text-sm font-semibold text-foreground">失守在哪、练什么</h3>
+        {report.weaknesses.length === 0 ? <p className="mt-3 text-sm leading-6 text-muted-foreground">没有明显短板。</p> : null}
+        <ul className="mt-3 grid gap-3 text-sm leading-6 text-muted-foreground md:grid-cols-[repeat(auto-fit,minmax(260px,1fr))]">
+          {report.weaknesses.slice(0, MAX_WEAKNESSES).map((item) => (
+            <li className="rounded-control bg-surface-subtle p-3" key={item.point}>
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge tone="warning">{WEAKNESS_KIND_LABELS[item.kind] ?? item.kind}</Badge>
+                {item.areaName ? <MetaText>{item.areaName}</MetaText> : null}
+              </div>
+              <p className="mt-2 text-foreground">{item.point}</p>
+              {item.practice ? <p className="mt-1">练：{item.practice}</p> : null}
+            </li>
+          ))}
+        </ul>
+        {report.weaknesses.length > MAX_WEAKNESSES ? <p className="mt-3 text-xs text-muted-foreground">其余 {report.weaknesses.length - MAX_WEAKNESSES} 条在逐段反馈里。</p> : null}
+      </Card>
+
+      {report.strengths.length > 0 ? (
         <Card className="p-5">
-          <h3 className="text-sm font-semibold text-foreground">失守在哪、练什么</h3>
-          <ul className="mt-3 grid gap-4 text-sm leading-6 text-muted-foreground">
-            {report.weaknesses.length === 0 ? <li>没有明显短板。</li> : null}
-            {report.weaknesses.slice(0, MAX_WEAKNESSES).map((item) => (
-              <li className="rounded-control bg-surface-subtle p-3" key={item.point}>
-                <div>
-                  <Badge tone="warning">{WEAKNESS_KIND_LABELS[item.kind] ?? item.kind}</Badge>
-                  <span className="ml-2 text-foreground">{item.point}</span>
-                  {item.areaName ? <MetaText className="ml-2">{item.areaName}</MetaText> : null}
-                </div>
-                {item.practice ? <p className="mt-1 pl-1">练：{item.practice}</p> : null}
-              </li>
+          <h3 className="text-sm font-semibold text-foreground">站得住的</h3>
+          <ul className="mt-2 grid gap-1.5 text-sm leading-6 text-muted-foreground md:grid-cols-[repeat(auto-fit,minmax(260px,1fr))]">
+            {report.strengths.slice(0, MAX_STRENGTHS).map((item) => (
+              <li key={item.point}>· {item.point}</li>
             ))}
-            {report.weaknesses.length > MAX_WEAKNESSES ? <li className="text-xs">其余 {report.weaknesses.length - MAX_WEAKNESSES} 条在逐段反馈里。</li> : null}
           </ul>
         </Card>
-        <div className="grid content-start gap-4">
-          {report.strengths.length > 0 ? (
-            <Card className="p-5">
-              <h3 className="text-sm font-semibold text-foreground">站得住的</h3>
-              <ul className="mt-2 grid gap-1.5 text-sm leading-6 text-muted-foreground">
-                {report.strengths.slice(0, MAX_STRENGTHS).map((item) => (
-                  <li key={item.point}>· {item.point}</li>
-                ))}
-              </ul>
-            </Card>
-          ) : null}
-          <Hypotheses items={report.hypotheses} />
-          <Estimates items={session.estimates} />
-        </div>
-      </section>
+      ) : null}
+      <Hypotheses items={report.hypotheses} />
+      <Estimates items={session.estimates} />
 
       {session.trail ? <InterviewerTrail trail={session.trail} /> : null}
 

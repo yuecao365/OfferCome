@@ -8,9 +8,8 @@ export type ReplayResult = {
   say: string;
   kind: string;
   action: string | null;
-  why: string | null;
   guard: string | null;
-  ledger: string | null;
+  notes: string | null;
   runId: string | null;
   durationMs: number;
 };
@@ -46,8 +45,7 @@ export function ReplayTurnButton({ sessionId, turnIndex }: { sessionId: string; 
             {` · ${(state.result.durationMs / 1000).toFixed(1)}s`}
           </span>
           <span className="whitespace-pre-wrap">{state.result.say}</span>
-          {state.result.why ? <p className="mt-1 text-xs text-muted-foreground">理由：{state.result.why}</p> : null}
-          {state.result.ledger ? <p className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">证据账：{state.result.ledger}</p> : null}
+          {state.result.notes ? <pre className="mt-1 whitespace-pre-wrap font-sans text-xs text-muted-foreground">{state.result.notes}</pre> : null}
         </div>
       ) : null}
     </div>

@@ -15,7 +15,7 @@ const said = (role: "interviewer" | "candidate", content: string, extra: { topic
     : { seq: seq++, type: "candidate_said", payload: { content, clientId: null, control: extra.control ?? null, composeMs: null, signal: extra.signal ?? null }, runId: null, at };
 const guard = (): InterviewEvent => ({ seq: seq++, type: "fallback_used", payload: { reason: "重复提问", original: "原话" }, runId: null, at });
 
-test("复盘：回答分类与超长、面试官的四种违规（含超预算）、底线次数、归因句", () => {
+test("复盘：回答分类与超长、面试官的四种违规（含超参考句数一倍）、底线次数、归因句", () => {
   const events: InterviewEvent[] = [
     said("interviewer", "你好，先介绍一下。"),
     said("candidate", "一".repeat(600)),
@@ -24,6 +24,10 @@ test("复盘：回答分类与超长、面试官的四种违规（含超预算�
     said("interviewer", "换个说法：退出标志位控制线程退出，偶发不退出，为什么？", { topic: "q1" }),
     said("candidate", "我不知道", { signal: "dont_know" }),
     said("interviewer", "那从可见性说说？", { topic: "q1" }),
+    said("candidate", "答"),
+    said("interviewer", "再从有序性说说？", { topic: "q1" }),
+    said("candidate", "答"),
+    said("interviewer", "那 happens-before 呢？", { topic: "q1" }),
     said("candidate", "能具体一点吗？", { control: "hint" }),
     said("interviewer", "第一，你怎么看？第二，为什么？", { topic: "q2" }),
     said("candidate", "答"),
@@ -31,9 +35,9 @@ test("复盘：回答分类与超长、面试官的四种违规（含超预算�
     guard(),
   ];
   const result = postmortem({ events, brief: testBrief(), ready: false });
-  assert.deepEqual(result.replies, { answered: 2, thin: 0, dont_know: 2, help: 1, not_mine: 0, refuse: 0, wants_end: 0, skip: 0, long: 1 });
-  assert.deepEqual(result.violations.map((item) => item.rule), ["repeat", "over_budget", "stuck_after_dont_know", "multi_ask"], "q1 预算 2 句，第 3 句超预算");
-  assert.deepEqual(result.guards, [{ seq: 11, reason: "重复提问", original: "原话" }]);
+  assert.deepEqual(result.replies, { answered: 4, thin: 0, dont_know: 2, help: 1, not_mine: 0, refuse: 0, wants_end: 0, skip: 0, long: 1 });
+  assert.deepEqual(result.violations.map((item) => item.rule), ["repeat", "stuck_after_dont_know", "over_reference", "multi_ask"], "q1 参考 2 句，第 5 句超过一倍");
+  assert.deepEqual(result.guards, [{ seq: 15, reason: "重复提问", original: "原话" }]);
   assert.equal(result.ready, false);
   assert.match(result.summary[0], /备课没备好/);
   assert.ok(result.summary.some((line) => /同一题重复问 1 次/.test(line)));

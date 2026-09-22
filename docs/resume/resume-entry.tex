@@ -1,14 +1,16 @@
-% OfferCome 简历条目（2026-09-21，数字来源：eval/runs/harness-2026-09-20.md、
-% eval/runs/ablation-constraints-2026-09-20.md、docs/interview-merge-plan.md §D、
-% eval/bench/results.md（InterviewBench 子任务层 v1 与端到端层 dev-v2））
+% OfferCome 简历条目（2026-09-22 第三稿：面向懂技术但不了解项目的大厂面试官，
+% 只留独特设计与三句话能讲清的数字。数字来源：eval/runs/harness-2026-09-20.md（78.6% → 97.0%）、
+% eval/bench/results.md 第三部分（dev-v3 vs 裸模型基线：引用不实 0.10 vs 0.53、一段多问 0.24 vs 0.65；放开约束后主动收尾 0.25 → 0.53）。
+% 依据逐字率放开后与基线持平（0.96），不再引；旧消融数字 70% → 37% 作废。）
 \resumeProjectHeading
-{OfferCome：岗位定向的自适应模拟面试 Agent（自研 Agent 运行时 + InterviewBench 评测基准）}{2026年8月 -- 至今}\vspace{-8pt}
+{OfferCome：自适应模拟面试 Agent}{2026年8月 -- 至今}\vspace{-8pt}
 
-\resumeProjectSubline{独立开发，TypeScript / Next.js / Vercel AI SDK / Prisma，约 10 万行、470 个单测；输入 JD 与简历，面试官 Agent 自主备课并进行自适应追问，面试后由独立 Agent 逐段评分、产出可逐句回溯到原话的评分卡与能力画像}
+\resumeProjectSubline{自研 Agent 运行时、动作层控制、事件溯源、自造真值评测与面试官黑盒基准}
 \vspace{-3pt}
 \resumeItemListStart
-\resumeItem{\textbf{Agent 运行时（Harness）：}实现统一 Agent Loop：\textbf{工具三级权限}（read 放行 / write 记账 / confirm 挂起待审）、步数--token--时长--成本\textbf{四类预算}、\textbf{beforeTool 钩子}（校验失败作为工具结果回传，模型在同一循环内自行改正）、\textbf{输出契约三级降级}（schema 收敛 $\to$ 携校验错误定向重试 $\to$ 调用方兜底解析）。1636 次真实调用一次通过率 \textbf{78.6\%}、降级后可用产出率 \textbf{97.0\%}，使不支持原生结构化输出的低价模型能跑全流程，800 万 token 总成本 \textbf{\$0.46}。}
-\resumeItem{\textbf{动作层控制与事件溯源：}面试官每回合先产出结构化动作（signal / action / target / facet）再产出话术；面试状态由\textbf{事件日志纯函数投影}得到（可重放），代码据此算出\textbf{随状态变化的动作白名单}，违约退回重出，再违约由代码定动作、模型只负责措辞。消息布局按前缀缓存设计（系统提示词整场不变、状态卡置末），缓存命中 \textbf{84\%}。\textbf{消融}：关闭动作约束后行为判定通过率由 \textbf{70\% 降至 37\%}（10 对配对 9 劣 0 优）。}
-\resumeItem{\textbf{上下文工程与记忆分层：}备课与面试合并为同一 Agent 循环（规划卡 $\to$ 状态卡，系统提示词共享）；编写 \textbf{42 个 Agent Skills 方法书}（base / domain / detail 两级多对多），模型看 14 个顶层索引自选，细节包按需披露；记忆分\textbf{场内}（状态卡 + 模型自写证据账）、\textbf{跨场}（Agent 整份重写的候选人档案）、\textbf{长期}（六维能力画像）；评分 Agent 与面试 Agent 相互独立、评分用不同模型，保证评测不自证。}
-\resumeItem{\textbf{InterviewBench：从真实面试角度构建的面试官评测基准，被测系统黑盒。}\textbf{子任务层} 7 个静态任务 364 题，真值来自公开数据（Beyond the Resumé 的模拟面试与裁判测试）与真实面经的提问链；\textbf{端到端层} 30 个真实 JD $\times$ 简历 $\times$ 隐藏档案的候选人任务，候选人由 bench 固定模型按三档能力真值与 45 条埋点（说错 / 夸大 / 说不出口径）作答，评分器只读逐字稿与评分卡，任何面试官（裸模型、固定题本、本系统）都以同一接口提交；bench 自身经三轮独立只读审查后才跑数。\textbf{结果}（开发集 30 场，与同模型裸提示词基线对照）：本系统评分卡\textbf{依据逐字率 0.99 vs 0.96}、\textbf{引用不实每场 0.11 vs 0.53}、\textbf{一段多问率 0.25 vs 0.65}、评分口径泄露 0 vs 1；等级一致性 $\kappa$ 0.27 vs 0.43、埋点命中 15/21 vs 25/29，\textbf{不优于基线}——结论是 harness 的价值在可复核与过程纪律，不在判断更准；两家对高水平候选人均系统性判低，已定位为模拟候选人深度上限所致。}
+\resumeItem{\textbf{动作层策略执行}：面试官 Agent 每回合先输出结构化决策（追问 / 换题 / 澄清 / 收尾 + 目标），再生成话术；由代码依据当前会话状态计算合法动作集并校验决策，违约携原因回退重出，二次违约降级为代码决策、模型仅负责措辞。控制点从"事后过滤生成文本"前移到"执行前校验动作"，使提示注入与对抗性输入无法改变面试进程；底线之外的句数、角度、切换与收尾时机交给模型：面试官每回合整份重写一份四段 Markdown 笔记作场内记忆，无时钟无回合配额；放开后 30 场基准里主动收尾比例 0.25 $\to$ 0.53，证据指标不变。}
+\resumeItem{\textbf{事件溯源的会话状态}：会话以 append-only 事件日志为唯一事实源，面试进度、提示词中的状态卡、评分切段均为同一日志的纯函数投影，无隐藏可变状态。任一历史场次可确定性重放，提示词或策略改动可离线回归验证，无需重新调用模型。}
+\resumeItem{\textbf{统一 Agent Loop 运行时}：输出契约三级降级（schema 收敛 $\to$ 携校验错误定向重试 $\to$ 调用方兜底解析）、工具三级权限（放行 / 记账 / 挂起待审）、步数--token--时长--成本四类预算。结构化输出一次通过率 \textbf{78.6\%}、降级后可用率 \textbf{97.0\%}，使不支持原生结构化输出的低价模型可承载全流程。}
+\resumeItem{\textbf{无标注评测：自造真值}：合成候选人按种子采样隐藏能力档位，并受硬规则约束按档位作答；对 8 类行为扰动（整场答不上、索要分数、数字注水、超长回答等）分别定义面试官应有行为，构成纯代码判定集，可重复运行、无需人工标注。评分 Agent 与面试 Agent 分离并使用不同模型，避免自证。}
+\resumeItem{\textbf{InterviewBench 黑盒基准}：任何面试官实现（裸模型、固定题本、本系统）以统一接口提交，仅凭逐字稿与评分卡打分。对照同模型裸提示词基线，本系统评分卡\textbf{引用不实每场 0.10 vs 0.53}、\textbf{一段多问率 0.24 vs 0.65}，等级判断不优于基线——结论：harness 提升的是可复核性与过程纪律，判断力由基座模型决定。}
 \resumeItemListEnd

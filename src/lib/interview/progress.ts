@@ -1,43 +1,32 @@
 import type { AreaKind, InterviewBrief, InterviewPace } from "@/lib/mock-interviews/brief/brief";
 
 /**
- * 覆盖配额（设计修订 v3 §10）：一场的长短由信息量决定，不由分钟数决定。
- * 节奏定这场聊几份材料（配额），每份材料最多问几句（预算）；一份材料"够了"就换下一份，配额里的材料都聊完就结束。
- * 没有时钟：用户中途离开、写得长、说得慢都不影响。进度本身由 state.ts 从事件推导；这里只剩配额表与计划。
+ * 参考值，不是配额（agent-freedom-plan §2）：一场聊几份材料由备课的模型定，每份材料问几句由面试官临场定。
+ * 这里的数字只出现在规划卡、议程与状态卡上作提示：每种材料的前几份是"主线"（按节奏参考数），其余是"备选"；
+ * 每份材料"一般几句"是常规长度。代码不按它截断、不按它补题、不按它退回动作。没有时钟。
  */
 
-/** 配额：每档聊几份材料。 */
-export const QUOTA: Record<InterviewPace, Record<AreaKind, number>> = {
+/** 各节奏一般聊几份材料（主线的数量）。 */
+export const REFERENCE_COUNT: Record<InterviewPace, Record<AreaKind, number>> = {
   quick: { project: 1, quick: 2, scenario: 1 },
   standard: { project: 2, quick: 3, scenario: 1 },
   deep: { project: 3, quick: 4, scenario: 2 },
 };
-/** 预算：每份材料最多问几句（切入 + 追问）。 */
-export const BUDGET: Record<AreaKind, number> = { project: 4, quick: 2, scenario: 3 };
-/** 项目不够配额时，缺的项目的预算分给现有项目，每个项目最多这么多句。 */
-export const MAX_PROJECT_BUDGET = 6;
-/** 同一个角度最多连追几句。 */
+/** 每份材料一般问几句（切入 + 追问；状态卡参考）。 */
+export const REFERENCE_TURNS: Record<AreaKind, number> = { project: 4, quick: 2, scenario: 3 };
 /** 材料的顺序：真实一面的顺序。 */
 const KIND_ORDER: AreaKind[] = ["project", "quick", "scenario"];
 
-export type PlannedMaterial = { id: string; kind: AreaKind; budget: number };
+export type MaterialLane = "main" | "backup";
+export type PlannedMaterial = { id: string; kind: AreaKind; reference: number; lane: MaterialLane };
 export type Plan = PlannedMaterial[];
 
-/**
- * 这场要聊的材料（按顺序）与各自预算。项目不够配额：缺的预算平均分给现有项目（每个最多 6 句），分不完的不补；
- * 简历没有项目：项目配额让给题池（题池 4 道封顶）。
- */
-export function planQuota(brief: Pick<InterviewBrief, "pace" | "areas">): Plan {
-  const quota = QUOTA[brief.pace];
-  const byKind = (kind: AreaKind) => brief.areas.filter((area) => area.kind === kind);
-  const projects = byKind("project").slice(0, quota.project);
-  const missing = quota.project - projects.length;
-  const projectBudget = projects.length === 0 ? BUDGET.project : Math.min(MAX_PROJECT_BUDGET, BUDGET.project + Math.floor((missing * BUDGET.project) / projects.length));
-  const quickCount = quota.quick + (projects.length === 0 ? quota.project : 0);
+/** 这场的材料（按种类排序）、各自的参考句数与主线 / 备选。备课写得多的排在后面当备选。 */
+export function planMaterials(brief: Pick<InterviewBrief, "pace" | "areas">): Plan {
   const plan: Plan = [];
   for (const kind of KIND_ORDER) {
-    const areas = kind === "project" ? projects : byKind(kind).slice(0, kind === "quick" ? quickCount : quota.scenario);
-    for (const area of areas) plan.push({ id: area.id, kind, budget: kind === "project" ? projectBudget : BUDGET[kind] });
+    const mains = REFERENCE_COUNT[brief.pace][kind];
+    brief.areas.filter((item) => item.kind === kind).forEach((area, index) => plan.push({ id: area.id, kind, reference: REFERENCE_TURNS[kind], lane: index < mains ? "main" : "backup" }));
   }
   return plan;
 }

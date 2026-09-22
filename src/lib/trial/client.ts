@@ -173,7 +173,7 @@ export async function evaluateSegment(input: {
 export async function requestReport(input: {
   jobTitle: string;
   brief: InterviewBrief;
-  ledger: string;
+  notes: string;
   threads: OutcomeThread[];
   questions: OutcomeQuestion[];
 }): Promise<MockInterviewReport> {

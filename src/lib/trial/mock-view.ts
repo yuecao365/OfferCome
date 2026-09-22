@@ -1,6 +1,5 @@
-import { planQuota } from "@/lib/interview/progress";
+import { planMaterials } from "@/lib/interview/progress";
 import { reviewTrail } from "@/lib/interview/review-trail";
-import { renderLedger } from "@/lib/interview/state";
 import { conversationView, traceTurns } from "@/lib/interview/views";
 import { buildSegmentInfo } from "@/lib/mock-interviews/segment-info";
 import type { MockInterviewTrace, MockInterviewView } from "@/lib/mock-interviews/types";
@@ -32,7 +31,7 @@ export function trialInterviewToView(interview: TrialInterview): MockInterviewVi
     dossier: null,
     materials: { resumeText: interview.resume.text, jobDescription: interview.job.jobDescription },
     conversation: interview.brief
-      ? conversationView({ brief: interview.brief, status: interview.status, startedAt: interview.startedAt, ledger: renderLedger(interview.brief, interview.ledger), messages: interview.messages })
+      ? conversationView({ brief: interview.brief, status: interview.status, startedAt: interview.startedAt, notes: interview.notes, messages: interview.messages })
       : null,
     estimates: [],
     trail: completed && interview.brief ? reviewTrail(interview.brief.areas, interview.messages) : null,
@@ -59,7 +58,7 @@ export function trialInterviewToTrace(interview: TrialInterview): MockInterviewT
     jobTitle: interview.job.jobTitle,
     status: interview.status,
     pace: interview.brief.pace,
-    plan: planQuota(interview.brief),
+    plan: planMaterials(interview.brief),
     areas: interview.brief.areas.map((area) => ({ id: area.id, name: area.name, kind: area.kind })),
     competencies: [],
     postmortem: null,

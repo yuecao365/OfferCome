@@ -3,8 +3,7 @@ import "server-only";
 import { enqueueCandidateProfileRefresh } from "@/lib/candidate-profile/background";
 import { prisma } from "@/lib/db";
 import { ensureSegments } from "@/lib/interview/aftermath";
-import { ledgerOf, parseEventRow, type InterviewEvent } from "@/lib/interview/events";
-import { renderLedger } from "@/lib/interview/state";
+import { notesOf, parseEventRow, type InterviewEvent } from "@/lib/interview/events";
 import { parseJsonArray, parseJsonObject } from "@/lib/json";
 
 import { parseStoredBrief } from "./brief/brief";
@@ -40,7 +39,7 @@ function loadSession(sessionId: string) {
         },
       },
       threads: { orderBy: { createdAt: "asc" } },
-      events: { where: { type: "ledger_written" }, orderBy: { seq: "asc" } },
+      events: { where: { type: "notes_written" }, orderBy: { seq: "asc" } },
     },
   });
 }
@@ -142,7 +141,7 @@ export async function completeMockInterview(
               jobTitle: session.interview.jobTitle,
               brief,
               areas,
-              ledger: renderLedger(brief, ledgerOf(session.events.map(parseEventRow).filter((item): item is InterviewEvent => item !== null))),
+              notes: notesOf(session.events.map(parseEventRow).filter((item): item is InterviewEvent => item !== null)) ?? "",
             }),
           )
         : ALL_SKIPPED_SUMMARY;

@@ -4,13 +4,16 @@
  * v3（2026-09-20）把独立的 advice 并进短板；库里与体验版存档里的 v2 读出时在内存里升级，不改存档。
  */
 
+import type { HypothesisSource } from "./brief/brief";
+
 export const REPORT_VERSION = 3;
 
 export const REPORT_WEAKNESS_KINDS = ["error", "missing", "pattern"] as const;
 export type ReportWeaknessKind = (typeof REPORT_WEAKNESS_KINDS)[number];
 
 export type HypothesisStatus = "open" | "confirmed" | "refuted";
-export type ReportHypothesis = { text: string; status: HypothesisStatus; verdict: string };
+/** source：简历上的说法 / 岗位要求；2026-09-22 之前的报告没有，按简历算。 */
+export type ReportHypothesis = { text: string; source?: HypothesisSource; status: HypothesisStatus; verdict: string };
 
 export type ReportWeakness = { point: string; areaName: string | null; kind: ReportWeaknessKind; practice: string };
 

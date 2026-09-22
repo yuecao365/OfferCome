@@ -58,21 +58,18 @@ export function InterviewReviewView({
   return (
     <>
       <PageHeader
-        description="先选择复盘范围，再聚焦查看某个项目、技术问题或通用问题的历史回答。"
         title="面试复盘"
       />
 
       <section className="grid gap-2 md:grid-cols-2">
         <ReviewScopeCard
           count={projectQuestionCount}
-          description="按单个实习或项目查看关联问题，避免所有项目问题混在一起。"
           href={reviewHref({ section: "projects", source: filters.source })}
           isActive={filters.section === "projects"}
           title="实习/项目"
         />
         <ReviewScopeCard
           count={data.technicalQuestionCount + data.generalQuestionCount}
-          description="查看技术题或通用问题，按问题聚合历史回答。"
           href={reviewHref({ section: "question_bank", source: filters.source })}
           isActive={filters.section === "question_bank"}
           title="通用问题库"

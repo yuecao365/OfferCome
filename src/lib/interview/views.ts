@@ -22,12 +22,11 @@ export type ConversationMessage = {
   content: string;
   /** 面试官这句聊的材料 id、角度、动作；候选人这句的信号。体验版靠它们重建状态，本地版读事件。 */
   topic?: string | null;
-  facet?: number | null;
+  facet?: string | number | null;
   action?: Action | null;
   signal?: Signal | null;
-  /** 面试官这一步的理由与这回合写的证据账（给候选人看的"面试官思路"）；旧消息没有。 */
-  why?: string | null;
-  ledger?: string | null;
+  /** 面试官这回合写的笔记（给候选人看的"面试官思路"从它投影）；旧消息没有。 */
+  notes?: string | null;
 };
 
 /** 体验版没有事件日志：从消息合成状态需要的事件。 */
@@ -51,13 +50,13 @@ export type Conversation = {
   startedAt: string | null;
   progress: ProgressSummary;
   messages: ConversationMessage[];
-  /** 仅已完成的会话带：面试官的证据账（按材料归组），报告页展示"面试官当时的判断"。 */
-  ledger: string | null;
+  /** 仅已完成的会话带：面试官最终版笔记，报告页展示"面试官当时的判断"。 */
+  notes: string | null;
   coveredCount: number;
 };
 
 /** 进度：本地版从事件日志算好传进来；体验版从消息现算（面试官的消息带代码指派的材料 id）。 */
-export function conversationView(input: { brief: InterviewBrief; status: string; startedAt: string | null; ledger: string; messages: ConversationMessage[]; coveredCount?: number; progress?: ProgressSummary }): Conversation {
+export function conversationView(input: { brief: InterviewBrief; status: string; startedAt: string | null; notes: string | null; messages: ConversationMessage[]; coveredCount?: number; progress?: ProgressSummary }): Conversation {
   const ended = input.status !== "in_progress";
   const progress = input.progress ?? progressSummaryOf(input.brief, eventsOfMessages(input.messages));
   return {
@@ -66,7 +65,7 @@ export function conversationView(input: { brief: InterviewBrief; status: string;
     startedAt: input.startedAt,
     progress: { covered: progress.covered, quota: progress.quota },
     messages: input.messages,
-    ledger: input.status === "completed" ? input.ledger : null,
+    notes: input.status === "completed" ? input.notes : null,
     coveredCount: input.coveredCount ?? 0,
   };
 }
@@ -79,25 +78,24 @@ export type TurnPayload = {
   endedBy: TurnResult["endedBy"];
   /** 已经聊过的材料数（房间顶栏的进度提示）。 */
   coveredCount: number;
-  /** 这回合写进证据账的一行（体验版靠它累计；本地版已落事件）。 */
-  ledger: { materialId: string; text: string } | null;
+  /** 这回合写的笔记（体验版靠它保存最新版；本地版已落事件）。 */
+  notes: string | null;
 };
 
-/** trace 页的一回合：候选人的话（带模型判的信号）、面试官的话（带动作与理由）、证据账、开销。 */
+/** trace 页的一回合：候选人的话（带模型判的信号）、面试官的话（带动作）、这回合的笔记、开销。 */
 export type TraceTurn = {
   turnIndex: number;
   candidate: { kind: string; content: string; composeMs: number | null; signal: string | null } | null;
   interviewer: { kind: string; content: string }[];
-  /** 这回合写进证据账的一行。 */
-  ledger: string | null;
+  /** 这回合写的笔记（整份）。 */
+  notes: string | null;
   /** 有过重出或代码定动作。 */
   fallback: boolean;
   fallbackReasons: string[];
-  /** 模型的动作与理由。 */
+  /** 模型的动作。 */
   action: string | null;
-  why: string | null;
   topic: string | null;
-  facet: number | null;
+  facet: string | number | null;
   run: TraceRun | null;
 };
 
@@ -110,7 +108,7 @@ export type Trace = {
   status: string;
   pace: InterviewBrief["pace"];
   /** 这场的配额：材料按顺序与预算。 */
-  plan: { id: string; kind: InterviewBrief["areas"][number]["kind"]; budget: number }[];
+  plan: { id: string; kind: InterviewBrief["areas"][number]["kind"]; reference: number }[];
   areas: { id: string; name: string; kind: InterviewBrief["areas"][number]["kind"] }[];
   competencies: { id: string; name: string }[];
   /** 自动复盘（从事件现算）；体验版没有事件，为 null。 */
@@ -168,14 +166,14 @@ export function traceTurns(events: TraceSource[], runs?: Map<string, TraceRun>):
       continue;
     }
     if (item.type === "interviewer_said") {
-      rows.push({ turnIndex: rows.length, candidate: pendingCandidate, interviewer: [{ kind: String(item.payload.kind ?? "say"), content: String(item.payload.content ?? "") }], ledger: null, fallback: pendingFallbacks.length > 0, fallbackReasons: pendingFallbacks, action: typeof item.payload.action === "string" ? item.payload.action : null, why: typeof item.payload.why === "string" ? item.payload.why : null, topic: typeof item.payload.topic === "string" ? item.payload.topic : null, facet: typeof item.payload.facet === "number" ? item.payload.facet : null, run: item.runId ? (runs?.get(item.runId) ?? null) : null });
+      rows.push({ turnIndex: rows.length, candidate: pendingCandidate, interviewer: [{ kind: String(item.payload.kind ?? "say"), content: String(item.payload.content ?? "") }], notes: null, fallback: pendingFallbacks.length > 0, fallbackReasons: pendingFallbacks, action: typeof item.payload.action === "string" ? item.payload.action : null, topic: typeof item.payload.topic === "string" ? item.payload.topic : null, facet: typeof item.payload.facet === "number" || typeof item.payload.facet === "string" ? item.payload.facet : null, run: item.runId ? (runs?.get(item.runId) ?? null) : null });
       pendingCandidate = null;
       pendingFallbacks = [];
       continue;
     }
     const current = rows.at(-1);
     if (!current) continue;
-    if (item.type === "ledger_written") current.ledger = String(item.payload.text ?? "");
+    if (item.type === "notes_written") current.notes = String(item.payload.content ?? "");
   }
   return rows;
 }

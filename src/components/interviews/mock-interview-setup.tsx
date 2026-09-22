@@ -15,9 +15,7 @@ import {
   Select,
   Textarea,
 } from "@/components/ui/form-controls";
-import { QUOTA } from "@/lib/interview/progress";
 
-const quotaLabel = (pace: keyof typeof QUOTA) => `${QUOTA[pace].project} 个项目 + ${QUOTA[pace].quick} 道基础 + ${QUOTA[pace].scenario} 道场景`;
 import {
   DEFAULT_INTERVIEW_PACE,
   INTERVIEW_PACE_LABELS,
@@ -201,7 +199,7 @@ export function MockInterviewSetup({
           <summary className="flex cursor-pointer select-none flex-wrap items-baseline gap-x-3 gap-y-1 [&::-webkit-details-marker]:hidden">
             <h2 className="text-sm font-semibold text-foreground">面试设置</h2>
             <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground group-open:hidden">
-              {resumes.find((resume) => resume.isDefault)?.name ?? resumes[0]?.name} · {INTERVIEW_PACE_LABELS[DEFAULT_INTERVIEW_PACE]}节奏（{quotaLabel(DEFAULT_INTERVIEW_PACE)}）· 文字作答（可用麦克风输入）
+              {resumes.find((resume) => resume.isDefault)?.name ?? resumes[0]?.name} · {INTERVIEW_PACE_LABELS[DEFAULT_INTERVIEW_PACE]}节奏 · 文字作答（可用麦克风输入）
             </span>
             <span className="text-xs text-muted-foreground group-open:hidden">调整</span>
             <span className="w-full text-[0.8125rem] text-muted-foreground group-open:block hidden">选择面试使用的简历、节奏和作答方式。节奏定这场聊几份材料，长短由聊完为止，不按时间。作答打字或按麦克风说话都行，转写后可以改再发。面试官会根据岗位和简历备课，题目在对话中临场提出。</span>
@@ -222,7 +220,7 @@ export function MockInterviewSetup({
             面试节奏
             <Select defaultValue={DEFAULT_INTERVIEW_PACE} name="pace">
               {INTERVIEW_PACES.map((pace) => (
-                <option key={pace} value={pace}>{INTERVIEW_PACE_LABELS[pace]}（{quotaLabel(pace)}）</option>
+                <option key={pace} value={pace}>{INTERVIEW_PACE_LABELS[pace]}</option>
               ))}
             </Select>
           </FieldLabel>

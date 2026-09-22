@@ -3,6 +3,7 @@ import type { AgentRunResult } from "@/lib/ai/run-agent";
 import type { InterviewBrief } from "@/lib/mock-interviews/brief/brief";
 
 import { checkAction, checkReply, fallbackAction, type Proposal } from "./constraints";
+import { notesVerdict } from "./notes";
 import { scriptInterviewer } from "./eval/script-policy";
 import { ablated, evalPolicy } from "./eval/switches";
 import { event, stateEventsOf, type CandidateControl, type InterviewEvent, type NewEvent, type TranscriptLine } from "./events";
@@ -11,7 +12,7 @@ import { stateOf, type Action, type InterviewState, type Signal } from "./state"
 
 /**
  * 一个回合（重建 v5 §3）：候选人说话 → 按钮直接处理 → 否则一次非流式模型调用（模型判 signal、提 action、写 ledger、说 reply）
- * → 代码只校验动作（约束表）：违约把原因发回让模型重出一次，仍违约就由代码定动作再让模型说一次 → 文字只查内部词 → 落事件。
+ * → 代码只守动作底线：违约把原因发回让模型重出一次，仍违约就由代码定动作再让模型说一次 → 文字只查内部词 → 笔记只查格式（退回一次，第二次放行）→ 落事件。
  * 没有任何固定句：模型说不出话，这回合就失败报给用户重试。
  */
 
@@ -36,7 +37,7 @@ export type EndedBy = "interviewer" | "candidate";
 export type TurnResult = {
   events: NewEvent[];
   /** 面试官那句带 why（为什么这么问）与 ledger（这回合写的证据账），给候选人看的"面试官思路"用；体验版靠它们存进会话文档。 */
-  said: { role: "interviewer" | "candidate"; kind: string; content: string; topic?: string | null; facet?: number | null; action?: Action | null; signal?: Signal | null; why?: string | null; ledger?: string | null }[];
+  said: { role: "interviewer" | "candidate"; kind: string; content: string; topic?: string | null; facet?: string | null; action?: Action | null; signal?: Signal | null; notes?: string | null }[];
   progress: { covered: number; quota: number };
   phase: TurnPhase;
   endedBy: EndedBy | null;
@@ -78,7 +79,7 @@ export async function runTurn(input: { runId: string; config: AiTaskConfig; stat
 
   // 按钮：结束不调模型；跳过与其它按钮交给模型（它会看到 control 对应的话）。
   if (candidate?.control === "end") {
-    const closing = event("interviewer_said", { content: FIXED_CLOSING, kind: "closing", topic: null, facet: null, action: "end", signal: "wants_end", why: "候选人按了结束" });
+    const closing = event("interviewer_said", { content: FIXED_CLOSING, kind: "closing", topic: null, facet: null, action: "end", signal: "wants_end" });
     const after = stateOf(state.brief, stateEventsOf([...state.events, asEvent(candidateEvent(candidate, "wants_end"), state.events.length), asEvent(closing, state.events.length + 1)]));
     return {
       events: [candidateEvent(candidate, "wants_end"), closing, event("ended", { by: "candidate" })],
@@ -93,7 +94,7 @@ export async function runTurn(input: { runId: string; config: AiTaskConfig; stat
   // 状态里先算上候选人这句（signal 还不知道，先按 null；跳过按钮的效果立刻生效）。
   const pending = candidate ? [asEvent(candidateEvent(candidate, null), state.events.length)] : [];
   const before = stateOf(state.brief, stateEventsOf([...state.events, ...pending]));
-  const describe = (forced: Proposal) => `${forced.action}${forced.target ? `，材料 ${forced.target}` : ""}${forced.facet !== null ? `，角度 ${forced.facet}` : ""}`;
+  const describe = (forced: Proposal) => `${forced.action}${forced.target ? `，材料 ${forced.target}` : ""}${forced.facet ? `，角度「${forced.facet}」` : ""}`;
   const call = (retry: string | null, forced: Proposal | null) =>
     interviewer({
       runId: forced ? `${input.runId}:forced` : retry ? `${input.runId}:retry` : input.runId,
@@ -121,16 +122,28 @@ export async function runTurn(input: { runId: string; config: AiTaskConfig; stat
    */
   const violations: string[] = [];
   let forced: Proposal | null = null;
+  // 笔记只查格式（标题齐、编号不丢、不超长）：退回一次，第二次放行并记账，不代码接管。
+  const hypothesisIds = state.brief.hypotheses.map((item) => item.id);
+  let notesRetried = false;
   function judge(output: InterviewerOutput): string | null {
-    if (forced) return null;
-    const judged = judgedBy(output);
-    const verdict = verdictOf(judged, proposalOf(output, before));
-    const reply = replyVerdict(output);
-    if (verdict.ok && reply.ok) return null;
-    violations.push(verdict.ok ? (reply as { reason: string }).reason : verdict.reason);
-    if (violations.length < 2) return violations[0];
-    forced = fallbackAction(judged);
-    return `代码已定这回合的动作：${describe(forced)}；action / target / facet 照填，只写这句话`;
+    if (!forced) {
+      const judged = judgedBy(output);
+      const verdict = verdictOf(judged, proposalOf(output, before));
+      const reply = replyVerdict(output);
+      if (!verdict.ok || !reply.ok) {
+        violations.push(verdict.ok ? (reply as { reason: string }).reason : verdict.reason);
+        if (violations.length < 2) return violations[0];
+        forced = fallbackAction(judged);
+        return `代码已定这回合的动作：${describe(forced)}；action / target / facet 照填，只写这句话`;
+      }
+    }
+    const notesReason = notesVerdict(output.notes, hypothesisIds);
+    if (notesReason && !notesRetried) {
+      notesRetried = true;
+      violations.push(notesReason);
+      return notesReason;
+    }
+    return null;
   }
   const askedByTool = (item: AgentRunResult<InterviewerOutput>) => item.toolCalls.some((toolCall) => toolCall.toolName === ASK_TOOL);
 
@@ -151,7 +164,7 @@ export async function runTurn(input: { runId: string; config: AiTaskConfig; stat
   const output = result.output;
   const signal: Signal = candidate ? (candidate.control === "skip" ? "answered" : output.signal) : "answered";
   const materialId = proposal.action === "switch" ? proposal.target : proposal.action === "end" ? null : before.currentId;
-  const facet = proposal.action === "probe" ? proposal.facet : null;
+  const facet = proposal.action === "probe" ? (proposal.facet?.trim() || null) : null;
   const kind = KIND_OF[proposal.action];
   const events: NewEvent[] = [];
   const said: TurnResult["said"] = [];
@@ -162,12 +175,11 @@ export async function runTurn(input: { runId: string; config: AiTaskConfig; stat
   for (const call of toolUsesOf(result.toolCalls)) events.push(event("tool_called", call, result.runId));
   for (const reason of violations) events.push(event("fallback_used", { reason: `重出：${reason}`, original: null }, result.runId));
   const reply = output.reply.trim();
-  events.push(event("interviewer_said", { content: reply, kind, topic: state.phase === "opening" ? null : materialId, facet, action: proposal.action, signal, why: output.why.slice(0, 120) }, result.runId));
-  const ledger = output.ledger.trim();
-  const ledgerMaterial = before.currentId;
-  const ledgerWritten = Boolean(ledger && ledgerMaterial && candidate && !ablated("ledger"));
-  said.push({ role: "interviewer", kind, content: reply, topic: state.phase === "opening" ? null : materialId, facet, action: proposal.action, signal, why: output.why.slice(0, 120), ledger: ledgerWritten ? ledger.slice(0, 200) : null });
-  if (ledgerWritten && ledgerMaterial) events.push(event("ledger_written", { materialId: ledgerMaterial, text: ledger.slice(0, 200) }, result.runId));
+  events.push(event("interviewer_said", { content: reply, kind, topic: state.phase === "opening" ? null : materialId, facet, action: proposal.action, signal }, result.runId));
+  // 笔记：每回合整份重写；消融"笔记"时不落，状态卡永远只给开场预填的那份。
+  const notes = ablated("notes") ? null : output.notes.trim() || null;
+  said.push({ role: "interviewer", kind, content: reply, topic: state.phase === "opening" ? null : materialId, facet, action: proposal.action, signal, notes });
+  if (notes) events.push(event("notes_written", { content: notes }, result.runId));
   const ended = proposal.action === "end";
   if (ended) events.push(event("ended", { by: "interviewer" }));
   const after = stateOf(state.brief, stateEventsOf([...state.events, ...events.map((item, index) => asEvent(item, state.events.length + index))]));
@@ -175,9 +187,20 @@ export async function runTurn(input: { runId: string; config: AiTaskConfig; stat
 }
 
 /** 模型的动作 → 提议：开场固定 probe；probe 没带 target 就是当前材料。 */
+/** 模型写的 switch 目标 → 材料 id：它常把 id 和名字连着写（"q2 回归门禁的噪声底线"），按前缀 id 或材料名认出来；认不出原样返回让底线退回。 */
+export function resolveTarget(state: InterviewState, target: string | null): string | null {
+  if (!target) return target;
+  const text = target.trim();
+  if (state.materials.some((item) => item.id === text)) return text;
+  const head = text.split(/[\s：:「」·、，,]/)[0];
+  if (head && state.materials.some((item) => item.id === head)) return head;
+  const byName = state.materials.find((item) => text.includes(item.name) || item.name.includes(text));
+  return byName ? byName.id : text;
+}
+
 function proposalOf(output: InterviewerOutput, state: InterviewState): Proposal {
   if (state.phase === "opening") return { action: "probe", target: null, facet: null };
-  return { action: output.action, target: output.action === "switch" ? output.target : output.action === "probe" ? state.currentId : null, facet: output.action === "probe" ? output.facet : null };
+  return { action: output.action, target: output.action === "switch" ? resolveTarget(state, output.target) : output.action === "probe" ? state.currentId : null, facet: output.action === "probe" ? output.facet : null };
 }
 
 function asEvent(item: NewEvent, seq: number): InterviewEvent {

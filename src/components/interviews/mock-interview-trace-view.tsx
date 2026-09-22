@@ -92,7 +92,7 @@ export function MockInterviewTraceView({ trace }: { trace: MockInterviewTrace })
             返回这场面试
           </ButtonLink>
         }
-        description={`${INTERVIEW_PACE_LABELS[trace.pace]}节奏 · 配额 ${trace.plan.length} 份（${AREA_KINDS.map((kind) => `${AREA_KIND_LABELS[kind]} ${trace.plan.filter((item) => item.kind === kind).length}`).join(" / ")}）· 备课材料 ${trace.areas.length} 份`}
+        description={`${INTERVIEW_PACE_LABELS[trace.pace]}节奏 · 材料 ${trace.plan.length} 份（${AREA_KINDS.map((kind) => `${AREA_KIND_LABELS[kind]} ${trace.plan.filter((item) => item.kind === kind).length}`).join(" / ")}）· 备课材料 ${trace.areas.length} 份`}
         title={`开发者记录 · ${trace.companyName} · ${trace.jobTitle}`}
       />
       <Dashboard trace={trace} />
@@ -124,7 +124,7 @@ export function MockInterviewTraceView({ trace }: { trace: MockInterviewTrace })
               <p className="text-xs font-semibold text-muted-foreground">
                 第 {turn.turnIndex + 1} 回合
                 {turn.action ? ` · ${turn.action}` : ""}
-                {turn.facet !== null ? ` · 角度 ${turn.facet + 1}` : ""}
+                {turn.facet !== null ? ` · 角度 ${typeof turn.facet === "number" ? turn.facet + 1 : turn.facet}` : ""}
                 {turn.candidate?.signal ? ` · 候选人：${turn.candidate.signal}` : ""}
               </p>
               {turn.run ? (
@@ -158,9 +158,13 @@ export function MockInterviewTraceView({ trace }: { trace: MockInterviewTrace })
             ))}
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               {turn.fallback ? <Badge tone="warning">重出 {turn.fallbackReasons.length} 次：{turn.fallbackReasons.join("；")}</Badge> : null}
-              {turn.why ? <span className="rounded-control bg-surface-subtle px-2 py-1">理由：{turn.why}</span> : null}
               {turn.topic ? <span className="rounded-control bg-surface-subtle px-2 py-1">材料：{trace.areas.find((area) => area.id === turn.topic)?.name ?? turn.topic}</span> : null}
-              {turn.ledger ? <span className="w-full rounded-control bg-surface-subtle px-2 py-1">证据账：{turn.ledger}</span> : null}
+              {turn.notes ? (
+                <details className="w-full">
+                  <summary className="cursor-pointer">这回合的笔记</summary>
+                  <pre className="mt-1 whitespace-pre-wrap rounded-control bg-surface-subtle px-2 py-1 font-sans text-xs leading-5">{turn.notes}</pre>
+                </details>
+              ) : null}
               {turn.run && turn.run.steps.length > 0 ? (
                 <details className="w-full">
                   <summary className="cursor-pointer">这一步：模型看到的输入、输出与工具（{turn.run.steps.length} 行）</summary>

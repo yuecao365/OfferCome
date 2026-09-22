@@ -49,7 +49,6 @@ export function MockInterviewSessionView({
             />
           </>
         }
-        description="像真实面试一样对话：面试官会追问、给提示、切换话题；结束后生成基于证据的评估。"
         title={`${session.companyName} · ${session.jobTitle}`}
       />
       {session.status === "generating" || session.status === "generation_failed" ? (

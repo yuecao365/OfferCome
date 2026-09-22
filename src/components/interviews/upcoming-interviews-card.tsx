@@ -1,7 +1,7 @@
 import { CalendarClock, NotebookPen } from "lucide-react";
 
 import { ButtonLink } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { describeInterviewTime } from "@/lib/interviews/relative-time";
 import { roundLabel } from "@/lib/interviews/types";
 import type { UpcomingInterview, UpcomingInterviews } from "@/lib/interviews/upcoming";
@@ -53,9 +53,6 @@ export function UpcomingInterviewsCard({
           <CalendarClock aria-hidden="true" className="size-4 text-muted-foreground" strokeWidth={1.5} />
           面试日程
         </CardTitle>
-        <CardDescription>
-          面试前可以直接查看这家公司问过的问题，并针对性练一场。
-        </CardDescription>
       </CardHeader>
       <CardContent className="divide-y divide-border py-0">
         {upcoming.map((interview) => (

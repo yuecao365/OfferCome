@@ -6,7 +6,7 @@ import { ApplicationFilters } from "@/components/application-filters";
 import { ApplicationsTable } from "@/components/applications-table";
 import { PageHeader } from "@/components/page-header";
 import { SyncBossButton } from "@/components/sync-boss-button";
-import { accentIf, StatTiles } from "@/components/stat-tiles";
+import { accentIf, StatTiles, toneIf } from "@/components/stat-tiles";
 import { Card } from "@/components/ui/card";
 import { ListPagination } from "@/components/ui/list-pagination";
 import type { ApplicationInterviewContext } from "@/components/application-interview-actions";
@@ -43,8 +43,8 @@ function tilesOf(stats: { total: number; stageCounts: Record<ApplicationStage, n
   return [
     { label: "全部投递", value: stats.total, note: `已拒绝 ${stats.stageCounts.rejected ?? 0}` },
     { label: "待跟进", value: stats.stageCounts.applied ?? 0, note: "仍停留在「已投递」", tone: accentIf(stats.stageCounts.applied ?? 0) },
-    { label: "面试中", value: interviewing, note: "笔试到 HR 面之间" },
-    { label: "Offer", value: stats.stageCounts.offer ?? 0, note: "当前处于 Offer 阶段" },
+    { label: "面试中", value: interviewing, note: "笔试到 HR 面之间", tone: toneIf(interviewing, "info") },
+    { label: "Offer", value: stats.stageCounts.offer ?? 0, note: "当前处于 Offer 阶段", tone: toneIf(stats.stageCounts.offer ?? 0, "success") },
   ];
 }
 export function ApplicationsView({
@@ -86,7 +86,6 @@ export function ApplicationsView({
             <SyncBossButton />
           </>
         }
-        description="集中管理投递记录，按公司、岗位、流程状态、来源和时间快速筛选。"
         title="投递岗位"
       />
       {stats ? <StatTiles tiles={tilesOf(stats)} /> : null}

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test, { after, before, beforeEach, mock } from "node:test";
 
 import type { InterviewerCall, InterviewerOutput } from "@/lib/interview/interviewer";
+import { initialNotes } from "@/lib/interview/notes";
 import { testBrief } from "@/lib/test-support/interview-brief";
 import { createTestDatabase } from "@/lib/test-support/prisma-test-db";
 
@@ -39,7 +40,7 @@ function defaultBlueprint() {
 }
 
 function briefStub(): InterviewBrief {
-  return testBrief({ hypotheses: [{ id: "h1", text: "验证压测经历", evidence: "压测", projectId: "proj-1" }] });
+  return testBrief({ hypotheses: [{ id: "h1", source: "resume", text: "验证压测经历", evidence: "压测", projectId: "proj-1" }] });
 }
 
 mock.module("server-only", { namedExports: {} });
@@ -94,7 +95,7 @@ mock.module("@/lib/candidate-profile/background", { namedExports: { enqueueCandi
 
 mock.module("@/lib/settings/ai", { namedExports: { getAiTaskConfig: async () => ({ task: "text", provider: "openai", model: "gpt-test", baseURL: null, apiKey: "k", requiresApiKey: true }) } });
 
-const say = (text: string, extras: Partial<InterviewerOutput> = {}): InterviewerOutput => ({ signal: "answered", action: "probe", target: null, facet: null, why: "顺着问", ledger: "", reply: text, ...extras });
+const say = (text: string, extras: Partial<InterviewerOutput> = {}): InterviewerOutput => ({ signal: "answered", action: "probe", target: null, facet: null, notes: initialNotes(briefStub()), reply: text, ...extras });
 const enter = (target: string, text = `${target} 的切入问法？`) => say(text, { action: "switch", target });
 
 type Service = typeof import("./service");
@@ -242,7 +243,7 @@ test("the opening turn writes the interviewer's words and events, and is replaye
   const messages = await prisma.mockInterviewMessage.findMany({ where: { sessionId } });
   assert.equal(messages.length, 1);
   assert.equal(messages[0].kind, "say");
-  assert.deepEqual(await eventTypes(sessionId), ["interviewer_said"]);
+  assert.deepEqual(await eventTypes(sessionId), ["interviewer_said", "notes_written"]);
   assert.ok((await readSession(sessionId)).startedAt);
 
   const again = await runTurn(sessionId, null);
@@ -250,9 +251,9 @@ test("the opening turn writes the interviewer's words and events, and is replaye
   assert.equal(stubs.policyCalls, 1);
 });
 
-test("a candidate message and the reply land together with the model's signal and ledger; a duplicate clientId replays without a second model call", async () => {
+test("a candidate message and the reply land together with the model's signal and notes; a duplicate clientId replays without a second model call", async () => {
   const { sessionId } = await seedReadySession();
-  stubs.outputs = [say("你好。"), enter("p1-overview", "先聊第一个项目：整体架构？"), say("主循环里你负责哪一段？", { facet: 0, ledger: "自我介绍提到主循环" })];
+  stubs.outputs = [say("你好。"), enter("p1-overview", "先聊第一个项目：整体架构？"), say("主循环里你负责哪一段？", { facet: "负责边界" })];
   await runTurn(sessionId, null);
   await runTurn(sessionId, { clientId: "c0", content: "我叫小明。" });
   const turn = await runTurn(sessionId, { clientId: "c1", content: "我做了主循环。" });
@@ -264,7 +265,7 @@ test("a candidate message and the reply land together with the model's signal an
       ["interviewer", "say", "answered"],
     ],
   );
-  assert.deepEqual(await eventTypes(sessionId), ["interviewer_said", "candidate_said", "interviewer_said", "candidate_said", "interviewer_said", "ledger_written"]);
+  assert.deepEqual(await eventTypes(sessionId), ["interviewer_said", "notes_written", "candidate_said", "interviewer_said", "notes_written", "candidate_said", "interviewer_said", "notes_written"]);
   const again = await runTurn(sessionId, { clientId: "c1", content: "我做了主循环。" });
   assert.equal(again.replay, true);
   assert.equal(again.replay && again.messages[0]?.content, "主循环里你负责哪一段？");
@@ -295,17 +296,17 @@ test("a failed model turn fails the request instead of inventing a line; nothing
 
 test("an out-of-bounds action is sent back once with the reason, then the code fixes the action; a permitted farewell ends the interview", async () => {
   const { sessionId } = await seedReadySession();
-  // 开场后就想告别：退回重出；重出仍告别：代码定 switch 到第一份材料，模型只写这句话。
-  stubs.outputs = [say("你好。"), say("今天就到这里。", { action: "end" }), say("再见。", { action: "end" }), say("先聊第一个项目吧。", { action: "switch", target: "p1-overview" })];
+  // 开场后切到不存在的材料：退回重出；仍不存在：代码定 switch 到第一份材料，模型只写这句话。
+  stubs.outputs = [say("你好。"), say("聊聊不存在的。", { action: "switch", target: "nope" }), say("再聊聊。", { action: "switch", target: "nope" }), say("先聊第一个项目吧。", { action: "switch", target: "p1-overview" })];
   await runTurn(sessionId, null);
   const early = await runTurn(sessionId, { clientId: "c1", content: "我叫小明。" });
   assert.equal(early.replay === false && early.payload.phase, "running");
   assert.equal(early.replay === false && early.payload.newMessages.at(-1)?.content, "先聊第一个项目吧。");
-  assert.match(stubs.cards[2], /还不能收尾/);
+  assert.match(stubs.cards[2], /必须是材料 id/);
   assert.match(stubs.cards[3], /代码已定这回合的动作：switch，材料 p1-overview/);
   assert.equal((await eventTypes(sessionId)).filter((type) => type === "fallback_used").length, 2);
-  // 连续三句答不上：允许收尾。
-  stubs.outputs = [say("换个角度：为什么选这个架构？", { signal: "dont_know", facet: 0 }), say("那模块拆分呢？", { signal: "dont_know", facet: 1 }), say("今天就到这里，谢谢你的时间。", { signal: "dont_know", action: "end" })];
+  // 连续答不上：面试官自己判断收尾。
+  stubs.outputs = [say("换个角度：为什么选这个架构？", { signal: "dont_know", facet: "为什么这么设计" }), say("那模块拆分呢？", { signal: "dont_know", facet: "模块拆分" }), say("今天就到这里，谢谢你的时间。", { signal: "dont_know", action: "end" })];
   await runTurn(sessionId, { clientId: "c2", content: "不知道。" });
   await runTurn(sessionId, { clientId: "c3", content: "不记得了。" });
   const last = await runTurn(sessionId, { clientId: "c4", content: "不会。" });

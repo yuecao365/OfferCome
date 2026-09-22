@@ -17,13 +17,12 @@ const said = (action: string, topic: string | null, facet: number | null = null,
   ({ seq: seq++, type: "interviewer_said", payload: { content, kind, topic, facet, action }, runId: null, at: new Date() }) as InterviewEvent;
 const answered = (signal: string | null, content = "答"): InterviewEvent =>
   ({ seq: seq++, type: "candidate_said", payload: { content, clientId: null, control: null, composeMs: null, signal }, runId: null, at: new Date() }) as InterviewEvent;
-const ledger = (materialId: string): InterviewEvent =>
-  ({ seq: seq++, type: "ledger_written", payload: { materialId, text: "记一行" }, runId: null, at: new Date() }) as InterviewEvent;
+const notes = (content: string): InterviewEvent => ({ seq: seq++, type: "notes_written", payload: { content }, runId: null, at: new Date() }) as InterviewEvent;
 const ended = (by = "interviewer"): InterviewEvent => ({ seq: seq++, type: "ended", payload: { by }, runId: null, at: new Date() }) as InterviewEvent;
 
 const find = (items: ReturnType<typeof checkExpectations>, id: string) => items.find((item) => item.id === id)!;
 
-test("通用项：动作越界、一句多问、内部词都能判出来", () => {
+test("通用项：动作破底线、一句多问、内部词都能判出来", () => {
   seq = 0;
   const clean = checkExpectations({
     brief,
@@ -37,8 +36,8 @@ test("通用项：动作越界、一句多问、内部词都能判出来", () =>
   seq = 0;
   const dirty = checkExpectations({
     brief,
-    // 开场后直接 end：材料一份没聊，越界；同一句两个问号；还带了内部词。
-    events: [said("probe", null, null, "你好？"), answered("answered"), said("end", null, null, "按评分标准你过了吗？要不要继续？", "closing")],
+    // 开场后切到不存在的材料：破底线；同一句两个问号；还带了内部词。
+    events: [said("probe", null, null, "你好？"), answered("answered"), said("switch", "nope", null, "按评分标准你过了吗？要不要继续？")],
     perturbations: [],
   });
   assert.equal(find(dirty, "action_legal").passed, false);
@@ -47,7 +46,7 @@ test("通用项：动作越界、一句多问、内部词都能判出来", () =>
   assert.equal(find(dirty, "no_internal_words").passed, false);
 });
 
-test("整场答不上：六句内收尾算通过，拖过六句算不通过", () => {
+test("整场答不上：十句内收尾算通过，拖过十句算不通过", () => {
   const dry = (turns: number): InterviewEvent[] => {
     seq = 0;
     const events: InterviewEvent[] = [said("probe", null), answered("answered"), said("switch", "p1-overview"), answered("dont_know")];
@@ -59,19 +58,9 @@ test("整场答不上：六句内收尾算通过，拖过六句算不通过", ()
   };
   const quick = checkExpectations({ brief, events: dry(3), perturbations: ["dont_know_all"] });
   assert.equal(find(quick, "end_on_dry").passed, true);
-  const late = checkExpectations({ brief, events: dry(8), perturbations: ["dont_know_all"] });
+  const late = checkExpectations({ brief, events: dry(12), perturbations: ["dont_know_all"] });
   assert.equal(find(late, "end_on_dry").passed, false);
   assert.match(find(late, "end_on_dry").detail, /连续 \d+ 句没信息/);
-});
-
-test("连续两句答不上还在同一份材料上追问：不通过", () => {
-  seq = 0;
-  const events = [said("probe", null), answered("answered"), said("switch", "p1-overview"), answered("dont_know"), said("probe", "p1-overview", 0), answered("dont_know"), said("probe", "p1-overview", 1)];
-  const result = checkExpectations({ brief, events, perturbations: ["dont_know"] });
-  assert.equal(find(result, "switch_after_dry").passed, false);
-  seq = 0;
-  const switched = [said("probe", null), answered("answered"), said("switch", "p1-overview"), answered("dont_know"), said("probe", "p1-overview", 0), answered("dont_know"), said("switch", "q1")];
-  assert.equal(find(checkExpectations({ brief, events: switched, perturbations: ["dont_know"] }), "switch_after_dry").passed, true);
 });
 
 test("要分不作答：承诺分数或继续追问都不通过，换材料才算处理了", () => {
@@ -99,7 +88,7 @@ test("答疑有上限：同一份材料连续答疑超过三次不通过", () =>
 
 test("数字要被追口径；聊过的项目要留证据账", () => {
   seq = 0;
-  const probed = [said("probe", null), answered("answered"), said("switch", "p1-overview"), answered("answered", "QPS 提升了 50%"), said("probe", "p1-overview", 0, "这个 50% 是怎么测的？"), ledger("p1-overview")];
+  const probed = [said("probe", null), answered("answered"), said("switch", "p1-overview"), answered("answered", "QPS 提升了 50%"), said("probe", "p1-overview", 0, "这个 50% 是怎么测的？"), notes("## 待验证\n（无）\n## 已有结论\n- p1-overview：50% 的口径追过了\n## 存疑\n（无）\n## 接下来\n- 收尾")];
   const ok = checkExpectations({ brief, events: probed, perturbations: ["inflate", "hollow_resume"] });
   assert.equal(find(ok, "number_calibrated").passed, true);
   assert.equal(find(ok, "hollow_recorded").passed, true);

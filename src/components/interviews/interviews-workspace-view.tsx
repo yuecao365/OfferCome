@@ -10,7 +10,7 @@ import { InterviewStageFlow } from "@/components/interviews/interview-stage-flow
 import { InterviewWorkspaceLinks } from "@/components/interviews/interview-workspace-links";
 import { UpcomingInterviewsCard } from "@/components/interviews/upcoming-interviews-card";
 import { PageHeader } from "@/components/page-header";
-import { accentIf, StatTiles } from "@/components/stat-tiles";
+import { StatTiles, toneIf } from "@/components/stat-tiles";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { buildCareerFlowSnapshot } from "@/lib/applications/analytics";
@@ -107,7 +107,6 @@ export function InterviewsWorkspaceView({
             {...newInterview}
           />
         }
-        description="集中管理面试记录、模拟训练与复盘，并用真实证据持续完善能力画像。"
         title="面试工作台"
       />
 
@@ -127,7 +126,7 @@ export function InterviewsWorkspaceView({
             ),
           },
           { label: "模拟训练", value: workspace.completedMockCount, note: "已完成的模拟面试" },
-          { label: "当前 Offer", value: progress.offer, note: "处于 Offer 阶段的岗位", tone: accentIf(progress.offer) },
+          { label: "当前 Offer", value: progress.offer, note: "处于 Offer 阶段的岗位", tone: toneIf(progress.offer, "success") },
           { label: "模拟均分", suffix: "分", value: Math.round(workspace.averageMockScore ?? 0), note: "已完成模拟面试的平均总分" },
         ]}
       />
@@ -135,7 +134,6 @@ export function InterviewsWorkspaceView({
       <Card>
         <CardHeader>
           <CardTitle>面试进程地图</CardTitle>
-          <CardDescription>查看岗位至少到达的面试轮次；亮起的连线表示已有岗位走到该阶段。</CardDescription>
         </CardHeader>
         <CardContent>
           <InterviewStageFlow progress={progress} />
@@ -169,7 +167,6 @@ export function InterviewsWorkspaceView({
       <Card>
         <CardHeader>
           <CardTitle>最近面试</CardTitle>
-          <CardDescription>最近更新的真实或模拟面试记录。</CardDescription>
         </CardHeader>
         <CardContent className="py-1">
           {workspace.recent.length === 0 ? (

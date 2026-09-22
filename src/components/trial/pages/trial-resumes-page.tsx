@@ -61,7 +61,6 @@ export function TrialResumesPage() {
 
   return (
     <ResumesView
-      description="管理简历版本。文件与解析内容都只保存在你自己的浏览器，服务器不存储。"
       listActions={{
         deleteAction: async () => {
           await deleteStoredFile(TRIAL_RESUME_FILE_KEY);

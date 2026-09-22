@@ -66,7 +66,7 @@ export function RouteLoading({
 }) {
   return (
     <AppShell active={active} subActive={subActive}>
-      <PageHeader description="正在读取本地数据，请稍候。" title={title} />
+      <PageHeader title={title} />
       <div aria-busy="true" aria-label={`${title}正在加载`} className="grid gap-4" role="status">
         {variantSkeletons[variant]}
         <span className="sr-only">正在加载</span>

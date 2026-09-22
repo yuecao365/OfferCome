@@ -5,10 +5,9 @@ import { REAL_USAGE_INTERVIEW_WHERE } from "@/lib/interviews/types";
 import { parseJsonArray, parseJsonObject, parseJsonValue } from "@/lib/json";
 
 import { estimate, type Estimate, type Observation } from "@/lib/interview/estimator";
-import { ledgerOf, parseEventRow, type InterviewEvent } from "@/lib/interview/events";
+import { notesOf, parseEventRow, type InterviewEvent } from "@/lib/interview/events";
 import { reviewTrail, trailMessagesOfEvents } from "@/lib/interview/review-trail";
-import { renderLedger } from "@/lib/interview/state";
-import { planQuota } from "@/lib/interview/progress";
+import { planMaterials } from "@/lib/interview/progress";
 import { loadEvaluationRuns } from "@/lib/interview/eval/facts";
 import { postmortem } from "@/lib/interview/eval/postmortem";
 import { agentChainsOf } from "@/lib/interview/trace-steps";
@@ -100,7 +99,7 @@ function buildConversation(session: SessionWithConversation) {
     brief,
     status: session.status,
     startedAt: session.startedAt?.toISOString() ?? null,
-    ledger: renderLedger(brief, ledgerOf(events)),
+    notes: notesOf(events),
     messages: session.messages.map((message) => ({ id: message.id, turnIndex: message.turnIndex, role: message.role === "candidate" ? "candidate" : "interviewer", kind: message.kind, content: message.content })),
     // 本地版的消息表不存材料 id：进度从事件日志算。
     progress: progressSummaryOf(brief, events),
@@ -230,7 +229,7 @@ export async function getMockInterviewTrace(id: string): Promise<MockInterviewTr
     jobTitle: session.interview.jobTitle,
     status: session.status,
     pace: brief.pace,
-    plan: planQuota(brief),
+    plan: planMaterials(brief),
     areas: brief.areas.map((area) => ({ id: area.id, name: area.name, kind: area.kind })),
     competencies: competenciesOf(session.contextSnapshotJson).map((item) => ({ id: item.id, name: item.name })),
     postmortem: postmortem({ events, brief, ready: briefReady({ competencies: competenciesOf(session.contextSnapshotJson) }, brief), trajectory }),

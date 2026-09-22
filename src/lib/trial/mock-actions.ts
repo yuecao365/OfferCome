@@ -4,7 +4,6 @@ import type { RecentWeakness } from "@/lib/mock-interviews/context";
 import { cutSegments } from "@/lib/interview/aftermath/cut";
 import { segmentRecord } from "@/lib/interview/aftermath/segments";
 import { isInterviewPace, type InterviewBrief } from "@/lib/mock-interviews/brief/brief";
-import { renderLedger } from "@/lib/interview/state";
 import type { TurnPayload } from "@/lib/interview/views";
 
 import {
@@ -237,7 +236,7 @@ export async function completeTrialMockSession(id: string): Promise<void> {
     const report = await requestReport({
       jobTitle: current.job.jobTitle,
       brief,
-      ledger: renderLedger(brief, current.ledger),
+      notes: current.notes ?? "",
       threads: current.questions.map((segment) => ({
         areaId: typeof segment.metadata.areaId === "string" ? segment.metadata.areaId : null,
         kind: segment.sourceKind,

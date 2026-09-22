@@ -4,7 +4,7 @@ import type { ComponentProps } from "react";
 import { InterviewList } from "@/components/interviews/interview-list";
 import { NewInterviewModal } from "@/components/interviews/interview-modals";
 import { PageHeader } from "@/components/page-header";
-import { accentIf, StatTiles } from "@/components/stat-tiles";
+import { accentIf, StatTiles, toneIf } from "@/components/stat-tiles";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { FilterForm } from "@/components/ui/filter-form";
@@ -89,7 +89,6 @@ export function InterviewHistoryView({
             {...newInterview}
           />
         }
-        description="查看真实与模拟面试记录，维护面试问题、回答、轮次和状态。"
         title="历史面试"
       />
 
@@ -98,8 +97,8 @@ export function InterviewHistoryView({
           tiles={[
             { label: "真实面试", value: stats.total, note: "已记录的真实面试" },
             { label: "进行中", value: stats.active, note: "还没出结果的", tone: accentIf(stats.active) },
-            { label: "待面", value: stats.preparing, note: "已排期、还没面" },
-            { label: "Offer", value: stats.offers, note: "面出 Offer 的" },
+            { label: "待面", value: stats.preparing, note: "已排期、还没面", tone: toneIf(stats.preparing, "info") },
+            { label: "Offer", value: stats.offers, note: "面出 Offer 的", tone: toneIf(stats.offers, "success") },
           ]}
         />
       ) : null}

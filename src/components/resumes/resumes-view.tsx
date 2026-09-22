@@ -18,7 +18,6 @@ export function ResumesView({
   projects,
   uploadModal,
   preview,
-  description,
   listActions,
   projectsPanel,
 }: {
@@ -27,7 +26,6 @@ export function ResumesView({
   projects: ResumeProjectListItem[];
   uploadModal: ReactNode;
   preview: ReactNode;
-  description: string;
   /** 体验版在此注入浏览器动作。 */
   listActions?: ComponentProps<typeof ResumeList>["actions"];
   projectsPanel?: Pick<
@@ -39,7 +37,6 @@ export function ResumesView({
     <>
       <PageHeader
         actions={uploadModal}
-        description={description}
         title="简历中心"
       />
 

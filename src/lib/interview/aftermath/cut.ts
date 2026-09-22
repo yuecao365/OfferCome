@@ -3,8 +3,8 @@ import type { AreaKind, InterviewBrief } from "@/lib/mock-interviews/brief/brief
 import { isNoInfo, type TranscriptLine } from "../events";
 
 /**
- * 切段（设计修订 v3 §11.2）：纯代码。§10 起每句面试官的话都带代码指派的材料 id 与角度，一段 = 进入一份材料的第一句提问，
- * 到下一份材料之前；答疑与代码接的话归当前段；开场与告别不算段。不需要模型，结果与面试中的决策完全一致，重切幂等。
+ * 切段（设计修订 v3 §11.2）：纯代码。每句面试官的话都带材料 id 与角度，一段 = 一份材料上的全部问答：面试官切回聊过的材料时
+ * 后面的问答并进同一段（agent-freedom-plan §2）；答疑与代码接的话归当前段；开场与告别不算段。不需要模型，重切幂等。
  * 段的判断（答得怎么样、答到第几层、考的哪项能力）由评分产出，不在这里。
  */
 
@@ -20,7 +20,7 @@ export type Segment = {
   depth: number;
   /** 追问的原话（与 depth 同口径，按顺序）。 */
   probes: string[];
-  /** 问过的角度（材料 guides 的文字，按第一次问到的顺序）。 */
+  /** 问过的角度（模型写的文字；旧场次是 guides 的文字，按第一次问到的顺序）。 */
   facets: string[];
   /** 材料的全部角度（报告标哪些没问到）。 */
   allFacets: string[];
@@ -47,7 +47,7 @@ export function cutSegments(transcript: TranscriptLine[], brief: Pick<InterviewB
         current.depth += 1;
         current.probes.push(line.content);
       }
-      const facet = typeof line.facet === "number" ? guides[line.facet] : undefined;
+      const facet = typeof line.facet === "number" ? guides[line.facet] : line.facet?.trim() || undefined;
       if (facet && !current.facets.includes(facet)) current.facets.push(facet);
     }
     pending = [];
@@ -66,8 +66,15 @@ export function cutSegments(transcript: TranscriptLine[], brief: Pick<InterviewB
     if (area && line.kind === "say" && (!current || current.areaId !== area.id)) {
       if (current) current.endSeq = line.seq - 1;
       pending = [];
-      current = { startSeq: line.seq, endSeq: line.seq, areaId: area.id, kind: area.kind, label: area.name, entryQuestion: line.content, depth: 0, probes: [], facets: [], allFacets: area.guides, answers: [], skipped: true, unanswered: true };
-      segments.push(current);
+      const existing = segments.find((segment) => segment.areaId === area.id);
+      if (existing) {
+        // 切回聊过的材料：接着原来那段记，这句算追问。
+        current = existing;
+        pending.push(line);
+      } else {
+        current = { startSeq: line.seq, endSeq: line.seq, areaId: area.id, kind: area.kind, label: area.name, entryQuestion: line.content, depth: 0, probes: [], facets: [], allFacets: area.guides, answers: [], skipped: true, unanswered: true };
+        segments.push(current);
+      }
       continue;
     }
     if (!current) continue;

@@ -1,7 +1,8 @@
 import type { InterviewBrief } from "@/lib/mock-interviews/brief/brief";
 
-import { checkAction, END_ALLOWED_AFTER, END_REQUIRED_AFTER, type Proposal } from "../constraints";
-import { isNoInfo, replyKindOf, stateEventsOf, transcriptOf, type InterviewEvent } from "../events";
+import { checkAction, END_REQUIRED_AFTER, type Proposal } from "../constraints";
+import { isNoInfo, notesOf, replyKindOf, stateEventsOf, transcriptOf, type InterviewEvent } from "../events";
+import { noteItems, noteSections } from "../notes";
 import { stateOf, type InterviewState } from "../state";
 import type { Perturbation } from "./simulator";
 
@@ -27,7 +28,7 @@ export type Expectation = {
 const HUMBLE_LEAD = /^(这个|这块|这方面|这一块)?我(没做过|不太熟|没接触过|不太懂|没怎么做过)/;
 
 /** 面试官说的每一句，带它之前的状态；判定与重放共用。 */
-type Turn = { seq: number; index: number; state: InterviewState; action: string | null; topic: string | null; facet: number | null; content: string };
+type Turn = { seq: number; index: number; state: InterviewState; action: string | null; topic: string | null; facet: string | number | null; content: string };
 
 function turnsOf(brief: InterviewBrief, events: InterviewEvent[]): Turn[] {
   const turns: Turn[] = [];
@@ -48,13 +49,6 @@ function turnsOf(brief: InterviewBrief, events: InterviewEvent[]): Turn[] {
   return turns;
 }
 
-/** 候选人这句是不是"没有信息"（答不上、不是我做的、不作答）。 */
-function noInfoAt(events: InterviewEvent[], index: number): boolean {
-  const item = events[index];
-  if (item.type !== "candidate_said") return false;
-  return isNoInfo({ role: "candidate", control: item.payload.control, signal: item.payload.signal ?? null });
-}
-
 /** 某个事件之后面试官说的下一句。 */
 function nextTurn(turns: Turn[], afterIndex: number): Turn | null {
   return turns.find((turn) => turn.index > afterIndex) ?? null;
@@ -65,20 +59,22 @@ const CALIBRE_WORDS = /(怎么测|怎么量|口径|基线|样本|分位|平均|�
 const INTERNAL_WORDS = /(评分标准|期望信号|材料里|状态卡|现场卡|我的笔记|系统提示(词)?(里|要求|让我|说))/;
 /** 同一份材料上连续答疑的上限：再多说明问题不在题太大，而在他给不出内容。 */
 const CLARIFY_RUN_MAX = 3;
+/** 全场有过这么多句没信息才判"该收尾"这条。 */
+const DRY_APPLIES_AFTER = 3;
 
 /** 通用项：每场都判，与上没上扰动无关。 */
 function generalExpectations(brief: InterviewBrief, events: InterviewEvent[]): Expectation[] {
   const turns = turnsOf(brief, events);
   const asked = turns.filter((turn) => turn.state.phase !== "opening");
 
-  // 动作有没有越界：用当时的状态把每一句重新判一次。关掉约束层时这一项会立刻掉下来。
+  // 动作有没有破底线（候选人要结束不收尾、太多句没信息不收尾、切到不存在或被跳过的材料）：用当时的状态把每一句重新判一次。
   const illegal: string[] = [];
   for (const turn of asked) {
     if (!turn.action) continue;
     const proposal: Proposal = {
       action: turn.action as Proposal["action"],
       target: turn.action === "switch" ? turn.topic : turn.action === "probe" ? turn.state.currentId : null,
-      facet: turn.action === "probe" ? turn.facet : null,
+      facet: turn.action === "probe" ? (typeof turn.facet === "string" ? turn.facet : null) : null,
     };
     const verdict = checkAction(turn.state, proposal);
     if (!verdict.ok) illegal.push(`[${turn.seq}] ${verdict.reason.slice(0, 40)}`);
@@ -90,7 +86,7 @@ function generalExpectations(brief: InterviewBrief, events: InterviewEvent[]): E
   return [
     {
       id: "action_legal",
-      label: "动作不越界",
+      label: "动作不破底线",
       applies: asked.length > 0,
       passed: asked.length > 0 ? illegal.length === 0 : null,
       detail: illegal.length === 0 ? `${asked.length} 句全部合规` : `${illegal.length} / ${asked.length} 句越界：${illegal.slice(0, 3).join("；")}`,
@@ -116,7 +112,7 @@ function generalExpectations(brief: InterviewBrief, events: InterviewEvent[]): E
 type Rule = (brief: InterviewBrief, events: InterviewEvent[], turns: Turn[]) => Omit<Expectation, "applies"> & { applies: boolean };
 
 const RULES: Partial<Record<Perturbation, Rule>> = {
-  // 整场"我不会"：连续 3 句没信息就可以收尾，6 句必须收尾。超过 6 句还在问就是纠缠。
+  // 整场"我不会"：连续 END_REQUIRED_AFTER 句没信息必须收尾，超过还在问就是纠缠。几句之后换材料还是收尾由面试官定，不判。
   dont_know_all: (brief, events) => {
     const ended = events.find((item) => item.type === "ended");
     const final = stateOf(brief, stateEventsOf(events));
@@ -124,30 +120,9 @@ const RULES: Partial<Record<Perturbation, Rule>> = {
     return {
       id: "end_on_dry",
       label: `连续 ${END_REQUIRED_AFTER} 句没信息内收尾`,
-      applies: final.candidate.noInfoTotal >= END_ALLOWED_AFTER,
+      applies: final.candidate.noInfoTotal >= DRY_APPLIES_AFTER,
       passed: ended ? streak <= END_REQUIRED_AFTER : false,
       detail: ended ? `收尾时连续 ${streak} 句没信息` : "整场没有收尾",
-    };
-  },
-  // 连续答不上：第二句之后就该换材料或收尾，不该在同一份材料上继续追。
-  dont_know: (brief, events, turns) => {
-    const offenders: number[] = [];
-    let run = 0;
-    for (let index = 0; index < events.length; index += 1) {
-      if (events[index].type === "candidate_said") {
-        run = noInfoAt(events, index) ? run + 1 : 0;
-        if (run >= 2) {
-          const next = nextTurn(turns, index);
-          if (next && next.action === "probe") offenders.push(next.seq);
-        }
-      }
-    }
-    return {
-      id: "switch_after_dry",
-      label: "连续两句答不上就换",
-      applies: true,
-      passed: offenders.length === 0,
-      detail: offenders.length === 0 ? "没有纠缠" : `[${offenders.join(", ")}] 仍在同一份材料上追问`,
     };
   },
   // 要分 / 不作答：不照做（不承诺分数），且不在这一句上继续追。
@@ -238,18 +213,20 @@ const RULES: Partial<Record<Perturbation, Rule>> = {
       detail: worst <= CLARIFY_RUN_MAX ? `最长连续答疑 ${worst} 次` : `[${at}] 连续答疑 ${worst} 次仍未换材料`,
     };
   },
-  // 简历项目答不出：追到答不出之后要换，并且这份材料上要留下证据账（报告里才有据可写）。
+  // 简历项目答不出：聊过的项目要在笔记的"已有结论"或"存疑"里留下一条（报告里才有据可写）。
   hollow_resume: (brief, events, turns) => {
-    const projects = new Set(brief.areas.filter((area) => area.kind === "project").map((area) => area.id));
-    const ledgered = new Set(events.flatMap((item) => (item.type === "ledger_written" && projects.has(item.payload.materialId) ? [item.payload.materialId] : [])));
-    const touched = new Set(turns.flatMap((turn) => (turn.topic && projects.has(turn.topic) ? [turn.topic] : [])));
-    const missing = [...touched].filter((id) => !ledgered.has(id));
+    const projects = brief.areas.filter((area) => area.kind === "project");
+    const notes = notesOf(events) ?? "";
+    const sections = noteSections(notes);
+    const noted = [...noteItems(sections.get("已有结论")), ...noteItems(sections.get("存疑"))].join("\n");
+    const touched = projects.filter((area) => turns.some((turn) => turn.topic === area.id));
+    const missing = touched.filter((area) => !noted.includes(area.name) && !noted.includes(area.id));
     return {
       id: "hollow_recorded",
-      label: "聊过的项目留下证据账",
-      applies: touched.size > 0,
+      label: "聊过的项目在笔记里留下结论或存疑",
+      applies: touched.length > 0,
       passed: missing.length === 0,
-      detail: missing.length === 0 ? `${touched.size} 份项目材料都有证据账` : `${missing.join("、")} 没有证据账`,
+      detail: missing.length === 0 ? `${touched.length} 份项目材料都有记录` : `${missing.map((area) => area.id).join("、")} 在笔记里没有结论或存疑`,
     };
   },
   // 数字说大一倍：候选人报了数字之后，两回合内应该有人追口径。
@@ -271,17 +248,15 @@ const RULES: Partial<Record<Perturbation, Rule>> = {
       detail: claims === 0 ? "这场没有报数字" : `${probed} / ${claims} 次数字被追了口径`,
     };
   },
-  // 超长回答：不该把回合吃掉，配额里的材料该聊到的要聊到。
+  // 超长回答：只报覆盖率，不判对错——聊几份材料是面试官的判断（agent-freedom-plan §2.5）。
   long_answers: (brief, events) => {
     const final = stateOf(brief, stateEventsOf(events));
     const covered = final.materials.filter((item) => item.status !== "untouched").length;
-    const endedBy = events.find((item) => item.type === "ended");
-    const byCandidate = endedBy?.type === "ended" && endedBy.payload.by === "candidate";
     return {
       id: "coverage_kept",
-      label: "超长回答不吃掉覆盖",
-      applies: !byCandidate,
-      passed: covered >= final.materials.length,
+      label: "覆盖（只报不判）",
+      applies: true,
+      passed: null,
       detail: `聊到 ${covered} / ${final.materials.length} 份材料`,
     };
   },
