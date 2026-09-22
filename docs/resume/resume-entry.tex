@@ -1,19 +1,17 @@
-% OfferCome 简历条目（2026-09-22 第四稿，与 README "Under the Hood" 同口径：
-% 面向懂技术但不了解项目的大厂 Agent 岗面试官，只留独特设计与三句话能讲清的数字。
-% 数字来源：eval/runs/harness-2026-09-20.md（78.6% → 97.0%、前缀缓存约 80%）、
-% eval/bench/results.md 第三部分（dev-v3 vs 同模型裸提示词基线：引用不实 0.10 vs 0.53、一段多问率 0.24 vs 0.65；
-% 放开约束后主动收尾 0.25 → 0.53）。等级判断不优于基线，不写"更准"；依据逐字率已无差，不引；旧消融 70% → 37% 作废。
-% 评估只留一条，不展开合成候选人与扰动判定集，被问到再讲。）
+% OfferCome 简历条目（2026-09-22 第五稿，用户定稿；与 README "Under the Hood" 同口径。
+% 数字来源：eval/runs/harness-2026-09-20.md（78.6% → 97.0%）、AgentRun 表面试官回合缓存约 80%（全流程合计 63%，不引单场峰值 84%）、
+% eval/bench/results.md 第三部分（dev-v3 vs 同模型裸提示词基线：引用不实 0.10 vs 0.53、一段多问率 0.24 vs 0.65；主动收尾 0.25 → 0.53）。
+% 不写"更准"；依据逐字率已无差不引；能力画像只说"由评分累积"，不说进 Agent 上下文（它不进）。）
 \resumeProjectHeading
-{OfferCome：自适应模拟面试 Agent 系统}{2026年8月 -- 至今}\vspace{-8pt}
-
-\resumeProjectSubline{自研 Agent 运行时、多 Agent 分工、三层 Memory、动作层工具调用控制、事件溯源与面试官黑盒基准}
-\vspace{-3pt}
+{OfferCome：个性化模拟面试 Agent}
+{2026年7月 -- 2026年9月}
+\resumeProjectSubline{自研 Agent runtime、多 Agent 分工、三层 Memory、动作层工具调用控制、事件溯源与面试官黑盒基准}
+\resumeProjectGithub{https://github.com/yuecao365/OfferCome}
 \resumeItemListStart
-\resumeItem{\textbf{自研统一 Agent 运行时}：输出契约三级降级（schema 收敛 $\to$ 携校验错误重试 $\to$ 兜底解析）、工具三级权限（放行 / 记账 / 挂起待审）、步数--token--时长--成本四类预算、提示词前缀缓存（命中约 80\%）；结构化输出一次通过率 \textbf{78.6\%}、降级后可用率 \textbf{97.0\%}。}
-\resumeItem{\textbf{多 Agent 分工}：备课 Agent 产出能力蓝图与待验证假设，面试官 Agent 按假设追问，评分与汇总 Agent 独立于面试官并使用不同模型避免自证；Agent 间只通过事件日志与结构化产物交接，无共享可变状态。}
-\resumeItem{\textbf{三层 Memory}：场内为面试官每回合整份重写的四段 Markdown 笔记，跨场为候选人档案，长期为能力画像；三层同一形态、Agent 自写自读，代码只守格式门。以"待验证剩余条数"与"新信息量"替代时钟与回合配额，主动收尾比例由 \textbf{0.25} 升至 \textbf{0.53}。}
-\resumeItem{\textbf{动作层工具调用控制}：面试官每回合先输出结构化决策（追问 / 换题 / 澄清 / 收尾 + 目标）再生成话术，代码按会话状态校验动作并携原因退回，二次违约降级为代码决策；控制点从"事后过滤文本"前移到"执行前校验动作"，提示注入无法改变面试进程。}
-\resumeItem{\textbf{事件溯源}：append-only 事件日志为唯一事实源，进度、状态卡、评分切段均为其纯函数投影；任一回合可确定性重放，提示词改动可离线回归。}
-\resumeItem{\textbf{InterviewBench 黑盒基准}：面试官实现按统一接口提交、仅凭逐字稿与评分卡打分；对照同模型裸提示词基线，评分卡\textbf{引用不实每场 0.10 vs 0.53}、\textbf{一段多问率 0.24 vs 0.65}。}
+\resumeItem{\textbf{自研统一 Agent runtime}：结构化输出三级容错（按 schema 解析 $\to$ 回传校验错误重试 $\to$ 调用方兜底）、工具放行 / 记账 / 需确认三档权限、步数--token--时长--成本四维限额、按前缀缓存组织消息（面试官回合命中约 80\%）；1636 次真实调用一次通过率 \textbf{78.6\%}，容错后可用率 \textbf{97.0\%}。}
+\resumeItem{\textbf{多 Agent 分工}：备课 Agent 从 JD 与简历产出能力蓝图和待核实的说法，面试官 Agent 围绕它们追问，评分与总结 Agent 用不同模型独立打分；Agent 间只通过事件日志和结构化产物交接。}
+\resumeItem{\textbf{三层 Memory}：场内面试官逐回合维护笔记，记录各说法验证状态，待验证项清空即收尾，不按时间或轮数截断，主动收尾比例由 \textbf{0.25} 升至 \textbf{0.53}；跨场沉淀每场的验证结果与反复出现的短板；长期由各场评分累积成能力画像。}
+\resumeItem{\textbf{动作层工具调用控制}：面试官每回合先给出结构化决策（追问 / 换题 / 澄清 / 收尾及目标）再生成话术，代码按会话状态校验，不合法则带原因退回重出，再不合法由代码定动作、模型只负责措辞；控制发生在执行前而非文本事后过滤，提示注入无法改变面试进程。}
+\resumeItem{\textbf{事件溯源}：会话只保存只追加的事件日志，进度、状态卡、评分切段都从它实时计算；任一回合可用历史日志重放，改提示词后可对旧面试离线回归。}
+\resumeItem{\textbf{InterviewBench 黑盒基准}：任何面试官实现按同一接口提交，只凭逐字稿和评分卡打分；与同一模型仅用一段提示词直接面试的基线相比，本系统评分卡\textbf{引用不实每场 0.10 vs 0.53}、\textbf{一段多问率 0.24 vs 0.65}。}
 \resumeItemListEnd
