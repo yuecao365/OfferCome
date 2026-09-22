@@ -62,7 +62,7 @@ export const showcaseCopy = {
     reportDescription: "报告先说失守在哪、练什么，再说站得住的，再核对简历上的说法经不经得起问。评分由独立于面试官的另一个 Agent 完成，它能查简历原文核对数字，引用必须逐字。",
     reportLabels: { score: "面试总分", summary: "总体评价", weaknesses: "失守在哪、练什么", practice: "练", hypotheses: "简历上的说法经不经得起问", footer: "同一场的真实报告节选" },
     figures: [
-      { value: "0.99", label: "评分卡里的依据逐字来自候选人原话的比例", note: "30 场对照，裸模型基线 0.96" },
+      { value: "0.10 vs 0.53", label: "评分卡里每场找不到原话的引用条数：本系统 vs 同一模型只用一段提示词", note: "30 场对照，候选人由模型模拟" },
       { value: "78.6% → 97.0%", label: "不支持结构化输出的模型：一次通过率 → 降级后可用产出率", note: "1636 次真实调用" },
       { value: "≈ 6 美分", label: "一场约 16 回合面试的模型费用", note: "DeepSeek，含备课与逐段评分" },
     ],
@@ -108,7 +108,7 @@ export const showcaseCopy = {
     reportDescription: "The report leads with where you lost ground and what to practise, then what held up, then whether the claims on your resume survived questioning. Scoring is done by a separate agent that can look up the resume to check numbers; quotes must be verbatim.",
     reportLabels: { score: "Overall", summary: "Summary", weaknesses: "Where you lost ground, and what to practise", practice: "Practise", hypotheses: "Did the resume claims hold up", footer: "Excerpt from the same session’s real report" },
     figures: [
-      { value: "0.99", label: "Share of scorecard evidence quoted verbatim from the candidate", note: "30 paired sessions; bare-model baseline 0.96" },
+      { value: "0.10 vs 0.53", label: "Unverifiable quotes per session in the scorecard: this system vs the same model with one prompt", note: "30 paired sessions; simulated candidates" },
       { value: "78.6% → 97.0%", label: "Models without native structured output: first-try pass rate → usable output after graceful degradation", note: "1,636 real calls" },
       { value: "≈ 6¢", label: "Model cost of one 16-turn interview", note: "DeepSeek, including preparation and per-segment scoring" },
     ],
