@@ -1,6 +1,6 @@
 <div align="center">
 
-<h1><img src="docs/images/offercome-logo.png" alt="OfferCome" width="320"></h1>
+<h1><img src="docs/images/offercome-interviewer.png" alt="OfferCome 卡通面试官" width="240"></h1>
 
 **开源、本地优先的模拟面试官：顺着你的回答往下追，面完给你一张每条依据都能回到原话的评分卡。**
 

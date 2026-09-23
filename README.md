@@ -1,6 +1,6 @@
 <div align="center">
 
-<h1><img src="docs/images/offercome-logo.png" alt="OfferCome" width="320"></h1>
+<h1><img src="docs/images/offercome-interviewer.png" alt="OfferCome — cartoon interviewer" width="240"></h1>
 
 **An open-source, local-first mock interviewer that follows your answer down — and hands you a scorecard where every judgement points at your own words.**
 
