@@ -1,8 +1,17 @@
+"use client";
+
 import type { ReactNode } from "react";
 
 import { Card } from "@/components/ui/card";
 import { CountUp } from "@/components/ui/count-up";
 import { cn } from "@/lib/cn";
+import { useMessages } from "@/lib/i18n/client";
+import { defineMessages } from "@/lib/i18n/locale";
+
+const messages = defineMessages({
+  "zh-CN": { label: "关键指标" },
+  en: { label: "Key metrics" },
+});
 
 export type StatTile = {
   label: string;
@@ -40,9 +49,10 @@ export const accentIf = (value: number): StatTone | undefined => toneIf(value, "
  * 页面首屏指标：等宽白卡一排，第一张是北极星数字（字号大一档）。数据概览、面试工作台、投递、历史面试共用；
  * 层次靠卡片与页底的明度差，不靠边框；一排里最多一张 accent，让"该动手的数"跳出来。
  */
-export function StatTiles({ tiles, label = "关键指标" }: { tiles: StatTile[]; label?: string }) {
+export function StatTiles({ tiles, label }: { tiles: StatTile[]; label?: string }) {
+  const t = useMessages(messages);
   return (
-    <section aria-label={label} className={cn("grid gap-4 sm:grid-cols-2", tiles.length >= 4 ? "xl:grid-cols-4" : "xl:grid-cols-3")}>
+    <section aria-label={label ?? t.label} className={cn("grid gap-4 sm:grid-cols-2", tiles.length >= 4 ? "xl:grid-cols-4" : "xl:grid-cols-3")}>
       {tiles.map((tile, index) => (
         <Card className={cn("flex flex-col p-5", tile.tone && `shadow-none ring-1 ring-inset ${TONE_CARD[tile.tone]}`)} key={tile.label}>
           <p className={cn("text-[0.8125rem]", tile.tone ? TONE_TEXT[tile.tone] : "text-muted-foreground")}>{tile.label}</p>

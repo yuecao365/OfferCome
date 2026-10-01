@@ -3,10 +3,17 @@ import {
   parseTrialResumeUpload,
   type TrialResumeFormInput,
 } from "@/lib/trial/resume";
+import { defineMessages } from "@/lib/i18n/locale";
+import { getLocale } from "@/lib/i18n/server";
 import { withTrial } from "@/lib/trial/route-handler";
 
 export const runtime = "nodejs";
 export const maxDuration = 45;
+
+const messages = defineMessages({
+  "zh-CN": { noFile: "请选择要上传的简历文件。" },
+  en: { noFile: "Choose a resume file to upload." },
+});
 
 /**
  * 解析简历内容并原样返回，**不做任何保存**。
@@ -14,14 +21,15 @@ export const maxDuration = 45;
  * 请求头带了访客的模型配置时，实习/项目由模型抽取；没带则按章节规则识别。
  */
 export const POST = withTrial(async (request) => {
+  const locale = await getLocale();
   const contentType = request.headers.get("content-type") ?? "";
 
   if (contentType.includes("multipart/form-data")) {
     const file = (await request.formData()).get("file");
     if (!(file instanceof File) || !file.name) {
-      throw new Error("请选择要上传的简历文件。");
+      throw new Error(messages[locale].noFile);
     }
-    return { resume: await parseTrialResumeUpload(file) };
+    return { resume: await parseTrialResumeUpload(file, locale) };
   }
 
   const body = (await request.json()) as Partial<TrialResumeFormInput>;
@@ -38,6 +46,6 @@ export const POST = withTrial(async (request) => {
               typeof item?.description === "string" ? item.description : "",
           }))
         : [],
-    }),
+    }, locale),
   };
 });

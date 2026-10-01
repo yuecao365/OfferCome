@@ -7,6 +7,8 @@ import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { RequiredMark } from "@/components/ui/form-controls";
+import { useMessages } from "@/lib/i18n/client";
+import { defineMessages } from "@/lib/i18n/locale";
 import {
   confirmResumeExperiences,
   discardResumePreview,
@@ -18,6 +20,28 @@ import {
 } from "@/lib/resumes/types";
 
 import { ResumeExperienceConfirmationPanel } from "./resume-experience-confirmation-panel";
+import { FileInput } from "@/components/ui/file-input";
+
+const messages = defineMessages({
+  "zh-CN": {
+    parsing: "解析中...",
+    submit: "上传并识别",
+    chooseFile: "选择简历文件",
+    formats: "支持 PDF、DOC、DOCX、JPG、PNG、WebP，单文件不超过 10MB。",
+    setDefault: "设为默认简历",
+    cancelNote: "取消或关闭弹窗不会创建正式简历记录。",
+    fallbackFileName: "简历文件",
+  },
+  en: {
+    parsing: "Parsing...",
+    submit: "Upload and extract",
+    chooseFile: "Choose a resume file",
+    formats: "PDF, DOC, DOCX, JPG, PNG or WebP, up to 10MB.",
+    setDefault: "Set as default resume",
+    cancelNote: "Cancelling or closing this dialog won't create a resume record.",
+    fallbackFileName: "Resume file",
+  },
+});
 
 const RESUME_ACCEPT =
   ".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/png,image/webp";
@@ -28,10 +52,11 @@ type ResumeUploadFormProps = {
 
 function SubmitButton() {
   const { pending } = useFormStatus();
+  const t = useMessages(messages);
 
   return (
     <Button disabled={pending} type="submit">
-      {pending ? "解析中..." : "上传并识别"}
+      {pending ? t.parsing : t.submit}
     </Button>
   );
 }
@@ -43,6 +68,7 @@ function ResumeParseForm({
   state: ResumeActionState;
   formAction: (payload: FormData) => void;
 }) {
+  const t = useMessages(messages);
   return (
     <form action={formAction} className="grid gap-5">
       <div className="dot-grid rounded-panel border border-dashed border-border-strong p-5 sm:p-6">
@@ -52,21 +78,20 @@ function ResumeParseForm({
           </span>
           <div className="min-w-0">
             <label className="text-sm font-semibold text-foreground" htmlFor="resume">
-              选择简历文件
+              {t.chooseFile}
               <RequiredMark />
             </label>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              支持 PDF、DOC、DOCX、JPG、PNG、WebP，单文件不超过 10MB。
+              {t.formats}
             </p>
           </div>
         </div>
-        <input
+        <FileInput
           accept={RESUME_ACCEPT}
-          className="mt-5 block w-full rounded-lg border border-border-strong bg-surface px-3 py-2 text-sm text-foreground shadow-card file:mr-3 file:rounded-md file:border-0 file:bg-accent file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-accent-foreground hover:file:bg-accent-strong"
+          className="mt-5 rounded-lg border border-border-strong bg-surface px-3 py-2 shadow-card"
           id="resume"
           name="resume"
           required
-          type="file"
         />
       </div>
 
@@ -89,7 +114,7 @@ function ResumeParseForm({
             name="isDefault"
             type="checkbox"
           />
-          设为默认简历
+          {t.setDefault}
         </label>
         <SubmitButton />
       </div>
@@ -99,6 +124,7 @@ function ResumeParseForm({
 
 export function ResumeUploadForm({ onSaved }: ResumeUploadFormProps) {
   const router = useRouter();
+  const t = useMessages(messages);
   const [state, formAction] = useActionState<ResumeActionState, FormData>(
     parseResumePreview,
     initialResumeActionState,
@@ -109,10 +135,10 @@ export function ResumeUploadForm({ onSaved }: ResumeUploadFormProps) {
     const isDefault = Boolean(state.isDefault);
     return (
       <ResumeExperienceConfirmationPanel
-        cancelNote="取消或关闭弹窗不会创建正式简历记录。"
+        cancelNote={t.cancelNote}
         existingProjects={state.existingProjects ?? []}
         extractionSource={state.extractionSource}
-        fileName={state.fileName ?? "简历文件"}
+        fileName={state.fileName ?? t.fallbackFileName}
         key={tempUploadId}
         onCancel={() => discardResumePreview(tempUploadId)}
         onClose={onSaved}

@@ -2,6 +2,8 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 
+import { defineMessages, type Locale } from "@/lib/i18n/locale";
+
 export const RESUME_MAX_SIZE_BYTES = 10 * 1024 * 1024;
 export const RESUME_UPLOAD_DIR = path.join(
   /* turbopackIgnore: true */ process.cwd(),
@@ -59,31 +61,48 @@ export type TemporaryResumeFile = StoredResumeFile & {
   tempUploadId: string;
 };
 
+const uploadMessages = defineMessages({
+  "zh-CN": {
+    unsupported: "只支持 PDF、DOC、DOCX、JPG、PNG、WebP 简历文件。",
+    empty: "上传文件为空，请重新选择简历文件。",
+    tooLarge: "单个简历文件不能超过 10MB。",
+    mismatch: "文件类型和扩展名不匹配。",
+  },
+  en: {
+    unsupported: "Only PDF, DOC, DOCX, JPG, PNG and WebP resume files are supported.",
+    empty: "The file is empty. Choose your resume file again.",
+    tooLarge: "Resume files can't exceed 10 MB.",
+    mismatch: "The file type doesn't match its extension.",
+  },
+});
+
 export function validateResumeUpload(
   input: ResumeUploadInput,
+  locale: Locale = "zh-CN",
 ): ResumeUploadValidationResult {
+  const t = uploadMessages[locale];
   const originalName = input.originalName.trim();
   const extension = path.extname(originalName).toLowerCase();
 
   if (!originalName || !ALLOWED_MIME_TYPES_BY_EXTENSION[extension]) {
     return {
       ok: false,
-      message: "只支持 PDF、DOC、DOCX、JPG、PNG、WebP 简历文件。",
+      message: t.unsupported,
     };
   }
 
   if (input.fileSize <= 0) {
-    return { ok: false, message: "上传文件为空，请重新选择简历文件。" };
+    return { ok: false, message: t.empty };
   }
 
   if (input.fileSize > RESUME_MAX_SIZE_BYTES) {
-    return { ok: false, message: "单个简历文件不能超过 10MB。" };
+    return { ok: false, message: t.tooLarge };
   }
 
   const normalizedMimeType = input.mimeType.trim().toLowerCase();
   const allowedMimeTypes = ALLOWED_MIME_TYPES_BY_EXTENSION[extension];
   if (normalizedMimeType && !allowedMimeTypes.has(normalizedMimeType)) {
-    return { ok: false, message: "文件类型和扩展名不匹配。" };
+    return { ok: false, message: t.mismatch };
   }
 
   return {
@@ -126,12 +145,13 @@ function metadataPathForTempUpload(tempUploadId: string): string {
 
 export async function saveTemporaryResumeFile(
   file: File,
+  locale: Locale = "zh-CN",
 ): Promise<TemporaryResumeFile> {
   const validation = validateResumeUpload({
     originalName: file.name,
     mimeType: file.type,
     fileSize: file.size,
-  });
+  }, locale);
 
   if (!validation.ok) {
     throw new Error(validation.message);

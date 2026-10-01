@@ -5,6 +5,19 @@ import type {
 } from "./confirmation";
 import type { ResumeExperienceType } from "./extract";
 
+import { defineMessages, type Locale } from "@/lib/i18n/locale";
+
+const messages = defineMessages({
+  "zh-CN": {
+    image: (format: string) => `${format} 图片`,
+    file: "文件",
+  },
+  en: {
+    image: (format: string) => `${format} image`,
+    file: "File",
+  },
+});
+
 export type ResumePreviewKind = "pdf" | "image" | "none";
 
 export type ResumeListItem = {
@@ -113,7 +126,12 @@ export function canPreviewResumeInline(
   return resumePreviewKind(mimeType, originalName) !== "none";
 }
 
-export function resumeTypeLabel(mimeType: string, originalName: string): string {
+export function resumeTypeLabel(
+  mimeType: string,
+  originalName: string,
+  locale: Locale = "zh-CN",
+): string {
+  const t = messages[locale];
   const { lowerMimeType, lowerName } = normalizedNameAndMime(
     mimeType,
     originalName,
@@ -129,13 +147,13 @@ export function resumeTypeLabel(mimeType: string, originalName: string): string 
     return "Word DOC";
   }
   if (lowerMimeType === "image/jpeg" || /\.(jpe?g)$/.test(lowerName)) {
-    return "JPEG 图片";
+    return t.image("JPEG");
   }
   if (lowerMimeType === "image/png" || lowerName.endsWith(".png")) {
-    return "PNG 图片";
+    return t.image("PNG");
   }
   if (lowerMimeType === "image/webp" || lowerName.endsWith(".webp")) {
-    return "WebP 图片";
+    return t.image("WebP");
   }
-  return "文件";
+  return t.file;
 }

@@ -218,7 +218,7 @@ const RULES: Partial<Record<Perturbation, Rule>> = {
     const projects = brief.areas.filter((area) => area.kind === "project");
     const notes = notesOf(events) ?? "";
     const sections = noteSections(notes);
-    const noted = [...noteItems(sections.get("已有结论")), ...noteItems(sections.get("存疑"))].join("\n");
+    const noted = [...noteItems(sections.get("concluded")), ...noteItems(sections.get("doubtful"))].join("\n");
     const touched = projects.filter((area) => turns.some((turn) => turn.topic === area.id));
     const missing = touched.filter((area) => !noted.includes(area.name) && !noted.includes(area.id));
     return {

@@ -10,7 +10,9 @@ import {
   fallbackJdHypothesis,
   MAX_SCENARIOS,
   parseStoredBrief,
+  PROFILE_DIMENSION_BY_RUBRIC,
   briefReady,
+  rubricForArea,
   type BriefOutput,
 } from "./brief";
 
@@ -192,3 +194,37 @@ test("备好了没：蓝图占位或简报兜底都算没备好", () => {
   assert.equal(briefReady(blueprint, { source: "fallback" }), false);
 });
 
+
+test("English sessions: code-written material, rubrics and hypotheses are in English; every English rubric name maps to a profile dimension", () => {
+  const en = fallbackBrief({ blueprint, jobDescription, resumeText, projects, topicNames: ["Cache consistency", "Idempotent APIs"], skillPacks: ["backend"], pace: "quick", language: "en", askIntro: true });
+  assert.equal(en.language, "en");
+  const cjk = /[\p{Script=Han}]/u;
+  for (const area of en.areas) {
+    for (const text of [area.entryQuestion, ...area.guides, ...area.expectedSignals, ...area.rubric.flatMap((item) => [item.name, item.description])]) {
+      // 项目名与蓝图能力名是用户数据，可以是中文；代码写的句子不能夹中文。
+      assert.ok(!cjk.test(text.replace(/Study Assistant|校园二手平台|API 设计|设计并维护对外接口/g, "")), `代码写的句子夹了中文：${text}`);
+    }
+  }
+  assert.match(en.hypotheses[0].text, /^The role requires "API 设计"/);
+  for (const kind of ["project", "quick", "scenario"] as const) {
+    assert.deepEqual(rubricForArea(kind, "en").map((item) => item.weight), rubricForArea(kind).map((item) => item.weight), "两种语言的评分表权重一致");
+    assert.deepEqual(
+      rubricForArea(kind, "en").map((item) => PROFILE_DIMENSION_BY_RUBRIC[item.name]),
+      rubricForArea(kind).map((item) => PROFILE_DIMENSION_BY_RUBRIC[item.name]),
+      "英文维度名与中文维度名归属同一个画像维度",
+    );
+  }
+  assert.equal(build({}).language, "zh", "不传语言按中文");
+});
+
+test("English resumes: the fallback hypothesis picks a sentence with a metric, skipping date lines", () => {
+  const resume = "Projects\nSearch Revamp Jan 2024 – Present\nRebuilt the ranking service. Cut p99 latency by 40% across 3 regions. Wrote docs.\nChat Bot 2022 - 2023\nLed a team of four.";
+  const project = { id: "sr", name: "Search Revamp" };
+  const others = [project, { id: "cb", name: "Chat Bot" }];
+  const hypothesis = fallbackHypothesis(resume, project, others, "en");
+  assert.equal(hypothesis?.evidence, "Cut p99 latency by 40% across 3 regions");
+  assert.match(hypothesis?.text ?? "", /^The resume says "Cut p99 latency/);
+  assert.equal(fallbackHypothesis(resume, { id: "cb", name: "Chat Bot" }, others, "en")?.evidence, "Led a team of four.");
+  // 中文场次的规则不变：英文成果动词不认，只认带单位的数字。
+  assert.equal(fallbackHypothesis(resume, { id: "cb", name: "Chat Bot" }, others), null);
+});

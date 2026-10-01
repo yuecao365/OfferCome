@@ -1,3 +1,5 @@
+"use client";
+
 import {
   ArrowRight,
   ChartNoAxesCombined,
@@ -6,32 +8,37 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
+import { useMessages } from "@/lib/i18n/client";
+import { defineMessages } from "@/lib/i18n/locale";
+
+const messages = defineMessages({
+  "zh-CN": {
+    section: "面试工具",
+    history: { title: "历史面试", description: "查看和维护真实与模拟面试记录。" },
+    review: { title: "面试复盘", description: "按项目和问题类型回看历史回答。" },
+    profile: { title: "能力画像", description: "查看有证据支持的优势、风险和训练重点。" },
+  },
+  en: {
+    section: "Interview tools",
+    history: { title: "Interview history", description: "View and manage real and mock interview records." },
+    review: { title: "Interview review", description: "Revisit past answers by project and question type." },
+    profile: { title: "Capability profile", description: "See evidence-backed strengths, risks and practice focus." },
+  },
+});
+
 const entries = [
-  {
-    href: "/interviews/history",
-    title: "历史面试",
-    description: "查看和维护真实与模拟面试记录。",
-    icon: History,
-  },
-  {
-    href: "/interviews/review",
-    title: "面试复盘",
-    description: "按项目和问题类型回看历史回答。",
-    icon: ClipboardCheck,
-  },
-  {
-    href: "/interviews/profile",
-    title: "能力画像",
-    description: "查看有证据支持的优势、风险和训练重点。",
-    icon: ChartNoAxesCombined,
-  },
+  { href: "/interviews/history", key: "history", icon: History },
+  { href: "/interviews/review", key: "review", icon: ClipboardCheck },
+  { href: "/interviews/profile", key: "profile", icon: ChartNoAxesCombined },
 ] as const;
 
 export function InterviewWorkspaceLinks() {
+  const t = useMessages(messages);
   return (
-    <section aria-label="面试工具" className="grid gap-2 md:grid-cols-3">
+    <section aria-label={t.section} className="grid gap-2 md:grid-cols-3">
       {entries.map((entry) => {
         const Icon = entry.icon;
+        const text = t[entry.key];
         return (
           <Link
             className="group flex items-start gap-3 rounded-panel border border-border bg-surface p-4 transition-colors duration-150 hover:bg-surface-subtle"
@@ -40,9 +47,9 @@ export function InterviewWorkspaceLinks() {
           >
             <Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-muted-foreground" strokeWidth={1.5} />
             <span className="min-w-0 flex-1">
-              <span className="block text-sm font-medium text-foreground">{entry.title}</span>
+              <span className="block text-sm font-medium text-foreground">{text.title}</span>
               <span className="mt-0.5 block text-[0.8125rem] leading-5 text-muted-foreground">
-                {entry.description}
+                {text.description}
               </span>
             </span>
             <ArrowRight

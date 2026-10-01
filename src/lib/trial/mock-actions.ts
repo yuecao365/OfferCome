@@ -1,6 +1,9 @@
 "use client";
 
+import { browserMessages } from "@/lib/i18n/browser";
+import { defineMessages, type ContentLanguage } from "@/lib/i18n/locale";
 import type { RecentWeakness } from "@/lib/mock-interviews/context";
+import { practiceRequestNote } from "@/lib/mock-interviews/types";
 import { cutSegments } from "@/lib/interview/aftermath/cut";
 import { segmentRecord } from "@/lib/interview/aftermath/segments";
 import { isInterviewPace, type InterviewBrief } from "@/lib/mock-interviews/brief/brief";
@@ -28,6 +31,7 @@ import {
   retryGeneration,
   segmentsToEvaluate,
   setSegmentEvaluation,
+  trialInterviewLanguage,
   withBlueprint,
   withBrief,
   withGenerationError,
@@ -44,9 +48,37 @@ import { currentWorkspace, mutateWorkspace } from "./workspace-store";
  * 差别只在状态写进浏览器存储而不是数据库、后台任务跑在页面里而不是 after()。
  */
 
+/** 抛给界面的错误跟界面语言走。 */
+const messages = defineMessages({
+  "zh-CN": {
+    reconnect: "模型连接已失效，请到设置页重新连接后继续。",
+    companyAndTitle: "请填写公司名称和岗位名称。",
+    jobDescription: "请上传或粘贴岗位描述。",
+    notFound: "没有找到这场模拟面试，请重新开始一场。",
+    notReady: "这场面试还没有准备好。",
+    notEnded: "面试还没有结束。",
+    reportFailed: "生成面试报告失败。",
+  },
+  en: {
+    reconnect: "The model connection has expired. Reconnect it in Settings to continue.",
+    companyAndTitle: "Enter the company name and job title.",
+    jobDescription: "Upload or paste the job description.",
+    notFound: "This mock interview couldn't be found. Please start a new one.",
+    notReady: "This interview isn't ready yet.",
+    notEnded: "The interview hasn't finished yet.",
+    reportFailed: "Couldn't generate the interview report.",
+  },
+});
+
+/** 写进会话文档、房间失败卡片显示的句子跟这场的面试语言走（与本地版 generation.ts 同口径）。 */
+const GENERATION_ERRORS: Record<ContentLanguage, { reconnect: string; failed: string }> = {
+  zh: { reconnect: "模型连接已失效，请到设置页重新连接后重试。", failed: "面试准备没有完成。" },
+  en: { reconnect: "The model connection has expired. Reconnect it in Settings and try again.", failed: "Interview preparation didn't finish." },
+};
+
 function rethrow(caught: unknown, fallback: string): never {
   if (isMissingAiConfig(caught)) {
-    throw new Error("模型连接已失效，请到设置页重新连接后继续。");
+    throw new Error(browserMessages(messages).reconnect);
   }
   throw caught instanceof Error ? caught : new Error(fallback);
 }
@@ -58,7 +90,7 @@ function field(formData: FormData, name: string): string {
 
 function requireInterview(id: string): TrialInterview {
   const interview = readTrialInterview(id);
-  if (!interview) throw new Error("没有找到这场模拟面试，请重新开始一场。");
+  if (!interview) throw new Error(browserMessages(messages).notFound);
   return interview;
 }
 
@@ -73,7 +105,7 @@ const RECENT_QUESTION_LIMIT = 12;
  * 最近几场模拟面试给备课的历史，与本地版 context.ts 同口径：最近 5 场、同岗位排前；
  * 失守的考点最多 6 条（"针对练习"指定的题的短板放最前）；同岗位的切入问题。
  */
-function recentHistory(jobTitle: string, seedQuestionId: string | null): { recentWeaknesses: RecentWeakness[]; recentQuestions: string[] } {
+function recentHistory(jobTitle: string, seedQuestionId: string | null, language: ContentLanguage): { recentWeaknesses: RecentWeakness[]; recentQuestions: string[] } {
   const wanted = jobTitle.trim().toLocaleLowerCase();
   const sameJob = (title: string) => title.trim().toLocaleLowerCase() === wanted;
   const records = currentWorkspace()
@@ -88,7 +120,7 @@ function recentHistory(jobTitle: string, seedQuestionId: string | null): { recen
       const weaknesses = question.evaluation?.weaknesses ?? [];
       const area = question.question.slice(0, 80);
       if (weaknesses.length > 0) return weaknesses.map((weakness) => ({ area, point: weakness.point, kind: weakness.kind, quote: weakness.quote }));
-      return question === seed ? [{ area, point: "候选人要求重练这道题。", kind: "practice", quote: null }] : [];
+      return question === seed ? [{ area, point: practiceRequestNote(language), kind: "practice", quote: null }] : [];
     })
     .slice(0, RECENT_WEAKNESS_LIMIT);
   // 切入问题从会话文档的切段元数据取（工作台记录里没有），只看同岗位；与本地版 context.ts 同口径。
@@ -104,15 +136,17 @@ function recentHistory(jobTitle: string, seedQuestionId: string | null): { recen
 export async function createTrialMockSession(formData: FormData, resume: TrialResumeInput): Promise<{ href: string }> {
   const companyName = field(formData, "companyName");
   const jobTitle = field(formData, "jobTitle");
-  if (!companyName || !jobTitle) throw new Error("请填写公司名称和岗位名称。");
+  if (!companyName || !jobTitle) throw new Error(browserMessages(messages).companyAndTitle);
   const file = formData.get("jobDescriptionFile");
   const jobDescription = file instanceof File && file.name ? await parseJobDescriptionFile(file) : field(formData, "jobDescriptionText");
-  if (!jobDescription) throw new Error("请上传或粘贴岗位描述。");
+  if (!jobDescription) throw new Error(browserMessages(messages).jobDescription);
   const pace = field(formData, "pace");
+  const language = field(formData, "language");
   const interview = createTrialInterview({
     job: { companyName, jobTitle, jobDescription },
     resume,
     pace: isInterviewPace(pace) ? pace : "standard",
+    language: language === "en" ? "en" : "zh",
   });
   writeTrialInterview(interview);
   void runGeneration(interview.id, field(formData, "seedQuestionId") || null);
@@ -128,8 +162,9 @@ export async function runGeneration(id: string, seedQuestionId: string | null = 
   try {
     let interview = requireInterview(id);
     if (interview.status !== "generating") return;
+    const language = trialInterviewLanguage(interview);
     if (!interview.blueprint) {
-      const blueprint = await requestBlueprint({ jobTitle: interview.job.jobTitle, jobDescription: interview.job.jobDescription });
+      const blueprint = await requestBlueprint({ jobTitle: interview.job.jobTitle, jobDescription: interview.job.jobDescription, language });
       interview = mutateTrialInterview(id, (current) => withBlueprint(current, blueprint)) ?? interview;
     }
     const { brief } = await requestBrief({
@@ -137,15 +172,17 @@ export async function runGeneration(id: string, seedQuestionId: string | null = 
       resume: interview.resume,
       blueprint: interview.blueprint!,
       pace: interview.pace,
-      ...recentHistory(interview.job.jobTitle, seedQuestionId),
+      language,
+      ...recentHistory(interview.job.jobTitle, seedQuestionId, language),
     });
     mutateTrialInterview(id, (current) => withBrief(current, brief));
   } catch (caught) {
+    const errors = GENERATION_ERRORS[trialInterviewLanguage(readTrialInterview(id) ?? {})];
     const message = isMissingAiConfig(caught)
-      ? "模型连接已失效，请到设置页重新连接后重试。"
+      ? errors.reconnect
       : caught instanceof Error
         ? caught.message
-        : "面试准备没有完成。";
+        : errors.failed;
     mutateTrialInterview(id, (current) => withGenerationError(current, message));
   } finally {
     generating.delete(id);
@@ -164,7 +201,7 @@ export function createTrialChatTransport(id: string) {
   return createTrialTurnTransport({
     readState: () => {
       const current = requireInterview(id);
-      if (!current.brief) throw new Error("这场面试还没有准备好。");
+      if (!current.brief) throw new Error(browserMessages(messages).notReady);
       return { brief: current.brief, messages: current.messages };
     },
     context: {
@@ -198,6 +235,7 @@ async function evaluateTrialSegment(id: string, segmentId: string): Promise<void
       jobDescription: interview.job.jobDescription,
       resumeText: interview.resume.text,
       skillPacks: interview.brief?.skillPacks ?? [],
+      language: interview.brief?.language ?? "zh",
     });
     mutateTrialInterview(id, (current) => setSegmentEvaluation(current, segmentId, { evaluationStatus: "completed", evaluation }));
   } catch (caught) {
@@ -214,7 +252,7 @@ async function evaluateTrialSegment(id: string, segmentId: string): Promise<void
 export async function completeTrialMockSession(id: string): Promise<void> {
   const interview = requireInterview(id);
   if (interview.status === "completed") return;
-  if (interview.status !== "ready_to_evaluate" && interview.status !== "evaluating") throw new Error("面试还没有结束。");
+  if (interview.status !== "ready_to_evaluate" && interview.status !== "evaluating") throw new Error(browserMessages(messages).notEnded);
   mutateTrialInterview(id, (current) => withStatus(current, "evaluating"));
   try {
     // 先切段（幂等，纯代码）：消息带代码指派的材料 id 与角度，在浏览器里直接切。
@@ -222,7 +260,7 @@ export async function completeTrialMockSession(id: string): Promise<void> {
       const brief = interview.brief;
       const transcript = interview.messages.map((message, seq) => ({ seq, role: message.role, content: message.content, kind: message.role === "interviewer" ? message.kind : null, control: null, topic: message.topic ?? null, facet: message.facet ?? null }));
       const areas = new Map(brief.areas.map((area) => [area.id, area]));
-      const segments = cutSegments(transcript, brief).map((segment) => ({ id: crypto.randomUUID(), ...segmentRecord(areas.get(segment.areaId)!, segment), evaluationStatus: "pending" as const, evaluation: null }));
+      const segments = cutSegments(transcript, brief).map((segment) => ({ id: crypto.randomUUID(), ...segmentRecord(areas.get(segment.areaId)!, segment, brief.language), evaluationStatus: "pending" as const, evaluation: null }));
       mutateTrialInterview(id, (current) => ({ ...current, questions: segments }));
     }
     // 在途的评分等它跑完；失败与还没开始的当场补跑。
@@ -271,7 +309,7 @@ export async function completeTrialMockSession(id: string): Promise<void> {
     );
   } catch (caught) {
     mutateTrialInterview(id, (current) => (current.status === "evaluating" ? withStatus(current, "ready_to_evaluate") : current));
-    rethrow(caught, "生成面试报告失败。");
+    rethrow(caught, browserMessages(messages).reportFailed);
   }
 }
 

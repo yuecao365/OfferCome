@@ -1,5 +1,6 @@
 import type { AiTaskConfig } from "@/lib/ai/config";
 import type { AgentRunResult } from "@/lib/ai/run-agent";
+import type { ContentLanguage } from "@/lib/i18n/locale";
 import type { InterviewBrief } from "@/lib/mock-interviews/brief/brief";
 
 import { checkAction, checkReply, fallbackAction, type Proposal } from "./constraints";
@@ -44,7 +45,17 @@ export type TurnResult = {
   runId: string | null;
 };
 
-const FIXED_CLOSING = "好的，今天的面试就到这里，感谢你的时间。稍后你会看到这场面试的报告。";
+/** 代码替面试官说的、或发回给模型的固定句，按场次语言。 */
+const COPY: Record<ContentLanguage, { closing: string; forced: (proposal: Proposal) => string }> = {
+  zh: {
+    closing: "好的，今天的面试就到这里，感谢你的时间。稍后你会看到这场面试的报告。",
+    forced: (proposal) => `代码已定这回合的动作：${proposal.action}${proposal.target ? `，材料 ${proposal.target}` : ""}${proposal.facet ? `，角度「${proposal.facet}」` : ""}；action / target / facet 照填，只写这句话`,
+  },
+  en: {
+    closing: "Okay, that's all for today. Thanks for your time. You'll see the report for this interview shortly.",
+    forced: (proposal) => `The action for this turn has been set for you: ${proposal.action}${proposal.target ? `, item ${proposal.target}` : ""}${proposal.facet ? `, angle "${proposal.facet}"` : ""}. Fill in action / target / facet exactly as given and only write the reply`,
+  },
+};
 
 /** 模型的工具调用 → 事件里记的形状。 */
 export function toolUsesOf(calls: { toolName: string; input: unknown }[]): { name: string; argument: string | null }[] {
@@ -72,6 +83,8 @@ function candidateEvent(candidate: CandidateInput, signal: Signal | null): NewEv
 
 export async function runTurn(input: { runId: string; config: AiTaskConfig; state: TurnState; candidate: CandidateInput | null; context: InterviewerContext; interviewer?: Interviewer }): Promise<TurnResult> {
   const { state, candidate } = input;
+  const language = state.brief.language ?? "zh";
+  const copy = COPY[language];
   // 评测可指定固定题本策略（不调模型），真实使用恒为 agent；显式注入的（测试桩）优先。
   const interviewer = input.interviewer ?? (evalPolicy() === "script" ? scriptInterviewer : runInterviewerTurn);
   const transcript = transcriptOfEvents(state.events);
@@ -79,11 +92,11 @@ export async function runTurn(input: { runId: string; config: AiTaskConfig; stat
 
   // 按钮：结束不调模型；跳过与其它按钮交给模型（它会看到 control 对应的话）。
   if (candidate?.control === "end") {
-    const closing = event("interviewer_said", { content: FIXED_CLOSING, kind: "closing", topic: null, facet: null, action: "end", signal: "wants_end" });
+    const closing = event("interviewer_said", { content: copy.closing, kind: "closing", topic: null, facet: null, action: "end", signal: "wants_end" });
     const after = stateOf(state.brief, stateEventsOf([...state.events, asEvent(candidateEvent(candidate, "wants_end"), state.events.length), asEvent(closing, state.events.length + 1)]));
     return {
       events: [candidateEvent(candidate, "wants_end"), closing, event("ended", { by: "candidate" })],
-      said: [{ role: "candidate", kind: "control", content: candidate.content, signal: "wants_end" }, { role: "interviewer", kind: "closing", content: FIXED_CLOSING, action: "end", signal: "wants_end" }],
+      said: [{ role: "candidate", kind: "control", content: candidate.content, signal: "wants_end" }, { role: "interviewer", kind: "closing", content: copy.closing, action: "end", signal: "wants_end" }],
       progress: progressOf(after),
       phase: "ended",
       endedBy: "candidate",
@@ -94,7 +107,6 @@ export async function runTurn(input: { runId: string; config: AiTaskConfig; stat
   // 状态里先算上候选人这句（signal 还不知道，先按 null；跳过按钮的效果立刻生效）。
   const pending = candidate ? [asEvent(candidateEvent(candidate, null), state.events.length)] : [];
   const before = stateOf(state.brief, stateEventsOf([...state.events, ...pending]));
-  const describe = (forced: Proposal) => `${forced.action}${forced.target ? `，材料 ${forced.target}` : ""}${forced.facet ? `，角度「${forced.facet}」` : ""}`;
   const call = (retry: string | null, forced: Proposal | null) =>
     interviewer({
       runId: forced ? `${input.runId}:forced` : retry ? `${input.runId}:retry` : input.runId,
@@ -103,7 +115,7 @@ export async function runTurn(input: { runId: string; config: AiTaskConfig; stat
       context: input.context,
       transcript,
       candidateContent: candidate?.content ?? null,
-      card: renderCard(before, { toolsUsed, retry: forced ? `代码已定这回合的动作：${describe(forced)}；action / target / facet 照填，只写这句话` : retry }),
+      card: renderCard(before, { toolsUsed, retry: forced ? copy.forced(forced) : retry }),
       state: before,
       judge,
     });
@@ -113,7 +125,7 @@ export async function runTurn(input: { runId: string; config: AiTaskConfig; stat
   // 消融"动作约束与重出"时一律判合规：模型说什么就是什么，用来量这一层挡住了多少越界。
   const verdictOf = (judged: InterviewState, proposal: Proposal) =>
     before.phase === "opening" || ablated("constraints") ? ({ ok: true } as const) : checkAction(judged, proposal);
-  const replyVerdict = (output: InterviewerOutput) => (ablated("constraints") ? ({ ok: true } as const) : checkReply(output.reply));
+  const replyVerdict = (output: InterviewerOutput) => (ablated("constraints") ? ({ ok: true } as const) : checkReply(output.reply, language));
 
   /**
    * 一次判决，工具钩子与直接输出共用：合法返回 null；违约返回退回原因；第二次违约起由代码定动作，之后只负责说话。
@@ -134,10 +146,10 @@ export async function runTurn(input: { runId: string; config: AiTaskConfig; stat
         violations.push(verdict.ok ? (reply as { reason: string }).reason : verdict.reason);
         if (violations.length < 2) return violations[0];
         forced = fallbackAction(judged);
-        return `代码已定这回合的动作：${describe(forced)}；action / target / facet 照填，只写这句话`;
+        return copy.forced(forced);
       }
     }
-    const notesReason = notesVerdict(output.notes, hypothesisIds);
+    const notesReason = notesVerdict(output.notes, hypothesisIds, language);
     if (notesReason && !notesRetried) {
       notesRetried = true;
       violations.push(notesReason);
@@ -159,7 +171,8 @@ export async function runTurn(input: { runId: string; config: AiTaskConfig; stat
   }
   const proposal = forced ?? proposalOf(result.output, before);
   // 最终这句话再查一次内部词：只记账，不再重出。
-  if (!ablated("constraints") && !checkReply(result.output.reply).ok) violations.push((checkReply(result.output.reply) as { reason: string }).reason);
+  const finalReply = checkReply(result.output.reply, language);
+  if (!ablated("constraints") && !finalReply.ok) violations.push(finalReply.reason);
 
   const output = result.output;
   const signal: Signal = candidate ? (candidate.control === "skip" ? "answered" : output.signal) : "answered";

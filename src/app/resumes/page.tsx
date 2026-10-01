@@ -5,6 +5,7 @@ import { ResumePreview } from "@/components/resumes/resume-preview";
 import { ResumeUploadModal } from "@/components/resumes/resume-upload-modal";
 import { ResumesView } from "@/components/resumes/resumes-view";
 import { TrialResumesPage } from "@/components/trial/pages/trial-resumes-page";
+import { getLocale } from "@/lib/i18n/server";
 import { getResumeProjects, getResumes } from "@/lib/resumes/queries";
 import { formatFileSize, resumeTypeLabel } from "@/lib/resumes/types";
 import { isTrialMode } from "@/lib/runtime-mode";
@@ -24,10 +25,11 @@ export default async function ResumesPage({
 
   await connection();
 
-  const [params, resumes, resumeProjects] = await Promise.all([
+  const [params, resumes, resumeProjects, locale] = await Promise.all([
     searchParams,
     getResumes(),
     getResumeProjects(),
+    getLocale(),
   ]);
   const previewParam = Array.isArray(params.preview)
     ? params.preview[0]
@@ -47,7 +49,7 @@ export default async function ResumesPage({
               previewKind={selectedResume.previewKind}
               previewUrl={selectedResume.previewUrl}
               sizeLabel={formatFileSize(selectedResume.fileSize)}
-              typeLabel={resumeTypeLabel(selectedResume.mimeType, selectedResume.originalName)}
+              typeLabel={resumeTypeLabel(selectedResume.mimeType, selectedResume.originalName, locale)}
             />
           ) : null
         }

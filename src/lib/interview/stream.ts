@@ -1,6 +1,7 @@
 import { createUIMessageStream, createUIMessageStreamResponse, type UIMessageStreamWriter } from "ai";
 
 import { describeAgentError, isAgentRunError } from "@/lib/ai/run-agent";
+import { DEFAULT_LOCALE, defineMessages, type Locale } from "@/lib/i18n/locale";
 
 import type { TurnPayload } from "./views";
 
@@ -11,8 +12,13 @@ import type { TurnPayload } from "./views";
 
 export type TurnData = { replay: true; messages: TurnPayload["newMessages"] } | { replay: false; payload: TurnPayload };
 
-function describeError(error: unknown): string {
-  return isAgentRunError(error) ? describeAgentError(error) : error instanceof Error ? error.message : "回合失败。";
+const messages = defineMessages({
+  "zh-CN": { failed: "回合失败。" },
+  en: { failed: "The turn failed." },
+});
+
+function describeError(error: unknown, locale: Locale): string {
+  return isAgentRunError(error) ? describeAgentError(error, locale) : error instanceof Error ? error.message : messages[locale].failed;
 }
 
 function writeText(writer: UIMessageStreamWriter, text: string): void {
@@ -22,7 +28,11 @@ function writeText(writer: UIMessageStreamWriter, text: string): void {
   writer.write({ type: "text-end", id });
 }
 
-export function turnResponse(run: { replay: true; messages: TurnPayload["newMessages"] } | { replay: false; finalize: () => Promise<TurnPayload> }): Response {
+/** locale：出错时那句话的界面语言。 */
+export function turnResponse(
+  run: { replay: true; messages: TurnPayload["newMessages"] } | { replay: false; finalize: () => Promise<TurnPayload> },
+  locale: Locale = DEFAULT_LOCALE,
+): Response {
   const stream = createUIMessageStream({
     execute: async ({ writer }) => {
       if (run.replay) {
@@ -36,14 +46,14 @@ export function turnResponse(run: { replay: true; messages: TurnPayload["newMess
       } catch (error) {
         // 模型没说出话、动作两次都违约后仍失败、落库失败：把原因写进流，前端给"重试"。没有假装说话的固定句。
         console.error("[interview] 回合失败：", error instanceof Error ? error.stack ?? error.message : error);
-        writer.write({ type: "error", errorText: describeError(error) });
+        writer.write({ type: "error", errorText: describeError(error, locale) });
         return;
       }
       writeText(writer, payload.newMessages.filter((message) => message.role === "interviewer").map((message) => message.content).join("\n"));
       const data: TurnData = { replay: false, payload };
       writer.write({ type: "data-turn", data });
     },
-    onError: describeError,
+    onError: (error) => describeError(error, locale),
   });
   return createUIMessageStreamResponse({ stream });
 }

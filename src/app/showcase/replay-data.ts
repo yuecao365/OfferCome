@@ -1,4 +1,4 @@
-import type { Language } from "./copy";
+import type { Locale } from "@/lib/i18n/locale";
 
 /**
  * 宣传页用的真实场次节选：2026-09-20 一场本地模拟面试（某大厂 · Agent 评测工程师），公司与候选人已匿名，
@@ -18,8 +18,8 @@ export type ReplayScript = {
   lines: ReplayLine[];
 };
 
-export const replayScripts: Record<Language, ReplayScript> = {
-  zh: {
+export const replayScripts: Record<Locale, ReplayScript> = {
+  "zh-CN": {
     title: "面试 · Agent 评测工程师",
     progress: "材料 2 / 4",
     lines: [
@@ -121,8 +121,8 @@ export type ReportExcerpt = {
   hypothesis: { status: string; text: string; verdict: string };
 };
 
-export const reportExcerpts: Record<Language, ReportExcerpt> = {
-  zh: {
+export const reportExcerpts: Record<Locale, ReportExcerpt> = {
+  "zh-CN": {
     score: 65,
     summary: "对 Study Assistant 的记忆分层与约束丢失链路讲得完整，排查顺序和修法都站得住；但在评测的样本量口径、配对判据和 judge 校准上失守，简历里的量化指标也缺样本与对照支撑。",
     weaknesses: [

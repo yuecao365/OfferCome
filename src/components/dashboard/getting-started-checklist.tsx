@@ -1,8 +1,23 @@
+"use client";
+
 import { ArrowRight, CheckCircle2, Circle } from "lucide-react";
 import Link from "next/link";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/cn";
+import { useMessages } from "@/lib/i18n/client";
+import { defineMessages } from "@/lib/i18n/locale";
+
+const messages = defineMessages({
+  "zh-CN": {
+    title: "开始使用",
+    description: "完成这几步，工作台就能端到端运转起来。",
+  },
+  en: {
+    title: "Get started",
+    description: "Finish these steps and the workspace runs end to end.",
+  },
+});
 
 export type SetupStep = {
   done: boolean;
@@ -13,6 +28,7 @@ export type SetupStep = {
 
 /** 开始清单的呈现层：本地版由服务端算步骤，网页版由浏览器算，渲染同一张卡。 */
 export function GettingStartedChecklist({ steps }: { steps: SetupStep[] }) {
+  const t = useMessages(messages);
   const doneCount = steps.filter((step) => step.done).length;
   if (doneCount === steps.length) return null;
 
@@ -20,10 +36,8 @@ export function GettingStartedChecklist({ steps }: { steps: SetupStep[] }) {
     <Card>
       <CardHeader className="flex-row items-start justify-between gap-4">
         <div>
-          <CardTitle>开始使用</CardTitle>
-          <CardDescription>
-            完成这几步，工作台就能端到端运转起来。
-          </CardDescription>
+          <CardTitle>{t.title}</CardTitle>
+          <CardDescription>{t.description}</CardDescription>
         </div>
         <span className="font-mono text-xs tabular-nums text-muted-foreground">
           {doneCount}/{steps.length}

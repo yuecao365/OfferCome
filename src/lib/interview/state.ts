@@ -1,3 +1,4 @@
+import type { ContentLanguage } from "@/lib/i18n/locale";
 import type { AreaKind, InterviewBrief, InterviewPace } from "@/lib/mock-interviews/brief/brief";
 
 import { initialNotes, pendingAmong, pendingCount } from "./notes";
@@ -64,6 +65,8 @@ export type InterviewState = {
   notes: string;
   /** 笔记"待验证"里还剩几条岗位要求（来源 jd 的假设）；备课没提岗位假设时为 0。 */
   jdPending: number;
+  /** 这场的语言（brief.language；旧简报没有按 zh）：状态卡、退回原因、内部词表都按它取。 */
+  language: ContentLanguage;
 };
 
 /** 角度文字的归并键：去空白与标点后比较，模型两次写法只差一个标点算同一个角度。 */
@@ -81,17 +84,40 @@ function facetTextOf(material: MaterialState, facet: FacetRef): string | null {
 
 /** 新信息的词：英文技术词、数字、2–6 字的中文片段（与评测的 informationGain 同口径）。 */
 const TOKEN = /[A-Za-z][A-Za-z0-9+#.-]{2,}|\d+(?:\.\d+)?%?|[一-龥]{2,6}/g;
+/**
+ * 英文场次的新信息词：英文词与数字，但去掉虚词与口头语（中文按 2–6 字片段切，本来就不含"the / because"这类词；
+ * 英文不去就会把每句话的功能词都算成新信息）。词尾的句点与连字符去掉，"Redis." 与 "Redis" 算同一个。
+ */
+const EN_TOKEN = /[a-z][a-z0-9+#.-]{2,}|\d+(?:\.\d+)?%?/g;
+const EN_STOPWORDS = new Set(
+  (
+    "the and for but not you your yours our ours they them their theirs this that these those there here then than with without from into onto over under about after before again also just only very really quite much many more most some any all each every both either neither such same other another " +
+    "was were are been being have has had having does did doing done can could would should will shall may might must let lets get got gets getting make made makes use used uses using " +
+    "what when where which who whom whose why how whether while because since until though although however therefore thus " +
+    "yes yeah yep okay well sure like kind sort basically actually probably maybe perhaps thing things something anything nothing everything someone way ways lot lots bit " +
+    "think thought know knew say said mean means see saw look want wanted need needed try tried going gonna wanna " +
+    "one two three first second last next its don didn doesn isn wasn weren aren couldn wouldn shouldn won haven hasn " +
+    "him his her hers she himself herself itself myself ourselves themselves out off down now still even back"
+  ).split(/\s+/),
+);
+
+function freshTokens(content: string, language: ContentLanguage): string[] {
+  const text = content.toLowerCase();
+  if (language === "zh") return text.match(TOKEN) ?? [];
+  return (text.match(EN_TOKEN) ?? []).map((token) => token.replace(/[.-]+$/, "")).filter((token) => token.length >= 3 && !EN_STOPWORDS.has(token) || /^\d/.test(token));
+}
 const RECENT_GAIN = 3;
 
-/** brief 可以不带 hypotheses（进度视图只要材料）：那时开场笔记的"待验证"为空。 */
-export function stateOf(brief: Pick<InterviewBrief, "pace" | "areas"> & { hypotheses?: InterviewBrief["hypotheses"] }, events: StateEvent[]): InterviewState {
+/** brief 可以不带 hypotheses（进度视图只要材料）：那时开场笔记的"待验证"为空。没有 language 的旧简报按 zh。 */
+export function stateOf(brief: Pick<InterviewBrief, "pace" | "areas"> & { hypotheses?: InterviewBrief["hypotheses"]; language?: ContentLanguage }, events: StateEvent[]): InterviewState {
+  const language = brief.language ?? "zh";
   const plan = planMaterials(brief);
   const materials: MaterialState[] = plan.map((item) => {
     const area = brief.areas.find((candidate) => candidate.id === item.id)!;
     return { id: item.id, kind: item.kind, name: area.name, entryQuestion: area.entryQuestion, status: "untouched", asked: 0, reference: item.reference, lane: item.lane, facets: area.kind === "project" ? area.guides.map((text) => ({ text, probes: 0 })) : [] };
   });
   const byId = new Map(materials.map((item) => [item.id, item]));
-  const state: InterviewState = { turn: 0, materials, currentId: null, currentFacet: null, candidate: { noInfoStreak: 0, noInfoTotal: 0, helpCount: 0, wantsToEnd: false }, recentGain: [], phase: "opening", pace: brief.pace, notes: initialNotes(brief), jdPending: 0 };
+  const state: InterviewState = { turn: 0, materials, currentId: null, currentFacet: null, candidate: { noInfoStreak: 0, noInfoTotal: 0, helpCount: 0, wantsToEnd: false }, recentGain: [], phase: "opening", pace: brief.pace, notes: initialNotes(brief), jdPending: 0, language };
   const jdIds = (brief.hypotheses ?? []).filter((item) => item.source === "jd").map((item) => item.id);
   const seen = new Set<string>();
   const leave = (materialId: string | null) => {
@@ -115,7 +141,7 @@ export function stateOf(brief: Pick<InterviewBrief, "pace" | "areas"> & { hypoth
       }
       if (typeof event.content === "string" && !event.control) {
         let fresh = 0;
-        for (const token of event.content.toLowerCase().match(TOKEN) ?? []) {
+        for (const token of freshTokens(event.content, language)) {
           if (seen.has(token)) continue;
           seen.add(token);
           fresh += 1;
@@ -168,28 +194,76 @@ export function stateOf(brief: Pick<InterviewBrief, "pace" | "areas"> & { hypoth
   return state;
 }
 
-const KIND_LABELS: Record<AreaKind, string> = { project: "项目", quick: "基础题", scenario: "场景题" };
-const STATUS_LABELS: Record<MaterialState["status"], string> = { untouched: "还没聊", open: "正在聊", done: "聊过了", skipped: "候选人跳过" };
+type StateCopy = {
+  kinds: Record<AreaKind, string>;
+  statuses: Record<MaterialState["status"], string>;
+  material: (kind: string, id: string, name: string, status: string) => string;
+  asked: (asked: number, reference: number) => string;
+  facets: (list: string) => string;
+  facet: (text: string, probes: number) => string;
+  facetSeparator: string;
+  header: (done: number, total: number) => string;
+  main: string;
+  backup: string;
+  candidate: (streak: number, total: number, help: number, wantsToEnd: boolean) => string;
+  gain: (count: number, gains: string) => string;
+  pending: (count: number, jd: number) => string;
+};
 
-function renderMaterial(material: MaterialState): string {
-  const head = `- [${material.id}] ${KIND_LABELS[material.kind]}「${material.name}」：${STATUS_LABELS[material.status]}${material.status === "open" || material.status === "done" ? `，问了 ${material.asked} 句（一般 ${material.reference} 句左右）` : ""}`;
+const COPY: Record<ContentLanguage, StateCopy> = {
+  zh: {
+    kinds: { project: "项目", quick: "基础题", scenario: "场景题" },
+    statuses: { untouched: "还没聊", open: "正在聊", done: "聊过了", skipped: "候选人跳过" },
+    material: (kind, id, name, status) => `- [${id}] ${kind}「${name}」：${status}`,
+    asked: (asked, reference) => `，问了 ${asked} 句（一般 ${reference} 句左右）`,
+    facets: (list) => `\n  已追的角度：${list}`,
+    facet: (text, probes) => `${text}（${probes} 句）`,
+    facetSeparator: "；",
+    header: (done, total) => `材料（${done} / ${total} 份聊完）：`,
+    main: `主线：`,
+    backup: `备选（候选人答得实、信息量还高时再问）：`,
+    candidate: (streak, total, help, wantsToEnd) => `候选人：连续 ${streak} 句没有信息（全场 ${total} 句），求助 ${help} 次${wantsToEnd ? "，已表示想结束" : ""}。`,
+    gain: (count, gains) => `最近 ${count} 句回答的新信息量（之前没出现过的技术词与数字个数）：${gains}。`,
+    pending: (count, jd) => `笔记里待验证的说法还剩 ${count} 条${jd > 0 ? `，其中岗位要求 ${jd} 条还没验（岗位特异性只在这几条上，收尾前先验它）` : ""}。`,
+  },
+  en: {
+    kinds: { project: "Project", quick: "Fundamentals", scenario: "Scenario" },
+    statuses: { untouched: "not started", open: "in progress", done: "covered", skipped: "skipped by the candidate" },
+    material: (kind, id, name, status) => `- [${id}] ${kind} "${name}": ${status}`,
+    asked: (asked, reference) => `, ${asked} question${asked === 1 ? "" : "s"} asked (usually about ${reference})`,
+    facets: (list) => `\n  Angles probed: ${list}`,
+    facet: (text, probes) => `${text} (${probes})`,
+    facetSeparator: "; ",
+    header: (done, total) => `Agenda (${done} / ${total} items finished):`,
+    main: `Main track:`,
+    backup: `Backup (only if the candidate is answering with substance and new information is still coming):`,
+    candidate: (streak, total, help, wantsToEnd) => `Candidate: ${streak} answer${streak === 1 ? "" : "s"} in a row with no information (${total} in total), asked for help ${help} time${help === 1 ? "" : "s"}${wantsToEnd ? ", has said they want to stop" : ""}.`,
+    gain: (count, gains) => `New information in the last ${count} answer${count === 1 ? "" : "s"} (technical terms and numbers not seen before): ${gains}.`,
+    pending: (count, jd) => `Claims still to verify in your notes: ${count}${jd > 0 ? `, of which ${jd} ${jd === 1 ? "is a role requirement" : "are role requirements"} not yet checked (the only role-specific signal in this interview; settle ${jd === 1 ? "it" : "them"} before wrapping up)` : ""}.`,
+  },
+};
+
+function renderMaterial(material: MaterialState, copy: StateCopy): string {
+  const head = copy.material(copy.kinds[material.kind], material.id, material.name, copy.statuses[material.status]) + (material.status === "open" || material.status === "done" ? copy.asked(material.asked, material.reference) : "");
   const probed = material.facets.filter((facet) => facet.probes > 0);
-  const facets = probed.length > 0 ? `\n  已追的角度：${probed.map((facet) => `${facet.text}（${facet.probes} 句）`).join("；")}` : "";
+  const facets = probed.length > 0 ? copy.facets(probed.map((facet) => copy.facet(facet.text, facet.probes)).join(copy.facetSeparator)) : "";
   return head + facets;
 }
 
 /**
  * 模型每回合看到的状态卡正文（代码写的事实）：主线与备选材料各一段（问了几句、追过哪些角度），候选人一段（信号计数、最近几句的新信息量），
- * 笔记还剩几条待验。只写局面，不写许可：句数是参考不是余额，怎么走由模型定。判断在笔记里（renderCard 另放一块）。
+ * 笔记还剩几条待验。只写局面，不写许可：句数是参考不是余额，怎么走由模型定。判断在笔记里（renderCard 另放一块）。按场次语言写。
  */
 export function renderState(state: InterviewState): string {
+  const copy = COPY[state.language];
+  const render = (material: MaterialState) => renderMaterial(material, copy);
   const main = state.materials.filter((item) => item.lane === "main");
   const backup = state.materials.filter((item) => item.lane === "backup");
   const done = state.materials.filter((item) => item.status === "done" || item.status === "skipped").length;
-  const lines = [`材料（${done} / ${state.materials.length} 份聊完）：`, `主线：`, ...main.map(renderMaterial)];
-  if (backup.length > 0) lines.push(`备选（候选人答得实、信息量还高时再问）：`, ...backup.map(renderMaterial));
-  lines.push(`候选人：连续 ${state.candidate.noInfoStreak} 句没有信息（全场 ${state.candidate.noInfoTotal} 句），求助 ${state.candidate.helpCount} 次${state.candidate.wantsToEnd ? "，已表示想结束" : ""}。`);
-  if (state.recentGain.length > 0) lines.push(`最近 ${state.recentGain.length} 句回答的新信息量（之前没出现过的技术词与数字个数）：${state.recentGain.join(" / ")}。`);
-  lines.push(`笔记里待验证的说法还剩 ${pendingCount(state.notes)} 条${state.jdPending > 0 ? `，其中岗位要求 ${state.jdPending} 条还没验（岗位特异性只在这几条上，收尾前先验它）` : ""}。`);
+  const lines = [copy.header(done, state.materials.length), copy.main, ...main.map(render)];
+  if (backup.length > 0) lines.push(copy.backup, ...backup.map(render));
+  lines.push(copy.candidate(state.candidate.noInfoStreak, state.candidate.noInfoTotal, state.candidate.helpCount, state.candidate.wantsToEnd));
+  if (state.recentGain.length > 0) lines.push(copy.gain(state.recentGain.length, state.recentGain.join(" / ")));
+  lines.push(copy.pending(pendingCount(state.notes), state.jdPending));
   return lines.join("\n");
 }

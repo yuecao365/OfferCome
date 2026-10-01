@@ -1,14 +1,39 @@
+"use client";
+
 import { ChevronDown, PanelLeftClose, PanelLeftOpen, Settings2 } from "lucide-react";
 import Link from "next/link";
 
 import {
   navigationGroups,
+  navigationMessages,
   type NavigationItem,
 } from "@/components/app-navigation-config";
 import type { AppSection, InterviewSection } from "@/components/app-shell-types";
+import { LocaleButton } from "@/components/locale-button";
 import { ThemeButton } from "@/components/theme-button";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
+import { useMessages } from "@/lib/i18n/client";
+import { defineMessages } from "@/lib/i18n/locale";
+
+const messages = defineMessages({
+  "zh-CN": {
+    backToOverview: "返回数据概览",
+    mainNavigation: "主导航",
+    withChildren: (label: string, count: number) => `${label}（含 ${count} 个子页面）`,
+    childPages: (label: string) => `${label}子页面`,
+    expandSidebar: "展开侧边栏",
+    collapseSidebar: "收起侧边栏",
+  },
+  en: {
+    backToOverview: "Back to overview",
+    mainNavigation: "Main navigation",
+    withChildren: (label: string, count: number) => `${label} (${count} subpages)`,
+    childPages: (label: string) => `${label} subpages`,
+    expandSidebar: "Expand sidebar",
+    collapseSidebar: "Collapse sidebar",
+  },
+});
 
 function isItemActive(
   item: NavigationItem,
@@ -68,9 +93,10 @@ export function ProductMark({
   collapsed?: boolean;
   homeHref?: string;
 }) {
+  const t = useMessages(messages);
   return (
     <Link
-      aria-label="返回数据概览"
+      aria-label={t.backToOverview}
       className={cn(
         "flex h-12 items-center gap-1.5 px-5 text-sm font-semibold tracking-tight text-foreground focus-visible:outline-offset-[-2px]",
         collapsed && "justify-center px-0",
@@ -96,13 +122,15 @@ export function Navigation({
   homeHref?: string;
   onNavigate?: () => void;
 }) {
+  const t = useMessages(messages);
+  const nav = useMessages(navigationMessages);
   return (
-    <nav aria-label="主导航" className="flex-1 overflow-y-auto px-3 py-3">
+    <nav aria-label={t.mainNavigation} className="flex-1 overflow-y-auto px-3 py-3">
       <div className={cn("grid", collapsed ? "gap-2" : "gap-5")}>
         {navigationGroups.map((group) => (
           <section
             className={cn(collapsed && "border-t border-border pt-2 first:border-t-0 first:pt-0")}
-            key={group.label}
+            key={group.key}
           >
             <h2
               className={cn(
@@ -110,13 +138,14 @@ export function Navigation({
                 collapsed && "sr-only",
               )}
             >
-              {group.label}
+              {nav.groups[group.key]}
             </h2>
             <div className="grid gap-px">
               {group.items.map((item) => {
                 const selected = isItemActive(item, active, subActive);
                 const branchSelected = isBranchActive(item, active, subActive);
                 const Icon = item.icon;
+                const label = nav.pages[item.active];
 
                 return (
                   <div key={item.href}>
@@ -127,7 +156,9 @@ export function Navigation({
                       onClick={onNavigate}
                       title={
                         collapsed
-                          ? `${item.label}${item.children ? `（含 ${item.children.length} 个子页面）` : ""}`
+                          ? item.children
+                            ? t.withChildren(label, item.children.length)
+                            : label
                           : undefined
                       }
                     >
@@ -141,10 +172,10 @@ export function Navigation({
                         strokeWidth={1.5}
                       />
                       {collapsed ? (
-                        <span className="sr-only">{item.label}</span>
+                        <span className="sr-only">{label}</span>
                       ) : (
                         <>
-                          <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                          <span className="min-w-0 flex-1 truncate">{label}</span>
                           {item.children ? (
                             <ChevronDown aria-hidden="true" className="size-3.5 text-muted-foreground" strokeWidth={1.5} />
                           ) : null}
@@ -154,7 +185,7 @@ export function Navigation({
 
                     {item.children ? (
                       <div
-                        aria-label={`${item.label}子页面`}
+                        aria-label={t.childPages(label)}
                         // 收起时子页面平铺为图标，和一级项同宽同距；展开时缩进并加左侧引导线
                         className={cn(
                           "grid gap-px",
@@ -165,6 +196,7 @@ export function Navigation({
                         {item.children.map((child) => {
                           const childSelected = isItemActive(child, active, subActive);
                           const ChildIcon = child.icon;
+                          const childLabel = nav.pages[child.active];
                           return (
                             <Link
                               aria-current={childSelected ? "page" : undefined}
@@ -176,7 +208,7 @@ export function Navigation({
                               href={child.href}
                               key={child.href}
                               onClick={onNavigate}
-                              title={collapsed ? child.label : undefined}
+                              title={collapsed ? childLabel : undefined}
                             >
                               {collapsed && childSelected ? <ActiveBar /> : null}
                               <ChildIcon
@@ -189,9 +221,9 @@ export function Navigation({
                                 strokeWidth={1.5}
                               />
                               {collapsed ? (
-                                <span className="sr-only">{child.label}</span>
+                                <span className="sr-only">{childLabel}</span>
                               ) : (
-                                <span className="truncate">{child.label}</span>
+                                <span className="truncate">{childLabel}</span>
                               )}
                             </Link>
                           );
@@ -218,13 +250,14 @@ export function SettingsLink({
   collapsed?: boolean;
   onNavigate?: () => void;
 }) {
+  const label = useMessages(navigationMessages).pages.settings;
   return (
     <Link
       aria-current={active ? "page" : undefined}
       className={navItemClassName({ selected: active, collapsed })}
       href="/settings"
       onClick={onNavigate}
-      title={collapsed ? "设置" : undefined}
+      title={collapsed ? label : undefined}
     >
       {active ? <ActiveBar /> : null}
       <Settings2
@@ -232,7 +265,7 @@ export function SettingsLink({
         className={cn("size-4 shrink-0", !active && "text-muted-foreground group-hover:text-foreground")}
         strokeWidth={1.5}
       />
-      {collapsed ? <span className="sr-only">设置</span> : "设置"}
+      {collapsed ? <span className="sr-only">{label}</span> : label}
     </Link>
   );
 }
@@ -250,6 +283,8 @@ export function DesktopSidebar({
   homeHref: string;
   onToggle: () => void;
 }) {
+  const t = useMessages(messages);
+  const toggleLabel = collapsed ? t.expandSidebar : t.collapseSidebar;
   return (
     <aside className="sticky top-0 hidden h-screen flex-col border-r border-border bg-surface lg:flex">
       <ProductMark collapsed={collapsed} homeHref={homeHref} />
@@ -262,12 +297,15 @@ export function DesktopSidebar({
       <div className="grid gap-px border-t border-border p-3">
         <SettingsLink active={active === "settings"} collapsed={collapsed} />
         <div className={cn("flex items-center", collapsed ? "flex-col gap-px" : "justify-between")}>
-          <ThemeButton />
+          <div className={cn("flex items-center", collapsed && "flex-col gap-px")}>
+            <ThemeButton />
+            <LocaleButton />
+          </div>
           <Button
-            aria-label={collapsed ? "展开侧边栏" : "收起侧边栏"}
+            aria-label={toggleLabel}
             onClick={onToggle}
             size="icon"
-            title={collapsed ? "展开侧边栏" : "收起侧边栏"}
+            title={toggleLabel}
             variant="ghost"
           >
             {collapsed ? (

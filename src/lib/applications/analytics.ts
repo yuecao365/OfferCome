@@ -1,6 +1,8 @@
+import { defineMessages, type Locale } from "@/lib/i18n/locale";
+
 import {
+  APPLICATION_STAGE_LABELS_I18N,
   APPLICATION_STAGES,
-  stageLabel,
   type ApplicationStage,
   type ApplicationTrendGranularity,
   type ApplicationTrendPoint,
@@ -35,42 +37,44 @@ export type ApplicationStageChartPoint = {
 
 export type ApplicationTrendRangeOption = {
   value: ApplicationTrendRange;
+  granularity: ApplicationTrendGranularity;
+};
+
+export type ApplicationTrendRangeText = {
   label: string;
   description: string;
-  granularity: ApplicationTrendGranularity;
   granularityLabel: string;
 };
 
 export const APPLICATION_TREND_RANGE_OPTIONS: ApplicationTrendRangeOption[] = [
-  {
-    value: "14d",
-    label: "14 天",
-    description: "最近 14 天",
-    granularity: "day",
-    granularityLabel: "天",
-  },
-  {
-    value: "30d",
-    label: "1 个月",
-    description: "最近 1 个月",
-    granularity: "day",
-    granularityLabel: "天",
-  },
-  {
-    value: "90d",
-    label: "3 个月",
-    description: "最近 3 个月",
-    granularity: "week",
-    granularityLabel: "周",
-  },
-  {
-    value: "365d",
-    label: "1 年",
-    description: "最近 1 年",
-    granularity: "month",
-    granularityLabel: "月",
-  },
+  { value: "14d", granularity: "day" },
+  { value: "30d", granularity: "day" },
+  { value: "90d", granularity: "week" },
+  { value: "365d", granularity: "month" },
 ];
+
+const trendRangeText = defineMessages<Record<ApplicationTrendRange, ApplicationTrendRangeText>>({
+  "zh-CN": {
+    "14d": { label: "14 天", description: "最近 14 天", granularityLabel: "天" },
+    "30d": { label: "1 个月", description: "最近 1 个月", granularityLabel: "天" },
+    "90d": { label: "3 个月", description: "最近 3 个月", granularityLabel: "周" },
+    "365d": { label: "1 年", description: "最近 1 年", granularityLabel: "月" },
+  },
+  en: {
+    "14d": { label: "14 days", description: "Last 14 days", granularityLabel: "day" },
+    "30d": { label: "1 month", description: "Last month", granularityLabel: "day" },
+    "90d": { label: "3 months", description: "Last 3 months", granularityLabel: "week" },
+    "365d": { label: "1 year", description: "Last year", granularityLabel: "month" },
+  },
+});
+
+/** 时间范围的界面文案（按钮、说明、聚合粒度），按语言取。 */
+export function applicationTrendRangeText(
+  range: ApplicationTrendRange,
+  locale: Locale = "zh-CN",
+): ApplicationTrendRangeText {
+  return trendRangeText[locale][range];
+}
 
 const applicationTrendRangeValues = new Set<ApplicationTrendRange>(
   APPLICATION_TREND_RANGE_OPTIONS.map((option) => option.value),
@@ -94,9 +98,11 @@ export function parseApplicationTrendRange(
 
 export function getApplicationTrendRangeOption(
   range: ApplicationTrendRange,
-): ApplicationTrendRangeOption {
-  return APPLICATION_TREND_RANGE_OPTIONS.find((option) => option.value === range) ??
+  locale: Locale = "zh-CN",
+): ApplicationTrendRangeOption & ApplicationTrendRangeText {
+  const option = APPLICATION_TREND_RANGE_OPTIONS.find((candidate) => candidate.value === range) ??
     APPLICATION_TREND_RANGE_OPTIONS[0]!;
+  return { ...option, ...applicationTrendRangeText(option.value, locale) };
 }
 
 export function getApplicationTrendStart(
@@ -266,10 +272,11 @@ export function buildCareerFlowSnapshot(
 
 export function buildApplicationStageChartData(
   counts: Record<ApplicationStage, number>,
+  locale: Locale = "zh-CN",
 ): ApplicationStageChartPoint[] {
   return APPLICATION_STAGES.map((stage) => ({
     stage,
-    label: stageLabel(stage),
+    label: APPLICATION_STAGE_LABELS_I18N[locale][stage],
     count: counts[stage],
   }));
 }

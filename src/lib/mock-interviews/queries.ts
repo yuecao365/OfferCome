@@ -1,6 +1,8 @@
 import "server-only";
 
 import { prisma } from "@/lib/db";
+import type { Locale } from "@/lib/i18n/locale";
+import { getLocale } from "@/lib/i18n/server";
 import { REAL_USAGE_INTERVIEW_WHERE } from "@/lib/interviews/types";
 import { parseJsonArray, parseJsonObject, parseJsonValue } from "@/lib/json";
 
@@ -107,12 +109,12 @@ function buildConversation(session: SessionWithConversation) {
 }
 
 /** 面试官思路：完成后才给；从事件日志投影。 */
-function buildTrail(session: SessionWithConversation) {
+function buildTrail(session: SessionWithConversation, locale: Locale) {
   if (session.status !== "completed") return null;
   const brief = parseStoredBrief(session.briefJson);
   if (!brief) return null;
   const events = session.events.map(parseEventRow).filter((item): item is InterviewEvent => item !== null);
-  return reviewTrail(brief.areas, trailMessagesOfEvents(events));
+  return reviewTrail(brief.areas, trailMessagesOfEvents(events), locale);
 }
 
 export async function getMockInterviewView(id: string): Promise<MockInterviewView | null> {
@@ -139,6 +141,7 @@ export async function getMockInterviewView(id: string): Promise<MockInterviewVie
     interactionMode: isMockInterviewMode(session.interactionMode)
       ? session.interactionMode
       : "text",
+    language: session.language === "en" ? "en" : "zh",
     questionCount: session.questionCount,
     totalScore: session.totalScore,
     report: parseStoredReport(session.reportJson),
@@ -146,7 +149,7 @@ export async function getMockInterviewView(id: string): Promise<MockInterviewVie
     materials: { resumeText: session.resumeTextSnapshot, jobDescription: session.jdTextSnapshot },
     conversation: buildConversation(session),
     estimates: buildEstimates(session),
-    trail: buildTrail(session),
+    trail: buildTrail(session, await getLocale()),
     questions: session.interview.questions.map((question) => {
       const completedEvaluation =
         session.status === "completed" ? question.evaluation : null;

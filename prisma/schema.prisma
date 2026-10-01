@@ -200,6 +200,8 @@ model MockInterviewSession {
   interactionMode      String    @default("text")
   /// 面试时长（分钟）；题目数量不再是输入，而是面试过程的结果。
   pace                 String    @default("standard")
+  /// 面试语言（zh / en）：备课、面试官、评分、报告都用它产出；与界面语言无关，按场次存（docs/i18n-plan.md）。
+  language             String    @default("zh")
   /// 备课产物（材料）：项目的五个面、基础题池、场景题、简历假设。
   briefJson            String?
   /// 时间盒（分钟），按节奏定。

@@ -14,9 +14,64 @@ import {
 } from "./profile-graph-model";
 import {
   PROFILE_DIMENSIONS,
-  PROFILE_DIMENSION_LABELS,
+  PROFILE_DIMENSION_LABELS_I18N,
   type ProfileInsightKind,
 } from "@/lib/candidate-profile/types";
+import { useLocale, useMessages } from "@/lib/i18n/client";
+import { defineMessages } from "@/lib/i18n/locale";
+
+const messages = defineMessages({
+  "zh-CN": {
+    reason: {
+      shared_observation: "共享观察",
+      shared_question: "同一回答",
+      shared_interview: "同场面试",
+      same_dimension: "同一维度",
+    },
+    root: "能力画像",
+    mock: "AI 模拟",
+    real: "真实",
+    renderFailed: "图谱渲染失败",
+    updateFailed: "图谱更新失败",
+    aria: "能力画像知识网络。拖拽节点或画布探索关系，选择洞察后突出相关证据。",
+    fit: "适应画布",
+    unavailable: (error: string) => `图谱暂时无法渲染：${error}`,
+    hint: "拖拽节点 · 滚轮缩放 · 悬停追踪",
+    strength: "优势",
+    weakness: "短板",
+    pattern: "模式",
+    training: "训练",
+    realEvidence: "真实证据（高权重）",
+    mockEvidence: "AI 模拟（低权重）",
+    relations: (n: number) => `曲线：洞察间隐含关系（${n}）`,
+  },
+  en: {
+    reason: {
+      shared_observation: "Shared observation",
+      shared_question: "Same answer",
+      shared_interview: "Same interview",
+      same_dimension: "Same dimension",
+    },
+    root: "Capability profile",
+    mock: "AI mock",
+    real: "Real",
+    renderFailed: "Couldn't render the graph",
+    updateFailed: "Couldn't update the graph",
+    aria: "Capability profile network. Drag nodes or the canvas to explore relations; select an insight to highlight its evidence.",
+    fit: "Fit to view",
+    unavailable: (error: string) => `The graph can't be rendered right now: ${error}`,
+    hint: "Drag nodes · scroll to zoom · hover to trace",
+    strength: "Strength",
+    weakness: "Weakness",
+    pattern: "Pattern",
+    training: "Practice",
+    realEvidence: "Real evidence (high weight)",
+    mockEvidence: "AI mock (low weight)",
+    relations: (n: number) => `Curves: implied relations between insights (${n})`,
+  },
+});
+
+type GraphMessages = (typeof messages)["zh-CN"];
 
 export type { ProfileGraphEvidence, ProfileGraphInsight } from "./profile-graph-model";
 
@@ -66,11 +121,11 @@ function colorForInsight(kind: ProfileInsightKind, theme: GraphTheme): string {
   return theme.info;
 }
 
-function reasonLabel(reasons: string[]): string {
-  if (reasons.includes("shared_observation")) return "共享观察";
-  if (reasons.includes("shared_question")) return "同一回答";
-  if (reasons.includes("shared_interview")) return "同场面试";
-  return "同一维度";
+function reasonLabel(reasons: string[], t: GraphMessages): string {
+  if (reasons.includes("shared_observation")) return t.reason.shared_observation;
+  if (reasons.includes("shared_question")) return t.reason.shared_question;
+  if (reasons.includes("shared_interview")) return t.reason.shared_interview;
+  return t.reason.same_dimension;
 }
 
 function compactLabel(value: string, maxLength = 22): string {
@@ -102,7 +157,10 @@ export function ProfileGraph({ insights, selectedId, onSelect, reducedMotion }: 
   const graphDataRef = useRef<GraphData>({ nodes: [], edges: [] });
   const insightsRef = useRef(insights);
   const onSelectRef = useRef(onSelect);
-  const [renderError, setRenderError] = useState("");
+  const locale = useLocale();
+  const t = useMessages(messages);
+  // 没有错误信息时按失败阶段显示兜底文案，文案随语言切换。
+  const [renderError, setRenderError] = useState<{ stage: "render" | "update"; message: string } | null>(null);
   const [graphTheme, setGraphTheme] = useState<GraphTheme | null>(null);
 
   useEffect(() => {
@@ -173,7 +231,7 @@ export function ProfileGraph({ insights, selectedId, onSelect, reducedMotion }: 
     const position = (id: string) => graphModel.positions.get(id) ?? { x: 500, y: 350 };
     nodes.push({
       id: "profile:root",
-      data: { label: "能力画像", nodeKind: "root" },
+      data: { label: t.root, nodeKind: "root" },
       style: {
         ...position("profile:root"),
         size: 20,
@@ -188,7 +246,7 @@ export function ProfileGraph({ insights, selectedId, onSelect, reducedMotion }: 
       const id = `dimension:${dimension}`;
       nodes.push({
         id,
-        data: { label: PROFILE_DIMENSION_LABELS[dimension], nodeKind: "dimension", dimension },
+        data: { label: PROFILE_DIMENSION_LABELS_I18N[locale][dimension], nodeKind: "dimension", dimension },
         style: {
           ...position(id),
           size: 10,
@@ -242,7 +300,7 @@ export function ProfileGraph({ insights, selectedId, onSelect, reducedMotion }: 
         data: {
           edgeKind: "relation",
           strength: relation.strength,
-          label: touchesSelected ? reasonLabel(relation.reasons) : "",
+          label: touchesSelected ? reasonLabel(relation.reasons, t) : "",
         },
       });
     }
@@ -254,7 +312,7 @@ export function ProfileGraph({ insights, selectedId, onSelect, reducedMotion }: 
         id: cluster.id,
         data: {
           label: selected
-            ? `${isMockEvidence ? "AI 模拟" : "真实"} · ${cluster.evidence.companyName} · ${cluster.evidence.question.slice(0, 18)}`
+            ? `${isMockEvidence ? t.mock : t.real} · ${cluster.evidence.companyName} · ${cluster.evidence.question.slice(0, 18)}`
             : "",
           nodeKind: "evidence",
           insightId: cluster.insightIds[0],
@@ -293,7 +351,7 @@ export function ProfileGraph({ insights, selectedId, onSelect, reducedMotion }: 
       }
     }
     return { nodes, edges } satisfies GraphData;
-  }, [graphModel, graphTheme, insights, selectedId]);
+  }, [graphModel, graphTheme, insights, locale, selectedId, t]);
 
   useEffect(() => {
     insightsRef.current = insights;
@@ -423,7 +481,7 @@ export function ProfileGraph({ insights, selectedId, onSelect, reducedMotion }: 
       graphRef.current = graph;
     }).catch((error: unknown) => {
       if (!disposed) {
-        setRenderError(error instanceof Error ? error.message : "图谱渲染失败");
+        setRenderError({ stage: "render", message: error instanceof Error ? error.message : "" });
       }
     });
     return () => {
@@ -438,13 +496,13 @@ export function ProfileGraph({ insights, selectedId, onSelect, reducedMotion }: 
     if (!graph) return;
     graph.setData(mergeLivePositions(graph, graphData));
     void graph.draw().catch((error: unknown) => {
-      setRenderError(error instanceof Error ? error.message : "图谱更新失败");
+      setRenderError({ stage: "update", message: error instanceof Error ? error.message : "" });
     });
   }, [graphData]);
 
   return (
     <section
-      aria-label="能力画像知识网络。拖拽节点或画布探索关系，选择洞察后突出相关证据。"
+      aria-label={t.aria}
       className="profile-graph-canvas relative h-[calc(100vh-7rem)] min-h-[640px] w-full overflow-hidden rounded-panel border border-border"
     >
       <button
@@ -452,23 +510,23 @@ export function ProfileGraph({ insights, selectedId, onSelect, reducedMotion }: 
         onClick={() => void graphRef.current?.fitView({ when: "always", direction: "both" }, reducedMotion ? false : { duration: 320 })}
         type="button"
       >
-        适应画布
+        {t.fit}
       </button>
       <div className="h-full w-full" ref={containerRef} />
       {renderError ? (
         <div className="absolute inset-x-4 top-20 z-20 rounded-control border border-danger/30 bg-danger-soft/90 px-4 py-3 text-sm text-danger-strong backdrop-blur">
-          图谱暂时无法渲染：{renderError}
+          {t.unavailable(renderError.message || (renderError.stage === "render" ? t.renderFailed : t.updateFailed))}
         </div>
       ) : null}
       <div className="pointer-events-none absolute bottom-4 left-4 z-10 flex max-w-[calc(100%-2rem)] flex-wrap gap-x-4 gap-y-2 rounded-control border border-border bg-surface/85 px-3 py-2 text-[10px] text-muted-foreground backdrop-blur">
-        <span>拖拽节点 · 滚轮缩放 · 悬停追踪</span>
-        <span><i className="mr-1.5 inline-block size-2 rounded-full bg-success" />优势</span>
-        <span><i className="mr-1.5 inline-block size-2 rounded-full bg-danger" />短板</span>
-        <span><i className="mr-1.5 inline-block size-2 rounded-full bg-info" />模式</span>
-        <span><i className="mr-1.5 inline-block size-2 rounded-full bg-warning" />训练</span>
-        <span><i className="mr-1.5 inline-block size-2 rounded-full bg-info-soft ring-1 ring-info" />真实证据（高权重）</span>
-        <span><i className="mr-1.5 inline-block size-2 rounded-full bg-brand" />AI 模拟（低权重）</span>
-        <span className="text-brand">曲线：洞察间隐含关系（{graphModel.relations.length}）</span>
+        <span>{t.hint}</span>
+        <span><i className="mr-1.5 inline-block size-2 rounded-full bg-success" />{t.strength}</span>
+        <span><i className="mr-1.5 inline-block size-2 rounded-full bg-danger" />{t.weakness}</span>
+        <span><i className="mr-1.5 inline-block size-2 rounded-full bg-info" />{t.pattern}</span>
+        <span><i className="mr-1.5 inline-block size-2 rounded-full bg-warning" />{t.training}</span>
+        <span><i className="mr-1.5 inline-block size-2 rounded-full bg-info-soft ring-1 ring-info" />{t.realEvidence}</span>
+        <span><i className="mr-1.5 inline-block size-2 rounded-full bg-brand" />{t.mockEvidence}</span>
+        <span className="text-brand">{t.relations(graphModel.relations.length)}</span>
       </div>
     </section>
   );

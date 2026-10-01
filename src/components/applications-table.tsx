@@ -1,3 +1,5 @@
+"use client";
+
 import { ExternalLink } from "lucide-react";
 import type { ComponentProps } from "react";
 
@@ -15,6 +17,8 @@ import {
 import { EmptyState } from "@/components/ui/empty-state";
 import type { ApplicationListItem } from "@/lib/applications/types";
 import { formatShortDateTime } from "@/lib/format/date";
+import { useLocale, useMessages } from "@/lib/i18n/client";
+import { defineMessages } from "@/lib/i18n/locale";
 
 import {
   ApplicationInterviewActions,
@@ -23,6 +27,43 @@ import {
 import { EditApplicationModal } from "./application-modals";
 import { ApplicationDeleteButton } from "./application-delete-button";
 import { StageBadge } from "./stage-badge";
+
+const messages = defineMessages({
+  "zh-CN": {
+    opensInNewWindow: "（在新窗口打开岗位链接）",
+    autoRejected: "30 天无活动自动标记",
+    autoRejectedTitle: "投递 30 天无后续活动，自动标记为拒绝",
+    applied: "投递",
+    source: "来源",
+    emptyAction: "清空全部筛选",
+    emptyDescription: "尝试清空筛选条件，或同步最新的 Boss 直聘记录。",
+    emptyTitle: "没有匹配的岗位",
+    colJob: "公司与岗位",
+    colStage: "状态",
+    colApplied: "投递时间",
+    colSource: "来源",
+    colUpdated: "状态更新",
+    colNote: "备注",
+    colActions: "操作",
+  },
+  en: {
+    opensInNewWindow: " (opens the job link in a new window)",
+    autoRejected: "Auto-marked after 30 idle days",
+    autoRejectedTitle: "No activity for 30 days after applying, so it was marked as rejected automatically",
+    applied: "Applied",
+    source: "Source",
+    emptyAction: "Clear all filters",
+    emptyDescription: "Try clearing the filters, or sync the latest Boss Zhipin records.",
+    emptyTitle: "No matching applications",
+    colJob: "Company and role",
+    colStage: "Stage",
+    colApplied: "Applied",
+    colSource: "Source",
+    colUpdated: "Stage updated",
+    colNote: "Notes",
+    colActions: "Actions",
+  },
+});
 
 type ApplicationsTableProps = {
   applications: ApplicationListItem[];
@@ -34,6 +75,7 @@ type ApplicationsTableProps = {
 };
 
 function JobTitle({ application }: { application: ApplicationListItem }) {
+  const t = useMessages(messages);
   if (!application.jobUrl) {
     return <span>{application.jobTitle}</span>;
   }
@@ -47,17 +89,18 @@ function JobTitle({ application }: { application: ApplicationListItem }) {
     >
       {application.jobTitle}
       <ExternalLink aria-hidden="true" className="size-3 shrink-0" strokeWidth={1.5} />
-      <span className="sr-only">（在新窗口打开岗位链接）</span>
+      <span className="sr-only">{t.opensInNewWindow}</span>
     </a>
   );
 }
 
 function ApplicationStage({ application }: { application: ApplicationListItem }) {
+  const t = useMessages(messages);
   return (
     <div className="grid justify-items-start gap-1">
       <StageBadge stage={application.stage} />
       {application.autoRejectedAt ? (
-        <span className="whitespace-nowrap text-[0.6875rem] text-danger-strong" title="投递 30 天无后续活动，自动标记为拒绝">30 天无活动自动标记</span>
+        <span className="whitespace-nowrap text-[0.6875rem] text-danger-strong" title={t.autoRejectedTitle}>{t.autoRejected}</span>
       ) : null}
     </div>
   );
@@ -81,6 +124,8 @@ function ApplicationActions({
 }
 
 function ApplicationCards({ applications, ...rest }: ApplicationsTableProps) {
+  const t = useMessages(messages);
+  const locale = useLocale();
   return (
     <div className="grid gap-2 md:hidden">
       {applications.map((application) => (
@@ -101,11 +146,11 @@ function ApplicationCards({ applications, ...rest }: ApplicationsTableProps) {
           </div>
           <dl className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs">
             <div className="flex gap-1.5">
-              <dt className="text-muted-foreground">投递</dt>
-              <dd><MetaText className="text-foreground">{formatShortDateTime(application.appliedAt)}</MetaText></dd>
+              <dt className="text-muted-foreground">{t.applied}</dt>
+              <dd><MetaText className="text-foreground">{formatShortDateTime(application.appliedAt, "", locale)}</MetaText></dd>
             </div>
             <div className="flex gap-1.5">
-              <dt className="text-muted-foreground">来源</dt>
+              <dt className="text-muted-foreground">{t.source}</dt>
               <dd><MetaText className="text-foreground">{application.source}</MetaText></dd>
             </div>
           </dl>
@@ -125,17 +170,19 @@ function ApplicationCards({ applications, ...rest }: ApplicationsTableProps) {
 
 export function ApplicationsTable(props: ApplicationsTableProps) {
   const { applications, ...rest } = props;
+  const t = useMessages(messages);
+  const locale = useLocale();
 
   if (applications.length === 0) {
     return (
       <EmptyState
         action={
           <ButtonLink href="/applications" variant="outline">
-            清空全部筛选
+            {t.emptyAction}
           </ButtonLink>
         }
-        description="尝试清空筛选条件，或同步最新的 Boss 直聘记录。"
-        title="没有匹配的岗位"
+        description={t.emptyDescription}
+        title={t.emptyTitle}
       />
     );
   }
@@ -145,14 +192,14 @@ export function ApplicationsTable(props: ApplicationsTableProps) {
       <ApplicationCards {...props} />
       <DataTable className="hidden md:block">
         <DataTableHead>
-          <Th>公司与岗位</Th>
-          <Th>状态</Th>
-          <Th>投递时间</Th>
-          <Th>来源</Th>
-          <Th>状态更新</Th>
-          <Th>备注</Th>
+          <Th>{t.colJob}</Th>
+          <Th>{t.colStage}</Th>
+          <Th>{t.colApplied}</Th>
+          <Th>{t.colSource}</Th>
+          <Th>{t.colUpdated}</Th>
+          <Th>{t.colNote}</Th>
           <Th className="text-right">
-            <span className="sr-only">操作</span>
+            <span className="sr-only">{t.colActions}</span>
           </Th>
         </DataTableHead>
         <DataTableBody>
@@ -168,13 +215,13 @@ export function ApplicationsTable(props: ApplicationsTableProps) {
                 <ApplicationStage application={application} />
               </Td>
               <Td>
-                <MetaText>{formatShortDateTime(application.appliedAt)}</MetaText>
+                <MetaText>{formatShortDateTime(application.appliedAt, "", locale)}</MetaText>
               </Td>
               <Td>
                 <MetaText>{application.source}</MetaText>
               </Td>
               <Td>
-                <MetaText>{formatShortDateTime(application.statusUpdatedAt)}</MetaText>
+                <MetaText>{formatShortDateTime(application.statusUpdatedAt, "", locale)}</MetaText>
               </Td>
               <Td className="max-w-56 text-muted-foreground">
                 <span className="line-clamp-2" title={application.note || undefined}>

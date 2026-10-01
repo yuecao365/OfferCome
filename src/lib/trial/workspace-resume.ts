@@ -8,8 +8,15 @@ import {
   type ResumeProjectListItem,
 } from "@/lib/resumes/types";
 import type { ResumeProjectOption } from "@/lib/interviews/types";
+import { browserLocale, browserMessages } from "@/lib/i18n/browser";
+import { defineMessages } from "@/lib/i18n/locale";
 
 import { setWorkspaceResume, type TrialResumeMeta, type TrialWorkspace } from "./workspace";
+
+const messages = defineMessages({
+  "zh-CN": { manualResumeName: "我的简历（手动填写）" },
+  en: { manualResumeName: "My resume (entered manually)" },
+});
 
 /**
  * 网页版的简历中心适配层（纯函数）。
@@ -35,7 +42,7 @@ export function trialResumeListItems(
   if (!workspace.resume) return [];
   const meta = workspace.resumeMeta ?? null;
   const savedAt = new Date(meta?.savedAt ?? new Date().toISOString());
-  const originalName = meta?.fileName ?? "我的简历（手动填写）";
+  const originalName = meta?.fileName ?? browserMessages(messages).manualResumeName;
   const mimeType = meta?.mimeType ?? "text/plain";
   const previewKind = fileUrl ? resumePreviewKind(mimeType, originalName) : "none";
   return [
@@ -170,6 +177,7 @@ export function applyTrialResumeConfirmations(
   const resolved = resolveResumeExperienceConfirmations(
     input.items,
     trialResumeProjects(workspace),
+    browserLocale(),
   );
   const previousById = new Map(previous.map((project) => [project.id, project]));
 

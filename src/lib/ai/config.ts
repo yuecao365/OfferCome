@@ -1,3 +1,5 @@
+import { DEFAULT_LOCALE, defineMessages, localizedLabels, type Locale } from "@/lib/i18n/locale";
+
 export const AI_TASKS = ["transcription", "text", "scoring"] as const;
 export type AiTask = (typeof AI_TASKS)[number];
 
@@ -50,6 +52,9 @@ export const PROVIDER_LABELS: Record<AiProvider, string> = {
   compatible: "自定义 OpenAI-compatible",
   local: "本地模型服务",
 };
+
+/** 界面按语言取：`PROVIDER_LABELS_I18N[locale][key]`（docs/i18n-plan.md）。 */
+export const PROVIDER_LABELS_I18N = localizedLabels(PROVIDER_LABELS, { openai: "OpenAI", anthropic: "Anthropic", qwen: "Qwen", kimi: "Kimi", deepseek: "DeepSeek", glm: "GLM (Zhipu)", minimax: "MiniMax", bytedance: "ByteDance (Volcengine)", compatible: "Custom OpenAI-compatible", local: "Local model server" });
 
 const TEXT_PROVIDERS: readonly AiProvider[] = [
     "openai",
@@ -238,16 +243,45 @@ export function maskApiKey(apiKey: string): string {
   return `${prefix}••••${trimmed.slice(-4)}`;
 }
 
+const validationMessages = defineMessages({
+  "zh-CN": {
+    unknownTask: "未知的 AI 任务类型。",
+    unknownProvider: "请选择支持的模型服务商。",
+    unsupportedTask: (provider: string) => `${provider} 不支持当前 AI 任务。`,
+    invalidModel: "请输入有效的模型名称，模型名称不能包含空格。",
+    noTranscription: (model: string) => `模型 ${model} 不支持语音转文本任务。`,
+    noText: (model: string) => `模型 ${model} 不支持文本理解任务。`,
+    openaiKeyPrefix: "OpenAI API Key 通常以 sk- 开头，请检查 Key 与服务商是否匹配。",
+    needsKey: (provider: string) => `${provider} 需要配置 API Key。`,
+    needsBaseURL: (provider: string) => `${provider} 需要配置服务地址。`,
+    invalidBaseURL: "服务地址必须是有效的 HTTP 或 HTTPS URL。",
+  },
+  en: {
+    unknownTask: "Unknown AI task type.",
+    unknownProvider: "Choose a supported model provider.",
+    unsupportedTask: (provider: string) => `${provider} doesn't support this AI task.`,
+    invalidModel: "Enter a valid model name without spaces.",
+    noTranscription: (model: string) => `Model ${model} doesn't support speech-to-text.`,
+    noText: (model: string) => `Model ${model} doesn't support text tasks.`,
+    openaiKeyPrefix: "OpenAI API keys usually start with sk-. Check that the key matches the provider.",
+    needsKey: (provider: string) => `${provider} needs an API key.`,
+    needsBaseURL: (provider: string) => `${provider} needs a base URL.`,
+    invalidBaseURL: "The base URL must be a valid HTTP or HTTPS URL.",
+  },
+});
+
 export function validateAiTaskConfig(
   input: AiTaskConfigInput,
   existingApiKey: string | null,
   hasApiKeyField: boolean,
+  locale: Locale = DEFAULT_LOCALE,
 ): { ok: true; value: AiTaskConfig } | { ok: false; message: string } {
+  const t = validationMessages[locale];
   if (!AI_TASKS.includes(input.task as AiTask)) {
-    return { ok: false, message: "未知的 AI 任务类型。" };
+    return { ok: false, message: t.unknownTask };
   }
   if (!AI_PROVIDERS.includes(input.provider as AiProvider)) {
-    return { ok: false, message: "请选择支持的模型服务商。" };
+    return { ok: false, message: t.unknownProvider };
   }
 
   const task = input.task as AiTask;
@@ -255,7 +289,7 @@ export function validateAiTaskConfig(
   if (!TASK_PROVIDERS[task].includes(provider)) {
     return {
       ok: false,
-      message: `${PROVIDER_LABELS[provider]} 不支持当前 AI 任务。`,
+      message: t.unsupportedTask(PROVIDER_LABELS_I18N[locale][provider]),
     };
   }
 
@@ -277,28 +311,28 @@ export function validateAiTaskConfig(
   if (!model || model.length > 160 || /\s/.test(model)) {
     return {
       ok: false,
-      message: "请输入有效的模型名称，模型名称不能包含空格。",
+      message: t.invalidModel,
     };
   }
 
   const knownTextModels = MODEL_OPTIONS.text[provider] ?? [];
   if (task === "transcription" && knownTextModels.includes(model)) {
-    return { ok: false, message: `模型 ${model} 不支持语音转文本任务。` };
+    return { ok: false, message: t.noTranscription(model) };
   }
   if (task === "text" && TRANSCRIPTION_ONLY_MODEL_PATTERN.test(model)) {
-    return { ok: false, message: `模型 ${model} 不支持文本理解任务。` };
+    return { ok: false, message: t.noText(model) };
   }
 
   if (provider === "openai" && apiKey && !apiKey.startsWith("sk-")) {
     return {
       ok: false,
-      message: "OpenAI API Key 通常以 sk- 开头，请检查 Key 与服务商是否匹配。",
+      message: t.openaiKeyPrefix,
     };
   }
   if (requiresApiKey && !apiKey) {
     return {
       ok: false,
-      message: `${PROVIDER_LABELS[provider]} 需要配置 API Key。`,
+      message: t.needsKey(PROVIDER_LABELS_I18N[locale][provider]),
     };
   }
 
@@ -306,7 +340,7 @@ export function validateAiTaskConfig(
   if (isCustomProvider(provider) && !baseURL) {
     return {
       ok: false,
-      message: `${PROVIDER_LABELS[provider]} 需要配置服务地址。`,
+      message: t.needsBaseURL(PROVIDER_LABELS_I18N[locale][provider]),
     };
   }
   if (baseURL) {
@@ -316,7 +350,7 @@ export function validateAiTaskConfig(
         throw new Error();
       }
     } catch {
-      return { ok: false, message: "服务地址必须是有效的 HTTP 或 HTTPS URL。" };
+      return { ok: false, message: t.invalidBaseURL };
     }
   }
 

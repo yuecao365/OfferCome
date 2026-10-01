@@ -2,6 +2,13 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { ButtonLink } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
+import { useMessages } from "@/lib/i18n/client";
+import { defineMessages } from "@/lib/i18n/locale";
+
+const messages = defineMessages({
+  "zh-CN": { pagination: "分页", previous: "上一页", next: "下一页" },
+  en: { pagination: "Pagination", previous: "Previous page", next: "Next page" },
+});
 
 /** 当前页两侧各保留几个相邻页码。 */
 const ADJACENT_PAGES = 2;
@@ -34,20 +41,21 @@ export function PageNumbers({
   page,
   totalPages,
   hrefForPage,
-  ariaLabel = "分页",
+  ariaLabel,
 }: {
   page: number;
   totalPages: number;
   hrefForPage: (page: number) => string;
   ariaLabel?: string;
 }) {
+  const t = useMessages(messages);
   if (totalPages <= 1) return null;
 
   return (
-    <nav aria-label={ariaLabel} className="flex flex-wrap items-center gap-1.5">
+    <nav aria-label={ariaLabel ?? t.pagination} className="flex flex-wrap items-center gap-1.5">
       <ButtonLink
         aria-disabled={page <= 1}
-        aria-label="上一页"
+        aria-label={t.previous}
         className={page <= 1 ? "pointer-events-none opacity-40" : undefined}
         href={hrefForPage(Math.max(1, page - 1))}
         size="sm"
@@ -75,7 +83,7 @@ export function PageNumbers({
       )}
       <ButtonLink
         aria-disabled={page >= totalPages}
-        aria-label="下一页"
+        aria-label={t.next}
         className={page >= totalPages ? "pointer-events-none opacity-40" : undefined}
         href={hrefForPage(Math.min(totalPages, page + 1))}
         size="sm"

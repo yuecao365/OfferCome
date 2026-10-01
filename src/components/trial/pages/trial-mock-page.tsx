@@ -9,6 +9,8 @@ import {
 } from "@/components/interviews/mock-interviews-view";
 import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { useMessages } from "@/lib/i18n/client";
+import { defineMessages } from "@/lib/i18n/locale";
 import { trialAiTokenDocument, trialInterviewsDocument } from "@/lib/trial/browser-store";
 import {
   createTrialMockSession,
@@ -17,12 +19,28 @@ import {
 import { useStoredDocument } from "@/lib/trial/stored-document";
 import { useTrialWorkspace } from "@/lib/trial/workspace-store";
 
+const messages = defineMessages({
+  "zh-CN": {
+    browserResume: "我的简历（保存在本浏览器）",
+    goToResumes: "前往简历中心",
+    needResumeDescription: "模拟面试需要从已保存的简历中提取项目与经历。",
+    needResumeTitle: "请先上传一份简历",
+  },
+  en: {
+    browserResume: "My resume (saved in this browser)",
+    goToResumes: "Go to resumes",
+    needResumeDescription: "Mock interviews draw projects and experience from a saved resume.",
+    needResumeTitle: "Upload a resume first",
+  },
+});
+
 /**
  * 体验版的 AI 模拟面试列表页：与本地版渲染同一个 MockInterviewsView，
  * 设置表单也是同一个 MockInterviewSetup，只是注入了浏览器实现。
  */
 export function TrialMockPage() {
   const searchParams = useSearchParams();
+  const t = useMessages(messages);
   const workspace = useTrialWorkspace();
   const aiReady = useStoredDocument(trialAiTokenDocument) !== null;
   const sessions = useStoredDocument(trialInterviewsDocument);
@@ -93,7 +111,7 @@ export function TrialMockPage() {
             resumes={[
               {
                 id: "trial-resume",
-                name: workspace?.resumeMeta?.fileName ?? "我的简历（保存在本浏览器）",
+                name: workspace?.resumeMeta?.fileName ?? t.browserResume,
                 isDefault: true,
               },
             ]}
@@ -102,9 +120,9 @@ export function TrialMockPage() {
           />
         ) : (
           <EmptyState
-            action={<ButtonLink href="/resumes">前往简历中心</ButtonLink>}
-            description="模拟面试需要从已保存的简历中提取项目与经历。"
-            title="请先上传一份简历"
+            action={<ButtonLink href="/resumes">{t.goToResumes}</ButtonLink>}
+            description={t.needResumeDescription}
+            title={t.needResumeTitle}
           />
         )
       }

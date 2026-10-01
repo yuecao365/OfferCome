@@ -22,9 +22,48 @@ import {
   deriveCandidateVoiceMetrics,
   type TranscriptionArtifact,
 } from "@/lib/interviews/voice-metrics";
+import { defineMessages } from "@/lib/i18n/locale";
+import { getMessages } from "@/lib/i18n/server";
 
 const MAX_PASTED_TEXT_LENGTH = 100_000;
 const DOCUMENT_EXTENSIONS = new Set([".txt", ".md", ".docx", ".pdf"]);
+
+const messages = defineMessages({
+  "zh-CN": {
+    failed: "生成面试草稿失败。",
+    transcriptionService:
+      "语音转写服务调用失败，请检查设置页的转写模型、API Key 和网络代理后重试。较长的录音可以先截取需要的片段。",
+    audioTooLarge: "录音文件不能超过 25MB。",
+    noAudioText: "没有从录音中识别到文本。",
+    unsupportedFile: "只支持音频、TXT、MD、DOCX 或 PDF 文件。",
+    documentTooLarge: "文本文件不能超过 10MB。",
+    noDocumentText: "没有从文件中提取到可识别的文本。",
+    missingInput: "请上传录音或文本文件，或者粘贴面试文本。",
+    pastedTooLong: "粘贴文本不能超过 10 万字符。",
+    unreadableUpload:
+      "上传内容无法读取，通常是文件太大被截断。录音请控制在 25MB 以内，文本文件在 10MB 以内。",
+    transcriptExpired: "转写稿已过期，请重新转写录音。",
+    transcribeAudioOnly: "转写步骤仅支持录音文件。",
+  },
+  en: {
+    failed: "Couldn't generate the interview draft.",
+    transcriptionService:
+      "The transcription service call failed. Check the transcription model, API key and network proxy in Settings, then try again. For long recordings, trim to the part you need first.",
+    audioTooLarge: "Recordings can't exceed 25 MB.",
+    noAudioText: "No speech was recognized in the recording.",
+    unsupportedFile: "Only audio, TXT, MD, DOCX or PDF files are supported.",
+    documentTooLarge: "Text files can't exceed 10 MB.",
+    noDocumentText: "No readable text was found in the file.",
+    missingInput: "Upload a recording or text file, or paste the interview text.",
+    pastedTooLong: "Pasted text can't exceed 100,000 characters.",
+    unreadableUpload:
+      "The upload couldn't be read, usually because the file was too large and got cut off. Keep recordings under 25 MB and text files under 10 MB.",
+    transcriptExpired: "The transcript has expired. Transcribe the recording again.",
+    transcribeAudioOnly: "Transcription only works with audio files.",
+  },
+});
+
+type DraftMessages = (typeof messages)["zh-CN"];
 
 function errorResponse(message: string, status = 400) {
   return Response.json({ error: message }, { status });
@@ -32,12 +71,12 @@ function errorResponse(message: string, status = 400) {
 
 /**
  * 转写服务返回的错误名（AI_APICallError 之类）对用户没有意义，这里换成
- * 能照着做的提示；自己抛出的中文错误原样透出。
+ * 能照着做的提示；自己抛出的错误（已按界面语言）原样透出。
  */
-function userFacingMessage(error: unknown): string {
-  if (!(error instanceof Error)) return "生成面试草稿失败。";
+function userFacingMessage(error: unknown, t: DraftMessages): string {
+  if (!(error instanceof Error)) return t.failed;
   if (/^AI_|APICallError|Failed after \d+ attempts/i.test(error.message)) {
-    return "语音转写服务调用失败，请检查设置页的转写模型、API Key 和网络代理后重试。较长的录音可以先截取需要的片段。";
+    return t.transcriptionService;
   }
   return error.message;
 }
@@ -57,7 +96,7 @@ function emptyTextArtifact(text: string): TranscriptionArtifact {
   };
 }
 
-async function sourceFromRequest(formData: FormData): Promise<{
+async function sourceFromRequest(formData: FormData, t: DraftMessages): Promise<{
   artifact: TranscriptionArtifact;
   source: "audio" | "document" | "pasted";
   sourceType: "real_audio" | "real_transcript" | "real_summary";
@@ -70,7 +109,7 @@ async function sourceFromRequest(formData: FormData): Promise<{
     const audioMediaType = resolveAudioMediaType(file.name, file.type);
     if (audioMediaType) {
       if (file.size > MAX_INTERVIEW_AUDIO_BYTES) {
-        throw new Error("录音文件不能超过 25MB。");
+        throw new Error(t.audioTooLarge);
       }
       const input = {
         bytes: new Uint8Array(await file.arrayBuffer()),
@@ -93,7 +132,7 @@ async function sourceFromRequest(formData: FormData): Promise<{
         artifact = await transcribeAudioArtifact(input);
         artifact.capabilities.hasSpeakers = false;
       }
-      if (!artifact.text.trim()) throw new Error("没有从录音中识别到文本。");
+      if (!artifact.text.trim()) throw new Error(t.noAudioText);
       artifact.capabilities.hasVoiceMetrics = Boolean(
         deriveCandidateVoiceMetrics(artifact.segments),
       );
@@ -101,17 +140,17 @@ async function sourceFromRequest(formData: FormData): Promise<{
     }
 
     if (!DOCUMENT_EXTENSIONS.has(extension)) {
-      throw new Error("只支持音频、TXT、MD、DOCX 或 PDF 文件。");
+      throw new Error(t.unsupportedFile);
     }
     if (file.size > MAX_INTERVIEW_DOCUMENT_BYTES) {
-      throw new Error("文本文件不能超过 10MB。");
+      throw new Error(t.documentTooLarge);
     }
     const text = await extractDocumentText({
       bytes: Buffer.from(await file.arrayBuffer()),
       fileName: file.name,
       mimeType: file.type,
     });
-    if (!text.trim()) throw new Error("没有从文件中提取到可识别的文本。");
+    if (!text.trim()) throw new Error(t.noDocumentText);
     return {
       artifact: emptyTextArtifact(text),
       source: "document",
@@ -120,10 +159,10 @@ async function sourceFromRequest(formData: FormData): Promise<{
   }
 
   if (typeof pastedText !== "string" || !pastedText.trim()) {
-    throw new Error("请上传录音或文本文件，或者粘贴面试文本。");
+    throw new Error(t.missingInput);
   }
   if (pastedText.length > MAX_PASTED_TEXT_LENGTH) {
-    throw new Error("粘贴文本不能超过 10 万字符。");
+    throw new Error(t.pastedTooLong);
   }
   return {
     artifact: emptyTextArtifact(pastedText),
@@ -133,13 +172,12 @@ async function sourceFromRequest(formData: FormData): Promise<{
 }
 
 export async function POST(request: Request) {
+  const t = await getMessages(messages);
   try {
     // 请求体超过 proxy 的缓冲上限时会被截断，formData() 只会抛出难懂的解析错误，
     // 这里换成用户能照做的提示。
     const formData = await request.formData().catch(() => {
-      throw new Error(
-        "上传内容无法读取，通常是文件太大被截断。录音请控制在 25MB 以内，文本文件在 10MB 以内。",
-      );
+      throw new Error(t.unreadableUpload);
     });
     await prisma.interviewImportArtifact.deleteMany({
       where: { expiresAt: { lt: new Date() }, consumedAt: null },
@@ -150,7 +188,7 @@ export async function POST(request: Request) {
       const stored = await prisma.interviewImportArtifact.findFirst({
         where: { id: artifactId, consumedAt: null, expiresAt: { gt: new Date() } },
       });
-      if (!stored) throw new Error("转写稿已过期，请重新转写录音。");
+      if (!stored) throw new Error(t.transcriptExpired);
       const draft = await structureInterviewText(
         stored.transcriptText,
         await getInterviewDraftProjectOptions(),
@@ -168,7 +206,7 @@ export async function POST(request: Request) {
       });
     }
 
-    const { artifact, source, sourceType } = await sourceFromRequest(formData);
+    const { artifact, source, sourceType } = await sourceFromRequest(formData, t);
     // 候选人是哪位说话人由对话结构推断；推断不出就不产出语音指标。
     const voiceMetrics = deriveCandidateVoiceMetrics(artifact.segments);
     const stored = await prisma.interviewImportArtifact.create({
@@ -186,7 +224,7 @@ export async function POST(request: Request) {
 
     if (action === "transcribe") {
       if (source !== "audio") {
-        throw new Error("转写步骤仅支持录音文件。");
+        throw new Error(t.transcribeAudioOnly);
       }
       return Response.json({
         artifactId: stored.id,
@@ -219,6 +257,6 @@ export async function POST(request: Request) {
       "[interviews] draft generation failed:",
       describeTranscriptionError(error),
     );
-    return errorResponse(userFacingMessage(error));
+    return errorResponse(userFacingMessage(error, t));
   }
 }

@@ -4,13 +4,21 @@ import { ArrowLeft, Menu } from "lucide-react";
 import { useRef, useState, ViewTransition, type ReactNode } from "react";
 
 import { DesktopSidebar } from "@/components/app-navigation";
-import { pageLabels } from "@/components/app-navigation-config";
+import { navigationMessages } from "@/components/app-navigation-config";
 import type { AppSection, InterviewSection } from "@/components/app-shell-types";
 import { MobileNavigationDrawer } from "@/components/mobile-navigation-drawer";
+import { LocaleButton } from "@/components/locale-button";
 import { ThemeButton } from "@/components/theme-button";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
+import { useMessages } from "@/lib/i18n/client";
+import { defineMessages } from "@/lib/i18n/locale";
 import { useSidebarCollapsed } from "@/lib/use-sidebar-collapsed";
+
+const messages = defineMessages({
+  "zh-CN": { skipToContent: "跳到主要内容", openNavigation: "打开主导航" },
+  en: { skipToContent: "Skip to main content", openNavigation: "Open main navigation" },
+});
 
 export function AppChrome({
   active,
@@ -28,6 +36,8 @@ export function AppChrome({
   const [collapsed, toggleCollapsed] = useSidebarCollapsed();
   const [mobileOpen, setMobileOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const t = useMessages(messages);
+  const pageLabels = useMessages(navigationMessages).pages;
   const currentKey = subActive ?? active;
   const showInterviewBackLink =
     !immersive && active === "interviews" && Boolean(subActive);
@@ -45,7 +55,7 @@ export function AppChrome({
         className="fixed left-4 top-3 z-[70] -translate-y-20 rounded-control bg-brand px-4 py-2 text-sm font-medium text-brand-foreground transition-transform focus:translate-y-0"
         href="#main-content"
       >
-        跳到主要内容
+        {t.skipToContent}
       </a>
 
       <DesktopSidebar
@@ -61,7 +71,7 @@ export function AppChrome({
         <header className="sticky top-0 z-30 flex h-12 items-center gap-2 border-b border-border bg-background/90 px-3 backdrop-blur lg:hidden">
           <Button
             aria-expanded={mobileOpen}
-            aria-label="打开主导航"
+            aria-label={t.openNavigation}
             onClick={() => setMobileOpen(true)}
             ref={menuButtonRef}
             size="icon"
@@ -73,6 +83,7 @@ export function AppChrome({
             {pageLabels[currentKey]}
           </span>
           <ThemeButton className="ml-auto" />
+          <LocaleButton />
         </header>
 
         <ViewTransition default="page-swap">
@@ -90,7 +101,7 @@ export function AppChrome({
               <div className="-mb-4 flex">
                 <ButtonLink href="/interviews" size="sm" variant="ghost">
                   <ArrowLeft aria-hidden="true" className="size-3.5" strokeWidth={1.5} />
-                  面试工作台
+                  {pageLabels.interviews}
                 </ButtonLink>
               </div>
             ) : null}

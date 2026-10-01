@@ -3,21 +3,37 @@
 import { MockInterviewTraceView } from "@/components/interviews/mock-interview-trace-view";
 import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { useMessages } from "@/lib/i18n/client";
+import { defineMessages } from "@/lib/i18n/locale";
 import { trialInterviewsDocument } from "@/lib/trial/browser-store";
 import { trialInterviewToTrace } from "@/lib/trial/mock-view";
 import { useStoredDocument } from "@/lib/trial/stored-document";
 
+const messages = defineMessages({
+  "zh-CN": {
+    backToList: "返回模拟面试列表",
+    emptyDescription: "这场面试不在当前浏览器中，或者还没有备课完成。",
+    emptyTitle: "没有开发者记录",
+  },
+  en: {
+    backToList: "Back to mock interviews",
+    emptyDescription: "This interview isn't in this browser, or its prep hasn't finished.",
+    emptyTitle: "No developer trace",
+  },
+});
+
 /** 网页版的决策记录页：决策记录随回合结果存在会话文档里，渲染与本地版同一个视图（没有模型开销两列）。 */
 export function TrialMockTracePage({ id }: { id: string }) {
+  const t = useMessages(messages);
   const table = useStoredDocument(trialInterviewsDocument);
   if (!table) return null;
   const trace = table[id] ? trialInterviewToTrace(table[id]) : null;
   if (!trace) {
     return (
       <EmptyState
-        action={<ButtonLink href="/interviews/mock">返回模拟面试列表</ButtonLink>}
-        description="这场面试不在当前浏览器中，或者还没有备课完成。"
-        title="没有开发者记录"
+        action={<ButtonLink href="/interviews/mock">{t.backToList}</ButtonLink>}
+        description={t.emptyDescription}
+        title={t.emptyTitle}
       />
     );
   }

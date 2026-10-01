@@ -4,9 +4,32 @@ import { validateAiTaskConfig } from "@/lib/ai/config";
 import { testAiConnection } from "@/lib/ai/providers";
 import { isTrialMode } from "@/lib/runtime-mode";
 import { encodeTrialAiConfig } from "@/lib/trial/ai-config";
+import { defineMessages } from "@/lib/i18n/locale";
+import { getLocale, getMessages } from "@/lib/i18n/server";
 
 export const runtime = "nodejs";
 export const maxDuration = 45;
+
+const messages = defineMessages({
+  "zh-CN": {
+    badRequest: "请求格式不正确。",
+    invalidKey: "连接失败：API Key 无效或无权限，请检查 Key 与服务商是否匹配。",
+    noQuota: "连接失败：Key 没有权限或额度不足。",
+    noModel: "连接失败：模型名称不存在，请检查拼写。",
+    unreachable: "连接失败：服务连接超时或不可达，请检查服务地址与网络。",
+    generic: "连接失败：请检查服务商、模型名称与 Key 后重试。",
+  },
+  en: {
+    badRequest: "Malformed request.",
+    invalidKey: "Connection failed: the API key is invalid or unauthorized. Check that the key matches the provider.",
+    noQuota: "Connection failed: the key lacks permission or has no quota left.",
+    noModel: "Connection failed: that model name doesn't exist. Check the spelling.",
+    unreachable: "Connection failed: the service timed out or is unreachable. Check the base URL and your network.",
+    generic: "Connection failed. Check the provider, model name and key, then try again.",
+  },
+});
+
+type AiConfigMessages = (typeof messages)["zh-CN"];
 
 /**
  * 校验访客自带的模型配置并实测一次连通性，通过后返回编码串。
@@ -18,12 +41,13 @@ export async function POST(request: Request) {
   if (!isTrialMode()) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
+  const t = await getMessages(messages);
 
   let body: Record<string, unknown>;
   try {
     body = (await request.json()) as Record<string, unknown>;
   } catch {
-    return NextResponse.json({ error: "请求格式不正确。" }, { status: 400 });
+    return NextResponse.json({ error: t.badRequest }, { status: 400 });
   }
 
   const validated = validateAiTaskConfig(
@@ -36,6 +60,7 @@ export async function POST(request: Request) {
     },
     typeof body.apiKey === "string" ? body.apiKey : null,
     true,
+    await getLocale(),
   );
   if (!validated.ok) {
     return NextResponse.json({ error: validated.message }, { status: 400 });
@@ -46,7 +71,7 @@ export async function POST(request: Request) {
   } catch (error) {
     // 只回分类文案：provider 的原始报错可能回显请求信息（含 Key 片段）。
     return NextResponse.json(
-      { error: describeConnectionFailure(error) },
+      { error: describeConnectionFailure(error, t) },
       { status: 400 },
     );
   }
@@ -58,19 +83,19 @@ export async function POST(request: Request) {
   });
 }
 
-function describeConnectionFailure(error: unknown): string {
+function describeConnectionFailure(error: unknown, t: AiConfigMessages): string {
   const message = error instanceof Error ? error.message : "";
   if (/\b401\b|unauthorized|invalid[_ ]api[_ ]key|incorrect api key/i.test(message)) {
-    return "连接失败：API Key 无效或无权限，请检查 Key 与服务商是否匹配。";
+    return t.invalidKey;
   }
   if (/\b403\b|forbidden|quota|insufficient/i.test(message)) {
-    return "连接失败：Key 没有权限或额度不足。";
+    return t.noQuota;
   }
   if (/\b404\b|not found|model.*not.*exist|does not exist/i.test(message)) {
-    return "连接失败：模型名称不存在，请检查拼写。";
+    return t.noModel;
   }
   if (/timeout|timed out|abort|econnrefused|fetch failed|network/i.test(message)) {
-    return "连接失败：服务连接超时或不可达，请检查服务地址与网络。";
+    return t.unreachable;
   }
-  return "连接失败：请检查服务商、模型名称与 Key 后重试。";
+  return t.generic;
 }

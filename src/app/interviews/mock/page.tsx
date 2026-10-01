@@ -8,12 +8,27 @@ import { TrialMockPage } from "@/components/trial/pages/trial-mock-page";
 import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { prisma } from "@/lib/db";
+import { defineMessages } from "@/lib/i18n/locale";
+import { getMessages } from "@/lib/i18n/server";
 import { isInterviewPace } from "@/lib/mock-interviews/brief/brief";
 import { getRecentMockInterviews } from "@/lib/mock-interviews/queries";
 import { resolveMockInterviewSeed } from "@/lib/mock-interviews/seeds";
 import { getResumes } from "@/lib/resumes/queries";
 import { isTrialMode } from "@/lib/runtime-mode";
 import { getAiTaskConfig, isAiTaskConfigured } from "@/lib/settings/ai";
+
+const messages = defineMessages({
+  "zh-CN": {
+    goToResumes: "前往简历中心",
+    needResumeDescription: "模拟面试需要从已保存的简历中提取项目与经历。",
+    needResumeTitle: "请先上传一份简历",
+  },
+  en: {
+    goToResumes: "Go to resumes",
+    needResumeDescription: "Mock interviews draw projects and experience from a saved resume.",
+    needResumeTitle: "Upload a resume first",
+  },
+});
 
 function firstParam(value: string | string[] | undefined): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -36,6 +51,7 @@ export default async function MockInterviewsPage({
 
   await connection();
   const params = await searchParams;
+  const t = await getMessages(messages);
   const applicationId = firstParam(params.applicationId);
   const [resumes, recent, textConfig, seed, application] =
     await Promise.all([
@@ -116,9 +132,9 @@ export default async function MockInterviewsPage({
             />
           ) : (
             <EmptyState
-              action={<ButtonLink href="/resumes">前往简历中心</ButtonLink>}
-              description="模拟面试需要从已保存的简历中提取项目与经历。"
-              title="请先上传一份简历"
+              action={<ButtonLink href="/resumes">{t.goToResumes}</ButtonLink>}
+              description={t.needResumeDescription}
+              title={t.needResumeTitle}
             />
           )
         }

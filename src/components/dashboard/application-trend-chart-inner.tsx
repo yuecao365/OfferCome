@@ -11,6 +11,23 @@ import {
 
 import { chartAxisTick, chartTooltipStyle } from "@/components/dashboard/chart-theme";
 import type { ApplicationTrendPoint } from "@/lib/applications/types";
+import { useMessages } from "@/lib/i18n/client";
+import { defineMessages } from "@/lib/i18n/locale";
+
+const messages = defineMessages({
+  "zh-CN": {
+    chartLabel: (range: string, granularity: string) => `${range}按${granularity}聚合的投递数量趋势图`,
+    count: (n: string) => `${n} 个岗位`,
+    seriesName: "投递数量",
+    period: (granularity: string, label: string) => `${granularity}：${label}`,
+  },
+  en: {
+    chartLabel: (range: string, granularity: string) => `Trend chart of applications, ${range.toLowerCase()}, grouped by ${granularity}`,
+    count: (n: string) => `${n} applications`,
+    seriesName: "Applications",
+    period: (granularity: string, label: string) => `${granularity.charAt(0).toUpperCase()}${granularity.slice(1)}: ${label}`,
+  },
+});
 
 export default function ApplicationTrendChartInner({
   data,
@@ -21,9 +38,10 @@ export default function ApplicationTrendChartInner({
   granularityLabel: string;
   rangeDescription: string;
 }) {
+  const t = useMessages(messages);
   return (
     <div
-      aria-label={`${rangeDescription}按${granularityLabel}聚合的投递数量趋势图`}
+      aria-label={t.chartLabel(rangeDescription, granularityLabel)}
       className="h-64 min-w-0 w-full overflow-hidden"
       role="img"
     >
@@ -52,8 +70,8 @@ export default function ApplicationTrendChartInner({
           <Tooltip
             contentStyle={chartTooltipStyle}
             cursor={{ stroke: "var(--border-strong)", strokeWidth: 1 }}
-            formatter={(value) => [`${String(value)} 个岗位`, "投递数量"]}
-            labelFormatter={(label) => `${granularityLabel}：${String(label)}`}
+            formatter={(value) => [t.count(String(value)), t.seriesName]}
+            labelFormatter={(label) => t.period(granularityLabel, String(label))}
           />
           <Area
             activeDot={{ fill: "var(--chart-1)", r: 3, strokeWidth: 0 }}

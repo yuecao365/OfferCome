@@ -3,6 +3,8 @@ import "server-only";
 import { NextResponse } from "next/server";
 
 import { isAgentRunError } from "@/lib/ai/run-agent";
+import { defineMessages } from "@/lib/i18n/locale";
+import { getMessages } from "@/lib/i18n/server";
 import { isMockInterviewGenerationError } from "@/lib/mock-interviews/errors";
 import { isTrialMode } from "@/lib/runtime-mode";
 
@@ -20,10 +22,24 @@ import { readTrialAiConfig, runWithTrialAiConfig } from "./ai-config";
 
 export type TrialHandler<T> = (body: T) => Promise<unknown>;
 
-function errorResponse(error: unknown) {
+const messages = defineMessages({
+  "zh-CN": {
+    notConfigured: "请先连接你自己的模型服务。",
+    failed: "请求处理失败。",
+    badRequest: "请求格式不正确。",
+  },
+  en: {
+    notConfigured: "Connect your own model service first.",
+    failed: "The request couldn't be processed.",
+    badRequest: "Malformed request.",
+  },
+});
+
+async function errorResponse(error: unknown) {
+  const t = await getMessages(messages);
   if (isAgentRunError(error) && error.kind === "not_configured") {
     return NextResponse.json(
-      { error: "请先连接你自己的模型服务。" },
+      { error: t.notConfigured },
       { status: 401 },
     );
   }
@@ -31,7 +47,7 @@ function errorResponse(error: unknown) {
   const generationError = isMockInterviewGenerationError(error) ? error : null;
   return NextResponse.json(
     {
-      error: error instanceof Error ? error.message : "请求处理失败。",
+      error: error instanceof Error ? error.message : t.failed,
       code: generationError?.code,
       retryable: generationError?.retryable ?? false,
     },
@@ -58,10 +74,11 @@ export function withTrialAi<T>(handler: TrialHandler<T>) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
+    const t = await getMessages(messages);
     const config = readTrialAiConfig(request);
     if (!config) {
       return NextResponse.json(
-        { error: "请先连接你自己的模型服务。" },
+        { error: t.notConfigured },
         { status: 401 },
       );
     }
@@ -70,7 +87,7 @@ export function withTrialAi<T>(handler: TrialHandler<T>) {
     try {
       body = (await request.json()) as T;
     } catch {
-      return NextResponse.json({ error: "请求格式不正确。" }, { status: 400 });
+      return NextResponse.json({ error: t.badRequest }, { status: 400 });
     }
 
     return respond(() => runWithTrialAiConfig(config, () => handler(body)));
@@ -83,15 +100,16 @@ export function withTrialAiResponse<T>(handler: (body: T) => Promise<Response>) 
     if (!isTrialMode()) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
+    const t = await getMessages(messages);
     const config = readTrialAiConfig(request);
     if (!config) {
-      return NextResponse.json({ error: "请先连接你自己的模型服务。" }, { status: 401 });
+      return NextResponse.json({ error: t.notConfigured }, { status: 401 });
     }
     let body: T;
     try {
       body = (await request.json()) as T;
     } catch {
-      return NextResponse.json({ error: "请求格式不正确。" }, { status: 400 });
+      return NextResponse.json({ error: t.badRequest }, { status: 400 });
     }
     try {
       return await runWithTrialAiConfig(config, () => handler(body));

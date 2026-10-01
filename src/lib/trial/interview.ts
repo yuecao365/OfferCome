@@ -1,3 +1,4 @@
+import type { ContentLanguage } from "@/lib/i18n/locale";
 import type { ConversationMessage, TurnPayload } from "@/lib/interview/views";
 import type { InterviewBrief, InterviewPace } from "@/lib/mock-interviews/brief/brief";
 import type { AnswerExemplar, MockInterviewQuestionEvaluation } from "@/lib/mock-interviews/question-evaluation";
@@ -68,6 +69,8 @@ export type TrialInterview = {
   job: TrialJobInput;
   resume: TrialResumeInput;
   pace: InterviewPace;
+  /** 面试语言；这一列之前建的文档没有，按 zh 读（trialInterviewLanguage）。 */
+  language?: ContentLanguage;
   status: TrialInterviewStatus;
   generationPhase: "job_blueprint" | "brief" | null;
   generationError: string | null;
@@ -80,7 +83,12 @@ export type TrialInterview = {
   report: MockInterviewReport | null;
 };
 
-export function createTrialInterview(input: { job: TrialJobInput; resume: TrialResumeInput; pace: InterviewPace }): TrialInterview {
+/** 文档的面试语言：旧文档没有这个字段，按中文。 */
+export function trialInterviewLanguage(interview: Pick<TrialInterview, "language">): ContentLanguage {
+  return interview.language === "en" ? "en" : "zh";
+}
+
+export function createTrialInterview(input: { job: TrialJobInput; resume: TrialResumeInput; pace: InterviewPace; language?: ContentLanguage }): TrialInterview {
   return {
     version: TRIAL_INTERVIEW_VERSION,
     id: crypto.randomUUID(),
@@ -90,6 +98,7 @@ export function createTrialInterview(input: { job: TrialJobInput; resume: TrialR
     job: input.job,
     resume: input.resume,
     pace: input.pace,
+    language: input.language ?? "zh",
     status: "generating",
     generationPhase: "job_blueprint",
     generationError: null,

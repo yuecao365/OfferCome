@@ -1,3 +1,5 @@
+import { defineMessages, DEFAULT_LOCALE, type Locale } from "@/lib/i18n/locale";
+
 import { createTaskLock } from "./task-lock";
 
 // 同步和登录共用同一个 CDP 端口和浏览器配置目录，谁先启动都会把端口上
@@ -8,11 +10,16 @@ type BossBrowserBusyResult = {
   message: string;
 };
 
+const messages = defineMessages({
+  "zh-CN": { busy: "Boss 浏览器正在被同步或登录任务使用，请等它完成后再试。" },
+  en: { busy: "The Boss browser is busy with a sync or sign-in. Try again when it finishes." },
+});
+
 function createBossBrowserLock() {
-  return createTaskLock<BossBrowserBusyResult>(() => ({
+  return createTaskLock<BossBrowserBusyResult, Locale>((locale = DEFAULT_LOCALE) => ({
     success: false,
     status: "failed",
-    message: "Boss 浏览器正在被同步或登录任务使用，请等它完成后再试。",
+    message: messages[locale].busy,
   }));
 }
 

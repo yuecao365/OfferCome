@@ -8,13 +8,73 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { MockInterviewMaterialsDrawer } from "@/components/interviews/mock-interview-materials";
 import { MockInterviewVoiceControls } from "@/components/interviews/mock-interview-voice-controls";
+import { LocaleButton } from "@/components/locale-button";
 import { ThemeButton } from "@/components/theme-button";
 import { Alert } from "@/components/ui/alert";
 import { Button, ButtonLink } from "@/components/ui/button";
-import { CONTROL_PLACEHOLDERS } from "@/lib/interview/events";
+import { useMessages } from "@/lib/i18n/client";
+import { defineMessages } from "@/lib/i18n/locale";
+import { CONTROL_PLACEHOLDERS_BY_LANGUAGE } from "@/lib/interview/events";
 import type { TurnData } from "@/lib/interview/stream";
 import type { ConversationMessage, ProgressSummary, TurnPayload } from "@/lib/interview/views";
 import type { MockInterviewConversation, MockInterviewView } from "@/lib/mock-interviews/types";
+
+const messages = defineMessages({
+  "zh-CN": {
+    turnFailed: "回合失败，请重试。",
+    reportFailed: "生成面试报告失败。",
+    statusFailed: "读取面试状态失败。",
+    reportSlow: "报告生成得比预期慢，可以重试一次。",
+    controlLines: { skip: "你跳过了这题", repeat: "你请面试官再说一遍", end: "你结束了面试", hint: "你要了一个提示" } as Record<string, string>,
+    progressLabel: "面试进度",
+    progressTitle: "备课的材料里聊到了几份；备选材料面试官不一定都聊，不按时间计",
+    progress: (covered: number, quota: number) => `材料 ${covered} / ${quota}`,
+    start: "（开始面试）",
+    exit: "退出",
+    materials: "资料",
+    thinking: "面试官正在思考",
+    retry: "重试",
+    ended: "面试已结束，正在评分并生成报告。",
+    regenerating: "生成中…",
+    regenerate: "重新生成报告",
+    answerLabel: "你的回答",
+    answerPlaceholder: "像面试时那样回答；Enter 发送，Shift+Enter 换行。",
+    send: "发送",
+    hint: "要个提示",
+    repeat: "再说一遍",
+    skip: "跳过这题",
+    endConfirm: "确定现在结束吗？结束后进入评分，没问到的内容不计分。",
+    end: "结束面试",
+  },
+  en: {
+    turnFailed: "That turn failed. Try again.",
+    reportFailed: "Couldn't generate the interview report.",
+    statusFailed: "Couldn't read the interview status.",
+    reportSlow: "The report is taking longer than expected. You can retry once.",
+    controlLines: { skip: "You skipped this question", repeat: "You asked the interviewer to repeat", end: "You ended the interview", hint: "You asked for a hint" },
+    progressLabel: "Interview progress",
+    progressTitle: "How many prepared materials have come up; backup materials may not all be discussed. Not based on time.",
+    progress: (covered: number, quota: number) => `Materials ${covered} / ${quota}`,
+    start: "(Start interview)",
+    exit: "Exit",
+    materials: "Materials",
+    thinking: "The interviewer is thinking",
+    retry: "Retry",
+    ended: "The interview is over. Scoring and building your report.",
+    regenerating: "Generating…",
+    regenerate: "Regenerate report",
+    answerLabel: "Your answer",
+    answerPlaceholder: "Answer as you would in an interview. Enter to send, Shift+Enter for a new line.",
+    send: "Send",
+    hint: "Get a hint",
+    repeat: "Say that again",
+    skip: "Skip this question",
+    endConfirm: "End now? Scoring starts right away, and anything not covered won't be scored.",
+    end: "End interview",
+  },
+});
+
+type ChatMessages = (typeof messages)["en"];
 
 /**
  * 对话式面试房间：独占整个视口，没有应用导航——像真的坐进面试间。
@@ -49,7 +109,7 @@ export type MockInterviewChatDriver = {
 };
 
 /** 接口以 JSON 拒绝时（模型不可用、会话已结束）传输层把整个响应体当消息抛出来，取里面的 error。 */
-function readableError(caught: unknown): string {
+function readableError(caught: unknown, fallback: string): string {
   const message = caught instanceof Error ? caught.message : "";
   if (message.startsWith("{")) {
     try {
@@ -57,7 +117,7 @@ function readableError(caught: unknown): string {
       if (parsed.error) return parsed.error;
     } catch {}
   }
-  return message || "回合失败，请重试。";
+  return message || fallback;
 }
 
 async function readJson<T>(response: Response, fallback: string): Promise<T> {
@@ -67,12 +127,12 @@ async function readJson<T>(response: Response, fallback: string): Promise<T> {
 }
 
 /** 本地版：回合走 /turn，报告由服务端自动生成，这里只等它出现。 */
-export function createLocalChatDriver(sessionId: string): MockInterviewChatDriver {
+export function createLocalChatDriver(sessionId: string, t: ChatMessages): MockInterviewChatDriver {
   return {
     transport: new DefaultChatTransport({ api: `/api/interviews/mock/${sessionId}/turn` }),
     async finish({ retry }) {
       if (retry) {
-        await readJson(await fetch(`/api/interviews/mock/${sessionId}/complete`, { method: "POST" }), "生成面试报告失败。");
+        await readJson(await fetch(`/api/interviews/mock/${sessionId}/complete`, { method: "POST" }), t.reportFailed);
         return;
       }
       const startedAt = Date.now();
@@ -80,11 +140,11 @@ export function createLocalChatDriver(sessionId: string): MockInterviewChatDrive
         await new Promise((resolve) => setTimeout(resolve, REPORT_POLL_MS));
         const status = await readJson<{ status: string }>(
           await fetch(`/api/interviews/mock/${sessionId}/status`, { cache: "no-store" }),
-          "读取面试状态失败。",
+          t.statusFailed,
         );
         if (status.status === "completed") return;
       }
-      throw new Error("报告生成得比预期慢，可以重试一次。");
+      throw new Error(t.reportSlow);
     },
   };
 }
@@ -113,16 +173,18 @@ function useTypewriter(text: string, enabled: boolean, onTick?: () => void): str
   return enabled ? text.slice(0, shown) : text;
 }
 
-/** 按钮替候选人说的固定句 → 系统行文案：这些不是候选人说的话，不该长得像他的发言。 */
-const CONTROL_LINES: Record<string, string> = Object.fromEntries(
-  Object.entries(CONTROL_PLACEHOLDERS).map(([control, text]) => [text, { skip: "你跳过了这题", repeat: "你请面试官再说一遍", end: "你结束了面试", hint: "你要了一个提示" }[control] ?? "你按了一个按钮"]),
+/** 按钮替候选人说的固定句 → 是哪个按钮：系统行文案按它取，这些不是候选人说的话，不该长得像他的发言。两种语言的句子都认。 */
+const CONTROL_OF_PLACEHOLDER = new Map<string, string>(
+  Object.values(CONTROL_PLACEHOLDERS_BY_LANGUAGE).flatMap((placeholders) => Object.entries(placeholders).map(([control, text]) => [text, control] as const)),
 );
 
 export function MockInterviewBubble({ message, typewriter = false, onTick }: { message: ConversationMessage; typewriter?: boolean; onTick?: () => void }) {
   const interviewer = message.role === "interviewer";
+  const t = useMessages(messages);
   const content = useTypewriter(message.content, typewriter && interviewer, onTick);
   if (!interviewer && message.kind === "control") {
-    return <p className="text-center text-xs text-muted-foreground">{CONTROL_LINES[message.content] ?? message.content}</p>;
+    const control = CONTROL_OF_PLACEHOLDER.get(message.content);
+    return <p className="text-center text-xs text-muted-foreground">{(control && t.controlLines[control]) || message.content}</p>;
   }
   return (
     <div className={interviewer ? "flex justify-start" : "flex justify-end"}>
@@ -141,9 +203,10 @@ export function MockInterviewBubble({ message, typewriter = false, onTick }: { m
 
 /** 进度：碰过几份材料、备课共几份（含备选，面试官不一定都聊）；由服务端每回合给，结束后也照实显示。 */
 function ProgressBar({ progress }: { progress: ProgressSummary }) {
+  const t = useMessages(messages);
   return (
-    <p aria-label="面试进度" className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground" title="备课的材料里聊到了几份；备选材料面试官不一定都聊，不按时间计">
-      材料 {progress.covered} / {progress.quota}
+    <p aria-label={t.progressLabel} className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground" title={t.progressTitle}>
+      {t.progress(progress.covered, progress.quota)}
     </p>
   );
 }
@@ -160,7 +223,10 @@ export function MockInterviewChat({
   onCompleted?: () => void;
 }) {
   const router = useRouter();
+  const t = useMessages(messages);
   const conversation = session.conversation;
+  /** 面试语言（按场次）：按钮替候选人说的那句按它写，不跟界面语言。 */
+  const language = session.language ?? "zh";
   const [transcript, setTranscript] = useState(conversation.messages);
   /** 这次打开房间后才到的面试官消息：用打字机显示（历史消息直接显示）。 */
   const [arrivedIds, setArrivedIds] = useState<Set<string>>(() => new Set());
@@ -180,7 +246,7 @@ export function MockInterviewChat({
 
   const [voiceBusy, setVoiceBusy] = useState(false);
 
-  const driver = useMemo(() => injectedDriver ?? createLocalChatDriver(session.id), [injectedDriver, session.id]);
+  const driver = useMemo(() => injectedDriver ?? createLocalChatDriver(session.id, t), [injectedDriver, session.id, t]);
   const refresh = useCallback(() => (onCompleted ? onCompleted() : router.refresh()), [onCompleted, router]);
 
   const { sendMessage, setMessages, status, error } = useChat({
@@ -204,7 +270,7 @@ export function MockInterviewChat({
       setMessages([]);
     },
     onError: (caught) => {
-      setTurnError(readableError(caught));
+      setTurnError(readableError(caught, t.turnFailed));
     },
   });
 
@@ -218,7 +284,7 @@ export function MockInterviewChat({
       const trimmed = content.trim();
       if (!trimmed && !intent) return;
       const clientId = crypto.randomUUID();
-      const text = trimmed || (intent ? CONTROL_PLACEHOLDERS[intent] : "");
+      const text = trimmed || (intent ? CONTROL_PLACEHOLDERS_BY_LANGUAGE[language][intent] : "");
       const composeMs = lastInterviewerAtRef.current ? Math.max(0, Date.now() - lastInterviewerAtRef.current) : null;
       const body: TurnBody = { kind: "message", clientId, content: trimmed, intent, composeMs };
       setTurnError("");
@@ -230,7 +296,7 @@ export function MockInterviewChat({
       lastRequestRef.current = { text, body };
       void sendMessage({ text }, { body });
     },
-    [sendMessage, turnsUsed],
+    [language, sendMessage, turnsUsed],
   );
 
   const retry = useCallback(() => {
@@ -245,9 +311,9 @@ export function MockInterviewChat({
     if (startedRef.current || ended || transcript.length > 0 || busy) return;
     startedRef.current = true;
     const body: TurnBody = { kind: "start" };
-    lastRequestRef.current = { text: "（开始面试）", body };
-    void sendMessage({ text: "（开始面试）" }, { body });
-  }, [busy, ended, sendMessage, transcript.length]);
+    lastRequestRef.current = { text: t.start, body };
+    void sendMessage({ text: t.start }, { body });
+  }, [busy, ended, sendMessage, t.start, transcript.length]);
 
   const scrollToEnd = useCallback(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }), []);
   useEffect(() => {
@@ -267,12 +333,12 @@ export function MockInterviewChat({
         await driver.finish({ retry });
         refresh();
       } catch (caught) {
-        setReportError(caught instanceof Error ? caught.message : "生成面试报告失败。");
+        setReportError(caught instanceof Error ? caught.message : t.reportFailed);
       } finally {
         setCompleting(false);
       }
     },
-    [driver, refresh],
+    [driver, refresh, t.reportFailed],
   );
 
   // 面试一结束就把报告做出来；报告一出现页面会切回带导航的报告视图。
@@ -287,7 +353,7 @@ export function MockInterviewChat({
       <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border px-3 sm:px-4">
         <ButtonLink href="/interviews/mock" size="sm" variant="ghost">
           <ArrowLeft aria-hidden="true" className="size-3.5" strokeWidth={1.5} />
-          退出
+          {t.exit}
         </ButtonLink>
         <p className="min-w-0 flex-1 truncate text-sm font-medium">
           {session.companyName} · {session.jobTitle}
@@ -295,9 +361,10 @@ export function MockInterviewChat({
         <ProgressBar progress={progress} />
         <Button aria-pressed={materialsOpen} onClick={() => setMaterialsOpen((open) => !open)} size="sm" type="button" variant="ghost">
           <FileText aria-hidden="true" className="size-3.5" strokeWidth={1.5} />
-          资料
+          {t.materials}
         </Button>
         <ThemeButton />
+        <LocaleButton />
       </header>
 
       <div className="relative mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col">
@@ -314,7 +381,7 @@ export function MockInterviewChat({
           {busy ? (
             <div className="flex justify-start">
               <div className="max-w-[85%] rounded-2xl rounded-tl-sm border border-border bg-surface px-4 py-3 text-sm leading-6 text-foreground">
-                <Loader2 aria-label="面试官正在思考" className="size-4 animate-spin text-muted-foreground" />
+                <Loader2 aria-label={t.thinking} className="size-4 animate-spin text-muted-foreground" />
               </div>
             </div>
           ) : null}
@@ -322,10 +389,10 @@ export function MockInterviewChat({
 
         {turnError || error ? (
           <div className="flex items-start gap-2 px-3 pb-2 sm:px-4">
-            <Alert className="min-w-0 flex-1" tone="danger">{turnError || readableError(error)}</Alert>
+            <Alert className="min-w-0 flex-1" tone="danger">{turnError || readableError(error, t.turnFailed)}</Alert>
             {!ended ? (
               <Button disabled={busy} onClick={retry} size="sm" type="button" variant="outline">
-                重试
+                {t.retry}
               </Button>
             ) : null}
           </div>
@@ -337,11 +404,11 @@ export function MockInterviewChat({
               <Loader2 aria-hidden="true" className="size-4 animate-spin text-muted-foreground" strokeWidth={1.5} />
             ) : null}
             <p className="text-sm text-muted-foreground">
-              {reportError || "面试已结束，正在评分并生成报告。"}
+              {reportError || t.ended}
             </p>
             {reportError ? (
               <Button disabled={completing} onClick={() => finish(true)} type="button" variant="outline">
-                {completing ? "生成中…" : "重新生成报告"}
+                {completing ? t.regenerating : t.regenerate}
               </Button>
             ) : null}
           </div>
@@ -355,7 +422,7 @@ export function MockInterviewChat({
           >
             <MockInterviewVoiceControls disabled={busy} onBusyChange={setVoiceBusy} onError={setTurnError} onTranscript={(text) => setInput((current) => (current.trim() ? `${current.trimEnd()}\n${text}` : text))} sessionId={session.id} />
             <textarea
-              aria-label="你的回答"
+              aria-label={t.answerLabel}
               className="min-h-20 w-full resize-y rounded-lg border border-border-strong bg-surface px-3 py-2 text-sm leading-6 text-foreground outline-none focus:border-brand focus:ring-2 focus:ring-ring/20"
               disabled={busy || voiceBusy}
               onChange={(event) => setInput(event.target.value)}
@@ -365,34 +432,34 @@ export function MockInterviewChat({
                   send(input, null);
                 }
               }}
-              placeholder="像面试时那样回答；Enter 发送，Shift+Enter 换行。"
+              placeholder={t.answerPlaceholder}
               value={input}
             />
             <div className="flex flex-wrap items-center gap-2">
               <Button disabled={busy || !input.trim()} type="submit">
                 <SendHorizontal aria-hidden="true" className="size-3.5" strokeWidth={1.5} />
-                发送
+                {t.send}
               </Button>
               <Button disabled={busy} onClick={() => send("", "hint")} size="sm" type="button" variant="outline">
-                要个提示
+                {t.hint}
               </Button>
               <Button disabled={busy} onClick={() => send("", "repeat")} size="sm" type="button" variant="outline">
-                再说一遍
+                {t.repeat}
               </Button>
               <Button disabled={busy} onClick={() => send("", "skip")} size="sm" type="button" variant="ghost">
-                跳过这题
+                {t.skip}
               </Button>
               <Button
                 className="ml-auto text-danger hover:bg-danger-soft hover:text-danger-strong"
                 disabled={busy}
                 onClick={() => {
-                  if (window.confirm("确定现在结束吗？结束后进入评分，没问到的内容不计分。")) send("", "end");
+                  if (window.confirm(t.endConfirm)) send("", "end");
                 }}
                 size="sm"
                 type="button"
                 variant="ghost"
               >
-                结束面试
+                {t.end}
               </Button>
             </div>
           </form>

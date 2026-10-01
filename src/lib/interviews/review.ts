@@ -1,6 +1,7 @@
 import { normalizeInterviewRound, normalizeQuestionCategory } from "./types";
 import type { InterviewQuestionCategory, InterviewRound } from "./types";
 import { questionSimilarity } from "@/lib/text/similarity";
+import { localizedLabels } from "@/lib/i18n/locale";
 
 export const INTERVIEW_REVIEW_PAGE_SIZE = 8;
 
@@ -25,6 +26,9 @@ export const QUESTION_REVIEW_ORIGIN_LABELS: Record<
   mock: "AI 模拟",
 };
 
+/** 界面按语言取：`QUESTION_REVIEW_ORIGIN_LABELS_I18N[locale][key]`（docs/i18n-plan.md）。 */
+export const QUESTION_REVIEW_ORIGIN_LABELS_I18N = localizedLabels(QUESTION_REVIEW_ORIGIN_LABELS, { real: "Real interview", mock: "AI mock" });
+
 export const INTERVIEW_REVIEW_SOURCE_LABELS: Record<
   InterviewReviewSourceFilter,
   string
@@ -32,6 +36,9 @@ export const INTERVIEW_REVIEW_SOURCE_LABELS: Record<
   all: "全部来源",
   ...QUESTION_REVIEW_ORIGIN_LABELS,
 };
+
+/** 界面按语言取：`INTERVIEW_REVIEW_SOURCE_LABELS_I18N[locale][key]`（docs/i18n-plan.md）。 */
+export const INTERVIEW_REVIEW_SOURCE_LABELS_I18N = localizedLabels(INTERVIEW_REVIEW_SOURCE_LABELS, { all: "All sources", real: "Real interview", mock: "AI mock" });
 
 export type InterviewReviewFilters = {
   section: InterviewReviewSection;

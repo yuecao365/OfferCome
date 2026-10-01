@@ -2,12 +2,18 @@ import { GeistMono } from "geist/font/mono";
 import { GeistSans } from "geist/font/sans";
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
+
+import { LocaleProvider } from "@/lib/i18n/client";
+import { getLocale } from "@/lib/i18n/server";
 import "./globals.css";
 
-export const metadata: Metadata = {
-  title: "OfferCome",
-  description: "个人求职进度、简历与面试训练工作区",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getLocale();
+  return {
+    title: "OfferCome",
+    description: locale === "en" ? "Job-search workspace: applications, resumes and interview practice" : "个人求职进度、简历与面试训练工作区",
+  };
+}
 
 export const viewport: Viewport = {
   colorScheme: "light dark",
@@ -22,20 +28,21 @@ const themeScript = `
   }
 `;
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = await getLocale();
   return (
     <html
       className={`${GeistSans.variable} ${GeistMono.variable}`}
       data-scroll-behavior="smooth"
-      lang="zh-CN"
+      lang={locale}
       suppressHydrationWarning
     >
       <body>
-        {children}
+        <LocaleProvider locale={locale}>{children}</LocaleProvider>
         <Script id="theme-init" strategy="beforeInteractive">
           {themeScript}
         </Script>

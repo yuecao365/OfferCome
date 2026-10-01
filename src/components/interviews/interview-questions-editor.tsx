@@ -1,8 +1,10 @@
 "use client";
 
+import { useLocale, useMessages } from "@/lib/i18n/client";
+import { defineMessages } from "@/lib/i18n/locale";
 import {
   INTERVIEW_QUESTION_CATEGORIES,
-  INTERVIEW_QUESTION_CATEGORY_LABELS,
+  INTERVIEW_QUESTION_CATEGORY_LABELS_I18N,
   type InterviewQuestionCategory,
   type InterviewQuestionInput,
   type ResumeProjectOption,
@@ -10,6 +12,37 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { RequiredMark, Select, Textarea } from "@/components/ui/form-controls";
+
+const messages = defineMessages({
+  "zh-CN": {
+    title: "问题与回答",
+    add: "添加问题",
+    empty: "还没有问题，点击添加问题开始记录。",
+    question: (n: number) => `问题 ${n}`,
+    confidence: (percent: number) => `识别置信度 ${percent}%`,
+    remove: "删除",
+    questionPlaceholder: "输入面试问题",
+    categoryAria: (n: number) => `问题 ${n} 类型`,
+    projectAria: (n: number) => `问题 ${n} 关联实习/项目`,
+    noProject: "未关联实习/项目",
+    answerAria: (n: number) => `问题 ${n} 回答`,
+    answerPlaceholder: "输入回答，可稍后补充",
+  },
+  en: {
+    title: "Questions and answers",
+    add: "Add question",
+    empty: "No questions yet. Click Add question to start.",
+    question: (n: number) => `Question ${n}`,
+    confidence: (percent: number) => `Recognition confidence ${percent}%`,
+    remove: "Delete",
+    questionPlaceholder: "Enter the interview question",
+    categoryAria: (n: number) => `Question ${n} type`,
+    projectAria: (n: number) => `Question ${n} linked internship / project`,
+    noProject: "No linked internship / project",
+    answerAria: (n: number) => `Question ${n} answer`,
+    answerPlaceholder: "Enter your answer — you can fill it in later",
+  },
+});
 
 type InterviewQuestionsEditorProps = {
   onChange: (questions: InterviewQuestionInput[]) => void;
@@ -28,6 +61,8 @@ export function InterviewQuestionsEditor({
   questions,
   resumeProjects,
 }: InterviewQuestionsEditorProps) {
+  const locale = useLocale();
+  const t = useMessages(messages);
   const updateQuestion = (
     index: number,
     field: EditableQuestionField,
@@ -79,19 +114,19 @@ export function InterviewQuestionsEditor({
   return (
     <Card>
       <div className="flex items-center justify-between gap-3 border-b border-zinc-200 px-3 py-2">
-        <h3 className="text-sm font-medium text-zinc-900">问题与回答</h3>
+        <h3 className="text-sm font-medium text-zinc-900">{t.title}</h3>
         <Button
           onClick={addQuestion}
           size="sm"
           type="button"
           variant="outline"
         >
-          添加问题
+          {t.add}
         </Button>
       </div>
       <div className="grid gap-3 p-3">
         {questions.length === 0 ? (
-          <p className="text-sm text-zinc-500">还没有问题，点击添加问题开始记录。</p>
+          <p className="text-sm text-zinc-500">{t.empty}</p>
         ) : null}
         {questions.map((question, index) => (
           <div
@@ -100,11 +135,11 @@ export function InterviewQuestionsEditor({
           >
             <div className="flex items-center justify-between gap-3">
               <p className="text-sm font-medium text-zinc-800">
-                问题 {index + 1}
+                {t.question(index + 1)}
                 {questions.length === 1 ? <RequiredMark /> : null}
                 {typeof question.confidence === "number" ? (
                   <span className="ml-2 font-normal text-zinc-500">
-                    识别置信度 {Math.round(question.confidence * 100)}%
+                    {t.confidence(Math.round(question.confidence * 100))}
                   </span>
                 ) : null}
               </p>
@@ -114,23 +149,23 @@ export function InterviewQuestionsEditor({
                 type="button"
                 variant="ghost"
               >
-                删除
+                {t.remove}
               </Button>
             </div>
             <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_180px_180px]">
               <Textarea
-                aria-label={`问题 ${index + 1}`}
+                aria-label={t.question(index + 1)}
                 className="min-h-20 resize-y"
                 onChange={(event) =>
                   updateQuestion(index, "question", event.target.value)
                 }
-                placeholder="输入面试问题"
+                placeholder={t.questionPlaceholder}
                 required={questions.length === 1}
                 rows={2}
                 value={question.question}
               />
               <Select
-                aria-label={`问题 ${index + 1} 类型`}
+                aria-label={t.categoryAria(index + 1)}
                 onChange={(event) =>
                   updateQuestion(index, "category", event.target.value)
                 }
@@ -138,12 +173,12 @@ export function InterviewQuestionsEditor({
               >
                 {INTERVIEW_QUESTION_CATEGORIES.map((category) => (
                   <option key={category} value={category}>
-                    {INTERVIEW_QUESTION_CATEGORY_LABELS[category]}
+                    {INTERVIEW_QUESTION_CATEGORY_LABELS_I18N[locale][category]}
                   </option>
                 ))}
               </Select>
               <Select
-                aria-label={`问题 ${index + 1} 关联实习/项目`}
+                aria-label={t.projectAria(index + 1)}
                 disabled={question.category !== "resume_project"}
                 onChange={(event) =>
                   updateQuestion(
@@ -154,7 +189,7 @@ export function InterviewQuestionsEditor({
                 }
                 value={question.resumeProjectId ?? ""}
               >
-                <option value="">未关联实习/项目</option>
+                <option value="">{t.noProject}</option>
                 {resumeProjects.map((project) => (
                   <option key={project.id} value={project.id}>
                     {project.name}
@@ -163,12 +198,12 @@ export function InterviewQuestionsEditor({
               </Select>
             </div>
             <Textarea
-              aria-label={`问题 ${index + 1} 回答`}
+              aria-label={t.answerAria(index + 1)}
               className="min-h-40 resize-y"
               onChange={(event) =>
                 updateQuestion(index, "answer", event.target.value)
               }
-              placeholder="输入回答，可稍后补充"
+              placeholder={t.answerPlaceholder}
               rows={6}
               value={question.answer}
             />

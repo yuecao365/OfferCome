@@ -1,5 +1,7 @@
 import { mkdir } from "node:fs/promises";
 
+import { defineMessages, DEFAULT_LOCALE, type Locale } from "@/lib/i18n/locale";
+
 import {
   getBossApiCode,
   getBossApiMessage,
@@ -41,6 +43,30 @@ const RESPONSE_TIMEOUT_MS = 15_000;
 const DEFAULT_PAGE_SETTLE_MS = 1_200;
 const POLL_INTERVAL_MS = 300;
 
+// 只收会回到界面的文案（登录失效、窗口被关）；其余异常在 sync.ts 统一收成一句通用提示。
+const messages = defineMessages({
+  "zh-CN": {
+    closed: "Boss 同步窗口已关闭。请重新同步，并在读取完成前保持窗口打开。",
+    loginPageDuringSync: "Boss 在同步过程中跳回了登录页，请重新登录后再同步。",
+    loginPage: "Boss 当前未登录，请在登录窗口中完成登录。",
+    verifyDuringSync: "Boss 在同步过程中要求重新登录或安全校验，已停止继续读取。",
+    verify: "Boss 要求登录或安全校验，请先完成登录后再同步。",
+    noData: (issue: string) =>
+      `Boss 没有返回任何岗位数据${issue}。登录状态很可能已经失效，请重新登录后再同步。`,
+    abnormal: (issue: string) => `Boss 页面返回异常响应${issue}，已停止同步。`,
+  },
+  en: {
+    closed: "The Boss sync window was closed. Sync again and keep the window open until reading finishes.",
+    loginPageDuringSync: "Boss went back to its sign-in page during sync. Sign in again, then sync.",
+    loginPage: "You're not signed in to Boss. Finish signing in in the sign-in window.",
+    verifyDuringSync: "Boss asked for sign-in or a security check during sync, so reading stopped.",
+    verify: "Boss requires sign-in or a security check. Sign in first, then sync.",
+    noData: (issue: string) =>
+      `Boss returned no job data${issue}. Your sign-in has most likely expired; sign in again, then sync.`,
+    abnormal: (issue: string) => `Boss returned an unexpected response${issue}, so sync stopped.`,
+  },
+});
+
 export type BossBrowserPageDiagnostics = {
   page: number;
   url: string;
@@ -59,6 +85,8 @@ export type CollectBossContactsOptions = {
   maxPages: number;
   pageSettleMs?: number;
   onMessage?: (message: string) => void;
+  /** 回到界面的错误文案语言；命令行不传，用默认中文。 */
+  locale?: Locale;
 };
 
 export class BossBrowserLoginRequiredError extends Error {
@@ -69,8 +97,8 @@ export class BossBrowserLoginRequiredError extends Error {
 }
 
 export class BossBrowserClosedError extends Error {
-  constructor(message = "Boss 同步窗口已关闭。请重新同步，并在读取完成前保持窗口打开。") {
-    super(message);
+  constructor(locale: Locale = DEFAULT_LOCALE) {
+    super(messages[locale].closed);
     this.name = "BossBrowserClosedError";
   }
 }
@@ -144,12 +172,12 @@ export function assertBossSessionUsable(input: {
   collectedResponses: number;
   /** 首屏判定还是翻页途中判定，只影响文案。 */
   duringSync: boolean;
+  locale?: Locale;
 }): void {
+  const t = messages[input.locale ?? DEFAULT_LOCALE];
   if (input.currentUrl !== null && isBossLoginUrl(input.currentUrl)) {
     throw new BossBrowserLoginRequiredError(
-      input.duringSync
-        ? "Boss 在同步过程中跳回了登录页，请重新登录后再同步。"
-        : "Boss 当前未登录，请在登录窗口中完成登录。",
+      input.duringSync ? t.loginPageDuringSync : t.loginPage,
     );
   }
 
@@ -158,21 +186,15 @@ export function assertBossSessionUsable(input: {
 
   if (isBossLoginRequiredResponse(issue.code, issue.message)) {
     throw new BossBrowserLoginRequiredError(
-      input.duringSync
-        ? "Boss 在同步过程中要求重新登录或安全校验，已停止继续读取。"
-        : "Boss 要求登录或安全校验，请先完成登录后再同步。",
+      input.duringSync ? t.verifyDuringSync : t.verify,
     );
   }
 
   if (input.collectedResponses === 0) {
-    throw new BossBrowserLoginRequiredError(
-      `Boss 没有返回任何岗位数据${describeBossAccessIssue(issue)}。登录状态很可能已经失效，请重新登录后再同步。`,
-    );
+    throw new BossBrowserLoginRequiredError(t.noData(describeBossAccessIssue(issue)));
   }
 
-  throw new Error(
-    `Boss 页面返回异常响应${describeBossAccessIssue(issue)}，已停止同步。`,
-  );
+  throw new Error(t.abnormal(describeBossAccessIssue(issue)));
 }
 
 async function getPageUrl(port: number, targetId: string): Promise<string | null> {
@@ -253,11 +275,12 @@ async function waitForNextResponse(
   state: CollectorState,
   previousCount: number,
   isClosed: () => boolean,
+  locale: Locale,
 ): Promise<boolean> {
   const deadline = Date.now() + RESPONSE_TIMEOUT_MS;
   while (Date.now() < deadline) {
     if (state.responseCount > previousCount) return true;
-    if (isClosed()) throw new BossBrowserClosedError();
+    if (isClosed()) throw new BossBrowserClosedError(locale);
     await sleep(POLL_INTERVAL_MS);
   }
   return false;
@@ -280,6 +303,7 @@ async function goToNextPage(client: CdpClient): Promise<boolean> {
 export async function collectBossContactsFromBrowser(
   options: CollectBossContactsOptions,
 ): Promise<BossBrowserCollectionResult> {
+  const locale = options.locale ?? DEFAULT_LOCALE;
   const paths = getBossLocalPaths(options.cwd);
   await mkdir(paths.browserProfileDir, { recursive: true });
 
@@ -289,7 +313,7 @@ export async function collectBossContactsFromBrowser(
   }
 
   const port = getBossCdpPort();
-  await ensureBossBrowserClosed(port);
+  await ensureBossBrowserClosed(port, locale);
   const browserProcess = launchBrowserProcess(
     browserPath,
     buildBrowserLaunchArgs({
@@ -344,7 +368,7 @@ export async function collectBossContactsFromBrowser(
     }
     await settleBodies(state);
     if (browserGone || !(await isBrowserAlive(port))) {
-      throw new BossBrowserClosedError();
+      throw new BossBrowserClosedError(locale);
     }
 
     // 首屏就是登录态的体检：有异常响应、或压根没等到数据时才深查，
@@ -355,6 +379,7 @@ export async function collectBossContactsFromBrowser(
         issue: state.accessIssue,
         collectedResponses: state.responseCount,
         duringSync: false,
+        locale,
       });
       // 没抛错说明既没跳登录页也没有异常响应，那就是纯粹没等到。
       throw new Error(
@@ -382,7 +407,7 @@ export async function collectBossContactsFromBrowser(
         stopReason = "no-more-pages";
         break;
       }
-      if (!(await waitForNextResponse(state, previousCount, isClosed))) {
+      if (!(await waitForNextResponse(state, previousCount, isClosed, locale))) {
         // 点击成功但响应超时不等于到了末页：必须如实上报截断，
         // 否则丢页会被当成“已全部同步”。
         stopReason = "response-timeout";
@@ -391,7 +416,7 @@ export async function collectBossContactsFromBrowser(
 
       await sleep(options.pageSettleMs ?? DEFAULT_PAGE_SETTLE_MS);
       await settleBodies(state);
-      if (browserGone) throw new BossBrowserClosedError();
+      if (browserGone) throw new BossBrowserClosedError(locale);
 
       const url = await getPageUrl(port, target.id);
       assertBossSessionUsable({
@@ -399,6 +424,7 @@ export async function collectBossContactsFromBrowser(
         issue: state.accessIssue,
         collectedResponses: knownCount,
         duringSync: true,
+        locale,
       });
 
       const nextCount = normalizeBossContacts(state.candidates).length;
@@ -431,7 +457,7 @@ export async function collectBossContactsFromBrowser(
       throw error;
     }
     if (client && (browserGone || !(await isBrowserAlive(port)))) {
-      throw new BossBrowserClosedError();
+      throw new BossBrowserClosedError(locale);
     }
     throw error;
   } finally {

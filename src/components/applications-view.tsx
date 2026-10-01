@@ -1,3 +1,5 @@
+"use client";
+
 import type { ApplicationStage } from "@/lib/applications/types";
 import type { ComponentProps } from "react";
 
@@ -14,6 +16,37 @@ import type {
   ApplicationFilters as ApplicationFiltersValue,
   ApplicationListItem,
 } from "@/lib/applications/types";
+import { useMessages } from "@/lib/i18n/client";
+import { defineMessages } from "@/lib/i18n/locale";
+
+const messages = defineMessages({
+  "zh-CN": {
+    title: "投递岗位",
+    paginationAria: "岗位列表分页",
+    tileTotal: "全部投递",
+    tileTotalNote: (rejected: number) => `已拒绝 ${rejected}`,
+    tilePending: "待跟进",
+    tilePendingNote: "仍停留在「已投递」",
+    tileInterviewing: "面试中",
+    tileInterviewingNote: "笔试到 HR 面之间",
+    tileOffer: "Offer",
+    tileOfferNote: "当前处于 Offer 阶段",
+  },
+  en: {
+    title: "Applications",
+    paginationAria: "Applications pagination",
+    tileTotal: "All applications",
+    tileTotalNote: (rejected: number) => `${rejected} rejected`,
+    tilePending: "To follow up",
+    tilePendingNote: "Still at “Applied”",
+    tileInterviewing: "Interviewing",
+    tileInterviewingNote: "From assessment to HR round",
+    tileOffer: "Offer",
+    tileOfferNote: "Currently at the offer stage",
+  },
+});
+
+type Texts = (typeof messages)["zh-CN"];
 
 function applicationPageHref(filters: ApplicationFiltersValue, page: number): string {
   const params = new URLSearchParams();
@@ -38,13 +71,13 @@ function applicationPageHref(filters: ApplicationFiltersValue, page: number): st
 
 const INTERVIEWING: ApplicationStage[] = ["assessment", "first_interview", "second_interview", "third_interview", "hr_interview"];
 
-function tilesOf(stats: { total: number; stageCounts: Record<ApplicationStage, number> }) {
+function tilesOf(stats: { total: number; stageCounts: Record<ApplicationStage, number> }, t: Texts) {
   const interviewing = INTERVIEWING.reduce((sum, stage) => sum + (stats.stageCounts[stage] ?? 0), 0);
   return [
-    { label: "全部投递", value: stats.total, note: `已拒绝 ${stats.stageCounts.rejected ?? 0}` },
-    { label: "待跟进", value: stats.stageCounts.applied ?? 0, note: "仍停留在「已投递」", tone: accentIf(stats.stageCounts.applied ?? 0) },
-    { label: "面试中", value: interviewing, note: "笔试到 HR 面之间", tone: toneIf(interviewing, "info") },
-    { label: "Offer", value: stats.stageCounts.offer ?? 0, note: "当前处于 Offer 阶段", tone: toneIf(stats.stageCounts.offer ?? 0, "success") },
+    { label: t.tileTotal, value: stats.total, note: t.tileTotalNote(stats.stageCounts.rejected ?? 0) },
+    { label: t.tilePending, value: stats.stageCounts.applied ?? 0, note: t.tilePendingNote, tone: accentIf(stats.stageCounts.applied ?? 0) },
+    { label: t.tileInterviewing, value: interviewing, note: t.tileInterviewingNote, tone: toneIf(interviewing, "info") },
+    { label: t.tileOffer, value: stats.stageCounts.offer ?? 0, note: t.tileOfferNote, tone: toneIf(stats.stageCounts.offer ?? 0, "success") },
   ];
 }
 export function ApplicationsView({
@@ -77,6 +110,7 @@ export function ApplicationsView({
     "editActionFor" | "deleteActionFor"
   >;
 }) {
+  const t = useMessages(messages);
   return (
     <>
       <PageHeader
@@ -86,9 +120,9 @@ export function ApplicationsView({
             <SyncBossButton />
           </>
         }
-        title="投递岗位"
+        title={t.title}
       />
-      {stats ? <StatTiles tiles={tilesOf(stats)} /> : null}
+      {stats ? <StatTiles tiles={tilesOf(stats, t)} /> : null}
       <Card className="grid gap-4 p-4 sm:p-5">
         <ApplicationFilters filters={filters} sources={sources} />
         <ApplicationsTable
@@ -97,7 +131,7 @@ export function ApplicationsView({
           {...table}
         />
         <ListPagination
-          ariaLabel="岗位列表分页"
+          ariaLabel={t.paginationAria}
           hrefForPage={(page) => applicationPageHref(filters, page)}
           page={applications.page}
           total={applications.total}

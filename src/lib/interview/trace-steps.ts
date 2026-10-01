@@ -1,3 +1,5 @@
+import { localizedLabels } from "@/lib/i18n/locale";
+
 /**
  * trace 页按步查看（深度扩展 G6）：把 AgentRun 行（一次调用的汇总、循环的每一步、每次工具调用、修补、预算触顶……）
  * 变成可读的"步"，并从事件日志上找出某一回合的边界（重放到这里用）。纯函数。
@@ -59,6 +61,17 @@ export const AGENT_LABELS: Record<string, string> = {
   interview_brief: "备课简报",
   job_blueprint: "岗位蓝图",
 };
+
+/** 界面按语言取：`AGENT_LABELS_I18N[locale][agent]`，表外的 agent 显示原名。 */
+export const AGENT_LABELS_I18N = localizedLabels(AGENT_LABELS, {
+  interviewer: "Interviewer",
+  question_evaluation: "Scoring",
+  answer_exemplar: "Model answer",
+  candidate_dossier: "Candidate dossier",
+  interview_summary: "Report summary",
+  interview_brief: "Interview brief",
+  job_blueprint: "Job blueprint",
+});
 
 function parse(json: string | null): unknown {
   if (!json) return null;

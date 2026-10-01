@@ -2,7 +2,9 @@ import "server-only";
 
 import { after } from "next/server";
 
-import { refreshCandidateProfile } from "./service";
+import { contentLanguageOf, type ContentLanguage } from "@/lib/i18n/locale";
+
+import { refreshCandidateProfile, requestLocale } from "./service";
 import { markCandidateProfileDirty } from "./state";
 import { runRefreshBatches } from "./background-runner";
 
@@ -14,14 +16,15 @@ export async function enqueueCandidateProfileRefresh({
   fullRebuild = false,
 }: { fullRebuild?: boolean } = {}): Promise<void> {
   await markCandidateProfileDirty({ fullRebuild, debounceMs: 0 });
-  scheduleCandidateProfileRefresh();
+  scheduleCandidateProfileRefresh(contentLanguageOf(await requestLocale()));
 }
 
-export function scheduleCandidateProfileRefresh(): void {
+/** language 在请求里先定好再交给后台：after 回调里不一定还读得到 cookie。 */
+export function scheduleCandidateProfileRefresh(language: ContentLanguage): void {
   after(async () => {
     try {
       await runRefreshBatches<RefreshResult>({
-        refresh: () => refreshCandidateProfile({ force: false }),
+        refresh: () => refreshCandidateProfile({ force: false, language }),
         maxBatches: MAX_BACKGROUND_BATCHES,
       });
     } catch (error) {

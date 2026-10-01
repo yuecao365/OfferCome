@@ -1,7 +1,15 @@
+import { navigationMessages } from "@/components/app-navigation-config";
 import type { AppSection, InterviewSection } from "@/components/app-shell-types";
 import { AppShell } from "@/components/app-shell";
 import { PageHeader } from "@/components/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
+import { defineMessages } from "@/lib/i18n/locale";
+import { getLocale } from "@/lib/i18n/server";
+
+const messages = defineMessages({
+  "zh-CN": { loadingPage: (title: string) => `${title}正在加载`, loading: "正在加载" },
+  en: { loadingPage: (title: string) => `Loading ${title}`, loading: "Loading" },
+});
 
 type RouteLoadingVariant = "dashboard" | "list" | "split" | "form";
 
@@ -53,23 +61,25 @@ const variantSkeletons: Record<RouteLoadingVariant, React.ReactNode> = {
   ),
 };
 
-export function RouteLoading({
+/** 页名取导航里的同一份文案，服务端按请求语言渲染。 */
+export async function RouteLoading({
   active,
   subActive,
-  title,
   variant = "dashboard",
 }: {
   active: AppSection;
   subActive?: InterviewSection;
-  title: string;
   variant?: RouteLoadingVariant;
 }) {
+  const locale = await getLocale();
+  const t = messages[locale];
+  const title = navigationMessages[locale].pages[subActive ?? active];
   return (
     <AppShell active={active} subActive={subActive}>
       <PageHeader title={title} />
-      <div aria-busy="true" aria-label={`${title}正在加载`} className="grid gap-4" role="status">
+      <div aria-busy="true" aria-label={t.loadingPage(title)} className="grid gap-4" role="status">
         {variantSkeletons[variant]}
-        <span className="sr-only">正在加载</span>
+        <span className="sr-only">{t.loading}</span>
       </div>
     </AppShell>
   );

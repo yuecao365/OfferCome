@@ -1,17 +1,42 @@
 "use server";
 
 import { prisma } from "@/lib/db";
+import { defineMessages } from "@/lib/i18n/locale";
+import { getLocale, getMessages } from "@/lib/i18n/server";
 
 import type { ApplicationActionState } from "./action-state";
 import { parseApplicationFormData } from "./form";
 import { revalidateApplicationRoutes } from "./revalidate";
 import { isApplicationStage, type ApplicationStage } from "./types";
 
+const messages = defineMessages({
+  "zh-CN": {
+    duplicate: "这条投递记录已存在。",
+    saveFailed: "保存失败，请稍后重试。",
+    created: "投递记录已创建。",
+    updateFailed: "更新失败，请稍后重试。",
+    updated: "投递记录已更新。",
+    invalidStage: "无效的投递状态。",
+    notFound: "没有找到这条投递记录。",
+  },
+  en: {
+    duplicate: "This application already exists.",
+    saveFailed: "Couldn't save. Try again later.",
+    created: "Application added.",
+    updateFailed: "Couldn't update. Try again later.",
+    updated: "Application updated.",
+    invalidStage: "Invalid application status.",
+    notFound: "Application not found.",
+  },
+});
+
 export async function createApplication(
   _prevState: ApplicationActionState,
   formData: FormData,
 ): Promise<ApplicationActionState> {
-  const parsed = parseApplicationFormData(formData);
+  const locale = await getLocale();
+  const t = messages[locale];
+  const parsed = parseApplicationFormData(formData, locale);
   if (!parsed.ok) {
     return { status: "error", message: parsed.message };
   }
@@ -39,13 +64,13 @@ export async function createApplication(
       error instanceof Error &&
       error.message.toLowerCase().includes("unique")
     ) {
-      return { status: "error", message: "这条投递记录已存在。" };
+      return { status: "error", message: t.duplicate };
     }
-    return { status: "error", message: "保存失败，请稍后重试。" };
+    return { status: "error", message: t.saveFailed };
   }
 
   revalidateApplicationRoutes();
-  return { status: "success", message: "投递记录已创建。" };
+  return { status: "success", message: t.created };
 }
 
 export async function updateApplication(
@@ -53,7 +78,9 @@ export async function updateApplication(
   _prevState: ApplicationActionState,
   formData: FormData,
 ): Promise<ApplicationActionState> {
-  const parsed = parseApplicationFormData(formData);
+  const locale = await getLocale();
+  const t = messages[locale];
+  const parsed = parseApplicationFormData(formData, locale);
   if (!parsed.ok) {
     return { status: "error", message: parsed.message };
   }
@@ -75,11 +102,11 @@ export async function updateApplication(
       },
     });
   } catch {
-    return { status: "error", message: "更新失败，请稍后重试。" };
+    return { status: "error", message: t.updateFailed };
   }
 
   revalidateApplicationRoutes();
-  return { status: "success", message: "投递记录已更新。" };
+  return { status: "success", message: t.updated };
 }
 
 /**
@@ -90,8 +117,9 @@ export async function updateApplicationStage(
   sourceKey: string,
   stage: string,
 ): Promise<{ ok: boolean; message?: string }> {
+  const t = await getMessages(messages);
   if (!isApplicationStage(stage)) {
-    return { ok: false, message: "无效的投递状态。" };
+    return { ok: false, message: t.invalidStage };
   }
 
   try {
@@ -105,10 +133,10 @@ export async function updateApplicationStage(
       },
     });
     if (updated.count === 0) {
-      return { ok: false, message: "没有找到这条投递记录。" };
+      return { ok: false, message: t.notFound };
     }
   } catch {
-    return { ok: false, message: "更新失败，请稍后重试。" };
+    return { ok: false, message: t.updateFailed };
   }
 
   revalidateApplicationRoutes();

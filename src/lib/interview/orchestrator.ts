@@ -7,13 +7,14 @@ import { claimSession } from "@/lib/mock-interviews/session-state";
 import { getAiTaskConfig } from "@/lib/settings/ai";
 
 import { dossierOf } from "./dossier-doc";
-import { appendEvents, notesOf, parseEventRow, type InterviewEvent } from "./events";
+import { appendEvents, CONTROL_PLACEHOLDERS_BY_LANGUAGE, notesOf, parseEventRow, type InterviewEvent } from "./events";
 import { loadSkillPacks } from "@/lib/mock-interviews/skills/loader";
 import { packsForInterview } from "@/lib/mock-interviews/skills/selector";
 
 import { turnBoundary } from "./trace-steps";
 import { runTurn, type CandidateInput, type TurnResult, type TurnState } from "./turn";
 import type { ConversationMessage, TurnPayload } from "./views";
+import type { Locale } from "@/lib/i18n/locale";
 
 /**
  * 本地版编排器（interview-system-design.md §6.6）：装状态 → 跑回合 → 一个事务落库。
@@ -48,10 +49,11 @@ export type TurnReplay = { replay: true; messages: ConversationMessage[] };
 export type TurnStart = { replay: false; finalize: () => Promise<TurnPayload> };
 
 /** 开始一个回合；重复的 clientId 或已开场的开场回合直接回放。 */
-export async function startTurn(input: { sessionId: string; candidate: CandidateMessageInput | null }): Promise<TurnReplay | TurnStart> {
+export async function startTurn(input: { sessionId: string; candidate: CandidateMessageInput | null; locale?: Locale }): Promise<TurnReplay | TurnStart> {
+  const en = input.locale === "en";
   const loaded = await loadSession(input.sessionId);
-  if (!loaded) throw new Error("模拟面试不存在。");
-  if (loaded.status !== "in_progress") throw new Error("这场面试已经结束，不能继续对话。");
+  if (!loaded) throw new Error(en ? "This mock interview doesn't exist." : "模拟面试不存在。");
+  if (loaded.status !== "in_progress") throw new Error(en ? "This interview has ended, so the conversation can't continue." : "这场面试已经结束，不能继续对话。");
 
   const replayOf = (turnIndex: number): TurnReplay => ({
     replay: true,
@@ -65,14 +67,19 @@ export async function startTurn(input: { sessionId: string; candidate: Candidate
   }
 
   const state = turnState(loaded);
+  // 只点按钮没打字：替候选人说的那句按场次语言补上（模型读得到，跟面试语言走）。
+  const candidate: CandidateMessageInput | null =
+    input.candidate && !input.candidate.content && input.candidate.control
+      ? { ...input.candidate, content: CONTROL_PLACEHOLDERS_BY_LANGUAGE[state.brief.language][input.candidate.control] }
+      : input.candidate;
   const turnIndex = loaded.messages.filter((message) => message.role === "interviewer").length;
   const config = await getAiTaskConfig("text");
-  const context = { jobTitle: loaded.interview.jobTitle, jobDescription: loaded.jdTextSnapshot, resumeText: loaded.resumeTextSnapshot, skillPacks: packsForInterview(state.brief.skillPacks ?? [], await loadSkillPacks(), 3), dossier: dossierOf(loaded.contextSnapshotJson)?.body ?? null, product: state.brief.product };
+  const context = { jobTitle: loaded.interview.jobTitle, jobDescription: loaded.jdTextSnapshot, resumeText: loaded.resumeTextSnapshot, skillPacks: packsForInterview(state.brief.skillPacks ?? [], await loadSkillPacks(state.brief.language), 3), dossier: dossierOf(loaded.contextSnapshotJson)?.body ?? null, product: state.brief.product };
   return {
     replay: false,
     finalize: async () => {
-      const result = await runTurn({ runId: `turn:${input.sessionId}:${turnIndex}`, config, state, candidate: input.candidate, context });
-      const newMessages = await persistTurn(loaded, turnIndex, input.candidate, result);
+      const result = await runTurn({ runId: `turn:${input.sessionId}:${turnIndex}`, config, state, candidate, context });
+      const newMessages = await persistTurn(loaded, turnIndex, candidate, result);
       return { newMessages, phase: result.phase, progress: result.progress, endedBy: result.endedBy, coveredCount: result.progress.covered, notes: notesOf(result.events.map((item, index) => ({ ...item, seq: index, runId: item.runId ?? null, at: new Date() }) as InterviewEvent)) };
     },
   };
@@ -89,7 +96,7 @@ async function persistTurn(loaded: Loaded, turnIndex: number, candidate: Candida
   // SQLite 单写者：并发的另一场正在落库时这里要等锁；默认 5 秒的事务超时在评测并发跑时不够。
   await prisma.$transaction(async (tx) => {
     const clash = await tx.mockInterviewMessage.count({ where: { sessionId, turnIndex } });
-    if (clash > 0) throw new Error("另一回合正在进行，请稍后重试。");
+    if (clash > 0) throw new Error(loaded.language === "en" ? "Another turn is in progress. Try again in a moment." : "另一回合正在进行，请稍后重试。");
     for (const line of result.said) {
       const row = await tx.mockInterviewMessage.create({
         data: {
@@ -136,7 +143,7 @@ export async function replayMockInterviewTurn(sessionId: string, turnIndex: numb
   const state: TurnState = { brief, events: prefix, phase: prefix.some((item) => item.type === "interviewer_said") ? "running" : "opening" };
   const candidateEvent = boundary.candidateIndex === null ? null : events[boundary.candidateIndex];
   const candidate: CandidateInput | null = candidateEvent?.type === "candidate_said" ? { clientId: `replay:${turnIndex}`, content: candidateEvent.payload.content, control: candidateEvent.payload.control ?? null, composeMs: candidateEvent.payload.composeMs ?? null } : null;
-  const context = { jobTitle: loaded.interview.jobTitle, jobDescription: loaded.jdTextSnapshot, resumeText: loaded.resumeTextSnapshot, skillPacks: packsForInterview(brief.skillPacks ?? [], await loadSkillPacks(), 3), dossier: dossierOf(loaded.contextSnapshotJson)?.body ?? null, product: brief.product };
+  const context = { jobTitle: loaded.interview.jobTitle, jobDescription: loaded.jdTextSnapshot, resumeText: loaded.resumeTextSnapshot, skillPacks: packsForInterview(brief.skillPacks ?? [], await loadSkillPacks(brief.language), 3), dossier: dossierOf(loaded.contextSnapshotJson)?.body ?? null, product: brief.product };
   const startedAt = Date.now();
   const result = await runTurn({ runId: `replay:${sessionId}:${turnIndex}:${Date.now()}`, config: await getAiTaskConfig("text"), state, candidate, context });
   const spoken = result.said.find((line) => line.role === "interviewer");

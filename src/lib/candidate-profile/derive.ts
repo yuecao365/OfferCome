@@ -1,5 +1,6 @@
 import { PROFILE_DIMENSION_BY_RUBRIC } from "@/lib/mock-interviews/brief/brief";
 import { quoteInAnswer } from "@/lib/mock-interviews/question-evaluation";
+import type { ContentLanguage } from "@/lib/i18n/locale";
 
 import type { ProfileDimension } from "./types";
 
@@ -31,6 +32,9 @@ export function profileLevelForScore(score: number): number {
 const QUOTED_EVIDENCE_CONFIDENCE = 0.9;
 const GAP_EVIDENCE_CONFIDENCE = 0.6;
 
+/** 没有原话、只能用缺口当证据时的前缀；按场次语言（缺口本身就是那个语言写的）。 */
+const GAP_PREFIX: Record<ContentLanguage, string> = { zh: "缺口：", en: "Gap: " };
+
 const WRAPPING_QUOTES = /^[\s“”"'「」『』]+|[\s“”"'「」『』]+$/g;
 
 /** 评分的 evidence 常是几句原话加引号、用 " / " 拼起来的，逐句核对，只保留真的在回答里的。 */
@@ -46,7 +50,9 @@ export function deriveObservationsFromEvaluation(input: {
   questionId: string;
   answer: string;
   dimensions: ScoredDimension[];
+  language?: ContentLanguage;
 }): DerivedObservation[] {
+  const gapPrefix = GAP_PREFIX[input.language === "en" ? "en" : "zh"];
   return input.dimensions.flatMap((item) => {
     const dimension = PROFILE_DIMENSION_BY_RUBRIC[item.name];
     if (!dimension) return [];
@@ -59,7 +65,7 @@ export function deriveObservationsFromEvaluation(input: {
         dimension,
         score: profileLevelForScore(item.score),
         confidence: quoted ? QUOTED_EVIDENCE_CONFIDENCE : GAP_EVIDENCE_CONFIDENCE,
-        evidenceExcerpt: quoted ?? `缺口：${gap}`,
+        evidenceExcerpt: quoted ?? `${gapPrefix}${gap}`,
       },
     ];
   });

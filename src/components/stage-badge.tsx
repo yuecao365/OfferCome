@@ -1,5 +1,8 @@
+"use client";
+
 import { Badge } from "@/components/ui/badge";
-import { type ApplicationStage, stageLabel } from "@/lib/applications/types";
+import { APPLICATION_STAGE_LABELS_I18N, type ApplicationStage } from "@/lib/applications/types";
+import { useLocale } from "@/lib/i18n/client";
 
 type StageBadgeProps = {
   stage: ApplicationStage;
@@ -20,9 +23,10 @@ const stageTones: Record<
 };
 
 export function StageBadge({ stage }: StageBadgeProps) {
+  const locale = useLocale();
   return (
     <Badge tone={stageTones[stage]}>
-      {stageLabel(stage)}
+      {APPLICATION_STAGE_LABELS_I18N[locale][stage]}
     </Badge>
   );
 }

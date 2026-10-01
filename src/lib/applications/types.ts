@@ -1,3 +1,5 @@
+import { localizedLabels } from "@/lib/i18n/locale";
+
 export const MAX_JOB_DESCRIPTION_LENGTH = 30_000;
 
 export const APPLICATION_STAGES = [
@@ -79,6 +81,9 @@ export const APPLICATION_STAGE_LABELS: Record<ApplicationStage, string> = {
   offer: "Offer",
   rejected: "拒绝",
 };
+
+/** 界面按语言取：`APPLICATION_STAGE_LABELS_I18N[locale][key]`（docs/i18n-plan.md）。 */
+export const APPLICATION_STAGE_LABELS_I18N = localizedLabels(APPLICATION_STAGE_LABELS, { applied: "Applied", assessment: "Assessment", first_interview: "1st round", second_interview: "2nd round", third_interview: "3rd round", hr_interview: "HR round", offer: "Offer", rejected: "Rejected" });
 
 const DEFAULT_PAGE_SIZE: ApplicationPageSize = 12;
 const PAGE_SIZES = new Set<ApplicationPageSize>([12, 20, 50, 100]);

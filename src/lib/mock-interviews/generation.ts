@@ -3,6 +3,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 
 import { prisma } from "@/lib/db";
+import type { ContentLanguage } from "@/lib/i18n/locale";
 import { loadCandidateDossier } from "@/lib/interview/dossier";
 
 import {
@@ -50,7 +51,7 @@ async function loadGeneratingSession(sessionId: string) {
   if (!session || session.status !== "generating" || !session.resumeId || !isInterviewPace(session.pace)) {
     return null;
   }
-  return { ...session, pace: session.pace };
+  return { ...session, pace: session.pace, language: session.language === "en" ? ("en" as const) : ("zh" as const) };
 }
 
 type GenerationRequest = { seedQuestionId: string | null };
@@ -85,6 +86,7 @@ async function ensureBlueprint(
     generationId,
     jobTitle: session.interview.jobTitle,
     jobDescription: session.jdTextSnapshot,
+    language: session.language,
   });
   snapshot.jobBlueprint = blueprint;
 
@@ -96,7 +98,20 @@ async function ensureBlueprint(
 }
 
 const DEGRADED_ERROR_CODE = "degraded";
-const DEGRADED_MESSAGE = "岗位描述没能分析或备课没成（多半是模型服务暂时不可用），这场只能按通用要求出题：可以重新备课，也可以就这样开始。";
+
+/** 写进会话、房间失败卡片直接显示的句子：按这场的面试语言。 */
+const COPY = {
+  zh: {
+    degraded: "岗位描述没能分析或备课没成（多半是模型服务暂时不可用），这场只能按通用要求出题：可以重新备课，也可以就这样开始。",
+    stateChanged: "生成状态已变化，请刷新页面。",
+    failed: "面试准备没有完成。生成服务没有返回可用结果。你可以重新分析岗位描述后重试。",
+  },
+  en: {
+    degraded: "The job description couldn't be analysed or the preparation didn't finish (most likely the model service is temporarily unavailable), so this interview can only use generic questions for the role. You can prepare again, or start as is.",
+    stateChanged: "The preparation status has changed. Please refresh the page.",
+    failed: "Interview preparation didn't finish: the model service returned nothing usable. You can analyse the job description again and retry.",
+  },
+} satisfies Record<ContentLanguage, Record<string, string>>;
 
 /** 阶段二：简报连同空的工作记忆一起落库；备好了就把房间打开，没备好就停在"待确认"（状态 generation_failed，错误码 degraded）。 */
 async function persistBrief(
@@ -121,12 +136,12 @@ async function persistBrief(
         status: ready ? "in_progress" : "generation_failed",
         generationPhase: null,
         generationErrorCode: ready ? null : DEGRADED_ERROR_CODE,
-        generationError: ready ? null : DEGRADED_MESSAGE,
+        generationError: ready ? null : COPY[session.language].degraded,
         questionCount: 0,
       },
     });
     if (!claimed) {
-      throw new Error("生成状态已变化，请刷新页面。");
+      throw new Error(COPY[session.language].stateChanged);
     }
     await tx.interview.update({
       where: { id: session.interviewId },
@@ -140,6 +155,7 @@ async function recordGenerationFailure(
   sessionId: string,
   snapshot: GenerationSnapshot,
   error: unknown,
+  language: ContentLanguage,
 ): Promise<void> {
   snapshot.generationErrorContext = isMockInterviewGenerationError(error)
     ? error.context
@@ -156,7 +172,7 @@ async function recordGenerationFailure(
       generationError:
         error instanceof Error
           ? error.message.slice(0, 1_000)
-          : "面试准备没有完成。生成服务没有返回可用结果。你可以重新分析岗位描述后重试。",
+          : COPY[language].failed,
       contextSnapshotJson: JSON.stringify(snapshot),
     },
   });
@@ -177,6 +193,7 @@ export async function prepareMockInterview(sessionId: string): Promise<void> {
       jobTitle: session.interview.jobTitle,
       jobDescription: session.jdTextSnapshot,
       seedQuestionId: request.seedQuestionId,
+      language: session.language,
     });
 
     // 跨场记忆只剩候选人档案（agent 读），备课时读并存进快照（可重放）。评测场次读评测写的档案，真实使用只读真实的。
@@ -192,12 +209,12 @@ export async function prepareMockInterview(sessionId: string): Promise<void> {
       const advanced = await claimSession(prisma, { where: { id: sessionId, status: "generating" }, data: { generationPhase: "brief" } });
       if (!advanced) return;
       // generateInterviewBrief 自带兜底简报，不会抛出"没有简报"这种终态。
-      brief = await generateInterviewBrief({ generationId, jobTitle: session.interview.jobTitle, blueprint, context, pace: session.pace, dossier: dossier?.body ?? null });
+      brief = await generateInterviewBrief({ generationId, jobTitle: session.interview.jobTitle, blueprint, context, pace: session.pace, language: session.language, dossier: dossier?.body ?? null });
       if (briefReady(blueprint, brief)) break;
     }
     await persistBrief(session, snapshot, context, blueprint!, brief!, dossier ? { version: dossier.version, body: dossier.body } : null, briefReady(blueprint!, brief!));
   } catch (error) {
-    await recordGenerationFailure(sessionId, snapshot, error);
+    await recordGenerationFailure(sessionId, snapshot, error, session.language);
   }
 }
 

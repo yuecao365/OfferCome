@@ -6,6 +6,8 @@ import { useId, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/form-controls";
 import { cn } from "@/lib/cn";
+import { useLocale, useMessages } from "@/lib/i18n/client";
+import { defineMessages } from "@/lib/i18n/locale";
 import { reclassifyInterviewQuestions } from "@/lib/interviews/actions";
 import {
   parseQuestionClassificationValue,
@@ -14,9 +16,32 @@ import {
   UNLINKED_PROJECT_VALUE,
 } from "@/lib/interviews/review";
 import {
-  INTERVIEW_QUESTION_CATEGORY_LABELS,
+  INTERVIEW_QUESTION_CATEGORY_LABELS_I18N,
   type InterviewQuestionCategory,
 } from "@/lib/interviews/types";
+
+const messages = defineMessages({
+  "zh-CN": {
+    unlinked: "未关联项目",
+    current: (label: string) => `归类：${label}`,
+    adjust: "调整",
+    moveTo: "归类到",
+    questionBank: "通用问题库",
+    moving: "移动中...",
+    move: (n: number) => `移动 ${n} 条记录`,
+    cancel: "取消",
+  },
+  en: {
+    unlinked: "Unlinked",
+    current: (label: string) => `Category: ${label}`,
+    adjust: "Change",
+    moveTo: "Move to",
+    questionBank: "General question bank",
+    moving: "Moving...",
+    move: (n: number) => `Move ${n} record${n === 1 ? "" : "s"}`,
+    cancel: "Cancel",
+  },
+});
 
 export type ReclassifyProjectOption = {
   id: string;
@@ -44,6 +69,9 @@ export function ReviewQuestionReclassify({
   action = reclassifyInterviewQuestions,
 }: ReviewQuestionReclassifyProps) {
   const router = useRouter();
+  const locale = useLocale();
+  const t = useMessages(messages);
+  const labels = INTERVIEW_QUESTION_CATEGORY_LABELS_I18N[locale];
   const selectId = useId();
   const currentValue = questionClassificationValue({ category, resumeProjectId });
   const [open, setOpen] = useState(false);
@@ -73,19 +101,19 @@ export function ReviewQuestionReclassify({
   const currentLabel =
     category === "resume_project"
       ? projects.find((project) => project.id === resumeProjectId)?.label ??
-        "未关联项目"
-      : INTERVIEW_QUESTION_CATEGORY_LABELS[category];
+        t.unlinked
+      : labels[category];
 
   if (!open) {
     return (
       <p className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-        <span>归类：{currentLabel}</span>
+        <span>{t.current(currentLabel)}</span>
         <button
           className="font-semibold text-muted-foreground underline decoration-dotted underline-offset-4 hover:text-foreground"
           onClick={() => setOpen(true)}
           type="button"
         >
-          调整
+          {t.adjust}
         </button>
         {message ? (
           <span
@@ -103,7 +131,7 @@ export function ReviewQuestionReclassify({
 
   return (
     <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-      <label htmlFor={selectId}>归类到</label>
+      <label htmlFor={selectId}>{t.moveTo}</label>
       <Select
         className="h-8 w-auto min-w-52 max-w-full text-xs"
         disabled={isPending}
@@ -111,20 +139,20 @@ export function ReviewQuestionReclassify({
         onChange={(event) => setValue(event.target.value)}
         value={value}
       >
-        <optgroup label={INTERVIEW_QUESTION_CATEGORY_LABELS.resume_project}>
+        <optgroup label={labels.resume_project}>
           {projects.map((project) => (
             <option key={project.id} value={projectClassificationValue(project.id)}>
               {project.label}
             </option>
           ))}
-          <option value={UNLINKED_PROJECT_VALUE}>未关联项目</option>
+          <option value={UNLINKED_PROJECT_VALUE}>{t.unlinked}</option>
         </optgroup>
-        <optgroup label="通用问题库">
+        <optgroup label={t.questionBank}>
           <option value="technical">
-            {INTERVIEW_QUESTION_CATEGORY_LABELS.technical}
+            {labels.technical}
           </option>
           <option value="general">
-            {INTERVIEW_QUESTION_CATEGORY_LABELS.general}
+            {labels.general}
           </option>
         </optgroup>
       </Select>
@@ -134,7 +162,7 @@ export function ReviewQuestionReclassify({
         size="sm"
         variant="outline"
       >
-        {isPending ? "移动中..." : `移动 ${questionIds.length} 条记录`}
+        {isPending ? t.moving : t.move(questionIds.length)}
       </Button>
       <button
         className="font-semibold text-muted-foreground underline decoration-dotted underline-offset-4 hover:text-foreground"
@@ -145,7 +173,7 @@ export function ReviewQuestionReclassify({
         }}
         type="button"
       >
-        取消
+        {t.cancel}
       </button>
       {message?.status === "error" ? (
         <span aria-live="polite" className="text-danger">

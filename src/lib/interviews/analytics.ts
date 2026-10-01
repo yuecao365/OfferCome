@@ -1,9 +1,55 @@
 import type { CareerFlowSnapshot } from "@/lib/applications/analytics";
 import type { CandidateProfileContextInsight } from "@/lib/candidate-profile/types";
+import { defineMessages, type Locale } from "@/lib/i18n/locale";
 import type {
   RealInterviewRoundCounts,
   RealInterviewStatusCounts,
 } from "./types";
+
+const messages = defineMessages({
+  "zh-CN": {
+    offerLabel: "Offer 转化率",
+    offerHelper: "Offer 岗位 ÷ 至少进入一面的岗位",
+    advancementLabel: "面试推进率",
+    advancementHelper: "至少进入二面的岗位 ÷ 至少进入一面的岗位",
+    completionLabel: "面试完成率",
+    completionHelper: "已完成真实面试 ÷ 已完成与已取消记录",
+    emptyTitle: "完成第一次训练后，这里会形成总结",
+    emptyBody: "当前还没有足够的真实面试或模拟训练记录。完成一次模拟面试或补充历史面试后，工作台会基于真实证据归纳优势和训练重点。继续准备，祝你早日拿到理想 Offer。",
+    realCount: (total: number, completed: number) => `已记录 ${total} 场真实面试，其中 ${completed} 场已完成。`,
+    reachedSecond: (n: number) => `目前至少有 ${n} 个岗位推进到二面或更后阶段。`,
+    reachedFirst: (n: number) => `目前至少有 ${n} 个岗位进入面试阶段。`,
+    mockCount: (n: number) => `已完成 ${n} 次模拟训练。`,
+    mockCountWithScore: (n: number, score: number) => `已完成 ${n} 次模拟训练，平均 ${score} 分。`,
+    strength: (title: string) => `能力画像显示，“${title}”是当前相对稳定的优势。`,
+    focus: (title: string) => `下一阶段建议优先关注“${title}”，并结合复盘持续练习。`,
+    keepRecording: "建议继续记录回答与复盘证据，让训练重点逐步变得更准确。",
+    closing: "保持节奏，继续加油，祝你早日拿到理想 Offer。",
+    title: "你的面试进展正在形成可复用经验",
+    separator: "",
+  },
+  en: {
+    offerLabel: "Offer rate",
+    offerHelper: "Roles with an offer ÷ roles that reached at least a 1st round",
+    advancementLabel: "Advancement rate",
+    advancementHelper: "Roles that reached at least a 2nd round ÷ roles that reached at least a 1st round",
+    completionLabel: "Completion rate",
+    completionHelper: "Completed real interviews ÷ completed and canceled records",
+    emptyTitle: "Your summary appears after your first practice",
+    emptyBody: "There aren't enough real interviews or mock sessions yet. Finish a mock interview or add a past interview, and the workspace will summarize your strengths and practice focus from real evidence. Keep preparing — good luck landing the offer you want.",
+    realCount: (total: number, completed: number) => `${total} real interview${total === 1 ? "" : "s"} recorded, ${completed} completed.`,
+    reachedSecond: (n: number) => `At least ${n} role${n === 1 ? " has" : "s have"} reached a 2nd round or later.`,
+    reachedFirst: (n: number) => `At least ${n} role${n === 1 ? " has" : "s have"} reached the interview stage.`,
+    mockCount: (n: number) => `${n} mock session${n === 1 ? "" : "s"} completed.`,
+    mockCountWithScore: (n: number, score: number) => `${n} mock session${n === 1 ? "" : "s"} completed, averaging ${score}.`,
+    strength: (title: string) => `Your profile shows "${title}" as a fairly stable strength.`,
+    focus: (title: string) => `Next, focus on "${title}" and keep practicing with your reviews.`,
+    keepRecording: "Keep recording answers and review evidence so your practice focus gets sharper over time.",
+    closing: "Keep the pace — good luck landing the offer you want.",
+    title: "Your interviews are turning into reusable experience",
+    separator: " ",
+  },
+});
 
 export type InterviewStageProgress = {
   firstInterview: number;
@@ -141,34 +187,36 @@ export function mergeInterviewRoundEvidence(
 export function buildInterviewConversionMetrics(
   progress: InterviewStageProgress,
   realInterviewCounts: RealInterviewStatusCounts,
+  locale: Locale = "zh-CN",
 ): RatioMetric[] {
+  const t = messages[locale];
   const concluded =
     realInterviewCounts.completed + realInterviewCounts.canceled;
 
   return [
     {
       key: "offer",
-      label: "Offer 转化率",
+      label: t.offerLabel,
       numerator: progress.offer,
       denominator: progress.firstInterview,
       value: ratio(progress.offer, progress.firstInterview),
-      helper: "Offer 岗位 ÷ 至少进入一面的岗位",
+      helper: t.offerHelper,
     },
     {
       key: "advancement",
-      label: "面试推进率",
+      label: t.advancementLabel,
       numerator: progress.secondInterview,
       denominator: progress.firstInterview,
       value: ratio(progress.secondInterview, progress.firstInterview),
-      helper: "至少进入二面的岗位 ÷ 至少进入一面的岗位",
+      helper: t.advancementHelper,
     },
     {
       key: "completion",
-      label: "面试完成率",
+      label: t.completionLabel,
       numerator: realInterviewCounts.completed,
       denominator: concluded,
       value: ratio(realInterviewCounts.completed, concluded),
-      helper: "已完成真实面试 ÷ 已完成与已取消记录",
+      helper: t.completionHelper,
     },
   ];
 }
@@ -179,34 +227,29 @@ export function buildInterviewHistorySummary({
   averageMockScore,
   progress,
   insights,
-}: HistorySummaryInput): { title: string; body: string; dataSufficient: boolean } {
+}: HistorySummaryInput, locale: Locale = "zh-CN"): { title: string; body: string; dataSufficient: boolean } {
+  const t = messages[locale];
   const hasHistory =
     realInterviewCounts.total > 0 || completedMockCount > 0 || progress.firstInterview > 0;
 
   if (!hasHistory) {
-    return {
-      title: "完成第一次训练后，这里会形成总结",
-      body: "当前还没有足够的真实面试或模拟训练记录。完成一次模拟面试或补充历史面试后，工作台会基于真实证据归纳优势和训练重点。继续准备，祝你早日拿到理想 Offer。",
-      dataSufficient: false,
-    };
+    return { title: t.emptyTitle, body: t.emptyBody, dataSufficient: false };
   }
 
   const parts: string[] = [];
   if (realInterviewCounts.total > 0) {
-    parts.push(
-      `已记录 ${realInterviewCounts.total} 场真实面试，其中 ${realInterviewCounts.completed} 场已完成。`,
-    );
+    parts.push(t.realCount(realInterviewCounts.total, realInterviewCounts.completed));
   }
   if (progress.secondInterview > 0) {
-    parts.push(`目前至少有 ${progress.secondInterview} 个岗位推进到二面或更后阶段。`);
+    parts.push(t.reachedSecond(progress.secondInterview));
   } else if (progress.firstInterview > 0) {
-    parts.push(`目前至少有 ${progress.firstInterview} 个岗位进入面试阶段。`);
+    parts.push(t.reachedFirst(progress.firstInterview));
   }
   if (completedMockCount > 0) {
     parts.push(
       averageMockScore === null
-        ? `已完成 ${completedMockCount} 次模拟训练。`
-        : `已完成 ${completedMockCount} 次模拟训练，平均 ${averageMockScore} 分。`,
+        ? t.mockCount(completedMockCount)
+        : t.mockCountWithScore(completedMockCount, averageMockScore),
     );
   }
 
@@ -214,19 +257,13 @@ export function buildInterviewHistorySummary({
   const focus = insights.find(
     (insight) => insight.kind === "training_focus" || insight.kind === "weakness",
   );
-  if (strength) {
-    parts.push(`能力画像显示，“${strength.title}”是当前相对稳定的优势。`);
-  }
-  if (focus) {
-    parts.push(`下一阶段建议优先关注“${focus.title}”，并结合复盘持续练习。`);
-  } else {
-    parts.push("建议继续记录回答与复盘证据，让训练重点逐步变得更准确。");
-  }
-  parts.push("保持节奏，继续加油，祝你早日拿到理想 Offer。");
+  if (strength) parts.push(t.strength(strength.title));
+  parts.push(focus ? t.focus(focus.title) : t.keepRecording);
+  parts.push(t.closing);
 
   return {
-    title: "你的面试进展正在形成可复用经验",
-    body: parts.join(""),
+    title: t.title,
+    body: parts.join(t.separator),
     dataSufficient: true,
   };
 }

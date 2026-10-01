@@ -13,6 +13,13 @@ import { createPortal } from "react-dom";
 
 import { Button, buttonClassName } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
+import { useMessages } from "@/lib/i18n/client";
+import { defineMessages } from "@/lib/i18n/locale";
+
+const messages = defineMessages({
+  "zh-CN": { closeDialog: (title: string) => `关闭“${title}”对话框`, close: "关闭" },
+  en: { closeDialog: (title: string) => `Close "${title}" dialog`, close: "Close" },
+});
 
 type ModalSize = "compact" | "default" | "wide" | "extraWide";
 
@@ -51,6 +58,7 @@ export function Modal({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const t = useMessages(messages);
   const setOpen = useCallback(
     (nextOpen: boolean) => {
       if (controlledOpen === undefined) {
@@ -181,14 +189,14 @@ export function Modal({
                 {title}
               </h2>
               <Button
-                aria-label={`关闭“${title}”对话框`}
+                aria-label={t.closeDialog(title)}
                 onClick={close}
                 ref={closeRef}
                 size="sm"
                 variant="ghost"
               >
                 <X aria-hidden="true" className="size-4" strokeWidth={1.5} />
-                关闭
+                {t.close}
               </Button>
             </div>
             <div className="min-h-0 overflow-y-auto overscroll-contain p-5 sm:p-6">

@@ -1,4 +1,11 @@
 import { prisma } from "@/lib/db";
+import { defineMessages } from "@/lib/i18n/locale";
+import { getMessages } from "@/lib/i18n/server";
+
+const messages = defineMessages({
+  "zh-CN": { notFound: "模拟面试不存在。" },
+  en: { notFound: "Mock interview not found." },
+});
 
 export async function GET(
   _request: Request,
@@ -18,7 +25,7 @@ export async function GET(
     },
   });
   if (!session) {
-    return Response.json({ error: "模拟面试不存在。" }, { status: 404 });
+    return Response.json({ error: (await getMessages(messages)).notFound }, { status: 404 });
   }
   let snapshot: Record<string, unknown> = {};
   try {

@@ -1,10 +1,37 @@
+"use client";
+
 import type { ComponentProps, ReactNode } from "react";
 
 import { PageHeader } from "@/components/page-header";
 import { accentIf, StatTiles } from "@/components/stat-tiles";
 import { ResumeList } from "@/components/resumes/resume-list";
 import { ResumeProjectsPanel } from "@/components/resumes/resume-projects-panel";
+import { useMessages } from "@/lib/i18n/client";
+import { defineMessages } from "@/lib/i18n/locale";
 import type { ResumeListItem, ResumeProjectListItem } from "@/lib/resumes/types";
+
+const messages = defineMessages({
+  "zh-CN": {
+    title: "简历中心",
+    versions: "简历版本",
+    defaultResume: (name: string) => `默认使用：${name}`,
+    noDefault: "还没设默认简历",
+    projects: "已抽取项目",
+    projectsNote: "可用作面试素材的实习与项目",
+    pending: "待你确认",
+    pendingNote: "自动识别出来、还没确认的项目",
+  },
+  en: {
+    title: "Resumes",
+    versions: "Resume versions",
+    defaultResume: (name: string) => `Default: ${name}`,
+    noDefault: "No default resume yet",
+    projects: "Extracted projects",
+    projectsNote: "Internships and projects usable as interview material",
+    pending: "Awaiting your review",
+    pendingNote: "Auto-detected projects you haven't confirmed",
+  },
+});
 
 /**
  * 简历中心的呈现层。本地版（服务端取数、文件预览）和体验版
@@ -33,18 +60,22 @@ export function ResumesView({
     "saveAction" | "deleteAction"
   >;
 }) {
+  const t = useMessages(messages);
+  const defaultName = resumes.find((resume) => resume.isDefault)?.originalName;
+  const pendingCount = projects.filter((project) => project.autoExtracted).length;
+
   return (
     <>
       <PageHeader
         actions={uploadModal}
-        title="简历中心"
+        title={t.title}
       />
 
       <StatTiles
         tiles={[
-          { label: "简历版本", value: resumes.length, note: resumes.find((resume) => resume.isDefault)?.originalName ? `默认使用：${resumes.find((resume) => resume.isDefault)?.originalName}` : "还没设默认简历" },
-          { label: "已抽取项目", value: projects.length, note: "可用作面试素材的实习与项目" },
-          { label: "待你确认", value: projects.filter((project) => project.autoExtracted).length, note: "自动识别出来、还没确认的项目", tone: accentIf(projects.filter((project) => project.autoExtracted).length) },
+          { label: t.versions, value: resumes.length, note: defaultName ? t.defaultResume(defaultName) : t.noDefault },
+          { label: t.projects, value: projects.length, note: t.projectsNote },
+          { label: t.pending, value: pendingCount, note: t.pendingNote, tone: accentIf(pendingCount) },
         ]}
       />
       <section className="grid items-start gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">

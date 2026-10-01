@@ -1,4 +1,5 @@
 import type { LanguageModelUsage, ModelMessage, Tool, ToolSet } from "ai";
+import type { ContentLanguage } from "@/lib/i18n/locale";
 
 /**
  * 通用 agent 循环（深度扩展 G1）：一次"调模型 → 执行工具 → 再调模型"的循环，由代码掌握，不交给 SDK 的 stopWhen。
@@ -65,7 +66,27 @@ export type LoopOptions = {
   /** 一步用量值多少美元；价格表在调用方（run-agent 用 pricing.costOf），返回 null 表示这个模型折算不出来。 */
   costUsdOf?: (usage: LanguageModelUsage) => number | null;
   resume?: LoopResume;
+  /** 写给模型的工具结果说明用哪种语言；缺省中文。 */
+  language?: ContentLanguage;
 };
+
+/** 循环写给模型的固定说明（工具结果里），中英两版。 */
+const LOOP_TEXT = {
+  zh: {
+    unknownTool: (name: string, available: string[]) => `未知工具 ${name}，可用：${available.join(", ") || "无"}`,
+    rejected: (reason: string) => `这次调用被拒绝：${reason}`,
+    failed: (message: string) => `工具执行失败：${message}`,
+    needsConfirm: "这个工具需要用户确认，这一回合不能等：不用它继续。",
+    declined: "用户拒绝了这次调用，请不用它继续。",
+  },
+  en: {
+    unknownTool: (name: string, available: string[]) => `Unknown tool ${name}. Available: ${available.join(", ") || "none"}`,
+    rejected: (reason: string) => `This call was rejected: ${reason}`,
+    failed: (message: string) => `Tool execution failed: ${message}`,
+    needsConfirm: "This tool needs user confirmation and this turn cannot wait: continue without it.",
+    declined: "The user declined this call. Continue without it.",
+  },
+} as const;
 
 export type LoopResult =
   | { status: "done"; final: StepResult; steps: number; events: LoopEvent[]; toolCalls: ToolCall[] }
@@ -134,7 +155,9 @@ function exceeded(budget: Budget, events: LoopEvent[], costUsdOf: LoopOptions["c
   return null;
 }
 
-export type ToolGate = { hooks?: LoopHooks; emit: (event: LoopEvent) => void };
+export type ToolGate = {
+  /** 工具结果里的说明文字（未知工具、被拒、执行失败）用哪种语言写给模型；缺省中文。 */
+  language?: ContentLanguage; hooks?: LoopHooks; emit: (event: LoopEvent) => void };
 
 /**
  * 执行一次工具调用——循环与流式回合共用的门：先记 tool_called；未知工具、hook 拒绝、执行抛错都变成失败的工具结果（循环不断）；
@@ -150,9 +173,10 @@ export async function callTool(tools: LoopToolSet, call: ToolCall, gate: ToolGat
     gate.hooks?.afterTool?.(call, outcome);
     return outcome;
   };
-  if (!tool) return settle(false, `未知工具 ${call.toolName}，可用：${Object.keys(tools).join(", ") || "无"}`, 0);
+  const text = LOOP_TEXT[gate.language ?? "zh"];
+  if (!tool) return settle(false, text.unknownTool(call.toolName, Object.keys(tools)), 0);
   const verdict = gate.hooks?.beforeTool?.(call, access);
-  if (verdict && !verdict.allow) return settle(false, `这次调用被拒绝：${verdict.reason}`, 0);
+  if (verdict && !verdict.allow) return settle(false, text.rejected(verdict.reason), 0);
   if (access === "confirm" && !gate.approved) {
     gate.emit({ type: "interrupted", step: gate.step, call });
     return null;
@@ -162,7 +186,7 @@ export async function callTool(tools: LoopToolSet, call: ToolCall, gate: ToolGat
     const output = await tool.execute?.(call.input, { toolCallId: call.toolCallId, messages: gate.messages } as Parameters<NonNullable<Tool["execute"]>>[1]);
     return settle(true, output ?? null, Date.now() - startedAt);
   } catch (error) {
-    return settle(false, `工具执行失败：${error instanceof Error ? error.message : String(error)}`, Date.now() - startedAt);
+    return settle(false, text.failed(error instanceof Error ? error.message : String(error)), Date.now() - startedAt);
   }
 }
 
@@ -180,7 +204,7 @@ export function instrumentTools(tools: LoopToolSet, gate: ToolGate): ToolSet {
         execute: async (input: unknown, options: { toolCallId: string; messages: ModelMessage[] }) => {
           const call: ToolCall = { toolCallId: options.toolCallId, toolName: name, input };
           if (loopTool.access === "confirm") {
-            const outcome: ToolOutcome = { ok: false, output: "这个工具需要用户确认，这一回合不能等：不用它继续。", durationMs: 0 };
+            const outcome: ToolOutcome = { ok: false, output: LOOP_TEXT[gate.language ?? "zh"].needsConfirm, durationMs: 0 };
             gate.emit({ type: "tool_called", step: 0, call, access: "confirm" });
             gate.emit({ type: "tool_result", step: 0, call, access: "confirm", ...outcome });
             return outcome.output;
@@ -207,7 +231,7 @@ export async function runLoop(options: LoopOptions): Promise<LoopResult> {
 
   /** 执行一次调用；挂起返回 null。 */
   const execute = (step: number, call: ToolCall, approved: boolean): Promise<ToolOutcome | null> =>
-    callTool(tools, call, { hooks, emit, step, approved, messages: messagesOf(options.prompt, events) });
+    callTool(tools, call, { hooks, emit, step, approved, messages: messagesOf(options.prompt, events), language: options.language });
 
   /** 把这一步剩下没执行的调用跑完；挂起返回那次调用。 */
   const drain = async (step: number, calls: ToolCall[], decision?: LoopResume["decision"]): Promise<ToolCall | null> => {
@@ -219,7 +243,7 @@ export async function runLoop(options: LoopOptions): Promise<LoopResult> {
         emit({ type: "resumed", step, call, approved });
         if (!approved) {
           emit({ type: "tool_called", step, call, access: "confirm" });
-          emit({ type: "tool_result", step, call, access: "confirm", ok: false, output: "用户拒绝了这次调用，请不用它继续。", durationMs: 0 });
+          emit({ type: "tool_result", step, call, access: "confirm", ok: false, output: LOOP_TEXT[options.language ?? "zh"].declined, durationMs: 0 });
           continue;
         }
       }

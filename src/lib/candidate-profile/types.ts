@@ -1,3 +1,5 @@
+import { defineMessages, localizedLabels } from "@/lib/i18n/locale";
+
 export const PROFILE_DIMENSIONS = [
   "knowledge_accuracy",
   "reasoning_depth",
@@ -43,6 +45,9 @@ export const PROFILE_DIMENSION_LABELS: Record<ProfileDimension, string> = {
   delivery_fluency: "口语流畅与节奏",
 };
 
+/** 界面按语言取：`PROFILE_DIMENSION_LABELS_I18N[locale][key]`（docs/i18n-plan.md）。 */
+export const PROFILE_DIMENSION_LABELS_I18N = localizedLabels(PROFILE_DIMENSION_LABELS, { knowledge_accuracy: "Knowledge accuracy", reasoning_depth: "Reasoning and trade-offs", experience_evidence: "Evidence from experience", reflection_growth: "Reflection and growth", communication_clarity: "Clarity and structure", delivery_fluency: "Spoken fluency" });
+
 export const PROFILE_INSIGHT_KIND_LABELS: Record<ProfileInsightKind, string> = {
   strength: "优势",
   weakness: "短板",
@@ -50,28 +55,35 @@ export const PROFILE_INSIGHT_KIND_LABELS: Record<ProfileInsightKind, string> = {
   training_focus: "训练建议",
 };
 
-/** 页面按三组呈现，维度保留为底层观察信号。 */
+/** 界面按语言取：`PROFILE_INSIGHT_KIND_LABELS_I18N[locale][key]`（docs/i18n-plan.md）。 */
+export const PROFILE_INSIGHT_KIND_LABELS_I18N = localizedLabels(PROFILE_INSIGHT_KIND_LABELS, { strength: "Strength", weakness: "Weakness", pattern: "Recurring pattern", training_focus: "Practice focus" });
+
+/** 能力分组的名字与说明，界面按语言取：`PROFILE_DIMENSION_GROUP_TEXT_I18N[locale][key]`。 */
+export const PROFILE_DIMENSION_GROUP_TEXT_I18N = defineMessages<Record<"content" | "evidence" | "delivery", { label: string; description: string }>>({
+  "zh-CN": {
+    content: { label: "内容力", description: "知识准确与分析取舍" },
+    evidence: { label: "证据力", description: "经历支撑与复盘改进" },
+    delivery: { label: "表达力", description: "结构、清晰度与口语节奏" },
+  },
+  en: {
+    content: { label: "Content", description: "Accurate knowledge and trade-off analysis" },
+    evidence: { label: "Evidence", description: "Backing from experience and reflection" },
+    delivery: { label: "Delivery", description: "Structure, clarity and spoken pace" },
+  },
+});
+
+const GROUP_TEXT_ZH = PROFILE_DIMENSION_GROUP_TEXT_I18N["zh-CN"];
+
+/**
+ * 页面按三组呈现，维度保留为底层观察信号。
+ * label / description 是中文值，只为还没改用 PROFILE_DIMENSION_GROUP_TEXT_I18N 的界面保留。
+ */
 export const PROFILE_DIMENSION_GROUPS = [
-  {
-    key: "content",
-    label: "内容力",
-    description: "知识准确与分析取舍",
-    dimensions: ["knowledge_accuracy", "reasoning_depth"],
-  },
-  {
-    key: "evidence",
-    label: "证据力",
-    description: "经历支撑与复盘改进",
-    dimensions: ["experience_evidence", "reflection_growth"],
-  },
-  {
-    key: "delivery",
-    label: "表达力",
-    description: "结构、清晰度与口语节奏",
-    dimensions: ["communication_clarity", "delivery_fluency"],
-  },
+  { key: "content", ...GROUP_TEXT_ZH.content, dimensions: ["knowledge_accuracy", "reasoning_depth"] },
+  { key: "evidence", ...GROUP_TEXT_ZH.evidence, dimensions: ["experience_evidence", "reflection_growth"] },
+  { key: "delivery", ...GROUP_TEXT_ZH.delivery, dimensions: ["communication_clarity", "delivery_fluency"] },
 ] as const satisfies ReadonlyArray<{
-  key: string;
+  key: keyof typeof GROUP_TEXT_ZH;
   label: string;
   description: string;
   dimensions: readonly ProfileDimension[];
@@ -83,6 +95,9 @@ export const PROFILE_SOURCE_LABELS: Record<ProfileSourceType, string> = {
   real_summary: "真实面试复盘",
   mock_text: "AI 模拟面试",
 };
+
+/** 界面按语言取：`PROFILE_SOURCE_LABELS_I18N[locale][key]`（docs/i18n-plan.md）。 */
+export const PROFILE_SOURCE_LABELS_I18N = localizedLabels(PROFILE_SOURCE_LABELS, { real_audio: "Real interview audio", real_transcript: "Real interview transcript", real_summary: "Real interview notes", mock_text: "AI mock interview" });
 
 export function normalizeProfileSourceType(
   value: string,

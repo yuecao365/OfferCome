@@ -9,10 +9,13 @@ export type InterviewMaterials = {
   jobDescription: string;
 };
 
-/** 提示词要求用「」，模型偶尔写成“”：两种都认。 */
-const QUOTE = /[「“]([^「」“”]{4,120})[」”]/g;
-/** 面试官追口径时常直接说数字（"这个 50% 怎么量的"），不带引号：带单位的数字也算引用。 */
-const NUMBER = /\d+(?:\.\d+)?\s*(?:%|万|亿|倍|次|条|ms|s|秒|QPS|qps|TPS|tps)/g;
+/** 中文场次提示词要求用「」，模型偶尔写成“”；英文场次用 “” 或直引号 ""：都认。 */
+const QUOTE = /[「“"]([^「」“”"]{4,120})[」”"]/g;
+/**
+ * 面试官追口径时常直接说数字（"这个 50% 怎么量的" / "how did you measure that 50%"），不带引号：带单位的数字也算引用。
+ * 英文单位（seconds、x、GB…）排在单字母 s 前面先匹配；单位后不能紧跟字母，免得 "3 slots" 被当成 "3 s"。
+ */
+const NUMBER = /\d+(?:\.\d+)?\s*(?:%|万|亿|倍|次|条|ms|seconds?|secs?|minutes?|mins?|hours?|times|s|秒|QPS|qps|TPS|tps|RPS|rps|GB|MB|TB|x|×)(?![A-Za-z])/g;
 
 /** 面试官消息里用「」或“”括起、或带单位的数字、且逐字出现在资料里的片段，按出现顺序、去重。 */
 export function quotedFragments(messages: { role: string; content: string }[], source: string): string[] {

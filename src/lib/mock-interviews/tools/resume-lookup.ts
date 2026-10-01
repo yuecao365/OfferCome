@@ -2,6 +2,7 @@ import { tool } from "ai";
 import { z } from "zod";
 
 import type { LoopTool } from "@/lib/ai/agent-loop";
+import type { ContentLanguage } from "@/lib/i18n/locale";
 
 /**
  * 查简历原文（只读工具）：按关键词返回包含它的段落。面试官（简历超长、节选里没有时）与评分（核对回答里的数字与事实）共用。
@@ -23,11 +24,17 @@ export function lookupLines(text: string, keyword: string): string[] {
     .map((line) => line.slice(0, MAX_LINE_CHARS));
 }
 
-export function createResumeLookupTool(resumeText: string): LoopTool {
+const DESCRIPTION: Record<ContentLanguage, string> = {
+  zh: "按关键词查候选人简历原文里包含它的段落（逐字返回，可直接引用）。查不到时换更短的关键词再试一次。",
+  en: "Search the candidate's résumé text by keyword and return the lines that contain it (verbatim, safe to quote). If nothing matches, retry once with a shorter keyword.",
+};
+
+/** language 是场次语言（brief.language），只决定工具说明给模型看的语言；查找本身与语言无关。 */
+export function createResumeLookupTool(resumeText: string, language: ContentLanguage = "zh"): LoopTool {
   return {
     access: "read",
     ...tool({
-      description: "按关键词查候选人简历原文里包含它的段落（逐字返回，可直接引用）。查不到时换更短的关键词再试一次。",
+      description: DESCRIPTION[language],
       inputSchema: z.object({ keyword: z.string().min(1).max(40) }),
       execute: async ({ keyword }) => ({ keyword, lines: lookupLines(resumeText, keyword) }),
     }),

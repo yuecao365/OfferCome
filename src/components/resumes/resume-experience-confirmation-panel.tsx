@@ -4,8 +4,11 @@ import { useRef, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
 import { FieldLabel, Select } from "@/components/ui/form-controls";
+import { useLocale } from "@/lib/i18n/client";
+import { defineMessages } from "@/lib/i18n/locale";
 import {
   createPendingResumeExperience,
+  RESUME_EXPERIENCE_TYPE_LABELS_I18N,
   resumeExtractionSourceNote,
   toResumeExperienceConfirmationInput,
   type ExistingResumeProjectOption,
@@ -19,6 +22,45 @@ import {
   ResumeExperienceFields,
   type ResumeExperienceFieldsValue,
 } from "./resume-experience-fields";
+
+const messages = defineMessages({
+  "zh-CN": {
+    heading: "确认简历中的实习/项目，可修改、删除或手动补充。",
+    source: (fileName: string, cancelNote: string) => `来源简历：${fileName}。${cancelNote}`,
+    add: "添加实习/项目",
+    empty: "未识别到实习或项目。可以点击「添加实习/项目」手动补充，也可以直接确认只保存简历。",
+    extractedItem: (n: number) => `识别项 ${n}`,
+    manualItem: (n: number) => `手动添加 ${n}`,
+    delete: "删除",
+    fieldsLabel: (n: number) => `实习/项目 ${n}`,
+    linkExisting: "关联已有实习/项目",
+    newItem: "新实习/项目",
+    extractedName: (name: string) => `原始识别名称：${name}`,
+    preselected: " · 已根据名称相似度预选已有记录",
+    blankName: "请为每条实习/项目填写名称，或删除多余的条目。",
+    cancel: "取消",
+    saving: "保存中...",
+    confirm: "确认保存",
+  },
+  en: {
+    heading: "Review the internships/projects found in your resume. Edit, delete or add more.",
+    source: (fileName: string, cancelNote: string) => `Source resume: ${fileName}. ${cancelNote}`,
+    add: "Add internship/project",
+    empty: "No internships or projects were found. Click \"Add internship/project\" to add them by hand, or confirm to save just the resume.",
+    extractedItem: (n: number) => `Detected item ${n}`,
+    manualItem: (n: number) => `Added by hand ${n}`,
+    delete: "Delete",
+    fieldsLabel: (n: number) => `Internship/project ${n}`,
+    linkExisting: "Link to existing internship/project",
+    newItem: "New internship/project",
+    extractedName: (name: string) => `Originally detected as: ${name}`,
+    preselected: " · Matching record preselected by name similarity",
+    blankName: "Give every internship/project a name, or delete the extra entries.",
+    cancel: "Cancel",
+    saving: "Saving...",
+    confirm: "Confirm and save",
+  },
+});
 
 /**
  * 上传简历后的实习/项目确认面板。本地版和网页版渲染同一棵树，
@@ -48,8 +90,8 @@ const initialConfirmState: ResumeExperienceConfirmState = {
   linkedCount: 0,
 };
 
-function optionLabel(option: ExistingResumeProjectOption): string {
-  const typeLabel = option.type === "internship" ? "实习" : "项目";
+function optionLabel(option: ExistingResumeProjectOption, typeLabels: Record<"internship" | "project", string>): string {
+  const typeLabel = option.type === "internship" ? typeLabels.internship : typeLabels.project;
   return `${typeLabel} · ${option.name}${
     option.organization ? ` · ${option.organization}` : ""
   }`;
@@ -72,7 +114,10 @@ export function ResumeExperienceConfirmationPanel({
   const [isPending, startTransition] = useTransition();
   const nextManualId = useRef(0);
   const hasBlankName = items.some((item) => !item.finalName.trim());
-  const sourceNote = resumeExtractionSourceNote(extractionSource);
+  const locale = useLocale();
+  const t = messages[locale];
+  const typeLabels = RESUME_EXPERIENCE_TYPE_LABELS_I18N[locale];
+  const sourceNote = resumeExtractionSourceNote(extractionSource, locale);
 
   function updateItem(
     clientId: string,
@@ -141,10 +186,10 @@ export function ResumeExperienceConfirmationPanel({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="grid gap-1">
           <h3 className="text-sm font-semibold text-foreground">
-            确认简历中的实习/项目，可修改、删除或手动补充。
+            {t.heading}
           </h3>
           <p className="text-xs text-muted-foreground">
-            来源简历：{fileName}。{cancelNote}
+            {t.source(fileName, cancelNote)}
           </p>
           {sourceNote ? (
             <p className="text-xs text-muted-foreground">{sourceNote}</p>
@@ -157,13 +202,13 @@ export function ResumeExperienceConfirmationPanel({
           type="button"
           variant="outline"
         >
-          添加实习/项目
+          {t.add}
         </Button>
       </div>
 
       {items.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border-strong bg-surface-subtle p-4 text-sm text-muted-foreground">
-          未识别到实习或项目。可以点击「添加实习/项目」手动补充，也可以直接确认只保存简历。
+          {t.empty}
         </div>
       ) : (
         <div className="grid gap-3">
@@ -174,7 +219,7 @@ export function ResumeExperienceConfirmationPanel({
             >
               <div className="flex items-center justify-between gap-3">
                 <p className="text-sm font-medium text-foreground">
-                  {item.extractedName ? `识别项 ${index + 1}` : `手动添加 ${index + 1}`}
+                  {item.extractedName ? t.extractedItem(index + 1) : t.manualItem(index + 1)}
                 </p>
                 <Button
                   disabled={isPending}
@@ -183,12 +228,12 @@ export function ResumeExperienceConfirmationPanel({
                   type="button"
                   variant="ghost"
                 >
-                  删除
+                  {t.delete}
                 </Button>
               </div>
               <ResumeExperienceFields
                 disabled={isPending}
-                label={`实习/项目 ${index + 1}`}
+                label={t.fieldsLabel(index + 1)}
                 onChange={(patch) => updateFields(item.clientId, patch)}
                 value={{
                   type: item.type,
@@ -199,7 +244,7 @@ export function ResumeExperienceConfirmationPanel({
               />
               {existingProjects.length > 0 ? (
                 <FieldLabel>
-                  关联已有实习/项目
+                  {t.linkExisting}
                   <Select
                     disabled={isPending}
                     onChange={(event) =>
@@ -209,10 +254,10 @@ export function ResumeExperienceConfirmationPanel({
                     }
                     value={item.selectedExistingItemId ?? ""}
                   >
-                    <option value="">新实习/项目</option>
+                    <option value="">{t.newItem}</option>
                     {sortedOptionsFor(item).map((option) => (
                       <option key={option.id} value={option.id}>
-                        {optionLabel(option)}
+                        {optionLabel(option, typeLabels)}
                       </option>
                     ))}
                   </Select>
@@ -220,10 +265,8 @@ export function ResumeExperienceConfirmationPanel({
               ) : null}
               {item.extractedName ? (
                 <p className="text-xs text-muted-foreground">
-                  原始识别名称：{item.extractedName}
-                  {item.recommendedExistingItemId
-                    ? " · 已根据名称相似度预选已有记录"
-                    : ""}
+                  {t.extractedName(item.extractedName)}
+                  {item.recommendedExistingItemId ? t.preselected : ""}
                 </p>
               ) : null}
             </div>
@@ -248,14 +291,14 @@ export function ResumeExperienceConfirmationPanel({
       <div className="flex flex-wrap items-center justify-end gap-2">
         {hasBlankName ? (
           <p className="mr-auto text-xs text-danger">
-            请为每条实习/项目填写名称，或删除多余的条目。
+            {t.blankName}
           </p>
         ) : null}
         <Button disabled={isPending} onClick={handleCancel} variant="outline">
-          取消
+          {t.cancel}
         </Button>
         <Button disabled={isPending || hasBlankName} onClick={handleConfirm}>
-          {isPending ? "保存中..." : "确认保存"}
+          {isPending ? t.saving : t.confirm}
         </Button>
       </div>
     </section>

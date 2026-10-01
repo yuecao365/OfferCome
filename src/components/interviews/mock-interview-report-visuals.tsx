@@ -1,3 +1,13 @@
+"use client";
+
+import { useMessages } from "@/lib/i18n/client";
+import { defineMessages } from "@/lib/i18n/locale";
+
+const messages = defineMessages({
+  "zh-CN": { scoreLabel: (name: string, score: number) => `${name} ${score} 分`, gap: "缺口：" },
+  en: { scoreLabel: (name: string, score: number) => `${name}: ${score} points`, gap: "Gap: " },
+});
+
 type QuestionDimension = {
   name: string;
   score: number;
@@ -7,6 +17,7 @@ type QuestionDimension = {
 
 /** 每段的维度得分：横向条 + 一句缺口；原话证据只给画像用，不在这里印。不用雷达图，读数更直接。 */
 export function QuestionDimensionScores({ dimensions }: { dimensions: QuestionDimension[] }) {
+  const t = useMessages(messages);
   return (
     <div className="grid gap-2 sm:grid-cols-2">
       {dimensions.map((dimension) => {
@@ -18,7 +29,7 @@ export function QuestionDimensionScores({ dimensions }: { dimensions: QuestionDi
               <span className="font-mono text-xs tabular-nums text-foreground">{score}</span>
             </div>
             <div
-              aria-label={`${dimension.name} ${score} 分`}
+              aria-label={t.scoreLabel(dimension.name, score)}
               aria-valuemax={100}
               aria-valuemin={0}
               aria-valuenow={score}
@@ -31,7 +42,7 @@ export function QuestionDimensionScores({ dimensions }: { dimensions: QuestionDi
               />
             </div>
             {dimension.gap ? (
-              <p className="mt-2 text-xs leading-5 text-warning-strong">缺口：{dimension.gap}</p>
+              <p className="mt-2 text-xs leading-5 text-warning-strong">{t.gap}{dimension.gap}</p>
             ) : null}
           </div>
         );

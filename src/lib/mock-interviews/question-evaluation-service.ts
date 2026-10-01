@@ -1,6 +1,7 @@
 import "server-only";
 
 import { prisma } from "@/lib/db";
+import type { ContentLanguage } from "@/lib/i18n/locale";
 import { parseJsonObject, parseJsonValue } from "@/lib/json";
 
 import { generateAnswerExemplar } from "./answer-exemplar-agent";
@@ -45,6 +46,7 @@ async function attachExemplar(input: {
   weaknesses: EvaluationWeakness[];
   resumeText: string;
   skillPackNames: string[];
+  language: ContentLanguage;
 }): Promise<void> {
   if (!needsExemplar(input.score, input.weaknesses)) return;
   try {
@@ -55,7 +57,8 @@ async function attachExemplar(input: {
       answer: input.answer,
       weaknesses: input.weaknesses,
       resumeText: input.resumeText,
-      skillPacks: packsForInterview(input.skillPackNames, await loadSkillPacks(), 3),
+      skillPacks: packsForInterview(input.skillPackNames, await loadSkillPacks(input.language), 3),
+      language: input.language,
     });
     await prisma.interviewQuestionEvaluation.update({
       where: { id: input.evaluationId },
@@ -87,6 +90,7 @@ export async function evaluatePersistedMockInterviewQuestion(interviewQuestionId
     }
     const metadata = parseJsonObject(evaluation.generationMetadataJson);
     const brief = parseStoredBrief(session.briefJson);
+    const language = brief?.language ?? "zh";
     const result = await evaluateMockInterviewQuestion({
       runId: `eval:${question.id}`,
       question: question.question,
@@ -98,9 +102,10 @@ export async function evaluatePersistedMockInterviewQuestion(interviewQuestionId
       thread: threadContext(metadata),
       competencies: competenciesOf(session.contextSnapshotJson).map((item) => ({ id: item.id, name: item.name })),
       resumeText: session.resumeTextSnapshot,
-      skillPacks: packsForInterview(brief?.skillPacks ?? [], await loadSkillPacks(), 3),
+      skillPacks: packsForInterview(brief?.skillPacks ?? [], await loadSkillPacks(language), 3),
       dossier: dossierOf(session.contextSnapshotJson)?.body ?? null,
       withTools: options.withTools ?? true,
+      language,
     });
     // 只允许仍持有 running 认领的调用写终态：交卷路径会把超时的评分强制置
     // failed 并重跑，旧调用迟到的结果必须被丢弃，不能覆盖重跑的结果。
@@ -135,6 +140,7 @@ export async function evaluatePersistedMockInterviewQuestion(interviewQuestionId
       weaknesses: result.evaluation.weaknesses,
       resumeText: session.resumeTextSnapshot,
       skillPackNames: brief?.skillPacks ?? [],
+      language,
     });
     return true;
   } catch (error) {

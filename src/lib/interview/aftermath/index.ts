@@ -65,7 +65,7 @@ async function persistSegments(sessionId: string, interviewId: string, brief: Aw
     async (tx) => {
       for (const [index, segment] of segments.entries()) {
         const area = areas.get(segment.areaId)!;
-        const record = segmentRecord(area, segment);
+        const record = segmentRecord(area, segment, brief.language);
         const question = await tx.interviewQuestion.create({
           data: {
             interviewId,

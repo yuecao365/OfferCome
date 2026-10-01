@@ -1,3 +1,5 @@
+"use client";
+
 import { ArrowUpRight } from "lucide-react";
 import type { ComponentProps } from "react";
 
@@ -14,6 +16,8 @@ import {
 } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatShortDateTime } from "@/lib/format/date";
+import { useLocale, useMessages } from "@/lib/i18n/client";
+import { defineMessages } from "@/lib/i18n/locale";
 import type { InterviewListItem, ResumeProjectOption } from "@/lib/interviews/types";
 import { roundLabel } from "@/lib/interviews/types";
 
@@ -21,6 +25,39 @@ import { InterviewDeleteButton } from "./interview-delete-button";
 import { InterviewDetailsModal } from "./interview-details-modal";
 import { EditInterviewModal } from "./interview-modals";
 import { InterviewStatusBadge } from "./interview-status-badge";
+
+const messages = defineMessages({
+  "zh-CN": {
+    emptyAction: "开始 AI 模拟面试",
+    emptyDescription: "创建第一条真实面试，或从 AI 模拟面试开始训练。",
+    emptyTitle: "还没有匹配的面试记录",
+    company: "公司与岗位",
+    interviewedAt: "面试时间",
+    round: "轮次",
+    status: "状态",
+    questions: "问题",
+    updatedAt: "最近更新",
+    actions: "操作",
+    unset: "未设置",
+    prepare: "去准备",
+    openMock: "打开模拟面试",
+  },
+  en: {
+    emptyAction: "Start an AI mock interview",
+    emptyDescription: "Add your first real interview, or start practicing with an AI mock interview.",
+    emptyTitle: "No matching interview records",
+    company: "Company and role",
+    interviewedAt: "Interview time",
+    round: "Round",
+    status: "Status",
+    questions: "Questions",
+    updatedAt: "Last updated",
+    actions: "Actions",
+    unset: "Not set",
+    prepare: "Prepare",
+    openMock: "Open mock interview",
+  },
+});
 
 type InterviewListProps = {
   interviews: InterviewListItem[];
@@ -45,12 +82,14 @@ export function InterviewList({
   editActionFor,
   deleteActionFor,
 }: InterviewListProps) {
+  const locale = useLocale();
+  const t = useMessages(messages);
   if (interviews.length === 0) {
     return (
       <EmptyState
-        action={<ButtonLink href="/interviews/mock">开始 AI 模拟面试</ButtonLink>}
-        description="创建第一条真实面试，或从 AI 模拟面试开始训练。"
-        title="还没有匹配的面试记录"
+        action={<ButtonLink href="/interviews/mock">{t.emptyAction}</ButtonLink>}
+        description={t.emptyDescription}
+        title={t.emptyTitle}
       />
     );
   }
@@ -58,14 +97,14 @@ export function InterviewList({
   return (
     <DataTable>
       <DataTableHead>
-        <Th>公司与岗位</Th>
-        <Th>面试时间</Th>
-        <Th>轮次</Th>
-        <Th>状态</Th>
-        <Th className="text-right">问题</Th>
-        <Th>最近更新</Th>
+        <Th>{t.company}</Th>
+        <Th>{t.interviewedAt}</Th>
+        <Th>{t.round}</Th>
+        <Th>{t.status}</Th>
+        <Th className="text-right">{t.questions}</Th>
+        <Th>{t.updatedAt}</Th>
         <Th className="text-right">
-          <span className="sr-only">操作</span>
+          <span className="sr-only">{t.actions}</span>
         </Th>
       </DataTableHead>
       <DataTableBody>
@@ -79,9 +118,9 @@ export function InterviewList({
               <p className="mt-0.5 truncate text-muted-foreground">{interview.jobTitle}</p>
             </Td>
             <Td>
-              <MetaText>{formatShortDateTime(interview.interviewedAt, "未设置")}</MetaText>
+              <MetaText>{formatShortDateTime(interview.interviewedAt, t.unset, locale)}</MetaText>
             </Td>
-            <Td className="whitespace-nowrap text-muted-foreground">{roundLabel(interview.round)}</Td>
+            <Td className="whitespace-nowrap text-muted-foreground">{roundLabel(interview.round, locale)}</Td>
             <Td>
               <InterviewStatusBadge status={interview.status} />
             </Td>
@@ -89,13 +128,13 @@ export function InterviewList({
               <MetaText>{interview.questionCount}</MetaText>
             </Td>
             <Td>
-              <MetaText>{formatShortDateTime(interview.updatedAt, "未设置")}</MetaText>
+              <MetaText>{formatShortDateTime(interview.updatedAt, t.unset, locale)}</MetaText>
             </Td>
             <Td className="py-2">
               <div className="flex items-center justify-end gap-2">
                 {interview.status === "scheduled" ? (
                   <ButtonLink href={`/interviews/prepare/${interview.id}`} size="sm" variant="outline">
-                    去准备
+                    {t.prepare}
                   </ButtonLink>
                 ) : null}
                 <RowActions>
@@ -108,10 +147,10 @@ export function InterviewList({
                     />
                   ) : interview.mockSessionId ? (
                     <ButtonLink
-                      aria-label="打开模拟面试"
+                      aria-label={t.openMock}
                       href={`/interviews/mock/${interview.mockSessionId}`}
                       size="icon-sm"
-                      title="打开模拟面试"
+                      title={t.openMock}
                       variant="ghost"
                     >
                       <ArrowUpRight aria-hidden="true" className="size-3.5" strokeWidth={1.5} />

@@ -11,8 +11,15 @@ import {
   type ProfileInsightKind,
 } from "@/lib/candidate-profile/types";
 import { getCandidateProfilePageData } from "@/lib/candidate-profile/queries";
+import { defineMessages } from "@/lib/i18n/locale";
+import { getMessages } from "@/lib/i18n/server";
 import { getRecentEvaluatedQuestions } from "@/lib/mock-interviews/recent-feedback";
 import { RecentFeedbackCard } from "@/components/candidate-profile/recent-feedback-card";
+
+const messages = defineMessages({
+  "zh-CN": { questionDeleted: "原问题已删除" },
+  en: { questionDeleted: "Original question was deleted" },
+});
 
 function isKind(value: string): value is ProfileInsightKind {
   return (PROFILE_INSIGHT_KINDS as readonly string[]).includes(value);
@@ -28,6 +35,7 @@ export default async function CandidateProfilePage() {
   }
 
   await connection();
+  const t = await getMessages(messages);
   const [data, recentFeedback] = await Promise.all([
     getCandidateProfilePageData(),
     getRecentEvaluatedQuestions(),
@@ -65,7 +73,7 @@ export default async function CandidateProfilePage() {
           ),
           companyName: evidence.interview.companyName,
           jobTitle: evidence.interview.jobTitle,
-          question: evidence.question?.question ?? "原问题已删除",
+          question: evidence.question?.question ?? t.questionDeleted,
           answer: evidence.question?.answer ?? "",
           interviewAt: evidence.interview.interviewedAt?.toISOString() ?? null,
         })),
@@ -97,6 +105,7 @@ export default async function CandidateProfilePage() {
       return dimension ? [{
         dimension,
         level: typeof record.level === "number" ? record.level : null,
+        // 存储值（ProfileLevelLabel），显示时由 profileLevelLabel 按语言换。
         levelLabel: typeof record.levelLabel === "string" ? record.levelLabel : "待积累",
       }] : [];
     }) : [];

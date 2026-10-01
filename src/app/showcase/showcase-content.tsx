@@ -2,15 +2,20 @@
 
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 
 import { buttonClassName } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
+import { useLocale, useSetLocale } from "@/lib/i18n/client";
+import { LOCALES, type Locale } from "@/lib/i18n/locale";
 
-import { showcaseCopy, type Language, type ShowcaseCopy } from "./copy";
+import { showcaseCopy, type ShowcaseCopy } from "./copy";
 import { InterviewReplay } from "./interview-replay";
 import { replayScripts, reportExcerpts, type ReplayLine } from "./replay-data";
 import { Reveal } from "./reveal";
+
+/** 语言切换上写各自语言的自称，两种界面下都一样。 */
+const LOCALE_OPTION_LABELS: Record<Locale, string> = { "zh-CN": "中", en: "EN" };
 
 /**
  * 宣传页。叙事只有一件事：一个会追问的面试官，面完给能回到原话的评分卡。
@@ -60,7 +65,7 @@ function AskCards({ copy, lines }: { copy: ShowcaseCopy; lines: ReplayLine[] }) 
 }
 
 /** 报告节选：用与产品同一套排法现场渲染，不放截图。 */
-function ReportExcerpt({ copy, language }: { copy: ShowcaseCopy; language: Language }) {
+function ReportExcerpt({ copy, language }: { copy: ShowcaseCopy; language: Locale }) {
   const report = reportExcerpts[language];
   const labels = copy.reportLabels;
   return (
@@ -89,7 +94,7 @@ function ReportExcerpt({ copy, language }: { copy: ShowcaseCopy; language: Langu
                 <span className="font-mono text-[11px] text-muted-foreground">{item.area}</span>
               </div>
               <p className="pl-1 text-muted-foreground">
-                {labels.practice}：{item.practice}
+                {labels.practice(item.practice)}
               </p>
             </li>
           ))}
@@ -125,15 +130,10 @@ function Figures({ items }: { items: ShowcaseCopy["figures"] }) {
 }
 
 export function ShowcaseContent({ displayFontVariable }: { displayFontVariable: string }) {
-  const [language, setLanguage] = useState<Language>("zh");
+  const language = useLocale();
+  const setLanguage = useSetLocale();
   const content = showcaseCopy[language];
   const script = replayScripts[language];
-  const localDeployHref =
-    language === "zh" ? "https://github.com/yuecao365/OfferCome/blob/main/README_CN.md#快速开始" : "https://github.com/yuecao365/OfferCome#quick-start";
-
-  useEffect(() => {
-    document.documentElement.lang = language === "zh" ? "zh-CN" : "en";
-  }, [language]);
 
   return (
     <main className={cn("showcase-light relative min-h-screen overflow-x-clip bg-background font-sans text-foreground", displayFontVariable)}>
@@ -143,8 +143,8 @@ export function ShowcaseContent({ displayFontVariable }: { displayFontVariable: 
             OfferCome
           </Link>
           <nav aria-label={content.navigationLabel} className="flex items-center gap-2">
-            <div aria-label={language === "zh" ? "切换展示语言" : "Change showcase language"} className="inline-flex items-center gap-0.5 rounded-control bg-surface-sunken p-0.5" role="group">
-              {(["zh", "en"] as const).map((option) => (
+            <div aria-label={content.languageSwitchLabel} className="inline-flex items-center gap-0.5 rounded-control bg-surface-sunken p-0.5" role="group">
+              {LOCALES.map((option) => (
                 <button
                   aria-pressed={language === option}
                   className={cn(
@@ -155,7 +155,7 @@ export function ShowcaseContent({ displayFontVariable }: { displayFontVariable: 
                   onClick={() => setLanguage(option)}
                   type="button"
                 >
-                  {option === "zh" ? "中" : "EN"}
+                  {LOCALE_OPTION_LABELS[option]}
                 </button>
               ))}
             </div>
@@ -178,7 +178,7 @@ export function ShowcaseContent({ displayFontVariable }: { displayFontVariable: 
             <span className="sc-rise block">{content.heroTitle[0]}</span>
             <span className="sc-rise block [animation-delay:100ms]">
               {content.heroTitle[1]}
-              <span style={{ color: "var(--brand)" }}>。</span>
+              <span style={{ color: "var(--brand)" }}>{content.heroPeriod}</span>
             </span>
           </h1>
           <p className="sc-rise mt-8 max-w-xl text-lg leading-8 text-muted-foreground [animation-delay:220ms] [&_b]:font-medium [&_b]:text-foreground">{content.heroDescription}</p>
@@ -187,7 +187,7 @@ export function ShowcaseContent({ displayFontVariable }: { displayFontVariable: 
               {content.experienceProduct}
               <ArrowRight aria-hidden="true" className="size-4" strokeWidth={1.5} />
             </Link>
-            <Link className={buttonClassName({ variant: "outline", className: "h-10 px-5 text-sm" })} href={localDeployHref}>
+            <Link className={buttonClassName({ variant: "outline", className: "h-10 px-5 text-sm" })} href={content.localDeployHref}>
               {content.localDeploy}
               <ArrowUpRight aria-hidden="true" className="size-4" strokeWidth={1.5} />
             </Link>

@@ -6,6 +6,7 @@ import { extractDocumentText } from "@/lib/documents/extract-text";
 import type { ResumeExperienceExtractionSource } from "@/lib/resumes/confirmation";
 import { extractResumeExperiences } from "@/lib/resumes/experience-agent";
 import type { ExtractedResumeExperience } from "@/lib/resumes/extract";
+import { defineMessages, DEFAULT_LOCALE, type Locale } from "@/lib/i18n/locale";
 
 /**
  * 体验版的简历录入：**纯解析，不落任何存储**。
@@ -20,6 +21,36 @@ const MAX_FORM_EXPERIENCES = 3;
 
 /** 图片解析不出文本，体验版直接不收，引导走手动填写。 */
 const UPLOAD_EXTENSIONS = new Set([".pdf", ".doc", ".docx"]);
+
+const messages = defineMessages({
+  "zh-CN": {
+    summaryTooShort: "个人概述至少写 30 个字，说明方向、技术栈和亮点，出的题才会贴合你。",
+    summaryTooLong: "个人概述过长。",
+    tooManyExperiences: (max: number) => `最多填写 ${max} 段经历。`,
+    experienceName: "每段经历都需要一个有效的名称。",
+    experienceType: "经历类型只能是实习或项目。",
+    descriptionTooShort: "每段经历的描述至少写 20 个字（职责、技术、结果）。",
+    descriptionTooLong: "经历描述过长。",
+    unsupportedFile: "体验版只支持 PDF、DOC、DOCX 简历；图片简历请改用手动填写。",
+    fileSize: "简历文件需要在 10MB 以内且不为空。",
+    notEnoughText: "没有从这份文件里解析出足够的文本（扫描件或图片型 PDF 常见）。请改用手动填写。",
+  },
+  en: {
+    summaryTooShort:
+      "Write at least 30 characters in your summary: your focus, tech stack and highlights, so the questions fit you.",
+    summaryTooLong: "Summary is too long.",
+    tooManyExperiences: (max: number) => `Add at most ${max} experiences.`,
+    experienceName: "Each experience needs a valid name.",
+    experienceType: "Experience type must be internship or project.",
+    descriptionTooShort:
+      "Each experience description needs at least 20 characters (responsibilities, tech, results).",
+    descriptionTooLong: "Experience description is too long.",
+    unsupportedFile: "The web version only accepts PDF, DOC or DOCX resumes. For an image resume, fill it in manually.",
+    fileSize: "The resume file must be non-empty and under 10 MB.",
+    notEnoughText:
+      "Couldn't extract enough text from this file (common with scanned or image PDFs). Fill it in manually instead.",
+  },
+});
 
 export type TrialResumeExperienceInput = {
   name: string;
@@ -53,36 +84,44 @@ export function composeTrialResumeText(input: TrialResumeFormInput): string {
   return sections.join("\n\n");
 }
 
-export function validateTrialResumeForm(input: TrialResumeFormInput): string | null {
+export function validateTrialResumeForm(
+  input: TrialResumeFormInput,
+  locale: Locale = DEFAULT_LOCALE,
+): string | null {
+  const t = messages[locale];
   if (input.summary.trim().length < 30) {
-    return "个人概述至少写 30 个字，说明方向、技术栈和亮点，出的题才会贴合你。";
+    return t.summaryTooShort;
   }
-  if (input.summary.length > 20_000) return "个人概述过长。";
+  if (input.summary.length > 20_000) return t.summaryTooLong;
   if (input.experiences.length > MAX_FORM_EXPERIENCES) {
-    return `最多填写 ${MAX_FORM_EXPERIENCES} 段经历。`;
+    return t.tooManyExperiences(MAX_FORM_EXPERIENCES);
   }
   for (const experience of input.experiences) {
     if (!experience.name.trim() || experience.name.length > 120) {
-      return "每段经历都需要一个有效的名称。";
+      return t.experienceName;
     }
     if (!["internship", "project"].includes(experience.type)) {
-      return "经历类型只能是实习或项目。";
+      return t.experienceType;
     }
     if (experience.description.trim().length < 20) {
-      return "每段经历的描述至少写 20 个字（职责、技术、结果）。";
+      return t.descriptionTooShort;
     }
-    if (experience.description.length > 5_000) return "经历描述过长。";
+    if (experience.description.length > 5_000) return t.descriptionTooLong;
   }
   return null;
 }
 
-export async function parseTrialResumeUpload(file: File): Promise<TrialResumeParseResult> {
+export async function parseTrialResumeUpload(
+  file: File,
+  locale: Locale = DEFAULT_LOCALE,
+): Promise<TrialResumeParseResult> {
+  const t = messages[locale];
   const extension = path.extname(file.name).toLowerCase();
   if (!UPLOAD_EXTENSIONS.has(extension)) {
-    throw new Error("体验版只支持 PDF、DOC、DOCX 简历；图片简历请改用手动填写。");
+    throw new Error(t.unsupportedFile);
   }
   if (file.size <= 0 || file.size > TRIAL_RESUME_MAX_BYTES) {
-    throw new Error("简历文件需要在 10MB 以内且不为空。");
+    throw new Error(t.fileSize);
   }
 
   const text = (
@@ -95,9 +134,7 @@ export async function parseTrialResumeUpload(file: File): Promise<TrialResumePar
     .trim()
     .slice(0, MAX_TEXT_CHARS);
   if (text.length < 50) {
-    throw new Error(
-      "没有从这份文件里解析出足够的文本（扫描件或图片型 PDF 常见）。请改用手动填写。",
-    );
+    throw new Error(t.notEnoughText);
   }
 
   // 识别不出经历不拦路：只用全文出题，少一类项目深挖题而已。
@@ -105,8 +142,11 @@ export async function parseTrialResumeUpload(file: File): Promise<TrialResumePar
   return { text, experiences, source };
 }
 
-export function parseTrialResumeForm(input: TrialResumeFormInput): TrialResumeParseResult {
-  const message = validateTrialResumeForm(input);
+export function parseTrialResumeForm(
+  input: TrialResumeFormInput,
+  locale: Locale = DEFAULT_LOCALE,
+): TrialResumeParseResult {
+  const message = validateTrialResumeForm(input, locale);
   if (message) throw new Error(message);
 
   return {

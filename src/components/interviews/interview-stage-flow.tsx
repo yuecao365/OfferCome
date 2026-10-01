@@ -1,13 +1,33 @@
+"use client";
+
 import type { InterviewStageProgress } from "@/lib/interviews/analytics";
 
 import { cn } from "@/lib/cn";
+import { useMessages } from "@/lib/i18n/client";
+import { defineMessages } from "@/lib/i18n/locale";
 
-const stages = [
-  ["一面", "firstInterview"],
-  ["二面", "secondInterview"],
-  ["三面", "thirdInterview"],
-  ["HR 面", "hrInterview"],
-] as const;
+const messages = defineMessages({
+  "zh-CN": {
+    firstInterview: "一面",
+    secondInterview: "二面",
+    thirdInterview: "三面",
+    hrInterview: "HR 面",
+    rejectedPrefix: "已拒绝 ",
+    rejectedSuffix: "，未记录发生轮次，不接入上方任一阶段",
+    note: "数字为「至少到达」该轮次的岗位数，综合投递阶段与真实面试记录取较高值。",
+  },
+  en: {
+    firstInterview: "1st round",
+    secondInterview: "2nd round",
+    thirdInterview: "3rd round",
+    hrInterview: "HR round",
+    rejectedPrefix: "Rejected ",
+    rejectedSuffix: " — round not recorded, so not counted in any stage above",
+    note: "Counts are roles that reached at least that round, taking the higher of application stage and real interview records.",
+  },
+});
+
+const stages = ["firstInterview", "secondInterview", "thirdInterview", "hrInterview"] as const;
 
 function StageNode({
   count,
@@ -56,7 +76,8 @@ function Connector({ active, vertical = false }: { active: boolean; vertical?: b
 }
 
 export function InterviewStageFlow({ progress }: { progress: InterviewStageProgress }) {
-  const stageValues = stages.map(([label, key]) => ({ label, key, count: progress[key] }));
+  const t = useMessages(messages);
+  const stageValues = stages.map((key) => ({ label: t[key], key, count: progress[key] }));
 
   return (
     <div>
@@ -82,10 +103,10 @@ export function InterviewStageFlow({ progress }: { progress: InterviewStageProgr
 
       <div className="mt-4 flex flex-col gap-1 border-t border-border pt-3 text-xs leading-5 text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
         <span>
-          已拒绝 <span className="font-mono tabular-nums text-foreground">{progress.rejected}</span>
-          ，未记录发生轮次，不接入上方任一阶段
+          {t.rejectedPrefix}<span className="font-mono tabular-nums text-foreground">{progress.rejected}</span>
+          {t.rejectedSuffix}
         </span>
-        <span>数字为「至少到达」该轮次的岗位数，综合投递阶段与真实面试记录取较高值。</span>
+        <span>{t.note}</span>
       </div>
     </div>
   );

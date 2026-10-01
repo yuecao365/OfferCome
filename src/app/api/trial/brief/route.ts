@@ -16,6 +16,8 @@ type Body = {
   resume: TrialResumeInput;
   blueprint: MockInterviewJobBlueprint;
   pace: InterviewPace;
+  /** 面试语言 zh / en；旧页面不带，按 zh。 */
+  language?: string;
   /** 浏览器从最近的模拟面试算好带上（与本地版 context.ts 同口径）：短板、问过的题。 */
   recentWeaknesses: RecentWeakness[];
   recentQuestions: string[];
@@ -26,18 +28,20 @@ const strings = (value: unknown): string[] => (Array.isArray(value) ? value.filt
 /** 备课第二步：蓝图 + 简历 + 技能包 → 简报，交给浏览器保管。 */
 export const POST = withTrialAi<Body>(async (body) => {
   const pace = INTERVIEW_PACES.includes(body.pace) ? body.pace : "standard";
+  const language = body.language === "en" ? "en" : "zh";
   const brief = await generateInterviewBrief({
     generationId: randomUUID(),
     jobTitle: body.job.jobTitle,
     blueprint: body.blueprint,
     context: {
       jobDescription: body.job.jobDescription,
-      resume: { id: "trial-resume", name: "体验简历", text: body.resume.text },
+      resume: { id: "trial-resume", name: language === "en" ? "Trial resume" : "体验简历", text: body.resume.text },
       projects: body.resume.projects,
       recentWeaknesses: Array.isArray(body.recentWeaknesses) ? body.recentWeaknesses : [],
       recentQuestions: strings(body.recentQuestions),
     },
     pace,
+    language,
   });
   return { brief };
 });

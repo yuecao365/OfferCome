@@ -8,6 +8,8 @@ import { ResumesView } from "@/components/resumes/resumes-view";
 import { TrialResumeEditor } from "@/components/trial/trial-resume-editor";
 import { buttonClassName } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { useLocale } from "@/lib/i18n/client";
+import { defineMessages } from "@/lib/i18n/locale";
 import { formatFileSize, resumeTypeLabel } from "@/lib/resumes/types";
 import { deleteStoredFile, readStoredFile } from "@/lib/trial/file-store";
 import {
@@ -21,6 +23,29 @@ import {
 import { setWorkspaceResume } from "@/lib/trial/workspace";
 import { mutateWorkspace, useTrialWorkspace } from "@/lib/trial/workspace-store";
 
+const messages = defineMessages({
+  "zh-CN": {
+    deleteConfirm: "删除后将清除这份简历的文件、解析文本与实习/项目条目，需要时可重新上传。",
+    parsedText: "解析文本（AI 出题所用内容）",
+    needResume: "请先上传或填写一份简历，再管理实习/项目。",
+    needName: "请填写名称。",
+    saved: "实习/项目已保存。",
+    deleted: "实习/项目已删除。",
+    upload: "上传简历",
+    reupload: "重新上传简历",
+  },
+  en: {
+    deleteConfirm: "This clears the resume file, its parsed text and its internship/project entries. You can upload again any time.",
+    parsedText: "Parsed text (what the AI uses for questions)",
+    needResume: "Upload or fill in a resume first, then manage internships/projects.",
+    needName: "Enter a name.",
+    saved: "Internship/project saved.",
+    deleted: "Internship/project deleted.",
+    upload: "Upload resume",
+    reupload: "Upload a new resume",
+  },
+});
+
 /**
  * 网页版的简历中心：与本地版渲染同一个 ResumesView 与 ResumePreview。
  * 原始文件存在浏览器的文件仓库里，预览时现取一个 blob 地址喂给预览组件，
@@ -29,6 +54,8 @@ import { mutateWorkspace, useTrialWorkspace } from "@/lib/trial/workspace-store"
  */
 export function TrialResumesPage() {
   const workspace = useTrialWorkspace();
+  const locale = useLocale();
+  const t = messages[locale];
   const savedAt = workspace?.resumeMeta?.savedAt ?? null;
   const [fileUrl, setFileUrl] = useState<string | null>(null);
 
@@ -66,8 +93,7 @@ export function TrialResumesPage() {
           await deleteStoredFile(TRIAL_RESUME_FILE_KEY);
           mutateWorkspace((current) => setWorkspaceResume(current, null));
         },
-        deleteConfirmMessage:
-          "删除后将清除这份简历的文件、解析文本与实习/项目条目，需要时可重新上传。",
+        deleteConfirmMessage: t.deleteConfirm,
       }}
       preview={
         selected && workspace.resume ? (
@@ -78,8 +104,8 @@ export function TrialResumesPage() {
                   {selected.originalName}
                 </h2>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {resumeTypeLabel(selected.mimeType, selected.originalName)} ·{" "}
-                  {formatFileSize(selected.fileSize)} · 解析文本（AI 出题所用内容）
+                  {resumeTypeLabel(selected.mimeType, selected.originalName, locale)} ·{" "}
+                  {formatFileSize(selected.fileSize)} · {t.parsedText}
                 </p>
               </div>
               <div className="max-h-[72vh] min-h-[40vh] overflow-auto bg-surface-subtle p-5">
@@ -96,7 +122,7 @@ export function TrialResumesPage() {
               previewKind={selected.previewKind}
               previewUrl={selected.previewUrl}
               sizeLabel={formatFileSize(selected.fileSize)}
-              typeLabel={resumeTypeLabel(selected.mimeType, selected.originalName)}
+              typeLabel={resumeTypeLabel(selected.mimeType, selected.originalName, locale)}
             />
           )
         ) : null
@@ -107,18 +133,18 @@ export function TrialResumesPage() {
           if (!workspace.resume) {
             return {
               status: "error",
-              message: "请先上传或填写一份简历，再管理实习/项目。",
+              message: t.needResume,
             };
           }
           if (!input.name.trim()) {
-            return { status: "error", message: "请填写名称。" };
+            return { status: "error", message: t.needName };
           }
           mutateWorkspace((current) => saveTrialResumeProject(current, input));
-          return { status: "success", message: "实习/项目已保存。" };
+          return { status: "success", message: t.saved };
         },
         deleteAction: async (id) => {
           mutateWorkspace((current) => deleteTrialResumeProject(current, id));
-          return { status: "success", message: "实习/项目已删除。" };
+          return { status: "success", message: t.deleted };
         },
       }}
       resumes={resumes}
@@ -126,9 +152,9 @@ export function TrialResumesPage() {
       uploadModal={
         <Modal
           size="compact"
-          title="上传简历"
+          title={t.upload}
           triggerClassName={buttonClassName()}
-          triggerLabel={workspace.resume ? "重新上传简历" : "上传简历"}
+          triggerLabel={workspace.resume ? t.reupload : t.upload}
         >
           {(close) => (
             <TrialResumeEditor

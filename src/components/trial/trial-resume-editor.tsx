@@ -7,6 +7,8 @@ import { ResumeExperienceConfirmationPanel } from "@/components/resumes/resume-e
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FieldLabel, Input, Select, Textarea } from "@/components/ui/form-controls";
+import { useMessages } from "@/lib/i18n/client";
+import { defineMessages } from "@/lib/i18n/locale";
 import {
   buildPendingResumeExperienceConfirmations,
   toResumeExperienceConfirmationInput,
@@ -18,6 +20,52 @@ import { deleteStoredFile, putStoredFile } from "@/lib/trial/file-store";
 import type { TrialResumeParseResult } from "@/lib/trial/resume";
 import { TRIAL_RESUME_FILE_KEY } from "@/lib/trial/workspace-resume";
 import type { TrialResumeMeta } from "@/lib/trial/workspace";
+import { FileInput } from "@/components/ui/file-input";
+
+const messages = defineMessages({
+  "zh-CN": {
+    failed: "简历处理失败。",
+    cancelNote: "取消不会改动当前简历。",
+    saved: "简历已保存。",
+    uploadTab: "上传简历（PDF/DOC/DOCX）",
+    formTab: "手动填写",
+    file: "简历文件",
+    summary: "个人概述（方向、技术栈、亮点；至少 30 字）",
+    summaryPlaceholder: "例如：三年后端开发经验，主技术栈 Go 与 MySQL，做过高并发订单系统……",
+    name: "名称",
+    namePlaceholder: "项目或实习名称",
+    type: "类型",
+    project: "项目",
+    internship: "实习",
+    organization: "组织（可选）",
+    organizationPlaceholder: "公司或学校",
+    description: "做了什么（职责、技术、结果；至少 20 字）",
+    addExperience: "再加一段经历",
+    save: "保存简历内容",
+    parsing: "正在解析简历…",
+  },
+  en: {
+    failed: "Couldn't process the resume.",
+    cancelNote: "Cancelling won't change your current resume.",
+    saved: "Resume saved.",
+    uploadTab: "Upload resume (PDF/DOC/DOCX)",
+    formTab: "Fill in by hand",
+    file: "Resume file",
+    summary: "Summary (focus, tech stack, highlights; at least 30 characters)",
+    summaryPlaceholder: "e.g. Three years of backend development, mainly Go and MySQL, built a high-concurrency order system…",
+    name: "Name",
+    namePlaceholder: "Project or internship name",
+    type: "Type",
+    project: "Project",
+    internship: "Internship",
+    organization: "Organization (optional)",
+    organizationPlaceholder: "Company or school",
+    description: "What you did (responsibilities, tech, results; at least 20 characters)",
+    addExperience: "Add another experience",
+    save: "Save resume",
+    parsing: "Parsing resume…",
+  },
+});
 
 /**
  * 网页版的简历录入表单：上传文件或手动填写。
@@ -68,6 +116,7 @@ export function TrialResumeEditor({
   existingProjects: ExistingResumeProjectOption[];
   onSaved: (input: TrialResumeSaveInput) => void;
 }) {
+  const t = useMessages(messages);
   const [tab, setTab] = useState<"upload" | "form">("upload");
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
   const [summary, setSummary] = useState("");
@@ -90,7 +139,7 @@ export function TrialResumeEditor({
     } catch (error) {
       setPhase({
         kind: "error",
-        message: error instanceof Error ? error.message : "简历处理失败。",
+        message: error instanceof Error ? error.message : t.failed,
       });
     }
   }
@@ -116,7 +165,7 @@ export function TrialResumeEditor({
     } catch (error) {
       setPhase({
         kind: "error",
-        message: error instanceof Error ? error.message : "简历处理失败。",
+        message: error instanceof Error ? error.message : t.failed,
       });
     }
   }
@@ -131,7 +180,7 @@ export function TrialResumeEditor({
     const { parsed, file, meta } = phase;
     return (
       <ResumeExperienceConfirmationPanel
-        cancelNote="取消不会改动当前简历。"
+        cancelNote={t.cancelNote}
         existingProjects={existingProjects}
         extractionSource={parsed.source === "manual" ? undefined : parsed.source}
         fileName={file.name}
@@ -141,7 +190,7 @@ export function TrialResumeEditor({
           onSaved({ text: parsed.text, items, meta });
           return {
             status: "success",
-            message: "简历已保存。",
+            message: t.saved,
             createdCount: items.length,
             linkedCount: 0,
           };
@@ -161,8 +210,8 @@ export function TrialResumeEditor({
       <div className="flex gap-2">
         {(
           [
-            ["upload", "上传简历（PDF/DOC/DOCX）"],
-            ["form", "手动填写"],
+            ["upload", t.uploadTab],
+            ["form", t.formTab],
           ] as const
         ).map(([value, label]) => (
           <Button
@@ -178,24 +227,23 @@ export function TrialResumeEditor({
 
       {tab === "upload" ? (
         <FieldLabel>
-          简历文件
-          <Input
+          {t.file}
+          <FileInput
             accept=".pdf,.doc,.docx"
             disabled={busy}
             onChange={(event) => {
               const file = event.target.files?.[0];
               if (file) void handleUpload(file);
             }}
-            type="file"
           />
         </FieldLabel>
       ) : (
         <div className="grid gap-4">
           <FieldLabel>
-            个人概述（方向、技术栈、亮点；至少 30 字）
+            {t.summary}
             <Textarea
               onChange={(event) => setSummary(event.target.value)}
-              placeholder="例如：三年后端开发经验，主技术栈 Go 与 MySQL，做过高并发订单系统……"
+              placeholder={t.summaryPlaceholder}
               rows={4}
               value={summary}
             />
@@ -204,17 +252,17 @@ export function TrialResumeEditor({
             <div className="grid gap-3 rounded-lg border border-border p-4" key={index}>
               <div className="grid gap-3 sm:grid-cols-[1fr_auto_1fr]">
                 <FieldLabel>
-                  名称
+                  {t.name}
                   <Input
                     onChange={(event) =>
                       updateExperience(index, { name: event.target.value })
                     }
-                    placeholder="项目或实习名称"
+                    placeholder={t.namePlaceholder}
                     value={experience.name}
                   />
                 </FieldLabel>
                 <FieldLabel>
-                  类型
+                  {t.type}
                   <Select
                     onChange={(event) =>
                       updateExperience(index, {
@@ -223,23 +271,23 @@ export function TrialResumeEditor({
                     }
                     value={experience.type}
                   >
-                    <option value="project">项目</option>
-                    <option value="internship">实习</option>
+                    <option value="project">{t.project}</option>
+                    <option value="internship">{t.internship}</option>
                   </Select>
                 </FieldLabel>
                 <FieldLabel>
-                  组织（可选）
+                  {t.organization}
                   <Input
                     onChange={(event) =>
                       updateExperience(index, { organization: event.target.value })
                     }
-                    placeholder="公司或学校"
+                    placeholder={t.organizationPlaceholder}
                     value={experience.organization}
                   />
                 </FieldLabel>
               </div>
               <FieldLabel>
-                做了什么（职责、技术、结果；至少 20 字）
+                {t.description}
                 <Textarea
                   onChange={(event) =>
                     updateExperience(index, { description: event.target.value })
@@ -257,18 +305,18 @@ export function TrialResumeEditor({
                 size="sm"
                 variant="outline"
               >
-                再加一段经历
+                {t.addExperience}
               </Button>
             ) : null}
             <Button disabled={busy} onClick={() => void handleForm()}>
               {busy ? <Loader2 aria-hidden="true" className="size-4 animate-spin" /> : null}
-              保存简历内容
+              {t.save}
             </Button>
           </div>
         </div>
       )}
 
-      {busy && tab === "upload" ? <Alert tone="info">正在解析简历…</Alert> : null}
+      {busy && tab === "upload" ? <Alert tone="info">{t.parsing}</Alert> : null}
       {phase.kind === "error" ? <Alert tone="danger">{phase.message}</Alert> : null}
     </div>
   );

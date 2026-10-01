@@ -68,6 +68,7 @@ export function testBrief(overrides: Partial<InterviewBrief> & { pace?: Intervie
   const pace = overrides.pace ?? "standard";
   return {
     version: 8,
+    language: "zh",
     pace,
     product: null,
     askIntro: true,

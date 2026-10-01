@@ -55,3 +55,14 @@ test("falls back to the gap when no quote survives, and skips dimensions with ne
     [["reasoning_depth", 2, 0.6, "缺口：没有讲为什么大队列会掩盖问题"]],
   );
 });
+
+test("the gap prefix follows the session language", () => {
+  const [observation] = deriveObservationsFromEvaluation({
+    questionId: "q1",
+    answer: "We cap the queue and reject the overflow.",
+    dimensions: [{ name: "Depth of reasoning", score: 60, evidence: "a paraphrase", gap: "never said why a large queue hides the problem" }],
+    language: "en",
+  });
+  assert.equal(observation?.dimension, "reasoning_depth");
+  assert.equal(observation?.evidenceExcerpt, "Gap: never said why a large queue hides the problem");
+});

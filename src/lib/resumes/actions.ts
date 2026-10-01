@@ -1,6 +1,8 @@
 "use server";
 
 import { prisma } from "@/lib/db";
+import { defineMessages } from "@/lib/i18n/locale";
+import { getLocale } from "@/lib/i18n/server";
 
 import {
   buildPendingResumeExperienceConfirmations,
@@ -25,6 +27,28 @@ import type {
   ResumeExperienceConfirmState,
 } from "./types";
 
+const messages = defineMessages({
+  "zh-CN": {
+    noFile: "请选择要上传的简历文件。",
+    found: (count: number) => `已识别到 ${count} 条实习/项目，请确认后保存。`,
+    noneFound: "未自动识别到实习或项目。确认后仍会保存简历。",
+    parseFailed: "简历解析失败。",
+    saved: (created: number, linked: number) =>
+      `已保存简历，新增 ${created} 条实习/项目，关联 ${linked} 条已有实习/项目。`,
+    confirmFailed: "实习/项目确认保存失败。",
+  },
+  en: {
+    noFile: "Choose a resume file to upload.",
+    found: (count: number) =>
+      `Found ${count} ${count === 1 ? "internship/project" : "internships/projects"}. Review them, then save.`,
+    noneFound: "No internships or projects were detected. The resume will still be saved when you confirm.",
+    parseFailed: "Couldn't parse the resume.",
+    saved: (created: number, linked: number) =>
+      `Resume saved: ${created} new internships/projects added, ${linked} linked to existing ones.`,
+    confirmFailed: "Couldn't save the confirmed internships/projects.",
+  },
+});
+
 function getString(formData: FormData, name: string): string {
   const value = formData.get(name);
   return typeof value === "string" ? value : "";
@@ -34,13 +58,15 @@ export async function parseResumePreview(
   _prevState: ResumeActionState,
   formData: FormData,
 ): Promise<ResumeActionState> {
+  const locale = await getLocale();
+  const t = messages[locale];
   const file = formData.get("resume");
   if (!(file instanceof File) || !file.name) {
-    return { status: "error", message: "请选择要上传的简历文件。" };
+    return { status: "error", message: t.noFile };
   }
 
   try {
-    const temporary = await saveTemporaryResumeFile(file);
+    const temporary = await saveTemporaryResumeFile(file, locale);
     const isDefault = getString(formData, "isDefault") === "on";
 
     let extraction: Awaited<ReturnType<typeof extractResumeExperiences>> = {
@@ -73,8 +99,8 @@ export async function parseResumePreview(
       status: "success",
       message:
         pendingExperiences.length > 0
-          ? `已识别到 ${pendingExperiences.length} 条实习/项目，请确认后保存。`
-          : "未自动识别到实习或项目。确认后仍会保存简历。",
+          ? t.found(pendingExperiences.length)
+          : t.noneFound,
       tempUploadId: temporary.tempUploadId,
       fileName: temporary.originalName,
       isDefault,
@@ -85,7 +111,7 @@ export async function parseResumePreview(
   } catch (error) {
     return {
       status: "error",
-      message: error instanceof Error ? error.message : "简历解析失败。",
+      message: error instanceof Error ? error.message : t.parseFailed,
     };
   }
 }
@@ -95,6 +121,8 @@ export async function confirmResumeExperiences(input: {
   isDefault: boolean;
   items: ResumeExperienceConfirmationInput[];
 }): Promise<ResumeExperienceConfirmState> {
+  const locale = await getLocale();
+  const t = messages[locale];
   let stored:
     | Awaited<ReturnType<typeof promoteTemporaryResumeFile>>
     | null = null;
@@ -104,6 +132,7 @@ export async function confirmResumeExperiences(input: {
     const resolved = resolveResumeExperienceConfirmations(
       input.items,
       existingProjects,
+      locale,
     );
     stored = await promoteTemporaryResumeFile(input.tempUploadId);
     const storedResume = stored;
@@ -135,7 +164,7 @@ export async function confirmResumeExperiences(input: {
 
     return {
       status: "success",
-      message: `已保存简历，新增 ${result.createdCount} 条实习/项目，关联 ${result.linkedCount} 条已有实习/项目。`,
+      message: t.saved(result.createdCount, result.linkedCount),
       resumeId: result.resumeId,
       createdCount: result.createdCount,
       linkedCount: result.linkedCount,
@@ -148,7 +177,7 @@ export async function confirmResumeExperiences(input: {
     return {
       status: "error",
       message:
-        error instanceof Error ? error.message : "实习/项目确认保存失败。",
+        error instanceof Error ? error.message : t.confirmFailed,
       createdCount: 0,
       linkedCount: 0,
     };

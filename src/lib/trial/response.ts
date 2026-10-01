@@ -8,6 +8,9 @@
  * 提示与是否可重试，不必自己认状态码。
  */
 
+import { browserMessages } from "@/lib/i18n/browser";
+import { defineMessages } from "@/lib/i18n/locale";
+
 export type TrialRequestErrorKind =
   /** 访客还没连接模型服务，或连接已失效（HTTP 401）。 */
   | "not_configured"
@@ -48,12 +51,20 @@ type PlatformErrorKind = Extract<
   "timeout" | "payload_too_large" | "platform"
 >;
 
-const PLATFORM_MESSAGES: Record<PlatformErrorKind, string> = {
-  timeout:
-    "服务端处理超时。模型服务响应较慢时容易出现，请减少题量、换更快的模型，或稍后重试。",
-  payload_too_large: "请求内容过大，请精简简历或岗位描述后重试。",
-  platform: "服务端暂时不可用，请稍后重试。",
-};
+const PLATFORM_MESSAGES = defineMessages<Record<PlatformErrorKind, string>>({
+  "zh-CN": {
+    timeout:
+      "服务端处理超时。模型服务响应较慢时容易出现，请减少题量、换更快的模型，或稍后重试。",
+    payload_too_large: "请求内容过大，请精简简历或岗位描述后重试。",
+    platform: "服务端暂时不可用，请稍后重试。",
+  },
+  en: {
+    timeout:
+      "The server timed out. This tends to happen when the model service is slow; ask for fewer questions, switch to a faster model, or try again later.",
+    payload_too_large: "The request is too large. Trim your resume or job description and try again.",
+    platform: "The server is temporarily unavailable. Try again later.",
+  },
+});
 
 /** 平台错误页的归类：只看状态码和正文里的错误码，不依赖具体平台的措辞。 */
 function classifyPlatformError(status: number, text: string): PlatformErrorKind {
@@ -76,7 +87,7 @@ export async function readTrialResponse<T>(
     const text = await response.text().catch(() => "");
     const kind = classifyPlatformError(response.status, text);
     throw new TrialRequestError({
-      message: PLATFORM_MESSAGES[kind],
+      message: browserMessages(PLATFORM_MESSAGES)[kind],
       status: response.status,
       kind,
       retryable: true,

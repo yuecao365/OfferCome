@@ -90,3 +90,19 @@ test("代码定动作：有当前材料就接着问，没有就切第一份没�
   assert.equal(checkReply("你刚才说的和评分标准不符").ok, false);
   assert.equal(checkReply("你刚才说的和简历上写的不一样").ok, true);
 });
+
+test("英文场次：内部词表按语言取、状态卡与退回原因是英文、新信息量不数虚词", () => {
+  assert.equal(checkReply("That doesn't match the rubric.", "en").ok, false);
+  assert.equal(checkReply("Let's move to the next material.", "en").ok, false);
+  assert.equal(checkReply("As my notes say, you skipped the backoff.", "en").ok, false);
+  assert.equal(checkReply("Your resume says three retries, but you just said five. Which is it?", "en").ok, true);
+  assert.equal(checkReply("What material did you use for the cache key?", "en").ok, true, "material 作普通词不算");
+  const english = testBrief({ language: "en" });
+  const state = stateOf(english, [said(null), answered(), said("p1-overview", "switch"), { type: "candidate_said", seq: seq++, signal: "answered", control: null, content: "I used Redis as the cache, and it was about 3000 QPS." }, said("p1-overview", "probe", "cache choice"), { type: "candidate_said", seq: seq++, signal: "answered", control: null, content: "Yeah, it was Redis because the QPS was about 3000." }]);
+  assert.deepEqual(state.recentGain, [4, 0], "redis / cache / 3000 / qps；第二句全是已出现的词与虚词");
+  assert.equal(state.language, "en");
+  const rendered = renderState(state);
+  assert.match(rendered, /^Agenda \(0 \/ 7 items finished\):\nMain track:\n- \[p1-overview\] Project "[^"]+": in progress, 2 questions asked \(usually about 4\)\n  Angles probed: cache choice \(1\)$/m);
+  assert.match(rendered, /Claims still to verify in your notes: 0\./);
+  assert.match((checkAction(state, { action: "switch", target: "nope", facet: null }) as { reason: string }).reason, /^switch needs target to be an agenda item id; available: p1-overview, p1-module/);
+});

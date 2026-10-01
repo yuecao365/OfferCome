@@ -3,9 +3,22 @@
 import { useSearchParams } from "next/navigation";
 
 import { InterviewReviewView } from "@/components/interviews/interview-review-view";
+import { useMessages } from "@/lib/i18n/client";
+import { defineMessages } from "@/lib/i18n/locale";
 import { parseInterviewReviewFilters } from "@/lib/interviews/review";
 import { reclassifyTrialQuestions, trialReviewPageData } from "@/lib/trial/workspace-review";
 import { mutateWorkspace, useTrialWorkspace } from "@/lib/trial/workspace-store";
+
+const messages = defineMessages({
+  "zh-CN": {
+    missingProject: "选择的实习/项目不存在，请刷新后重试。",
+    reclassified: (n: number) => `已重新归类 ${n} 条历史记录。`,
+  },
+  en: {
+    missingProject: "The selected internship / project no longer exists. Refresh and try again.",
+    reclassified: (n: number) => `Reclassified ${n} past record${n === 1 ? "" : "s"}.`,
+  },
+});
 
 /**
  * 体验版的面试复盘页：与本地版渲染同一个 InterviewReviewView，
@@ -14,6 +27,7 @@ import { mutateWorkspace, useTrialWorkspace } from "@/lib/trial/workspace-store"
 export function TrialReviewPage() {
   const searchParams = useSearchParams();
   const workspace = useTrialWorkspace();
+  const t = useMessages(messages);
 
   const filters = parseInterviewReviewFilters(
     Object.fromEntries(searchParams.entries()),
@@ -40,10 +54,10 @@ export function TrialReviewPage() {
         if (missingProject) {
           return {
             status: "error",
-            message: "选择的实习/项目不存在，请刷新后重试。",
+            message: t.missingProject,
           };
         }
-        return { status: "success", message: `已重新归类 ${count} 条历史记录。` };
+        return { status: "success", message: t.reclassified(count) };
       }}
     />
   );

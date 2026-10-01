@@ -21,11 +21,46 @@ import {
   type ApplicationActionState,
 } from "@/lib/applications/action-state";
 import {
+  APPLICATION_STAGE_LABELS_I18N,
   APPLICATION_STAGES,
   MAX_JOB_DESCRIPTION_LENGTH,
-  stageLabel,
   type ApplicationListItem,
 } from "@/lib/applications/types";
+import { useLocale, useMessages } from "@/lib/i18n/client";
+import { defineMessages } from "@/lib/i18n/locale";
+
+const messages = defineMessages({
+  "zh-CN": {
+    companyName: "公司名称",
+    jobTitle: "岗位名称",
+    appliedAt: "投递时间",
+    stage: "当前流程状态",
+    source: "来源",
+    jobUrl: "岗位链接",
+    jobDescription: "岗位描述",
+    jobDescriptionPlaceholder: "粘贴岗位职责与任职要求，之后发起模拟面试时会自动带入。",
+    note: "备注",
+    cancel: "取消",
+    saving: "保存中...",
+    saveChanges: "保存修改",
+    create: "新建投递",
+  },
+  en: {
+    companyName: "Company",
+    jobTitle: "Job title",
+    appliedAt: "Applied at",
+    stage: "Current stage",
+    source: "Source",
+    jobUrl: "Job link",
+    jobDescription: "Job description",
+    jobDescriptionPlaceholder: "Paste the responsibilities and requirements; mock interviews for this role will use them automatically.",
+    note: "Notes",
+    cancel: "Cancel",
+    saving: "Saving...",
+    saveChanges: "Save changes",
+    create: "Create application",
+  },
+});
 
 type ApplicationFormProps =
   | {
@@ -62,16 +97,19 @@ function toDatetimeLocal(date: Date | null): string {
 
 function SubmitButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
+  const t = useMessages(messages);
 
   return (
     <Button disabled={pending} type="submit">
-      {pending ? "保存中..." : label}
+      {pending ? t.saving : label}
     </Button>
   );
 }
 
 export function ApplicationForm(props: ApplicationFormProps) {
   const router = useRouter();
+  const t = useMessages(messages);
+  const locale = useLocale();
   const editId = props.mode === "edit" ? props.initial.id : null;
   const override = props.action;
   const action = useMemo<ApplicationServerAction>(
@@ -98,7 +136,7 @@ export function ApplicationForm(props: ApplicationFormProps) {
     <form action={formAction} className="grid gap-5">
       <div className="grid gap-4 md:grid-cols-2">
         <FieldLabel>
-          <span>公司名称<RequiredMark /></span>
+          <span>{t.companyName}<RequiredMark /></span>
           <Input
             defaultValue={initial?.companyName ?? ""}
             name="companyName"
@@ -106,7 +144,7 @@ export function ApplicationForm(props: ApplicationFormProps) {
           />
         </FieldLabel>
         <FieldLabel>
-          <span>岗位名称<RequiredMark /></span>
+          <span>{t.jobTitle}<RequiredMark /></span>
           <Input
             defaultValue={initial?.jobTitle ?? ""}
             name="jobTitle"
@@ -114,7 +152,7 @@ export function ApplicationForm(props: ApplicationFormProps) {
           />
         </FieldLabel>
         <FieldLabel>
-          <span>投递时间<RequiredMark /></span>
+          <span>{t.appliedAt}<RequiredMark /></span>
           <Input
             defaultValue={toDatetimeLocal(initial?.appliedAt ?? new Date())}
             name="appliedAt"
@@ -123,7 +161,7 @@ export function ApplicationForm(props: ApplicationFormProps) {
           />
         </FieldLabel>
         <FieldLabel>
-          <span>当前流程状态<RequiredMark /></span>
+          <span>{t.stage}<RequiredMark /></span>
           <Select
             defaultValue={initial?.stage ?? "applied"}
             name="stage"
@@ -131,13 +169,13 @@ export function ApplicationForm(props: ApplicationFormProps) {
           >
             {APPLICATION_STAGES.map((stage) => (
               <option key={stage} value={stage}>
-                {stageLabel(stage)}
+                {APPLICATION_STAGE_LABELS_I18N[locale][stage]}
               </option>
             ))}
           </Select>
         </FieldLabel>
         <FieldLabel>
-          来源
+          {t.source}
           <Input
             defaultValue={initial?.source ?? "manual"}
             name="source"
@@ -145,7 +183,7 @@ export function ApplicationForm(props: ApplicationFormProps) {
           />
         </FieldLabel>
         <FieldLabel>
-          岗位链接
+          {t.jobUrl}
           <Input
             defaultValue={initial?.jobUrl ?? ""}
             name="jobUrl"
@@ -155,18 +193,18 @@ export function ApplicationForm(props: ApplicationFormProps) {
         </FieldLabel>
       </div>
       <FieldLabel>
-        岗位描述
+        {t.jobDescription}
         <Textarea
           className="min-h-28"
           defaultValue={initial?.jobDescription ?? ""}
           maxLength={MAX_JOB_DESCRIPTION_LENGTH}
           name="jobDescription"
-          placeholder="粘贴岗位职责与任职要求，之后发起模拟面试时会自动带入。"
+          placeholder={t.jobDescriptionPlaceholder}
           rows={5}
         />
       </FieldLabel>
       <FieldLabel>
-        备注
+        {t.note}
         <Textarea
           className="min-h-20"
           defaultValue={initial?.note ?? ""}
@@ -177,9 +215,9 @@ export function ApplicationForm(props: ApplicationFormProps) {
 
       <div className="sticky -bottom-5 z-10 -mx-5 -mb-5 flex flex-wrap items-center gap-3 border-t border-border bg-surface px-5 py-4 sm:-bottom-6 sm:-mx-6 sm:-mb-6 sm:px-6">
         <Button onClick={props.onCancel} variant="outline">
-          取消
+          {t.cancel}
         </Button>
-        <SubmitButton label={props.mode === "edit" ? "保存修改" : "新建投递"} />
+        <SubmitButton label={props.mode === "edit" ? t.saveChanges : t.create} />
         {state.message ? (
           <p
             aria-live="polite"

@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import type { ContentLanguage } from "@/lib/i18n/locale";
+
 import { ACTIONS, NO_INFO_SIGNALS, SIGNALS, type Signal, type FacetRef, type StateEvent } from "./state";
 
 /**
@@ -13,7 +15,6 @@ import { ACTIONS, NO_INFO_SIGNALS, SIGNALS, type Signal, type FacetRef, type Sta
 export const CANDIDATE_CONTROLS = ["hint", "skip", "repeat", "end"] as const;
 export type CandidateControl = (typeof CANDIDATE_CONTROLS)[number];
 
-/** 房间按钮只点按钮没打字时替候选人说的话。 */
 /**
  * 候选人这句是什么：面试官（模型）判的 signal，按钮直接映射（跳过 / 提示与重复 = 求助 / 结束）。
  * 旧场次的 candidate_said 没有 signal，按 answered 算。复盘、切段、指标共用；没有任何正则。
@@ -36,11 +37,20 @@ export function isNoInfo(line: Pick<TranscriptLine, "role" | "control" | "signal
 
 export const isHelpRequest = (line: Pick<TranscriptLine, "role" | "control" | "signal">): boolean => replyKindOf(line) === "help";
 
-export const CONTROL_PLACEHOLDERS: Record<CandidateControl, string> = {
-  skip: "这题我想跳过。",
-  repeat: "能再说一遍吗？",
-  end: "我们结束吧。",
-  hint: "这题我不太会，能给个方向吗？",
+/** 房间按钮只点按钮没打字时替候选人说的话，按场次语言（模型读得到，所以跟面试语言走，不跟界面语言）。 */
+export const CONTROL_PLACEHOLDERS_BY_LANGUAGE: Record<ContentLanguage, Record<CandidateControl, string>> = {
+  zh: {
+    skip: "这题我想跳过。",
+    repeat: "能再说一遍吗？",
+    end: "我们结束吧。",
+    hint: "这题我不太会，能给个方向吗？",
+  },
+  en: {
+    skip: "I'd like to skip this one.",
+    repeat: "Could you say that again?",
+    end: "Let's wrap up here.",
+    hint: "I'm not sure about this one. Could you point me in a direction?",
+  },
 };
 
 const said = z.object({ content: z.string() });

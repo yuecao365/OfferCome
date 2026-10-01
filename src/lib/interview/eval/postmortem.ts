@@ -1,3 +1,4 @@
+import { localizedLabels } from "@/lib/i18n/locale";
 import type { InterviewBrief } from "@/lib/mock-interviews/brief/brief";
 import { questionSimilarity } from "@/lib/text/similarity";
 
@@ -33,6 +34,14 @@ export const VIOLATION_LABELS: Record<ViolationRule, string> = {
   over_reference: "超过参考句数一倍还在问",
   stuck_after_dont_know: "两次答不上还没换题",
 };
+
+/** 界面按语言取：`VIOLATION_LABELS_I18N[locale][rule]`；复盘的 summary 句子仍用中文表（给开发者与失败清单看）。 */
+export const VIOLATION_LABELS_I18N = localizedLabels(VIOLATION_LABELS, {
+  repeat: "Repeated the same question",
+  multi_ask: "Several questions in one message",
+  over_reference: "Still asking at twice the reference length",
+  stuck_after_dont_know: "Didn't move on after two misses",
+});
 
 const LONG_ANSWER_CHARS = 500;
 const REPEAT_SIMILARITY = 0.8;

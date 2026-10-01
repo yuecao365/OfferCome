@@ -2,11 +2,12 @@ import "server-only";
 import type { Competency } from "@/lib/interview/estimator";
 
 import { prisma } from "@/lib/db";
+import { localeOfContent, type ContentLanguage } from "@/lib/i18n/locale";
 import { ensureResumeExperiences } from "@/lib/resumes/experience-store";
 import { extractResumeTextFromFile } from "@/lib/resumes/extract";
 
 import { getRecentEvaluatedQuestions, type EvaluatedQuestion } from "./recent-feedback";
-import { jobBusinessSchema, type JobBusiness, type MockInterviewJobBlueprint } from "./types";
+import { jobBusinessSchema, practiceRequestNote, type JobBusiness, type MockInterviewJobBlueprint } from "./types";
 
 /** 备课要复测的考点：上几场失守的短板，或用户点"针对练习"指定的题。 */
 export type RecentWeakness = {
@@ -58,6 +59,18 @@ export function competenciesOf(contextSnapshotJson: string | null | undefined): 
   }
 }
 
+/** 报给用户的句子，按面试语言各一份。 */
+const COPY = {
+  zh: {
+    resumeMissing: "所选简历不存在，请重新选择。",
+    resumeEmpty: "没有从所选简历中提取到文本。",
+  },
+  en: {
+    resumeMissing: "The selected resume no longer exists. Please choose another one.",
+    resumeEmpty: "No text could be extracted from the selected resume.",
+  },
+} satisfies Record<ContentLanguage, Record<string, string>>;
+
 /** 最近几场面试取多少条失守点给备课；再多模型也只会挑几条。 */
 const RECENT_QUESTION_LIMIT = 12;
 const RECENT_WEAKNESS_LIMIT = 6;
@@ -67,12 +80,12 @@ const RECENT_WEAKNESS_INTERVIEWS = 5;
  * 一道题 → 要复测的点。有短板就用短板；没有评分的题（真实面试）只有在用户指定要练时才带上，
  * 作为"重练"项，让备课围绕这道题开一个领域。
  */
-function weaknessesOf(item: EvaluatedQuestion, seeded: boolean): RecentWeakness[] {
+function weaknessesOf(item: EvaluatedQuestion, seeded: boolean, language: ContentLanguage): RecentWeakness[] {
   const area = item.areaName ?? item.question.slice(0, 80);
   if (item.weaknesses.length > 0) {
     return item.weaknesses.map((weakness) => ({ area, point: weakness.point, kind: weakness.kind, quote: weakness.quote }));
   }
-  return seeded ? [{ area, point: "候选人要求重练这道题。", kind: "practice", quote: null }] : [];
+  return seeded ? [{ area, point: practiceRequestNote(language), kind: "practice", quote: null }] : [];
 }
 
 export async function buildMockInterviewContext(input: {
@@ -80,7 +93,10 @@ export async function buildMockInterviewContext(input: {
   jobTitle: string;
   jobDescription: string;
   seedQuestionId?: string | null;
+  /** 面试语言：决定代码写进备课载荷的句子与报错的语言；缺省中文。 */
+  language?: ContentLanguage;
 }): Promise<MockInterviewContext> {
+  const language = input.language ?? "zh";
   const [resume, recentQuestions] = await Promise.all([
     prisma.resume.findUnique({
       where: { id: input.resumeId },
@@ -97,13 +113,13 @@ export async function buildMockInterviewContext(input: {
       seedQuestionId: input.seedQuestionId,
     }),
   ]);
-  if (!resume) throw new Error("所选简历不存在，请重新选择。");
+  if (!resume) throw new Error(COPY[language].resumeMissing);
 
   const resumeText = await extractResumeTextFromFile(
     resume.filePath,
     resume.mimeType,
   );
-  if (!resumeText.trim()) throw new Error("没有从所选简历中提取到文本。");
+  if (!resumeText.trim()) throw new Error(COPY[language].resumeEmpty);
 
   // 出题只考察这份简历上的实习/项目，以关联表为准。简历从没识别过
   // （识别功能接通前上传、或项目随别的版本被删掉）就先自动识别一次并落库；
@@ -111,7 +127,7 @@ export async function buildMockInterviewContext(input: {
   let projectSources = resume.projectSources;
   if (projectSources.length === 0) {
     try {
-      await ensureResumeExperiences({ resumeId: resume.id, resumeText });
+      await ensureResumeExperiences({ resumeId: resume.id, resumeText, locale: localeOfContent(language) });
       projectSources = await prisma.resumeProjectSource.findMany({
         where: { resumeId: resume.id },
         include: { resumeProject: true },
@@ -126,7 +142,7 @@ export async function buildMockInterviewContext(input: {
   }
 
   const recentWeaknesses = recentQuestions
-    .flatMap((item) => weaknessesOf(item, item.questionId === input.seedQuestionId))
+    .flatMap((item) => weaknessesOf(item, item.questionId === input.seedQuestionId, language))
     .slice(0, RECENT_WEAKNESS_LIMIT);
   const sameJob = recentQuestions.filter((item) => item.jobTitle.trim().toLocaleLowerCase() === input.jobTitle.trim().toLocaleLowerCase());
 

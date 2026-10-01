@@ -1,3 +1,5 @@
+import { localizedLabels } from "@/lib/i18n/locale";
+
 /**
  * 一段问答的判断（verdict）：切段时只知道有没有回答（skipped / answered），评分落库后按分数推导（§11.2）。
  * 评分与报告按它解释"没答上"与"跳过"。
@@ -11,6 +13,9 @@ export const THREAD_VERDICT_LABELS: Record<ThreadVerdict, string> = {
   failed: "没答上",
   skipped: "跳过",
 };
+
+/** 界面按语言取：`THREAD_VERDICT_LABELS_I18N[locale][key]`（docs/i18n-plan.md）。 */
+export const THREAD_VERDICT_LABELS_I18N = localizedLabels(THREAD_VERDICT_LABELS, { answered: "Substantive answer", thin: "Keywords only", failed: "Could not answer", skipped: "Skipped" });
 
 /** 评分 → 判断：50 以下没答上，70 以下只有关键词，其余有实质回答。 */
 export function verdictForScore(score: number): ThreadVerdict {

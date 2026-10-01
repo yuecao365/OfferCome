@@ -12,6 +12,8 @@ import { RecentFeedbackCard } from "@/components/candidate-profile/recent-feedba
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { parseProfileDimension } from "@/lib/candidate-profile/types";
+import { useMessages } from "@/lib/i18n/client";
+import { defineMessages } from "@/lib/i18n/locale";
 import { trialAiTokenDocument } from "@/lib/trial/browser-store";
 import { createTrialProfileTransport } from "@/lib/trial/profile-actions";
 import { useStoredDocument } from "@/lib/trial/stored-document";
@@ -23,6 +25,19 @@ import {
 } from "@/lib/trial/workspace-profile";
 import { useTrialWorkspace } from "@/lib/trial/workspace-store";
 
+const messages = defineMessages({
+  "zh-CN": {
+    connectTitle: "连接模型后自动生成画像",
+    connectBody: "能力画像由逐段评分推导并由 AI 归纳而成。在设置页连接你自己的模型服务后，打开本页会自动分析工作台里的面试记录。",
+    goToSettings: "前往设置页",
+  },
+  en: {
+    connectTitle: "Connect a model to generate your profile",
+    connectBody: "Your capability profile is derived from per-segment scores and summarized by AI. Connect your own model service in Settings, and this page will analyze the interviews in your workspace automatically.",
+    goToSettings: "Go to Settings",
+  },
+});
+
 /**
  * 体验版的能力画像页：渲染与本地版相同的 CandidateProfileDashboard，
  * 评估/总结走无状态 API，聚合与状态推导复用本地版纯函数；岗位视角与合并同样有。
@@ -32,6 +47,7 @@ export function TrialProfilePage() {
   const workspace = useTrialWorkspace();
   const aiReady = useStoredDocument(trialAiTokenDocument) !== null;
   const transport = useMemo(() => createTrialProfileTransport(), []);
+  const t = useMessages(messages);
 
   if (!workspace) {
     // 首帧（SSR/未水合）还读不到浏览器数据，水合后立即补齐。
@@ -99,15 +115,14 @@ export function TrialProfilePage() {
       coldStartCard={
         !aiReady ? (
           <Card className="grid gap-3 p-5 text-sm text-muted-foreground">
-            <p className="font-semibold text-foreground">连接模型后自动生成画像</p>
+            <p className="font-semibold text-foreground">{t.connectTitle}</p>
             <p>
-              能力画像由逐段评分推导并由 AI 归纳而成。在设置页连接你自己的
-              模型服务后，打开本页会自动分析工作台里的面试记录。
+              {t.connectBody}
             </p>
             <div>
               <ButtonLink href="/settings" size="sm">
                 <Sparkles aria-hidden="true" className="size-4" />
-                前往设置页
+                {t.goToSettings}
               </ButtonLink>
             </div>
           </Card>

@@ -7,7 +7,7 @@ import { notesOf, parseEventRow, type InterviewEvent } from "@/lib/interview/eve
 import { parseJsonArray, parseJsonObject } from "@/lib/json";
 
 import { parseStoredBrief } from "./brief/brief";
-import { ALL_SKIPPED_SUMMARY, areaOutcomes, buildReport, summaryInput } from "./outcome";
+import { allSkippedSummary, areaOutcomes, buildReport, summaryInput } from "./outcome";
 import {
   evaluatePersistedMockInterviewQuestion,
   waitForRunningQuestionEvaluations,
@@ -143,8 +143,9 @@ export async function completeMockInterview(
               areas,
               notes: notesOf(session.events.map(parseEventRow).filter((item): item is InterviewEvent => item !== null)) ?? "",
             }),
+            brief.language,
           )
-        : ALL_SKIPPED_SUMMARY;
+        : allSkippedSummary(brief.language);
     const report = buildReport(areas, summary);
     const completedAt = new Date();
     // 简历假设的验证结论由汇总给（§11.2）：写回会话，跨场记忆读它。
@@ -173,7 +174,9 @@ export async function completeMockInterview(
       const weaknessesOf = new Map(session.interview.questions.map((question) => [question.id, question.evaluation ? (parseJsonArray(question.evaluation.weaknessesJson) as EvaluationWeakness[]) : []] as const));
       const scoreOf = new Map(session.interview.questions.map((question) => [question.id, question.evaluation?.score ?? null] as const));
       const strings = (value: unknown) => (Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : []);
+      // 档案按本场语言整份重写（docs/i18n-plan.md §1）。
       await writeCandidateDossier({
+        language: brief.language,
         resumeId: session.resumeId,
         sessionId,
         evalTag: existing.interview.evalTag,

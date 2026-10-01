@@ -2,6 +2,8 @@
 
 import type { CandidateProfileTransport } from "@/components/candidate-profile/candidate-profile-dashboard";
 import { deriveObservationsFromEvaluation } from "@/lib/candidate-profile/derive";
+import { browserLocale, browserMessages } from "@/lib/i18n/browser";
+import { contentLanguageOf, defineMessages, type ContentLanguage } from "@/lib/i18n/locale";
 
 import { assessInterview, isMissingAiConfig, synthesizeInsights } from "./client";
 import {
@@ -27,6 +29,17 @@ import { currentWorkspace, mutateWorkspace } from "./workspace-store";
  * 相同形状的数据喂给表盘。
  */
 
+const messages = defineMessages({
+  "zh-CN": {
+    notConfigured: "还没有连接模型服务，请到设置页连接后重试。",
+    refreshFailed: "画像刷新失败，请重试。",
+  },
+  en: {
+    notConfigured: "No model service connected yet. Connect one in Settings, then try again.",
+    refreshFailed: "Couldn't refresh your profile. Try again.",
+  },
+});
+
 type TrialRunState = {
   status: "idle" | "running" | "failed";
   phase: "idle" | "assessment" | "synthesis";
@@ -48,7 +61,7 @@ const runState: TrialRunState = {
 
 function friendlyMessage(caught: unknown, fallback: string): string {
   if (isMissingAiConfig(caught)) {
-    return "还没有连接模型服务，请到设置页连接后重试。";
+    return browserMessages(messages).notConfigured;
   }
   return caught instanceof Error ? caught.message : fallback;
 }
@@ -66,6 +79,8 @@ export async function refreshTrialProfile(): Promise<void> {
   runState.totalCount = assessable.length;
   runState.completedCount = assessable.length - pending.length;
   runState.lastError = null;
+  // 模型写的内容（洞察正文）跟界面语言走，与本地版同一口径。
+  const language = contentLanguageOf(browserLocale());
 
   try {
     for (const interview of pending.slice(0, ASSESSMENT_BATCH_SIZE)) {
@@ -74,7 +89,7 @@ export async function refreshTrialProfile(): Promise<void> {
         interview.kind === "mock"
           ? interview.questions.flatMap((question) =>
               question.evaluation && question.answer.trim()
-                ? deriveObservationsFromEvaluation({ questionId: question.id, answer: question.answer, dimensions: question.evaluation.dimensions })
+                ? deriveObservationsFromEvaluation({ questionId: question.id, answer: question.answer, dimensions: question.evaluation.dimensions, language })
                 : [],
             )
           : await assessInterview({
@@ -89,6 +104,7 @@ export async function refreshTrialProfile(): Promise<void> {
                   answer: question.answer,
                   category: question.category,
                 })),
+              language,
             });
       mutateWorkspace((current) =>
         applyTrialAssessment(
@@ -118,14 +134,14 @@ export async function refreshTrialProfile(): Promise<void> {
     }
 
     runState.phase = "synthesis";
-    await synthesizeAllViews();
+    await synthesizeAllViews(language);
 
     runState.status = "idle";
     runState.phase = "idle";
   } catch (caught) {
     runState.status = "failed";
     runState.phase = "idle";
-    runState.lastError = friendlyMessage(caught, "画像刷新失败，请重试。");
+    runState.lastError = friendlyMessage(caught, browserMessages(messages).refreshFailed);
     throw new Error(runState.lastError);
   }
 }
@@ -134,7 +150,7 @@ export async function refreshTrialProfile(): Promise<void> {
  * 每个视角（all + 各岗位）各总结一次，与本地版 refreshCandidateProfile 的循环同口径：
  * 1 场面试即可合成"初步印象"；一个视角一次模型调用。
  */
-async function synthesizeAllViews(): Promise<void> {
+async function synthesizeAllViews(language: ContentLanguage): Promise<void> {
   const workspace = currentWorkspace();
   const profile = trialProfile(workspace);
   const interviews = new Map(workspace.interviews.map((interview) => [interview.id, interview]));
@@ -159,6 +175,7 @@ async function synthesizeAllViews(): Promise<void> {
         })
         .slice(0, 120),
       lockedInsights: profile.insights.filter((insight) => insight.isUserLocked && (insight.roleKey ?? "all") === roleKey),
+      language,
     });
     views.push({
       roleKey,
@@ -213,7 +230,7 @@ export function createTrialProfileTransport(): CandidateProfileTransport {
       runState.status = "running";
       runState.phase = "synthesis";
       try {
-        await synthesizeAllViews();
+        await synthesizeAllViews(contentLanguageOf(browserLocale()));
       } finally {
         runState.status = "idle";
         runState.phase = "idle";

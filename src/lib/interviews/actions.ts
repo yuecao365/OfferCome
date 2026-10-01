@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { prisma } from "@/lib/db";
+import { defineMessages } from "@/lib/i18n/locale";
+import { getLocale } from "@/lib/i18n/server";
 import { toMutationError, type MutationState } from "@/lib/mutation-state";
 import { enqueueCandidateProfileRefresh } from "@/lib/candidate-profile/background";
 import { revalidateApplicationRoutes } from "@/lib/applications/revalidate";
@@ -25,6 +27,29 @@ import {
   parseInterviewFormData,
 } from "./types";
 import { diffInterviewQuestions } from "./question-diff";
+
+const messages = defineMessages({
+  "zh-CN": {
+    draftExpired: "导入草稿已过期或已被使用，请重新导入。",
+    created: "面试记录已创建。",
+    mockNotEditable: "AI 模拟面试不能通过历史记录表单编辑。",
+    invalidQuestions: "问题数据无效。",
+    updated: "面试记录已更新。",
+    projectMissing: "选择的实习/项目不存在，请刷新后重试。",
+    reclassified: (count: number) => `已重新归类 ${count} 条历史记录。`,
+    reclassifyFailed: "题目归类修改失败。",
+  },
+  en: {
+    draftExpired: "The import draft has expired or was already used. Import it again.",
+    created: "Interview added.",
+    mockNotEditable: "AI mock interviews can't be edited through the interview record form.",
+    invalidQuestions: "Invalid question data.",
+    updated: "Interview updated.",
+    projectMissing: "The selected internship/project no longer exists. Refresh and try again.",
+    reclassified: (count: number) => `Reclassified ${count} ${count === 1 ? "record" : "records"}.`,
+    reclassifyFailed: "Couldn't change the question category.",
+  },
+});
 
 function questionData(question: InterviewQuestionInput) {
   return {
@@ -102,7 +127,9 @@ export async function createInterview(
   _prevState: InterviewActionState,
   formData: FormData,
 ): Promise<InterviewActionState> {
-  const parsed = parseInterviewFormData(formData);
+  const locale = await getLocale();
+  const t = messages[locale];
+  const parsed = parseInterviewFormData(formData, locale);
   if (!parsed.ok) {
     return { status: "error", message: parsed.message };
   }
@@ -115,7 +142,7 @@ export async function createInterview(
         })
       : null;
   if (typeof artifactId === "string" && artifactId && !artifact) {
-    return { status: "error", message: "导入草稿已过期或已被使用，请重新导入。" };
+    return { status: "error", message: t.draftExpired };
   }
   const sourceType = artifact?.sourceType ?? "real_summary";
   const segmentsResult = artifact
@@ -162,7 +189,7 @@ export async function createInterview(
   await advanceApplicationStage(applicationId, parsed.value.round);
 
   revalidateInterviewRoutes();
-  return { status: "success", message: "面试记录已创建。" };
+  return { status: "success", message: t.created };
 }
 
 export async function updateInterview(
@@ -170,6 +197,8 @@ export async function updateInterview(
   _prevState: InterviewActionState,
   formData: FormData,
 ): Promise<InterviewActionState> {
+  const locale = await getLocale();
+  const t = messages[locale];
   const existing = await prisma.interview.findUnique({
     where: { id },
     select: {
@@ -179,10 +208,10 @@ export async function updateInterview(
     },
   });
   if (!existing || existing.kind === "mock") {
-    return { status: "error", message: "AI 模拟面试不能通过历史记录表单编辑。" };
+    return { status: "error", message: t.mockNotEditable };
   }
 
-  const parsed = parseInterviewFormData(formData);
+  const parsed = parseInterviewFormData(formData, locale);
   if (!parsed.ok) {
     return { status: "error", message: parsed.message };
   }
@@ -192,11 +221,12 @@ export async function updateInterview(
     questionDiff = diffInterviewQuestions(
       existing.questions,
       parsed.value.questions,
+      locale,
     );
   } catch (error) {
     return {
       status: "error",
-      message: error instanceof Error ? error.message : "问题数据无效。",
+      message: error instanceof Error ? error.message : t.invalidQuestions,
     };
   }
 
@@ -242,7 +272,7 @@ export async function updateInterview(
   await advanceApplicationStage(existing.applicationId, parsed.value.round);
 
   revalidateInterviewRoutes();
-  return { status: "success", message: "面试记录已更新。" };
+  return { status: "success", message: t.updated };
 }
 
 export async function deleteInterview(formData: FormData): Promise<void> {
@@ -275,6 +305,8 @@ export async function reclassifyInterviewQuestions(input: {
   category: string;
   resumeProjectId: string | null;
 }): Promise<MutationState> {
+  const locale = await getLocale();
+  const t = messages[locale];
   try {
     const parsed = reclassifyQuestionsSchema.parse(input);
     const resumeProjectId =
@@ -288,7 +320,7 @@ export async function reclassifyInterviewQuestions(input: {
       if (!project) {
         return {
           status: "error",
-          message: "选择的实习/项目不存在，请刷新后重试。",
+          message: t.projectMissing,
         };
       }
     }
@@ -299,8 +331,8 @@ export async function reclassifyInterviewQuestions(input: {
     });
 
     revalidateInterviewRoutes();
-    return { status: "success", message: `已重新归类 ${count} 条历史记录。` };
+    return { status: "success", message: t.reclassified(count) };
   } catch (error) {
-    return toMutationError(error, "题目归类修改失败。");
+    return toMutationError(error, t.reclassifyFailed);
   }
 }

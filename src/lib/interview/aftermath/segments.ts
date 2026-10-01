@@ -1,3 +1,4 @@
+import type { ContentLanguage } from "@/lib/i18n/locale";
 import { rubricForArea, type AreaKind, type InterviewArea, type RubricItem } from "@/lib/mock-interviews/brief/brief";
 import type { ThreadVerdict } from "@/lib/mock-interviews/verdicts";
 
@@ -40,8 +41,11 @@ export function categoryForKind(kind: AreaKind): string {
   return kind === "scenario" ? "system_design" : "technical";
 }
 
-export function segmentRecord(area: InterviewArea, segment: Segment): SegmentRecord {
-  const question = [segment.entryQuestion, ...segment.probes.map((probe, index) => `追问 ${index + 1}：${probe}`)].join("\n");
+/** 题面里追问的前缀，按场次语言（评分 agent 与报告都读题面）。 */
+const PROBE_PREFIX: Record<ContentLanguage, (index: number) => string> = { zh: (index) => `追问 ${index}：`, en: (index) => `Follow-up ${index}: ` };
+
+export function segmentRecord(area: InterviewArea, segment: Segment, language: ContentLanguage = "zh"): SegmentRecord {
+  const question = [segment.entryQuestion, ...segment.probes.map((probe, index) => `${PROBE_PREFIX[language](index + 1)}${probe}`)].join("\n");
   const answer = segment.answers.join("\n\n").trim();
   return {
     question,
@@ -50,7 +54,7 @@ export function segmentRecord(area: InterviewArea, segment: Segment): SegmentRec
     skipped: segment.skipped || segment.unanswered || !answer,
     category: categoryForKind(segment.kind),
     sourceKind: segment.kind,
-    rubric: area.rubric.length > 0 ? area.rubric : rubricForArea(segment.kind),
+    rubric: area.rubric.length > 0 ? area.rubric : rubricForArea(segment.kind, language),
     expectedSignals: area.expectedSignals,
     metadata: {
       areaId: segment.areaId,

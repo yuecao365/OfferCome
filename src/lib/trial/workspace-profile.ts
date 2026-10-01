@@ -3,6 +3,8 @@ import type {
 } from "@/components/candidate-profile/profile-graph-model";
 import { detectInsightConflict } from "@/lib/candidate-profile/conflict";
 import { normalizeRoleTitle } from "@/lib/candidate-profile/role-title";
+import { browserMessages } from "@/lib/i18n/browser";
+import { defineMessages } from "@/lib/i18n/locale";
 import {
   aggregateProfileDimension,
   deriveInsightStatus,
@@ -76,6 +78,17 @@ export function pendingAssessmentInterviews(
     (interview) => assessed[interview.id] !== trialInterviewFingerprint(interview),
   );
 }
+
+const messages = defineMessages({
+  "zh-CN": {
+    questionDeleted: "原问题已删除",
+    pickTwoRoles: "请选择两个不同的岗位视角。",
+  },
+  en: {
+    questionDeleted: "Original question deleted",
+    pickTwoRoles: "Choose two different role views.",
+  },
+});
 
 /* ------------------------------ 岗位视角 ------------------------------ */
 
@@ -192,7 +205,7 @@ export function trialProfileInsightViews(
           ),
           companyName: interview.companyName,
           jobTitle: interview.jobTitle,
-          question: question?.question ?? "原问题已删除",
+          question: question?.question ?? browserMessages(messages).questionDeleted,
           answer: question?.answer ?? "",
           interviewAt: interview.interviewedAt,
         },
@@ -329,7 +342,7 @@ export function applyTrialSynthesis(
 /** 与本地版 mergeRoleContexts 同语义：源视角的面试改挂到目标视角，源视角的洞察与快照清掉（锁定的搬过去）。 */
 export function mergeTrialRoles(workspace: TrialWorkspace, sourceKey: string, targetKey: string): TrialWorkspace {
   if (!sourceKey || !targetKey || sourceKey === targetKey || sourceKey === "all" || targetKey === "all") {
-    throw new Error("请选择两个不同的岗位视角。");
+    throw new Error(browserMessages(messages).pickTwoRoles);
   }
   const profile = trialProfile(workspace);
   return {

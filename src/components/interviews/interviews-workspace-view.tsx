@@ -1,3 +1,5 @@
+"use client";
+
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import type { ComponentProps } from "react";
@@ -17,6 +19,8 @@ import { buildCareerFlowSnapshot } from "@/lib/applications/analytics";
 import type { ApplicationStage } from "@/lib/applications/types";
 import type { CandidateProfileContextInsight } from "@/lib/candidate-profile/types";
 import { formatDate } from "@/lib/format/date";
+import { useLocale, useMessages } from "@/lib/i18n/client";
+import { defineMessages } from "@/lib/i18n/locale";
 import {
   buildInterviewConversionMetrics,
   buildInterviewHistorySummary,
@@ -24,8 +28,8 @@ import {
   mergeInterviewRoundEvidence,
 } from "@/lib/interviews/analytics";
 import {
+  INTERVIEW_STATUS_LABELS_I18N,
   roundLabel,
-  statusLabel,
   type InterviewRound,
   type InterviewStatus,
   type RealInterviewRoundCounts,
@@ -33,6 +37,49 @@ import {
   type ResumeProjectOption,
 } from "@/lib/interviews/types";
 import type { UpcomingInterviews } from "@/lib/interviews/upcoming";
+
+const messages = defineMessages({
+  "zh-CN": {
+    title: "面试工作台",
+    realLabel: "真实面试记录",
+    realNote: "已记录并可用于复盘与画像的真实面试。",
+    startMock: "开始 AI 模拟面试",
+    mockLabel: "模拟训练",
+    mockNote: "已完成的模拟面试",
+    offerLabel: "当前 Offer",
+    offerNote: "处于 Offer 阶段的岗位",
+    averageLabel: "模拟均分",
+    averageSuffix: "分",
+    averageNote: "已完成模拟面试的平均总分",
+    stageMap: "面试进程地图",
+    conversionTitle: "转化与训练表现",
+    conversionDescription: "所有百分比均展示明确分子、分母；样本不足时不生成百分比。",
+    recent: "最近面试",
+    noRecent: "还没有面试记录。",
+    questionCount: (n: number) => `${n} 个问题`,
+    score: (n: number) => ` · ${n} 分`,
+  },
+  en: {
+    title: "Interview workspace",
+    realLabel: "Real interview records",
+    realNote: "Real interviews recorded and available for review and your profile.",
+    startMock: "Start an AI mock interview",
+    mockLabel: "Mock sessions",
+    mockNote: "Completed mock interviews",
+    offerLabel: "Current offers",
+    offerNote: "Roles at the offer stage",
+    averageLabel: "Mock average",
+    averageSuffix: "pts",
+    averageNote: "Average total score of completed mock interviews",
+    stageMap: "Interview pipeline",
+    conversionTitle: "Conversion and practice performance",
+    conversionDescription: "Every percentage shows its numerator and denominator; none is shown when there isn't enough data.",
+    recent: "Recent interviews",
+    noRecent: "No interview records yet.",
+    questionCount: (n: number) => `${n} question${n === 1 ? "" : "s"}`,
+    score: (n: number) => ` · ${n} pts`,
+  },
+});
 
 /** 与本地版 getInterviewWorkspaceData / 体验版 interviewWorkspaceOverview 的共同返回形状。 */
 export type InterviewWorkspaceOverview = {
@@ -79,6 +126,8 @@ export function InterviewsWorkspaceView({
     "action" | "draftImportEnabled"
   >;
 }) {
+  const locale = useLocale();
+  const t = useMessages(messages);
   const flow = buildCareerFlowSnapshot(stageCounts);
   const applicationProgress = buildInterviewStageProgress(flow);
   const progress = mergeInterviewRoundEvidence(
@@ -88,6 +137,7 @@ export function InterviewsWorkspaceView({
   const conversionMetrics = buildInterviewConversionMetrics(
     applicationProgress,
     workspace.realInterviewCounts,
+    locale,
   );
   const historySummary = buildInterviewHistorySummary({
     realInterviewCounts: workspace.realInterviewCounts,
@@ -95,7 +145,7 @@ export function InterviewsWorkspaceView({
     averageMockScore: workspace.averageMockScore,
     progress,
     insights,
-  });
+  }, locale);
 
   return (
     <>
@@ -107,7 +157,7 @@ export function InterviewsWorkspaceView({
             {...newInterview}
           />
         }
-        title="面试工作台"
+        title={t.title}
       />
 
       <UpcomingInterviewsCard interviews={upcomingInterviews} />
@@ -115,25 +165,25 @@ export function InterviewsWorkspaceView({
       <StatTiles
         tiles={[
           {
-            label: "真实面试记录",
+            label: t.realLabel,
             value: workspace.realInterviewCounts.total,
-            note: "已记录并可用于复盘与画像的真实面试。",
+            note: t.realNote,
             action: (
               <ButtonLink href="/interviews/mock" size="sm">
-                开始 AI 模拟面试
+                {t.startMock}
                 <ArrowRight aria-hidden="true" className="size-4" />
               </ButtonLink>
             ),
           },
-          { label: "模拟训练", value: workspace.completedMockCount, note: "已完成的模拟面试" },
-          { label: "当前 Offer", value: progress.offer, note: "处于 Offer 阶段的岗位", tone: toneIf(progress.offer, "success") },
-          { label: "模拟均分", suffix: "分", value: Math.round(workspace.averageMockScore ?? 0), note: "已完成模拟面试的平均总分" },
+          { label: t.mockLabel, value: workspace.completedMockCount, note: t.mockNote },
+          { label: t.offerLabel, value: progress.offer, note: t.offerNote, tone: toneIf(progress.offer, "success") },
+          { label: t.averageLabel, suffix: t.averageSuffix, value: Math.round(workspace.averageMockScore ?? 0), note: t.averageNote },
         ]}
       />
 
       <Card>
         <CardHeader>
-          <CardTitle>面试进程地图</CardTitle>
+          <CardTitle>{t.stageMap}</CardTitle>
         </CardHeader>
         <CardContent>
           <InterviewStageFlow progress={progress} />
@@ -143,8 +193,8 @@ export function InterviewsWorkspaceView({
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)]">
         <Card>
           <CardHeader>
-            <CardTitle>转化与训练表现</CardTitle>
-            <CardDescription>所有百分比均展示明确分子、分母；样本不足时不生成百分比。</CardDescription>
+            <CardTitle>{t.conversionTitle}</CardTitle>
+            <CardDescription>{t.conversionDescription}</CardDescription>
           </CardHeader>
           <CardContent>
             <InterviewConversionOverview
@@ -166,11 +216,11 @@ export function InterviewsWorkspaceView({
 
       <Card>
         <CardHeader>
-          <CardTitle>最近面试</CardTitle>
+          <CardTitle>{t.recent}</CardTitle>
         </CardHeader>
         <CardContent className="py-1">
           {workspace.recent.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">还没有面试记录。</p>
+            <p className="py-8 text-center text-sm text-muted-foreground">{t.noRecent}</p>
           ) : (
             <div className="divide-y divide-border">
               {workspace.recent.map((interview) => (
@@ -191,11 +241,11 @@ export function InterviewsWorkspaceView({
                       {interview.kind === "mock" ? <MockTag /> : null}
                     </div>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {formatDate(interview.occurredAt)} · {roundLabel(interview.round)} · {interview.questionCount} 个问题
+                      {formatDate(interview.occurredAt, "", locale)} · {roundLabel(interview.round, locale)} · {t.questionCount(interview.questionCount)}
                     </p>
                   </div>
                   <span className="shrink-0 font-mono text-xs text-muted-foreground">
-                    {statusLabel(interview.status)}{interview.score !== null ? ` · ${interview.score} 分` : ""}
+                    {INTERVIEW_STATUS_LABELS_I18N[locale][interview.status]}{interview.score !== null ? t.score(interview.score) : ""}
                   </span>
                 </Link>
               ))}

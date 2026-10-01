@@ -3,9 +3,11 @@ import "server-only";
 import { createHash } from "node:crypto";
 
 import { prisma } from "@/lib/db";
+import { defineMessages, localeOfContent, type ContentLanguage } from "@/lib/i18n/locale";
 import { REAL_USAGE_INTERVIEW_WHERE } from "@/lib/interviews/types";
 import { deriveDeliveryObservation } from "@/lib/interviews/voice-metrics";
 import { parseJsonArray } from "@/lib/json";
+import { promptVersionFor } from "@/lib/mock-interviews/types";
 
 import { assessInterviewQuestions } from "./assessment-agent";
 import { deriveObservationsFromEvaluation, type ScoredDimension } from "./derive";
@@ -27,6 +29,11 @@ import {
  * 之后走同一条路：套用用户纠正、补语音观察、一个事务落库。
  * 幂等的关键是 sourceHash——面试内容与评分没变就直接复用已完成的评估。
  */
+
+const messages = defineMessages({
+  "zh-CN": { assessmentFailed: "面试评估失败。" },
+  en: { assessmentFailed: "Couldn't assess this interview." },
+});
 
 export type CompletedInterview = Awaited<
   ReturnType<typeof getCompletedInterviews>
@@ -97,7 +104,7 @@ export async function getCompletedInterviews() {
     include: {
       importArtifact: true,
       mockSession: {
-        select: { jdTextSnapshot: true, contextSnapshotJson: true },
+        select: { jdTextSnapshot: true, contextSnapshotJson: true, language: true },
       },
       questions: {
         include: { evaluation: true },
@@ -145,8 +152,9 @@ type TextObservations = {
   model: string | null;
 };
 
-/** 模拟面试：每段的评分表维度分直接映射成观察，零模型调用。 */
+/** 模拟面试：每段的评分表维度分直接映射成观察，零模型调用。缺口前缀按场次语言（评分就是用它写的）。 */
 function deriveMockObservations(interview: CompletedInterview): TextObservations {
+  const language: ContentLanguage = interview.mockSession?.language === "en" ? "en" : "zh";
   const observations = interview.questions.flatMap((question) => {
     const answer = question.answer?.trim();
     if (!answer || question.evaluation?.evaluationStatus !== "completed") return [];
@@ -154,6 +162,7 @@ function deriveMockObservations(interview: CompletedInterview): TextObservations
       questionId: question.id,
       answer,
       dimensions: parseJsonArray(question.evaluation.dimensionsJson) as ScoredDimension[],
+      language,
     });
   });
   return { observations, provider: null, model: null };
@@ -163,6 +172,7 @@ function deriveMockObservations(interview: CompletedInterview): TextObservations
 async function assessRealObservations(
   interview: CompletedInterview,
   sourceType: ProfileSourceType,
+  language: ContentLanguage,
 ): Promise<TextObservations> {
   const questions = interview.questions.flatMap((question) => {
     const answer = question.answer?.trim();
@@ -175,10 +185,15 @@ async function assessRealObservations(
     jobTitle: interview.jobTitle,
     sourceType,
     questions,
+    language,
   });
 }
 
-export async function assessInterview(interview: CompletedInterview, sourceHash: string) {
+/**
+ * language 是这次刷新的界面语言：只决定评估器提示词与报错的语言。观察本身（分数、回答原文摘录）与语言无关，
+ * 所以评估按 sourceHash 复用，不因换语言重跑。
+ */
+export async function assessInterview(interview: CompletedInterview, sourceHash: string, language: ContentLanguage = "zh") {
   const existing = await prisma.interviewAssessment.findUnique({
     where: {
       interviewId_sourceHash_assessmentVersion: {
@@ -204,7 +219,7 @@ export async function assessInterview(interview: CompletedInterview, sourceHash:
       interviewId: interview.id,
       sourceHash,
       assessmentVersion: PROFILE_ASSESSMENT_VERSION,
-      promptVersion: PROFILE_PROMPT_VERSION,
+      promptVersion: promptVersionFor(PROFILE_PROMPT_VERSION, language),
       status: "running",
     },
     update: { status: "running", error: null, startedAt: new Date() },
@@ -214,7 +229,7 @@ export async function assessInterview(interview: CompletedInterview, sourceHash:
     const analyzed =
       interview.kind === "mock"
         ? deriveMockObservations(interview)
-        : await assessRealObservations(interview, sourceType);
+        : await assessRealObservations(interview, sourceType, language);
 
     // 用户改过维度或排除过的观察，重新评估后照旧生效：按（题，原维度）对上。
     const priorCorrections = await prisma.abilityObservation.findMany({
@@ -284,7 +299,7 @@ export async function assessInterview(interview: CompletedInterview, sourceHash:
       where: { id: assessment.id },
       data: {
         status: "failed",
-        error: error instanceof Error ? error.message : "面试评估失败。",
+        error: error instanceof Error ? error.message : messages[localeOfContent(language)].assessmentFailed,
         completedAt: new Date(),
       },
     });

@@ -54,6 +54,8 @@
 - **针对练习**：从画像洞察或复盘题目发起，指定题作为 `practice` 短板带入备课。
 - 体验版：会话文档存 localStorage（`TrialInterview` v8），备课 / 回合 / 评分 / 交卷由房间页在浏览器驱动五个无状态接口；界面同一棵组件树。已知：开面试可能超 Vercel 60s。
 
+- **面试语言**（2026-09-30）：备课卡上与节奏并排选中文 / English，默认跟界面语言，存在会话上（`MockInterviewSession.language`、`brief.language`）。英文场次里面试官、笔记、评分、示范答案、总结、候选人档案都用英文产出，技能包读 `SKILL.en.md`；逐字引用的原文保留原语言。
+
 ## 7. 能力画像（`/interviews/profile`）
 
 - 六维度（知识准确、推理深度、经验证据、反思成长、表达清晰、语音流畅）等级 / 趋势 / 置信，按"全部"与每个岗位视角切换；洞察卡（strength / weakness / training_focus / pattern）带证据摘录，可锁定、修正、排除观察；洞察关系图（`profile-graph.tsx`）；近期逐题反馈卡；一键"针对练习"。
@@ -66,6 +68,7 @@
 - 本地版：版式左窄右宽——左边"模型总览"卡（三个任务各管什么、当前服务商 / 模型 / 脱敏 Key、已配置 / 缺 Key 徽章，`ai-settings-overview.tsx`），右边三张配置卡按文本 → 评分 → 语音排。每张按任务配服务商、Base URL、模型、Key，测试连通；存 `AppSetting`，前端脱敏。支持 OpenAI 兼容口（DeepSeek / GLM / Kimi / Qwen 等，`provider-contracts.md` 列契约差异，`npm run probe` 实测）。
 - 体验版：Key 校验后编码成连接串存浏览器（可选 session-only），随请求头发送，服务端不落盘。
 - 主题：深色默认，浅色可切（`localStorage["career-agent-theme"]`）。
+- 界面语言：中文 / English，侧栏底部（手机在顶栏、面试房间在右上）一键切换；存 cookie `offercome-locale`，没选过按浏览器首选语言。本地版与网页版同一机制。只翻界面，不翻用户数据。
 
 ## 9. 宣传页（`/showcase`）
 

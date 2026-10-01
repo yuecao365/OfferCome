@@ -13,6 +13,21 @@ import {
 import { chartAxisTick, chartTooltipStyle } from "@/components/dashboard/chart-theme";
 import type { ApplicationStageChartPoint } from "@/lib/applications/analytics";
 import type { ApplicationStage } from "@/lib/applications/types";
+import { useLocale, useMessages } from "@/lib/i18n/client";
+import { defineMessages } from "@/lib/i18n/locale";
+
+const messages = defineMessages({
+  "zh-CN": {
+    chartLabel: "岗位当前阶段横向条形图",
+    count: (n: string) => `${n} 个岗位`,
+    seriesName: "当前数量",
+  },
+  en: {
+    chartLabel: "Horizontal bar chart of applications by current stage",
+    count: (n: string) => `${n} applications`,
+    seriesName: "Current count",
+  },
+});
 
 /** 颜色只表达语义：未推进为灰，推进中为品牌色，结果态用成功/失败色。 */
 const stageColors: Record<ApplicationStage, string> = {
@@ -31,8 +46,10 @@ export default function ApplicationStageChartInner({
 }: {
   data: ApplicationStageChartPoint[];
 }) {
+  const t = useMessages(messages);
+  const locale = useLocale();
   return (
-    <div className="h-64 min-w-0 w-full" role="img" aria-label="岗位当前阶段横向条形图">
+    <div className="h-64 min-w-0 w-full" role="img" aria-label={t.chartLabel}>
       <ResponsiveContainer height="100%" width="100%">
         <BarChart data={data} layout="vertical" margin={{ bottom: 0, left: 0, right: 16, top: 0 }}>
           <XAxis
@@ -48,12 +65,12 @@ export default function ApplicationStageChartInner({
             tick={{ ...chartAxisTick, fontFamily: "var(--font-sans)" }}
             tickLine={false}
             type="category"
-            width={64}
+            width={locale === "en" ? 76 : 64}
           />
           <Tooltip
             contentStyle={chartTooltipStyle}
             cursor={{ fill: "var(--surface-subtle)" }}
-            formatter={(value) => [`${String(value)} 个岗位`, "当前数量"]}
+            formatter={(value) => [t.count(String(value)), t.seriesName]}
           />
           <Bar animationDuration={400} barSize={10} dataKey="count" radius={[0, 2, 2, 0]}>
             {data.map((point) => (

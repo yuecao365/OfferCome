@@ -2,6 +2,8 @@
 
 import type { ApplicationActionState } from "@/lib/applications/action-state";
 import { parseApplicationFormData } from "@/lib/applications/form";
+import { browserLocale, browserMessages } from "@/lib/i18n/browser";
+import { defineMessages } from "@/lib/i18n/locale";
 
 import {
   deleteApplication as deleteFromWorkspace,
@@ -16,11 +18,16 @@ import { mutateWorkspace } from "./workspace-store";
  * "什么算合法输入"永远一致，错误提示也一字不差。
  */
 
+const messages = defineMessages({
+  "zh-CN": { created: "投递记录已创建。", updated: "投递记录已更新。" },
+  en: { created: "Application added.", updated: "Application updated." },
+});
+
 export async function createTrialApplication(
   _previous: ApplicationActionState,
   formData: FormData,
 ): Promise<ApplicationActionState> {
-  const parsed = parseApplicationFormData(formData);
+  const parsed = parseApplicationFormData(formData, browserLocale());
   if (!parsed.ok) return { status: "error", message: parsed.message };
 
   mutateWorkspace((workspace) =>
@@ -35,7 +42,7 @@ export async function createTrialApplication(
       note: parsed.value.note ?? "",
     }),
   );
-  return { status: "success", message: "投递记录已创建。" };
+  return { status: "success", message: browserMessages(messages).created };
 }
 
 export async function updateTrialApplication(
@@ -43,7 +50,7 @@ export async function updateTrialApplication(
   _previous: ApplicationActionState,
   formData: FormData,
 ): Promise<ApplicationActionState> {
-  const parsed = parseApplicationFormData(formData);
+  const parsed = parseApplicationFormData(formData, browserLocale());
   if (!parsed.ok) return { status: "error", message: parsed.message };
 
   mutateWorkspace((workspace) =>
@@ -62,7 +69,7 @@ export async function updateTrialApplication(
       id,
     ),
   );
-  return { status: "success", message: "投递记录已更新。" };
+  return { status: "success", message: browserMessages(messages).updated };
 }
 
 export async function deleteTrialApplication(id: string): Promise<void> {

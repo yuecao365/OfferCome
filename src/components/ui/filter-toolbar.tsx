@@ -4,6 +4,13 @@ import { SlidersHorizontal } from "lucide-react";
 import { useId, useState, type ReactNode } from "react";
 
 import { cn } from "@/lib/cn";
+import { useMessages } from "@/lib/i18n/client";
+import { defineMessages } from "@/lib/i18n/locale";
+
+const messages = defineMessages({
+  "zh-CN": { more: "更多筛选", moreActive: "已启用更多筛选" },
+  en: { more: "More filters", moreActive: "More filters applied" },
+});
 
 /** 筛选工具条：一行主控件，可折叠的「更多筛选」在下一行整行展开。 */
 export function FilterToolbar({ children }: { children: ReactNode }) {
@@ -31,7 +38,7 @@ export function FilterSelect({ children }: { children: ReactNode }) {
  */
 export function FilterMore({
   active,
-  label = "更多筛选",
+  label,
   children,
 }: {
   active: boolean;
@@ -39,6 +46,7 @@ export function FilterMore({
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(active);
+  const t = useMessages(messages);
   const panelId = useId();
   return (
     <>
@@ -53,8 +61,8 @@ export function FilterMore({
         type="button"
       >
         <SlidersHorizontal aria-hidden="true" className="size-3.5" strokeWidth={1.5} />
-        {label}
-        {active ? <span aria-label="已启用更多筛选" className="size-1.5 rounded-full bg-brand" /> : null}
+        {label ?? t.more}
+        {active ? <span aria-label={t.moreActive} className="size-1.5 rounded-full bg-brand" /> : null}
       </button>
       <div
         className={cn(

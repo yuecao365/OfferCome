@@ -57,7 +57,8 @@ export function estimate(competencies: Competency[], observations: Observation[]
   });
 }
 
-export function levelLabel(value: number): string {
+export function levelLabel(value: number, locale: "zh-CN" | "en" = "zh-CN"): string {
+  if (locale === "en") return value < 0.4 ? "Low" : value < 0.7 ? "Medium" : "High";
   return value < 0.4 ? "低" : value < 0.7 ? "中" : "高";
 }
 

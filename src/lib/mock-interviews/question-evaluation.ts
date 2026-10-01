@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import type { ContentLanguage } from "@/lib/i18n/locale";
 import { normalizedText } from "@/lib/text/similarity";
 
 import type { AreaKind } from "./brief/brief";
@@ -149,17 +150,35 @@ export function parseStoredEvaluationList<T extends { point: string }>(
   });
 }
 
-const NUMBER_PATTERN = /\d+(?:[.,]\d+)?\s*(?:%|万|亿|k|K|ms|s|QPS|qps|TPS|tps)?/g;
+/**
+ * 示范里"算作数字"的片段与抹掉后的占位，按语言各一份。
+ * 中文：数字前后紧挨汉字是常态（"降了40%"），不能要求词边界。
+ * 英文：要求词边界，标识符里的数字（p99、k8s、S3、HTTP/2、GPT-4）不算指标；千分位逗号（1,000）归一后再比。
+ */
+const withoutThousandsCommas = (value: string) => value.replace(/(\d),(?=\d{3}(?!\d))/g, "$1");
+const NUMBER_STRIP: Record<ContentLanguage, { pattern: RegExp; placeholder: string; normalize: (value: string) => string }> = {
+  zh: {
+    pattern: /\d+(?:[.,]\d+)?\s*(?:%|万|亿|k|K|ms|s|QPS|qps|TPS|tps)?/g,
+    placeholder: "……",
+    normalize: normalizedText,
+  },
+  en: {
+    pattern: /(?<![\p{L}\d.,/-])\d+(?:[.,]\d+)*(?:\s*(?:%|x|×|k|K|M|B|ms|s|QPS|qps|TPS|tps|RPS|rps|GB|MB|TB))?(?![\p{L}\d])/gu,
+    placeholder: "…",
+    normalize: (value) => withoutThousandsCommas(normalizedText(value)),
+  },
+};
 
-/** 示范里的数字必须能在简历或回答里找到；找不到的抹成"……"。 */
-export function stripUnverifiedNumbers(exemplar: string, sources: string[]): { text: string; removed: number } {
-  const haystack = sources.map(normalizedText).join("\n");
+/** 示范里的数字必须能在简历或回答里找到；找不到的抹成占位（中文"……"，英文"…"）。 */
+export function stripUnverifiedNumbers(exemplar: string, sources: string[], language: ContentLanguage = "zh"): { text: string; removed: number } {
+  const rule = NUMBER_STRIP[language];
+  const haystack = sources.map(rule.normalize).join("\n");
   let removed = 0;
-  const text = exemplar.replace(NUMBER_PATTERN, (match) => {
-    const digits = match.replace(/[^\d.,]/g, "");
+  const text = exemplar.replace(rule.pattern, (match) => {
+    const digits = rule.normalize(match.replace(/[^\d.,]/g, ""));
     if (digits.length === 0 || haystack.includes(normalizedText(digits))) return match;
     removed += 1;
-    return "……";
+    return rule.placeholder;
   });
   return { text, removed };
 }

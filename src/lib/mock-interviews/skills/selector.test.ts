@@ -42,3 +42,14 @@ test("packs for the interview follow the brief order, skip unknown names, and dr
   const names = packsForInterview(["backend", "java", "backend-java", "java", "project-deep-dive"], packs).map((pack) => pack.name);
   assert.deepEqual(names, ["backend", "java", "project-deep-dive"]);
 });
+
+test("English sessions: the index, pack header and detail-pack section around the English pack bodies are in English", async () => {
+  const packs = await loadSkillPacks("en");
+  const top = packs.filter((pack) => pack.layer !== "detail");
+  const index = renderSkillIndex(top, { keywords: true, language: "en" });
+  assert.match(index, /^- test-qa \(domain\): .*\(keywords: /m);
+  const backend = loadSkillText("backend", packs, "en");
+  assert.match(backend, /^### Skill pack: backend\n/);
+  assert.match(backend, /## Optional detail packs\n[\s\S]*^- go: /m);
+  assert.match(loadSkillText("nope", packs, "en"), /^Skill pack nope doesn't exist\./);
+});

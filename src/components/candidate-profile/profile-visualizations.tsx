@@ -15,10 +15,46 @@ import { EmptyState } from "@/components/ui/empty-state";
 import {
   PROFILE_DIMENSIONS,
   PROFILE_DIMENSION_GROUPS,
-  PROFILE_DIMENSION_LABELS,
+  PROFILE_DIMENSION_GROUP_TEXT_I18N,
+  PROFILE_DIMENSION_LABELS_I18N,
   type ProfileDimension,
 } from "@/lib/candidate-profile/types";
+import { useLocale, useMessages } from "@/lib/i18n/client";
+import { defineMessages } from "@/lib/i18n/locale";
 import { useReducedMotion } from "@/lib/use-reduced-motion";
+
+import { evidenceConfidenceLabel, profileLevelLabel } from "./profile-labels";
+
+const messages = defineMessages({
+  "zh-CN": {
+    barsAria: "能力分组等级与证据置信度",
+    groupEmpty: "这一组还没有可用证据，完成一场面试或模拟面试后出现。",
+    barAria: (dimension: string, level: string, confidence: string) => `${dimension}，${level}，证据${confidence}`,
+    tentative: "初步",
+    interviews: (n: number) => `${n} 场证据`,
+    confidence: (label: string) => `置信度：${label}`,
+    timelineEmptyDescription: "能力画像更新后会在这里记录变化。",
+    timelineEmptyTitle: "还没有成长记录",
+    chooseDimensions: "选择成长记录维度",
+    timelineAria: "能力等级成长时间轴",
+    historyTitle: "历史等级曲线",
+    historyAria: "历史等级变化",
+  },
+  en: {
+    barsAria: "Level and evidence confidence by ability group",
+    groupEmpty: "No usable evidence in this group yet. It appears after an interview or mock interview.",
+    barAria: (dimension: string, level: string, confidence: string) => `${dimension}, ${level}, evidence ${confidence}`,
+    tentative: "Preliminary",
+    interviews: (n: number) => `Evidence from ${n} interview${n === 1 ? "" : "s"}`,
+    confidence: (label: string) => `Confidence: ${label}`,
+    timelineEmptyDescription: "Changes will be recorded here as your capability profile updates.",
+    timelineEmptyTitle: "No growth history yet",
+    chooseDimensions: "Choose dimensions for growth history",
+    timelineAria: "Capability level timeline",
+    historyTitle: "Level history",
+    historyAria: "Level changes over time",
+  },
+});
 
 type AbilityMetric = {
   dimension: ProfileDimension;
@@ -66,8 +102,10 @@ export function ProfileAbilityBars({
   metrics: AbilityMetric[];
   onSelect: (dimension: ProfileDimension) => void;
 }) {
+  const locale = useLocale();
+  const t = useMessages(messages);
   return (
-    <div aria-label="能力分组等级与证据置信度" className="grid gap-5">
+    <div aria-label={t.barsAria} className="grid gap-5">
       {PROFILE_DIMENSION_GROUPS.map((group) => {
         const groupMetrics = group.dimensions.map((dimension) => ({
           dimension,
@@ -79,21 +117,23 @@ export function ProfileAbilityBars({
         return (
           <section className="grid gap-3" key={group.key}>
             <div className="flex items-baseline justify-between gap-3">
-              <h3 className="text-sm font-semibold text-foreground">{group.label}</h3>
-              <span className="text-xs text-muted-foreground">{group.description}</span>
+              <h3 className="text-sm font-semibold text-foreground">{PROFILE_DIMENSION_GROUP_TEXT_I18N[locale][group.key].label}</h3>
+              <span className="text-xs text-muted-foreground">{PROFILE_DIMENSION_GROUP_TEXT_I18N[locale][group.key].description}</span>
             </div>
             {withData.length === 0 ? (
               <p className="rounded-lg border border-dashed border-border-strong bg-surface-subtle p-3 text-sm text-muted-foreground">
-                这一组还没有可用证据，完成一场面试或模拟面试后出现。
+                {t.groupEmpty}
               </p>
             ) : (
               <div className="grid gap-3 sm:grid-cols-2">
                 {withData.map(({ dimension, metric }) => {
                   const width = Math.max(0, Math.min(100, ((metric!.level ?? 0) / 5) * 100));
                   const tentative = (metric!.interviewCount ?? 0) < 3;
+                  const level = profileLevelLabel(metric!.levelLabel, locale);
+                  const confidence = evidenceConfidenceLabel(metric!.confidenceLabel, locale);
                   return (
                     <button
-                      aria-label={`${PROFILE_DIMENSION_LABELS[dimension]}，${metric!.levelLabel}，证据${metric!.confidenceLabel}`}
+                      aria-label={t.barAria(PROFILE_DIMENSION_LABELS_I18N[locale][dimension], level, confidence)}
                       className={`rounded-panel border bg-surface p-4 text-left transition-colors duration-150 hover:bg-surface-subtle ${confidenceClass(metric!.evidenceConfidence)}`}
                       key={dimension}
                       onClick={() => onSelect(dimension)}
@@ -101,12 +141,12 @@ export function ProfileAbilityBars({
                     >
                       <span className="flex items-center justify-between gap-3">
                         <span className="text-sm font-semibold text-foreground">
-                          {PROFILE_DIMENSION_LABELS[dimension]}
+                          {PROFILE_DIMENSION_LABELS_I18N[locale][dimension]}
                         </span>
                         <span className="text-sm font-semibold text-brand">
-                          {metric!.levelLabel}
+                          {level}
                           {tentative ? (
-                            <span className="ml-1 font-normal text-muted-foreground">初步</span>
+                            <span className="ml-1 font-normal text-muted-foreground">{t.tentative}</span>
                           ) : null}
                         </span>
                       </span>
@@ -117,8 +157,8 @@ export function ProfileAbilityBars({
                         />
                       </span>
                       <span className="mt-2 flex items-center justify-between gap-3 text-xs text-muted-foreground">
-                        <span>{metric!.interviewCount} 场证据</span>
-                        <span>置信度：{metric!.confidenceLabel}</span>
+                        <span>{t.interviews(metric!.interviewCount)}</span>
+                        <span>{t.confidence(confidence)}</span>
                       </span>
                     </button>
                   );
@@ -134,6 +174,8 @@ export function ProfileAbilityBars({
 
 export function ProfileTimelineChart({ snapshots }: { snapshots: ProfileSnapshot[] }) {
   const reducedMotion = useReducedMotion();
+  const locale = useLocale();
+  const t = useMessages(messages);
   const availableDimensions = useMemo(
     () =>
       PROFILE_DIMENSIONS.filter((dimension) =>
@@ -172,8 +214,8 @@ export function ProfileTimelineChart({ snapshots }: { snapshots: ProfileSnapshot
   if (availableDimensions.length === 0) {
     return (
       <EmptyState
-        description="能力画像更新后会在这里记录变化。"
-        title="还没有成长记录"
+        description={t.timelineEmptyDescription}
+        title={t.timelineEmptyTitle}
       />
     );
   }
@@ -188,7 +230,7 @@ export function ProfileTimelineChart({ snapshots }: { snapshots: ProfileSnapshot
 
   return (
     <div className="grid gap-4">
-      <div aria-label="选择成长记录维度" className="flex flex-wrap gap-2">
+      <div aria-label={t.chooseDimensions} className="flex flex-wrap gap-2">
         {availableDimensions.map((dimension) => {
           const active = visibleDimensions.includes(dimension);
           return (
@@ -202,12 +244,12 @@ export function ProfileTimelineChart({ snapshots }: { snapshots: ProfileSnapshot
               onClick={() => toggleDimension(dimension)}
               type="button"
             >
-              {PROFILE_DIMENSION_LABELS[dimension]}
+              {PROFILE_DIMENSION_LABELS_I18N[locale][dimension]}
             </button>
           );
         })}
       </div>
-      <div aria-label="能力等级成长时间轴" className="h-80 rounded-panel border border-border bg-surface p-3" role="img">
+      <div aria-label={t.timelineAria} className="h-80 rounded-panel border border-border bg-surface p-3" role="img">
         <ResponsiveContainer height="100%" width="100%">
           <LineChart data={data} margin={{ bottom: 8, left: -12, right: 12, top: 12 }}>
             <CartesianGrid stroke="var(--border)" strokeDasharray="3 4" />
@@ -230,7 +272,7 @@ export function ProfileTimelineChart({ snapshots }: { snapshots: ProfileSnapshot
                 dot={{ r: 3 }}
                 isAnimationActive={!reducedMotion}
                 key={dimension}
-                name={PROFILE_DIMENSION_LABELS[dimension]}
+                name={PROFILE_DIMENSION_LABELS_I18N[locale][dimension]}
                 stroke={DIMENSION_COLORS[dimension]}
                 strokeWidth={2}
                 type="monotone"
@@ -245,14 +287,15 @@ export function ProfileTimelineChart({ snapshots }: { snapshots: ProfileSnapshot
 
 export function MiniHistoryChart({ points }: { points: Array<{ date: string; level: number }> }) {
   const reducedMotion = useReducedMotion();
+  const t = useMessages(messages);
   const data = points.map((point) => ({
     date: point.date.slice(0, 10),
     level: point.level,
   }));
   return (
     <div className="mt-5">
-      <p className="mb-2 text-xs text-muted-foreground">历史等级曲线</p>
-      <div aria-label="历史等级变化" className="h-24 w-full" role="img">
+      <p className="mb-2 text-xs text-muted-foreground">{t.historyTitle}</p>
+      <div aria-label={t.historyAria} className="h-24 w-full" role="img">
         <ResponsiveContainer height="100%" width="100%">
           <LineChart data={data} margin={{ bottom: 4, left: 4, right: 4, top: 4 }}>
             <Line

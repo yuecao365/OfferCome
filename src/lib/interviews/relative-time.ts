@@ -1,4 +1,5 @@
 import { formatTimeOfDay } from "@/lib/format/date";
+import type { Locale } from "@/lib/i18n/locale";
 
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;
@@ -11,18 +12,22 @@ const DAY_MS = 24 * HOUR_MS;
 export function describeInterviewTime(
   interviewedAt: Date,
   now: Date = new Date(),
+  locale: Locale = "zh-CN",
 ): string {
+  const en = locale === "en";
+  const time = () => formatTimeOfDay(interviewedAt, "", locale);
   const diff = interviewedAt.getTime() - now.getTime();
 
   if (diff <= 0) {
     const elapsed = -diff;
-    if (elapsed < HOUR_MS) return "刚刚结束";
-    if (elapsed < DAY_MS) return `${Math.floor(elapsed / HOUR_MS)} 小时前`;
-    return `${Math.floor(elapsed / DAY_MS)} 天前`;
+    if (elapsed < HOUR_MS) return en ? "Just ended" : "刚刚结束";
+    if (elapsed < DAY_MS) return en ? `${Math.floor(elapsed / HOUR_MS)} h ago` : `${Math.floor(elapsed / HOUR_MS)} 小时前`;
+    return en ? `${Math.floor(elapsed / DAY_MS)} d ago` : `${Math.floor(elapsed / DAY_MS)} 天前`;
   }
 
   if (diff < HOUR_MS) {
-    return `${Math.max(1, Math.round(diff / MINUTE_MS))} 分钟后`;
+    const minutes = Math.max(1, Math.round(diff / MINUTE_MS));
+    return en ? `in ${minutes} min` : `${minutes} 分钟后`;
   }
 
   const startOfToday = new Date(now);
@@ -31,8 +36,8 @@ export function describeInterviewTime(
     (interviewedAt.getTime() - startOfToday.getTime()) / DAY_MS,
   );
 
-  if (daysAhead === 0) return `今天 ${formatTimeOfDay(interviewedAt)}`;
-  if (daysAhead === 1) return `明天 ${formatTimeOfDay(interviewedAt)}`;
-  if (daysAhead === 2) return `后天 ${formatTimeOfDay(interviewedAt)}`;
-  return `${daysAhead} 天后`;
+  if (daysAhead === 0) return en ? `Today ${time()}` : `今天 ${time()}`;
+  if (daysAhead === 1) return en ? `Tomorrow ${time()}` : `明天 ${time()}`;
+  if (daysAhead === 2) return en ? `In 2 days, ${time()}` : `后天 ${time()}`;
+  return en ? `in ${daysAhead} days` : `${daysAhead} 天后`;
 }

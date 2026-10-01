@@ -3,15 +3,37 @@ import type {
   ResumeExperienceType,
 } from "./extract";
 
+import { defineMessages, localizedLabels, type Locale } from "@/lib/i18n/locale";
+
+const messages = defineMessages({
+  "zh-CN": {
+    rulesSourceNote: "本次按简历章节规则识别，连接模型服务后识别会更准确。",
+    nameRequired: "实习/项目名称不能为空。",
+    existingMissing: "选择的已有实习/项目不存在，请刷新后重试。",
+  },
+  en: {
+    rulesSourceNote:
+      "Detected from resume section headings this time. Connect a model service for more accurate results.",
+    nameRequired: "Internship/project name can't be empty.",
+    existingMissing:
+      "The selected internship/project no longer exists. Refresh and try again.",
+  },
+});
+
+/** 界面按语言取：`RESUME_EXPERIENCE_TYPE_LABELS_I18N[locale][type]`。 */
+export const RESUME_EXPERIENCE_TYPE_LABELS_I18N = localizedLabels<ResumeExperienceType>(
+  { internship: "实习", project: "项目" },
+  { internship: "Internship", project: "Project" },
+);
+
 /** 识别结果来自模型抽取还是章节规则；确认面板据此提示用户。 */
 export type ResumeExperienceExtractionSource = "model" | "rules";
 
 export function resumeExtractionSourceNote(
   source: ResumeExperienceExtractionSource | undefined,
+  locale: Locale = "zh-CN",
 ): string | null {
-  return source === "rules"
-    ? "本次按简历章节规则识别，连接模型服务后识别会更准确。"
-    : null;
+  return source === "rules" ? messages[locale].rulesSourceNote : null;
 }
 
 export type ExistingResumeProjectOption = {
@@ -93,15 +115,18 @@ export type ResumeExperienceFields = {
 };
 
 /** Trims and validates the fields shared by the upload panel and the resume project editor. */
-export function normalizeResumeExperienceFields(input: {
-  name: string;
-  type?: string | null;
-  organization?: string | null;
-  description?: string | null;
-}): ResumeExperienceFields {
+export function normalizeResumeExperienceFields(
+  input: {
+    name: string;
+    type?: string | null;
+    organization?: string | null;
+    description?: string | null;
+  },
+  locale: Locale = "zh-CN",
+): ResumeExperienceFields {
   const name = input.name.trim();
   if (!name) {
-    throw new Error("实习/项目名称不能为空。");
+    throw new Error(messages[locale].nameRequired);
   }
 
   return {
@@ -114,8 +139,9 @@ export function normalizeResumeExperienceFields(input: {
 
 export function resumeExperienceTypeLabel(
   type: ResumeExperienceType,
-): "实习" | "项目" {
-  return type === "internship" ? "实习" : "项目";
+  locale: Locale = "zh-CN",
+): string {
+  return RESUME_EXPERIENCE_TYPE_LABELS_I18N[locale][type];
 }
 
 function normalizeResumeProjectName(value: string): string {
@@ -281,6 +307,7 @@ function findExactExistingProject(
 export function resolveResumeExperienceConfirmations(
   inputs: ResumeExperienceConfirmationInput[],
   existingProjects: ExistingResumeProjectOption[],
+  locale: Locale = "zh-CN",
 ): ResolvedResumeExperienceConfirmations {
   const existingById = new Map(existingProjects.map((project) => [project.id, project]));
   const creates: ResolvedResumeProjectCreate[] = [];
@@ -292,7 +319,7 @@ export function resolveResumeExperienceConfirmations(
       type: input.type,
       organization: input.organization,
       description: input.description,
-    });
+    }, locale);
     const finalName = fields.name;
     const type = fields.type;
 
@@ -312,7 +339,7 @@ export function resolveResumeExperienceConfirmations(
     if (input.existingItemId) {
       const existing = existingById.get(input.existingItemId);
       if (!existing) {
-        throw new Error("选择的已有实习/项目不存在，请刷新后重试。");
+        throw new Error(messages[locale].existingMissing);
       }
 
       links.push({ ...base, resumeProjectId: existing.id });

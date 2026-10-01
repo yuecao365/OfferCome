@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-export type Language = "zh" | "en";
+import { defineMessages } from "@/lib/i18n/locale";
 
 export type Feature = { title: string; description: string };
 
@@ -9,11 +9,15 @@ export type Figure = { value: string; label: string; note: string };
 
 export type ShowcaseCopy = {
   navigationLabel: string;
+  languageSwitchLabel: string;
   enterProduct: string;
   heroTitle: readonly [string, string];
+  /** 标题末尾那个点睛色的句号。 */
+  heroPeriod: string;
   heroDescription: ReactNode;
   experienceProduct: string;
   localDeploy: string;
+  localDeployHref: string;
   trustPoints: readonly [string, string, string];
   replay: { label: string; youSaid: string; itAsked: string; why: string; excerptNote: string };
   askEyebrow: string;
@@ -24,7 +28,7 @@ export type ShowcaseCopy = {
   reportEyebrow: string;
   reportTitle: string;
   reportDescription: string;
-  reportLabels: { score: string; summary: string; weaknesses: string; practice: string; hypotheses: string; footer: string };
+  reportLabels: { score: string; summary: string; weaknesses: string; practice: (text: string) => string; hypotheses: string; footer: string };
   figures: readonly [Figure, Figure, Figure];
   loopEyebrow: string;
   loopTitle: string;
@@ -39,11 +43,14 @@ export type ShowcaseCopy = {
   footerNote: string;
 };
 
-export const showcaseCopy = {
-  zh: {
+/** 跟随全站界面语言（useLocale），切换也走全站的 useSetLocale。 */
+export const showcaseCopy = defineMessages<ShowcaseCopy>({
+  "zh-CN": {
     navigationLabel: "展示页导航",
+    languageSwitchLabel: "切换展示语言",
     enterProduct: "进入产品",
     heroTitle: ["每一场面试，", "都算数"],
+    heroPeriod: "。",
     heroDescription: (
       <>
         一个会<b>顺着你的回答往下追</b>的面试官。带着你的简历和目标岗位开场，追到你讲清楚或讲不下去为止；面完给你一张<b>每条依据都能回到原话</b>的评分卡。开源，数据留在本机。
@@ -51,6 +58,7 @@ export const showcaseCopy = {
     ),
     experienceProduct: "在线体验真实产品",
     localDeploy: "本地部署",
+    localDeployHref: "https://github.com/yuecao365/OfferCome/blob/main/README_CN.md#快速开始",
     trustPoints: ["数据默认留在本机", "在线体验只存你的浏览器", "用你自己的 API Key"],
     replay: { label: "真实场次回放", youSaid: "你说", itAsked: "它接着问", why: "它为什么这么问", excerptNote: "2026-09-20 一场真实模拟面试的节选，公司与候选人已匿名；面试官的话与理由是原文。" },
     askEyebrow: "它怎么问",
@@ -60,7 +68,7 @@ export const showcaseCopy = {
     reportEyebrow: "面完你拿到什么",
     reportTitle: "每一条评价，都能回到你的原话。",
     reportDescription: "报告先说失守在哪、练什么，再说站得住的，再核对简历上的说法经不经得起问。评分由独立于面试官的另一个 Agent 完成，它能查简历原文核对数字，引用必须逐字。",
-    reportLabels: { score: "面试总分", summary: "总体评价", weaknesses: "失守在哪、练什么", practice: "练", hypotheses: "简历上的说法经不经得起问", footer: "同一场的真实报告节选" },
+    reportLabels: { score: "面试总分", summary: "总体评价", weaknesses: "失守在哪、练什么", practice: (text) => `练：${text}`, hypotheses: "简历上的说法经不经得起问", footer: "同一场的真实报告节选" },
     figures: [
       { value: "0.10 vs 0.53", label: "评分卡里每场找不到原话的引用条数：本系统 vs 同一模型只用一段提示词", note: "30 场对照，候选人由模型模拟" },
       { value: "78.6% → 97.0%", label: "不支持结构化输出的模型：一次通过率 → 降级后可用产出率", note: "1636 次真实调用" },
@@ -88,8 +96,10 @@ export const showcaseCopy = {
   },
   en: {
     navigationLabel: "Showcase navigation",
+    languageSwitchLabel: "Change showcase language",
     enterProduct: "Open product",
     heroTitle: ["Every interview", "counts"],
+    heroPeriod: ".",
     heroDescription: (
       <>
         An interviewer that <b>follows your answer down</b>. It opens with your resume and the target role, keeps pressing until you have made your point or run out, and hands you a scorecard where <b>every judgement points at your own words</b>. Open source; your data stays on your machine.
@@ -97,6 +107,7 @@ export const showcaseCopy = {
     ),
     experienceProduct: "Explore the real product",
     localDeploy: "Run locally",
+    localDeployHref: "https://github.com/yuecao365/OfferCome#quick-start",
     trustPoints: ["Data stays on your device", "The online trial keeps data in your browser", "Bring your own API key"],
     replay: { label: "Replay of a real session", youSaid: "You said", itAsked: "It asked next", why: "Why it asked", excerptNote: "Excerpt from a real mock interview on 2026-09-20, company and candidate anonymised; the interviewer’s lines and reasons are verbatim." },
     askEyebrow: "How it questions",
@@ -106,7 +117,7 @@ export const showcaseCopy = {
     reportEyebrow: "What you get afterwards",
     reportTitle: "Every judgement points back at what you actually said.",
     reportDescription: "The report leads with where you lost ground and what to practise, then what held up, then whether the claims on your resume survived questioning. Scoring is done by a separate agent that can look up the resume to check numbers; quotes must be verbatim.",
-    reportLabels: { score: "Overall", summary: "Summary", weaknesses: "Where you lost ground, and what to practise", practice: "Practise", hypotheses: "Did the resume claims hold up", footer: "Excerpt from the same session’s real report" },
+    reportLabels: { score: "Overall", summary: "Summary", weaknesses: "Where you lost ground, and what to practise", practice: (text) => `Practise: ${text}`, hypotheses: "Did the resume claims hold up", footer: "Excerpt from the same session’s real report" },
     figures: [
       { value: "0.10 vs 0.53", label: "Unverifiable quotes per session in the scorecard: this system vs the same model with one prompt", note: "30 paired sessions; simulated candidates" },
       { value: "78.6% → 97.0%", label: "Models without native structured output: first-try pass rate → usable output after graceful degradation", note: "1,636 real calls" },
@@ -132,4 +143,4 @@ export const showcaseCopy = {
     viewSource: "View source",
     footerNote: "Local-first career workspace",
   },
-} satisfies Record<Language, ShowcaseCopy>;
+});

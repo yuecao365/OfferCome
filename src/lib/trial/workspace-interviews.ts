@@ -22,8 +22,16 @@ import {
 } from "@/lib/interviews/types";
 import type { UpcomingInterviews } from "@/lib/interviews/upcoming";
 import type { MockInterviewReport } from "@/lib/mock-interviews/report";
+import { browserMessages } from "@/lib/i18n/browser";
+import { defineMessages } from "@/lib/i18n/locale";
 
 import type { TrialWorkspace, TrialWorkspaceInterview, TrialWorkspaceQuestion } from "./workspace";
+
+/** 模拟面试记录的备注按创建时的界面语言写入，之后就是用户数据。 */
+const messages = defineMessages({
+  "zh-CN": { mockNote: "AI 模拟面试" },
+  en: { mockNote: "AI mock interview" },
+});
 
 /**
  * 体验版工作台的面试查询与统计。
@@ -116,7 +124,7 @@ export function addCompletedMockInterview(
     round: null,
     status: "completed",
     interviewedAt: now,
-    note: "AI 模拟面试",
+    note: browserMessages(messages).mockNote,
     questions: input.questions.map((question, index) => ({
       id: crypto.randomUUID(),
       question: question.question,

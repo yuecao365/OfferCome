@@ -1,3 +1,5 @@
+"use client";
+
 import { MessageSquarePlus, Play } from "lucide-react";
 import type { ComponentProps } from "react";
 
@@ -5,6 +7,21 @@ import { NewInterviewModal } from "@/components/interviews/interview-modals";
 import { ButtonLink, buttonClassName } from "@/components/ui/button";
 import type { ApplicationListItem } from "@/lib/applications/types";
 import type { ResumeProjectOption } from "@/lib/interviews/types";
+import { useMessages } from "@/lib/i18n/client";
+import { defineMessages } from "@/lib/i18n/locale";
+
+const messages = defineMessages({
+  "zh-CN": {
+    record: "记录面试",
+    mock: "AI 模拟面试",
+    mockAria: (target: string) => `用「${target}」开始 AI 模拟面试`,
+  },
+  en: {
+    record: "Record interview",
+    mock: "AI mock interview",
+    mockAria: (target: string) => `Start an AI mock interview for “${target}”`,
+  },
+});
 
 export type ApplicationInterviewContext = {
   resumeProjects: ResumeProjectOption[];
@@ -27,6 +44,7 @@ export function ApplicationInterviewActions({
   application: ApplicationListItem;
   context: ApplicationInterviewContext;
 }) {
+  const t = useMessages(messages);
   return (
     <>
       <NewInterviewModal
@@ -39,14 +57,14 @@ export function ApplicationInterviewActions({
         transcriptionConfigured={context.transcriptionConfigured}
         triggerClassName={buttonClassName({ variant: "ghost", size: "icon-sm" })}
         triggerLabel={<MessageSquarePlus aria-hidden="true" className="size-3.5" strokeWidth={1.5} />}
-        triggerTitle="记录面试"
+        triggerTitle={t.record}
         {...context.newInterview}
       />
       <ButtonLink
-        aria-label={`用「${application.companyName} · ${application.jobTitle}」开始 AI 模拟面试`}
+        aria-label={t.mockAria(`${application.companyName} · ${application.jobTitle}`)}
         href={`/interviews/mock?applicationId=${encodeURIComponent(application.id)}`}
         size="icon-sm"
-        title="AI 模拟面试"
+        title={t.mock}
         variant="ghost"
       >
         <Play aria-hidden="true" className="size-3.5" strokeWidth={1.5} />

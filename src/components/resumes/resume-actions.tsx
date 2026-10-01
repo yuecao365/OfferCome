@@ -4,10 +4,28 @@ import { CheckCircle2, Trash2 } from "lucide-react";
 import { useFormStatus } from "react-dom";
 
 import { Button } from "@/components/ui/button";
+import { useMessages } from "@/lib/i18n/client";
+import { defineMessages } from "@/lib/i18n/locale";
 import {
   deleteResume,
   setDefaultResume,
 } from "@/lib/resumes/actions";
+
+const messages = defineMessages({
+  "zh-CN": {
+    pending: "处理中",
+    delete: "删除",
+    setDefault: "设为默认",
+    deleteConfirm: "删除后将移除此简历文件及其与实习/项目的关联，但不会删除已保存的实习/项目记录。",
+  },
+  en: {
+    pending: "Working",
+    delete: "Delete",
+    setDefault: "Set as default",
+    deleteConfirm:
+      "This removes the resume file and its links to internships/projects. Saved internship/project records are kept.",
+  },
+});
 
 type ResumeActionsProps = {
   id: string;
@@ -24,6 +42,7 @@ function ActionButton({
 }: {
   action: "default" | "delete";
 }) {
+  const t = useMessages(messages);
   const { pending } = useFormStatus();
   const deleting = action === "delete";
   return (
@@ -39,7 +58,7 @@ function ActionButton({
       ) : (
         <CheckCircle2 aria-hidden="true" className="size-3.5" />
       )}
-      {pending ? "处理中" : deleting ? "删除" : "设为默认"}
+      {pending ? t.pending : deleting ? t.delete : t.setDefault}
     </Button>
   );
 }
@@ -49,8 +68,10 @@ export function ResumeActions({
   isDefault,
   setDefaultAction,
   deleteAction,
-  deleteConfirmMessage = "删除后将移除此简历文件及其与实习/项目的关联，但不会删除已保存的实习/项目记录。",
+  deleteConfirmMessage,
 }: ResumeActionsProps) {
+  const t = useMessages(messages);
+  const confirmMessage = deleteConfirmMessage ?? t.deleteConfirm;
   return (
     <div className="flex flex-wrap items-center gap-2">
       {!isDefault ? (
@@ -62,7 +83,7 @@ export function ResumeActions({
       <form
         action={deleteAction ?? deleteResume}
         onSubmit={(event) => {
-          if (!window.confirm(deleteConfirmMessage)) {
+          if (!window.confirm(confirmMessage)) {
             event.preventDefault();
           }
         }}

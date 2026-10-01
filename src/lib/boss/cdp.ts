@@ -3,7 +3,18 @@
 // Page.navigate 和 Input 事件，绝不能启用 Runtime。
 // （DOM 域已实测安全：启用后页面仍能正常加载岗位数据。）
 
+import { defineMessages, DEFAULT_LOCALE, type Locale } from "@/lib/i18n/locale";
+
 const DEFAULT_BOSS_CDP_PORT = 9333;
+
+const messages = defineMessages({
+  "zh-CN": {
+    cannotClose: "检测到已打开的 Boss 浏览器窗口且无法自动关闭，请手动关闭所有 Boss 窗口后重试。",
+  },
+  en: {
+    cannotClose: "A Boss browser window is already open and couldn't be closed automatically. Close all Boss windows and try again.",
+  },
+});
 
 export function getBossCdpPort(env: NodeJS.ProcessEnv = process.env): number {
   const parsed = Number(env.BOSS_CDP_PORT);
@@ -251,12 +262,13 @@ export async function closeBrowserGracefully(
   }
 }
 
-export async function ensureBossBrowserClosed(port: number): Promise<void> {
+export async function ensureBossBrowserClosed(
+  port: number,
+  locale: Locale = DEFAULT_LOCALE,
+): Promise<void> {
   if (!(await isBrowserAlive(port))) return;
   const closed = await closeBrowserGracefully(port);
   if (!closed) {
-    throw new Error(
-      "检测到已打开的 Boss 浏览器窗口且无法自动关闭，请手动关闭所有 Boss 窗口后重试。",
-    );
+    throw new Error(messages[locale].cannotClose);
   }
 }

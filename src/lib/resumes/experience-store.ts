@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
+import type { Locale } from "@/lib/i18n/locale";
 
 import {
   buildPendingResumeExperienceConfirmations,
@@ -97,6 +98,8 @@ const AUTO_LINK_MATCH_THRESHOLD = 0.85;
 export async function ensureResumeExperiences(input: {
   resumeId: string;
   resumeText: string;
+  /** 校验报错的界面语言；缺省中文。 */
+  locale?: Locale;
 }): Promise<{ createdCount: number; linkedCount: number }> {
   const existingLinks = await prisma.resumeProjectSource.count({
     where: { resumeId: input.resumeId },
@@ -123,7 +126,7 @@ export async function ensureResumeExperiences(input: {
           : null,
     }),
   );
-  const resolved = resolveResumeExperienceConfirmations(inputs, existingProjects);
+  const resolved = resolveResumeExperienceConfirmations(inputs, existingProjects, input.locale);
 
   return prisma.$transaction(async (tx) => {
     // 并发的两次生成可能同时走到这里；后到的以先到的为准。

@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import type { ComponentProps } from "react";
 
@@ -12,8 +14,10 @@ import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MetaText } from "@/components/ui/data-table";
 import { SegmentedLinks } from "@/components/ui/segmented-links";
+import { useLocale, useMessages } from "@/lib/i18n/client";
+import { defineMessages } from "@/lib/i18n/locale";
 import {
-  INTERVIEW_REVIEW_SOURCE_LABELS,
+  INTERVIEW_REVIEW_SOURCE_LABELS_I18N,
   INTERVIEW_REVIEW_PAGE_SIZE,
   projectIndexLabel,
   reviewHref,
@@ -23,10 +27,44 @@ import {
   type InterviewReviewSourceFilter,
 } from "@/lib/interviews/review";
 
-const QUESTION_CATEGORY_LABELS: Record<InterviewReviewQuestionCategory, string> = {
-  technical: "技术题",
-  general: "通用问题",
-};
+const messages = defineMessages({
+  "zh-CN": {
+    categories: { technical: "技术题", general: "通用问题" } as Record<InterviewReviewQuestionCategory, string>,
+    unlinked: "未关联实习/项目问题",
+    title: "面试复盘",
+    projects: "实习/项目",
+    questionBank: "通用问题库",
+    sourceAria: "复盘来源",
+    projectHint: (size: number) => `按相同问题聚合历史回答，每页最多 ${size} 个问题。`,
+    questionCount: (n: number) => `${n} 个问题`,
+    projectEmpty: "这个实习/项目还没有记录过面试问题。",
+    chooseProject: "请选择左侧某个实习或项目，右侧会集中展示相关问题和历史回答。",
+    bankHint: "选择分类后，按相同问题聚合不同面试中的回答。",
+    backToOverview: "返回概览",
+    categoryAria: "问题分类",
+    categoryHint: (size: number) => `每页最多显示 ${size} 个聚合问题。`,
+    categoryEmpty: "这个分类下还没有问题。",
+    chooseCategory: (technical: string, general: string) => `请选择“${technical}”或“${general}”，这里会展示对应的历史回答。`,
+  },
+  en: {
+    categories: { technical: "Technical", general: "General" },
+    unlinked: "Questions not linked to an internship / project",
+    title: "Interview review",
+    projects: "Internships / projects",
+    questionBank: "General question bank",
+    sourceAria: "Review source",
+    projectHint: (size: number) => `Past answers grouped by question, up to ${size} questions per page.`,
+    questionCount: (n: number) => `${n} question${n === 1 ? "" : "s"}`,
+    projectEmpty: "No interview questions recorded for this internship / project yet.",
+    chooseProject: "Pick an internship or project on the left to see its questions and past answers here.",
+    bankHint: "Pick a category to see answers from different interviews grouped by question.",
+    backToOverview: "Back to overview",
+    categoryAria: "Question category",
+    categoryHint: (size: number) => `Up to ${size} grouped questions per page.`,
+    categoryEmpty: "No questions in this category yet.",
+    chooseCategory: (technical: string, general: string) => `Choose "${technical}" or "${general}" to see the matching past answers.`,
+  },
+});
 
 /**
  * 面试复盘页的呈现层。本地版（服务端取数）和体验版（浏览器取数）
@@ -41,6 +79,8 @@ export function InterviewReviewView({
   data: InterviewReviewPageData;
   reclassifyAction?: ComponentProps<typeof QuestionReviewList>["reclassifyAction"];
 }) {
+  const locale = useLocale();
+  const t = useMessages(messages);
   const projectOptions = data.projects.map((project) => ({
     id: project.id,
     label: projectIndexLabel(project),
@@ -50,7 +90,7 @@ export function InterviewReviewView({
     data.unlinkedProjectQuestionCount;
   const selectedProjectTitle =
     filters.projectId === "unlinked"
-      ? "未关联实习/项目问题"
+      ? t.unlinked
       : data.selectedProject
         ? projectIndexLabel(data.selectedProject)
         : null;
@@ -58,7 +98,7 @@ export function InterviewReviewView({
   return (
     <>
       <PageHeader
-        title="面试复盘"
+        title={t.title}
       />
 
       <section className="grid gap-2 md:grid-cols-2">
@@ -66,20 +106,20 @@ export function InterviewReviewView({
           count={projectQuestionCount}
           href={reviewHref({ section: "projects", source: filters.source })}
           isActive={filters.section === "projects"}
-          title="实习/项目"
+          title={t.projects}
         />
         <ReviewScopeCard
           count={data.technicalQuestionCount + data.generalQuestionCount}
           href={reviewHref({ section: "question_bank", source: filters.source })}
           isActive={filters.section === "question_bank"}
-          title="通用问题库"
+          title={t.questionBank}
         />
       </section>
 
       <SegmentedLinks
-        ariaLabel="复盘来源"
+        ariaLabel={t.sourceAria}
         className="self-start"
-        items={(Object.keys(INTERVIEW_REVIEW_SOURCE_LABELS) as InterviewReviewSourceFilter[]).map(
+        items={(Object.keys(INTERVIEW_REVIEW_SOURCE_LABELS_I18N[locale]) as InterviewReviewSourceFilter[]).map(
           (source) => ({
             href: reviewHref({
               section: filters.section,
@@ -87,7 +127,7 @@ export function InterviewReviewView({
               category: filters.category,
               source,
             }),
-            label: INTERVIEW_REVIEW_SOURCE_LABELS[source],
+            label: INTERVIEW_REVIEW_SOURCE_LABELS_I18N[locale][source],
             active: filters.source === source,
           }),
         )}
@@ -119,15 +159,15 @@ export function InterviewReviewView({
                     <div>
                       <CardTitle>{selectedProjectTitle}</CardTitle>
                       <p className="mt-1 text-sm text-muted-foreground">
-                        按相同问题聚合历史回答，每页最多 {INTERVIEW_REVIEW_PAGE_SIZE} 个问题。
+                        {t.projectHint(INTERVIEW_REVIEW_PAGE_SIZE)}
                       </p>
                     </div>
-                    <MetaText>{data.questionsPage.total} 个问题</MetaText>
+                    <MetaText>{t.questionCount(data.questionsPage.total)}</MetaText>
                   </CardHeader>
                 </Card>
                 <QuestionReviewList
                   reclassifyAction={reclassifyAction}
-                  empty="这个实习/项目还没有记录过面试问题。"
+                  empty={t.projectEmpty}
                   items={data.questionsPage.items}
                   reclassifyProjects={projectOptions}
                 />
@@ -146,7 +186,7 @@ export function InterviewReviewView({
             ) : (
               <Card>
                 <CardContent className="flex min-h-48 items-center justify-center text-center text-sm text-muted-foreground">
-                  请选择左侧某个实习或项目，右侧会集中展示相关问题和历史回答。
+                  {t.chooseProject}
                 </CardContent>
               </Card>
             )}
@@ -159,19 +199,19 @@ export function InterviewReviewView({
           <Card>
             <CardHeader className="flex-row items-center justify-between gap-3">
               <div>
-                <CardTitle>通用问题库</CardTitle>
-                <p className="mt-1 text-sm text-muted-foreground">选择分类后，按相同问题聚合不同面试中的回答。</p>
+                <CardTitle>{t.questionBank}</CardTitle>
+                <p className="mt-1 text-sm text-muted-foreground">{t.bankHint}</p>
               </div>
               <Link className="text-xs text-muted-foreground hover:text-foreground" href={reviewHref({ section: "overview", source: filters.source })}>
-                返回概览
+                {t.backToOverview}
               </Link>
             </CardHeader>
             <CardContent className="py-4">
               <SegmentedLinks
-                ariaLabel="问题分类"
+                ariaLabel={t.categoryAria}
                 items={(["technical", "general"] as const).map((category) => ({
                   href: reviewHref({ section: "question_bank", category, source: filters.source }),
-                  label: `${QUESTION_CATEGORY_LABELS[category]} · ${
+                  label: `${t.categories[category]} · ${
                     category === "technical" ? data.technicalQuestionCount : data.generalQuestionCount
                   }`,
                   active: filters.category === category,
@@ -184,14 +224,14 @@ export function InterviewReviewView({
             <div className="grid gap-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-sm font-semibold text-foreground">{QUESTION_CATEGORY_LABELS[filters.category]}</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">每页最多显示 {INTERVIEW_REVIEW_PAGE_SIZE} 个聚合问题。</p>
+                  <h2 className="text-sm font-semibold text-foreground">{t.categories[filters.category]}</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">{t.categoryHint(INTERVIEW_REVIEW_PAGE_SIZE)}</p>
                 </div>
-                <MetaText>{data.questionsPage.total} 个问题</MetaText>
+                <MetaText>{t.questionCount(data.questionsPage.total)}</MetaText>
               </div>
               <QuestionReviewList
                 reclassifyAction={reclassifyAction}
-                empty="这个分类下还没有问题。"
+                empty={t.categoryEmpty}
                 items={data.questionsPage.items}
                 reclassifyProjects={projectOptions}
               />
@@ -210,7 +250,7 @@ export function InterviewReviewView({
           ) : (
             <Card>
               <CardContent className="flex min-h-40 items-center justify-center text-center text-sm text-muted-foreground">
-                请选择“技术题”或“通用问题”，这里会展示对应的历史回答。
+                {t.chooseCategory(t.categories.technical, t.categories.general)}
               </CardContent>
             </Card>
           )}

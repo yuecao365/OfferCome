@@ -6,10 +6,17 @@ import { loadSkillPacks } from "@/lib/mock-interviews/skills/loader";
 import { packsForInterview } from "@/lib/mock-interviews/skills/selector";
 import type { TrialEvaluation } from "@/lib/trial/interview";
 import { withTrialAi } from "@/lib/trial/route-handler";
+import { defineMessages, type ContentLanguage } from "@/lib/i18n/locale";
+import { getMessages } from "@/lib/i18n/server";
 
 export const runtime = "nodejs";
 /** 评分约 7 s，示范最多 45 s。 */
 export const maxDuration = 60;
+
+const messages = defineMessages({
+  "zh-CN": { noAnswer: "题目没有可评分的回答。" },
+  en: { noAnswer: "This question has no answer to score." },
+});
 
 type Body = {
   segment: TrialSegment;
@@ -18,6 +25,8 @@ type Body = {
   resumeText: string;
   /** 备课时加载过的技能包名，示范 agent 可查。 */
   skillPacks: string[];
+  /** 场次语言（brief.language）；旧客户端不传，按中文。 */
+  language?: ContentLanguage;
 };
 
 /**
@@ -27,7 +36,9 @@ type Body = {
 export const POST = withTrialAi<Body>(async (body) => {
   const metadata = body.segment.metadata;
   const answer = body.segment.answer?.trim();
-  if (!answer || body.segment.skipped) throw new Error("题目没有可评分的回答。");
+  if (!answer || body.segment.skipped) throw new Error((await getMessages(messages)).noAnswer);
+  const language: ContentLanguage = body.language === "en" ? "en" : "zh";
+  const skillPacks = packsForInterview(Array.isArray(body.skillPacks) ? body.skillPacks : [], await loadSkillPacks(language), 3);
   const { evaluation, score } = await evaluateMockInterviewQuestion({
     question: body.segment.question,
     answer,
@@ -38,7 +49,8 @@ export const POST = withTrialAi<Body>(async (body) => {
     thread: threadContext(metadata),
     competencies: [],
     resumeText: typeof body.resumeText === "string" ? body.resumeText : "",
-    skillPacks: packsForInterview(Array.isArray(body.skillPacks) ? body.skillPacks : [], await loadSkillPacks(), 3),
+    skillPacks,
+    language,
   });
 
   let exemplar: TrialEvaluation["exemplar"] = null;
@@ -51,7 +63,8 @@ export const POST = withTrialAi<Body>(async (body) => {
         answer,
         weaknesses: evaluation.weaknesses,
         resumeText: body.resumeText,
-        skillPacks: packsForInterview(Array.isArray(body.skillPacks) ? body.skillPacks : [], await loadSkillPacks(), 3),
+        skillPacks,
+        language,
       });
     } catch (error) {
       console.error("示范回答生成失败，评分照常。", error);

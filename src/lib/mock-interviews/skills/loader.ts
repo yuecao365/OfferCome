@@ -1,6 +1,8 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 
+import type { ContentLanguage } from "@/lib/i18n/locale";
+
 import { isSkillLayer, type SkillPack } from "./types";
 
 const SKILLS_DIR = path.join(
@@ -53,21 +55,31 @@ export function parseSkillMarkdown(raw: string): SkillPack | null {
   return { name, description, keywords, layer, domains, body: match[2]!.trim() };
 }
 
-let cachedPacks: SkillPack[] | null = null;
+const cachedPacks = new Map<ContentLanguage, SkillPack[]>();
 
-/** 读取全部内置技能包。目录名必须与 frontmatter name 一致（Anthropic 约定）。 */
-export async function loadSkillPacks(): Promise<SkillPack[]> {
-  if (cachedPacks) return cachedPacks;
+/** 某种语言的包文件：中文 SKILL.md，英文 SKILL.en.md；英文缺失时回退中文（docs/i18n-plan.md §4）。 */
+async function readPackFile(dir: string, language: ContentLanguage): Promise<string> {
+  if (language === "en") {
+    try {
+      return await readFile(path.join(SKILLS_DIR, dir, "SKILL.en.md"), "utf8");
+    } catch {
+      console.warn(`[skills] 技能包没有英文版，回退中文：${dir}`);
+    }
+  }
+  return readFile(path.join(SKILLS_DIR, dir, "SKILL.md"), "utf8");
+}
+
+/** 读取全部内置技能包（按面试语言）。目录名必须与 frontmatter name 一致（Anthropic 约定）。 */
+export async function loadSkillPacks(language: ContentLanguage = "zh"): Promise<SkillPack[]> {
+  const cached = cachedPacks.get(language);
+  if (cached) return cached;
 
   const entries = await readdir(SKILLS_DIR, { withFileTypes: true });
   const packs: SkillPack[] = [];
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
     try {
-      const raw = await readFile(
-        path.join(SKILLS_DIR, entry.name, "SKILL.md"),
-        "utf8",
-      );
+      const raw = await readPackFile(entry.name, language);
       const pack = parseSkillMarkdown(raw);
       if (pack && pack.name === entry.name) packs.push(pack);
       else console.warn(`[skills] 跳过无效技能包目录：${entry.name}`);
@@ -78,7 +90,7 @@ export async function loadSkillPacks(): Promise<SkillPack[]> {
 
   // parent 必须真实存在，否则上溯会断链。
   const names = new Set(packs.map((pack) => pack.name));
-  cachedPacks = packs.filter((pack) => {
+  const usable = packs.filter((pack) => {
     const missing = pack.domains.find((domain) => !names.has(domain));
     if (missing) {
       console.warn(`[skills] 技能包 ${pack.name} 声明的领域不存在：${missing}`);
@@ -86,5 +98,6 @@ export async function loadSkillPacks(): Promise<SkillPack[]> {
     }
     return true;
   });
-  return cachedPacks;
+  cachedPacks.set(language, usable);
+  return usable;
 }

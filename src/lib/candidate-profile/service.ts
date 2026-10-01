@@ -1,6 +1,16 @@
 import "server-only";
 
 import { prisma } from "@/lib/db";
+import {
+  contentLanguageOf,
+  DEFAULT_LOCALE,
+  defineMessages,
+  localeOfContent,
+  type ContentLanguage,
+  type Locale,
+} from "@/lib/i18n/locale";
+import { getLocale } from "@/lib/i18n/server";
+import { promptVersionFor } from "@/lib/mock-interviews/types";
 
 import { synthesizeCandidateInsights } from "./agent";
 import {
@@ -28,6 +38,36 @@ import {
  * 这里只负责租约、分批、状态机和失败回退。
  */
 
+const messages = defineMessages({
+  "zh-CN": {
+    refreshFailed: "画像刷新失败。",
+    insightMissing: "画像洞察不存在。",
+    invalidInsight: "请输入有效的标题和洞察内容。",
+    observationMissing: "能力证据不存在。",
+    invalidDimension: "请选择有效的能力维度。",
+    pickTwoRoles: "请选择两个不同的岗位视角。",
+    roleMissing: "岗位视角不存在或已被合并。",
+  },
+  en: {
+    refreshFailed: "Couldn't refresh your profile.",
+    insightMissing: "That insight no longer exists.",
+    invalidInsight: "Enter a title (up to 80 characters) and insight text (up to 500).",
+    observationMissing: "That piece of evidence no longer exists.",
+    invalidDimension: "Choose a valid ability dimension.",
+    pickTwoRoles: "Choose two different role views.",
+    roleMissing: "That role view doesn't exist or has already been merged.",
+  },
+});
+
+/** 本次请求的界面语言；不在请求里（后台恢复调度、测试）读不到 cookie，按默认语言。 */
+export async function requestLocale(): Promise<Locale> {
+  try {
+    return await getLocale();
+  } catch {
+    return DEFAULT_LOCALE;
+  }
+}
+
 /** 一次刷新最多评估几场面试。超出的留给下一批，避免单次跑太久。 */
 const ASSESSMENT_BATCH_SIZE = 3;
 
@@ -42,9 +82,15 @@ type RefreshResult =
   | { status: "processing"; completedCount: number; totalCount: number }
   | { status: "skipped"; reason: "not_due" | "running" | "clean" };
 
+/**
+ * language：模型写的洞察与报错用哪种语言（界面语言）。调用方在请求里定好传进来；
+ * 缺省按本次请求的界面语言，读不到时按中文。
+ */
 export async function refreshCandidateProfile({
   force = false,
-}: { force?: boolean } = {}): Promise<RefreshResult> {
+  language,
+}: { force?: boolean; language?: ContentLanguage } = {}): Promise<RefreshResult> {
+  const contentLanguage = language ?? contentLanguageOf(await requestLocale());
   const lease = await acquireProfileRefreshLease({ force });
   if (!lease.acquired) return { status: "skipped", reason: lease.reason };
 
@@ -65,7 +111,7 @@ export async function refreshCandidateProfile({
     data: {
       mode: force ? "manual" : "automatic",
       fullRebuild: lease.fullRebuild,
-      promptVersion: PROFILE_PROMPT_VERSION,
+      promptVersion: promptVersionFor(PROFILE_PROMPT_VERSION, contentLanguage),
       assessmentVersion: PROFILE_ASSESSMENT_VERSION,
       totalCount: interviews.length,
       completedCount: currentIds.size,
@@ -74,7 +120,7 @@ export async function refreshCandidateProfile({
 
   try {
     for (const interview of pending.slice(0, ASSESSMENT_BATCH_SIZE)) {
-      await assessInterview(interview, hashes.get(interview.id)!);
+      await assessInterview(interview, hashes.get(interview.id)!, contentLanguage);
       currentIds.add(interview.id);
     }
     const completedCount = currentIds.size;
@@ -154,6 +200,7 @@ export async function refreshCandidateProfile({
           .filter((item) => eligibleDimensions.has(item.dimension))
           .slice(0, 120),
         lockedInsights,
+        language: contentLanguage,
       });
       provider = synthesized.provider;
       model = synthesized.model;
@@ -203,7 +250,7 @@ export async function refreshCandidateProfile({
     ]);
     return { status: "success", revision, insightCount, completedCount, totalCount: interviews.length };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "画像刷新失败。";
+    const message = error instanceof Error ? error.message : messages[localeOfContent(contentLanguage)].refreshFailed;
     await Promise.all([
       prisma.candidateProfileState.updateMany({
         where: { id: PROFILE_STATE_ID, leaseToken: lease.token },
@@ -230,8 +277,9 @@ export async function updateCandidateInsight(input: {
   title?: string;
   statement?: string;
 }) {
+  const t = messages[await requestLocale()];
   const insight = await prisma.candidateInsight.findUnique({ where: { id: input.id } });
-  if (!insight) throw new Error("画像洞察不存在。");
+  if (!insight) throw new Error(t.insightMissing);
 
   if (input.action === "hide") {
     return prisma.candidateInsight.update({
@@ -249,7 +297,7 @@ export async function updateCandidateInsight(input: {
   const title = input.title?.trim();
   const statement = input.statement?.trim();
   if (!title || !statement || title.length > 80 || statement.length > 500) {
-    throw new Error("请输入有效的标题和洞察内容。");
+    throw new Error(t.invalidInsight);
   }
   return prisma.candidateInsight.update({
     where: { id: input.id },
@@ -269,11 +317,12 @@ export async function correctAbilityObservation(input: {
   action: "exclude" | "restore" | "reassign_dimension";
   dimension?: string;
 }) {
+  const t = messages[await requestLocale()];
   const observation = await prisma.abilityObservation.findUnique({ where: { id: input.id } });
-  if (!observation) throw new Error("能力证据不存在。");
+  if (!observation) throw new Error(t.observationMissing);
   if (input.action === "reassign_dimension") {
     const dimension = input.dimension ? parseProfileDimension(input.dimension) : null;
-    if (!dimension) throw new Error("请选择有效的能力维度。");
+    if (!dimension) throw new Error(t.invalidDimension);
     await prisma.abilityObservation.update({
       where: { id: input.id },
       data: {
@@ -295,14 +344,15 @@ export async function correctAbilityObservation(input: {
 }
 
 export async function mergeRoleContexts(input: { sourceKey: string; targetKey: string }) {
+  const t = messages[await requestLocale()];
   if (!input.sourceKey || !input.targetKey || input.sourceKey === input.targetKey) {
-    throw new Error("请选择两个不同的岗位视角。");
+    throw new Error(t.pickTwoRoles);
   }
   const [source, target] = await Promise.all([
     prisma.roleContext.findUnique({ where: { key: input.sourceKey } }),
     prisma.roleContext.findUnique({ where: { key: input.targetKey } }),
   ]);
-  if (!source || !target) throw new Error("岗位视角不存在或已被合并。");
+  if (!source || !target) throw new Error(t.roleMissing);
 
   await prisma.$transaction(async (tx) => {
     await tx.interview.updateMany({ where: { roleKey: source.key }, data: { roleKey: target.key } });

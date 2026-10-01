@@ -1,3 +1,5 @@
+import { defineMessages, localizedLabels, type Locale } from "@/lib/i18n/locale";
+
 export const INTERVIEW_STATUSES = [
   "scheduled",
   "in_progress",
@@ -151,6 +153,9 @@ export const INTERVIEW_STATUS_LABELS: Record<InterviewStatus, string> = {
   completed: "已完成",
 };
 
+/** 界面按语言取：`INTERVIEW_STATUS_LABELS_I18N[locale][key]`（docs/i18n-plan.md）。 */
+export const INTERVIEW_STATUS_LABELS_I18N = localizedLabels(INTERVIEW_STATUS_LABELS, { scheduled: "Scheduled", in_progress: "In progress", completed: "Completed" });
+
 export const INTERVIEW_ROUND_LABELS: Record<InterviewRound, string> = {
   first_interview: "一面",
   second_interview: "二面",
@@ -158,6 +163,9 @@ export const INTERVIEW_ROUND_LABELS: Record<InterviewRound, string> = {
   hr_interview: "HR 面",
   other: "其他",
 };
+
+/** 界面按语言取：`INTERVIEW_ROUND_LABELS_I18N[locale][key]`（docs/i18n-plan.md）。 */
+export const INTERVIEW_ROUND_LABELS_I18N = localizedLabels(INTERVIEW_ROUND_LABELS, { first_interview: "1st round", second_interview: "2nd round", third_interview: "3rd round", hr_interview: "HR round", other: "Other" });
 
 export const INTERVIEW_QUESTION_CATEGORY_LABELS: Record<
   InterviewQuestionCategory,
@@ -167,6 +175,9 @@ export const INTERVIEW_QUESTION_CATEGORY_LABELS: Record<
   technical: "技术题",
   general: "通用问题",
 };
+
+/** 界面按语言取：`INTERVIEW_QUESTION_CATEGORY_LABELS_I18N[locale][key]`（docs/i18n-plan.md）。 */
+export const INTERVIEW_QUESTION_CATEGORY_LABELS_I18N = localizedLabels(INTERVIEW_QUESTION_CATEGORY_LABELS, { resume_project: "Internship / project", technical: "Technical", general: "General" });
 
 function getString(formData: FormData, name: string): string {
   const value = formData.get(name);
@@ -217,16 +228,16 @@ export function normalizeQuestionCategory(
   return value && isQuestionCategory(value) ? value : "general";
 }
 
-export function statusLabel(status: InterviewStatus): string {
-  return INTERVIEW_STATUS_LABELS[status];
+export function statusLabel(status: InterviewStatus, locale: Locale = "zh-CN"): string {
+  return INTERVIEW_STATUS_LABELS_I18N[locale][status];
 }
 
-export function roundLabel(round: InterviewRound | null): string {
-  return round ? INTERVIEW_ROUND_LABELS[round] : "未设置";
+export function roundLabel(round: InterviewRound | null, locale: Locale = "zh-CN"): string {
+  return round ? INTERVIEW_ROUND_LABELS_I18N[locale][round] : locale === "en" ? "Not set" : "未设置";
 }
 
-export function questionCategoryLabel(category: InterviewQuestionCategory): string {
-  return INTERVIEW_QUESTION_CATEGORY_LABELS[category];
+export function questionCategoryLabel(category: InterviewQuestionCategory, locale: Locale = "zh-CN"): string {
+  return INTERVIEW_QUESTION_CATEGORY_LABELS_I18N[locale][category];
 }
 
 function parseInterviewQuestionsJson(value: string): InterviewQuestionInput[] {
@@ -291,9 +302,24 @@ function parseInterviewQuestionsJson(value: string): InterviewQuestionInput[] {
     }));
 }
 
+const formMessages = defineMessages({
+  "zh-CN": {
+    companyRequired: "公司名称不能为空。",
+    jobTitleRequired: "工作岗位不能为空。",
+    timeRequired: "面试时间不能为空。",
+  },
+  en: {
+    companyRequired: "Company name is required.",
+    jobTitleRequired: "Job title is required.",
+    timeRequired: "Interview time is required.",
+  },
+});
+
 export function parseInterviewFormData(
   formData: FormData,
+  locale: Locale = "zh-CN",
 ): InterviewParseResult {
+  const t = formMessages[locale];
   const companyName = getString(formData, "companyName");
   const jobTitle = getString(formData, "jobTitle");
   const interviewedAt = parseDateTime(
@@ -306,13 +332,13 @@ export function parseInterviewFormData(
   );
 
   if (!companyName) {
-    return { ok: false, message: "公司名称不能为空。" };
+    return { ok: false, message: t.companyRequired };
   }
   if (!jobTitle) {
-    return { ok: false, message: "工作岗位不能为空。" };
+    return { ok: false, message: t.jobTitleRequired };
   }
   if (!interviewedAt) {
-    return { ok: false, message: "面试时间不能为空。" };
+    return { ok: false, message: t.timeRequired };
   }
 
   return {

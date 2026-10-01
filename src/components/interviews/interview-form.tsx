@@ -13,13 +13,15 @@ import {
   Textarea,
 } from "@/components/ui/form-controls";
 
+import { useLocale, useMessages } from "@/lib/i18n/client";
+import { defineMessages } from "@/lib/i18n/locale";
 import {
   createInterview,
   updateInterview,
 } from "@/lib/interviews/actions";
 import type { InterviewDraftHeader } from "@/lib/interviews/draft";
 import {
-  INTERVIEW_ROUND_LABELS,
+  INTERVIEW_ROUND_LABELS_I18N,
   INTERVIEW_ROUNDS,
   initialInterviewActionState,
   type InterviewActionState,
@@ -30,6 +32,39 @@ import {
 
 import { InterviewDraftImporter } from "./interview-draft-importer";
 import { InterviewQuestionsEditor } from "./interview-questions-editor";
+
+const messages = defineMessages({
+  "zh-CN": {
+    saving: "保存中...",
+    requiredPrefix: "带 ",
+    requiredSuffix: " 的为必填项。",
+    companyName: "公司名称",
+    jobTitle: "工作岗位",
+    interviewedAt: "面试时间",
+    round: "轮次/类型",
+    unset: "未设置",
+    note: "备注",
+    scheduledHint: "面试时间在未来，将保存为待面试。面试结束后回来补充问答，这场面试就会计入复盘和能力画像。",
+    cancel: "取消",
+    saveChanges: "保存修改",
+    create: "新建面试",
+  },
+  en: {
+    saving: "Saving...",
+    requiredPrefix: "Fields marked ",
+    requiredSuffix: " are required.",
+    companyName: "Company",
+    jobTitle: "Role",
+    interviewedAt: "Interview time",
+    round: "Round / type",
+    unset: "Not set",
+    note: "Notes",
+    scheduledHint: "This interview is in the future, so it will be saved as upcoming. Come back afterwards to add the questions and answers, and it will count toward your review and capability profile.",
+    cancel: "Cancel",
+    saveChanges: "Save changes",
+    create: "Add interview",
+  },
+});
 
 /** 从投递记录发起时带入的岗位信息，避免用户重复输入。 */
 export type InterviewPrefill = {
@@ -82,13 +117,14 @@ function toDatetimeLocal(date: Date | null): string {
 
 function SubmitButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
+  const t = useMessages(messages);
 
   return (
     <Button
       disabled={pending}
       type="submit"
     >
-      {pending ? "保存中..." : label}
+      {pending ? t.saving : label}
     </Button>
   );
 }
@@ -118,6 +154,8 @@ function initialQuestions(initial?: InterviewListItem): InterviewQuestionInput[]
 
 export function InterviewForm(props: InterviewFormProps) {
   const router = useRouter();
+  const locale = useLocale();
+  const t = useMessages(messages);
   const [questions, setQuestions] = useState<InterviewQuestionInput[]>(
     initialQuestions(props.mode === "edit" ? props.initial : undefined),
   );
@@ -192,13 +230,13 @@ export function InterviewForm(props: InterviewFormProps) {
         />
       ) : null}
       <p className="text-xs text-muted-foreground">
-        带 <RequiredMark /> 的为必填项。
+        {t.requiredPrefix}<RequiredMark />{t.requiredSuffix}
       </p>
       <div className="grid gap-3 md:grid-cols-2">
         <div>
           <FieldLabel>
             <span>
-              公司名称
+              {t.companyName}
               <RequiredMark />
             </span>
             <Input
@@ -212,7 +250,7 @@ export function InterviewForm(props: InterviewFormProps) {
         <div>
           <FieldLabel>
             <span>
-              工作岗位
+              {t.jobTitle}
               <RequiredMark />
             </span>
             <Input
@@ -226,7 +264,7 @@ export function InterviewForm(props: InterviewFormProps) {
         <div>
           <FieldLabel>
             <span>
-              面试时间
+              {t.interviewedAt}
               <RequiredMark />
             </span>
             <Input
@@ -239,16 +277,16 @@ export function InterviewForm(props: InterviewFormProps) {
           </FieldLabel>
         </div>
         <FieldLabel>
-          轮次/类型
+          {t.round}
           <Select
             name="round"
             onChange={(event) => setRound(event.target.value)}
             value={round}
           >
-            <option value="">未设置</option>
+            <option value="">{t.unset}</option>
             {INTERVIEW_ROUNDS.map((round) => (
               <option key={round} value={round}>
-                {INTERVIEW_ROUND_LABELS[round]}
+                {INTERVIEW_ROUND_LABELS_I18N[locale][round]}
               </option>
             ))}
           </Select>
@@ -256,7 +294,7 @@ export function InterviewForm(props: InterviewFormProps) {
       </div>
 
       <FieldLabel>
-        备注
+        {t.note}
         <Textarea
           className="min-h-20"
           defaultValue={initial?.note ?? ""}
@@ -266,7 +304,7 @@ export function InterviewForm(props: InterviewFormProps) {
 
       {isScheduled ? (
         <Alert tone="info">
-          面试时间在未来，将保存为待面试。面试结束后回来补充问答，这场面试就会计入复盘和能力画像。
+          {t.scheduledHint}
         </Alert>
       ) : null}
 
@@ -282,9 +320,9 @@ export function InterviewForm(props: InterviewFormProps) {
           type="button"
           variant="outline"
         >
-          取消
+          {t.cancel}
         </Button>
-        <SubmitButton label={props.mode === "edit" ? "保存修改" : "新建面试"} />
+        <SubmitButton label={props.mode === "edit" ? t.saveChanges : t.create} />
         {state.message ? (
           <Alert aria-live="polite" tone={state.status === "error" ? "danger" : "success"}>{state.message}</Alert>
         ) : null}

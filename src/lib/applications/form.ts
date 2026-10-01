@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 
+import { defineMessages, type Locale } from "@/lib/i18n/locale";
+
 import {
   isApplicationStage,
   MAX_JOB_DESCRIPTION_LENGTH,
@@ -22,6 +24,23 @@ export type ParsedApplicationForm =
       };
     }
   | { ok: false; message: string };
+
+const messages = defineMessages({
+  "zh-CN": {
+    companyRequired: "公司名称必填。",
+    jobTitleRequired: "岗位名称必填。",
+    appliedAtRequired: "投递时间必填。",
+    stageRequired: "当前流程状态必填。",
+    jobDescriptionTooLong: (max: number) => `岗位描述不能超过 ${max} 字符。`,
+  },
+  en: {
+    companyRequired: "Company is required.",
+    jobTitleRequired: "Job title is required.",
+    appliedAtRequired: "Application date is required.",
+    stageRequired: "Stage is required.",
+    jobDescriptionTooLong: (max: number) => `Job description can't exceed ${max} characters.`,
+  },
+});
 
 function formString(formData: FormData, key: string): string {
   const value = formData.get(key);
@@ -62,27 +81,30 @@ function buildManualSourceKey(input: {
   return `manual:${hash}`;
 }
 
+/** 校验失败的提示直接显示在表单里，按调用方传入的界面语言出。 */
 export function parseApplicationFormData(
   formData: FormData,
+  locale: Locale = "zh-CN",
 ): ParsedApplicationForm {
+  const t = messages[locale];
   const companyName = formString(formData, "companyName");
   if (!companyName) {
-    return { ok: false, message: "公司名称必填。" };
+    return { ok: false, message: t.companyRequired };
   }
 
   const jobTitle = formString(formData, "jobTitle");
   if (!jobTitle) {
-    return { ok: false, message: "岗位名称必填。" };
+    return { ok: false, message: t.jobTitleRequired };
   }
 
   const appliedAt = parseAppliedAt(formString(formData, "appliedAt"));
   if (!appliedAt) {
-    return { ok: false, message: "投递时间必填。" };
+    return { ok: false, message: t.appliedAtRequired };
   }
 
   const rawStage = formString(formData, "stage");
   if (!isApplicationStage(rawStage)) {
-    return { ok: false, message: "当前流程状态必填。" };
+    return { ok: false, message: t.stageRequired };
   }
 
   const source = formString(formData, "source") || "manual";
@@ -92,7 +114,7 @@ export function parseApplicationFormData(
   if (jobDescription.length > MAX_JOB_DESCRIPTION_LENGTH) {
     return {
       ok: false,
-      message: `岗位描述不能超过 ${MAX_JOB_DESCRIPTION_LENGTH} 字符。`,
+      message: t.jobDescriptionTooLong(MAX_JOB_DESCRIPTION_LENGTH),
     };
   }
 

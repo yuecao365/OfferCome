@@ -6,6 +6,13 @@ import { useEffect, useRef, type RefObject } from "react";
 import { Navigation, ProductMark, SettingsLink } from "@/components/app-navigation";
 import type { AppSection, InterviewSection } from "@/components/app-shell-types";
 import { Button } from "@/components/ui/button";
+import { useMessages } from "@/lib/i18n/client";
+import { defineMessages } from "@/lib/i18n/locale";
+
+const messages = defineMessages({
+  "zh-CN": { close: "关闭主导航", drawer: "移动端主导航" },
+  en: { close: "Close main navigation", drawer: "Mobile main navigation" },
+});
 
 export function MobileNavigationDrawer({
   active,
@@ -24,6 +31,7 @@ export function MobileNavigationDrawer({
 }) {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLElement>(null);
+  const t = useMessages(messages);
 
   useEffect(() => {
     if (!open) return;
@@ -71,13 +79,13 @@ export function MobileNavigationDrawer({
   return (
     <div className="drawer-overlay fixed inset-0 z-50 lg:hidden">
       <button
-        aria-label="关闭主导航"
+        aria-label={t.close}
         className="absolute inset-0 bg-foreground/25 backdrop-blur-[2px]"
         onClick={onClose}
         type="button"
       />
       <aside
-        aria-label="移动端主导航"
+        aria-label={t.drawer}
         aria-modal="true"
         className="drawer-panel relative flex h-full w-[min(86vw,320px)] flex-col border-r border-border bg-surface shadow-overlay"
         ref={drawerRef}
@@ -86,7 +94,7 @@ export function MobileNavigationDrawer({
         <div className="flex h-12 items-center justify-between border-b border-border pr-2">
           <ProductMark homeHref={homeHref} />
           <Button
-            aria-label="关闭主导航"
+            aria-label={t.close}
             onClick={onClose}
             ref={closeButtonRef}
             size="icon"

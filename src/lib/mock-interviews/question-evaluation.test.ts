@@ -89,3 +89,20 @@ test("numbers the résumé and answer cannot back are stripped from the exemplar
   assert.equal(stripped.removed, 2);
   assert.equal(stripped.text, "命中率从 98% 掉到 ……，QPS 大约 ……，重试两次");
 });
+
+test("English quotes match verbatim regardless of case, curly quotes and punctuation", () => {
+  const english = "We cache embeddings in Redis with a 24-hour TTL, and we don't invalidate on writes.";
+  assert.ok(quoteInAnswer(english, "“we cache embeddings in redis”"));
+  assert.ok(quoteInAnswer(english, "we don’t invalidate on writes"));
+  assert.ok(!quoteInAnswer(english, "we invalidate on every write"));
+});
+
+test("English exemplars: unverified metrics are stripped, identifiers and thousands separators are not", () => {
+  const stripped = stripUnverifiedNumbers(
+    "I cut p99 latency from 800ms to 150ms on our k8s cluster, roughly 3x faster, serving 1,200 QPS with GPT-4 over HTTP/2.",
+    ["Résumé: reduced p99 latency from 800ms to 200ms at 1200 QPS"],
+    "en",
+  );
+  assert.equal(stripped.removed, 2);
+  assert.equal(stripped.text, "I cut p99 latency from 800ms to … on our k8s cluster, roughly … faster, serving 1,200 QPS with GPT-4 over HTTP/2.");
+});

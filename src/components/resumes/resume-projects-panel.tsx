@@ -6,6 +6,8 @@ import { useState, useTransition } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useLocale, useMessages } from "@/lib/i18n/client";
+import { defineMessages } from "@/lib/i18n/locale";
 import { resumeExperienceTypeLabel } from "@/lib/resumes/confirmation";
 import {
   deleteResumeProject,
@@ -18,6 +20,39 @@ import {
   resumeProjectDeleteMessage,
   type ResumeExperienceFieldsValue,
 } from "./resume-experience-fields";
+
+const messages = defineMessages({
+  "zh-CN": {
+    cancel: "取消",
+    saving: "保存中...",
+    save: "保存",
+    heading: (count: number) => `实习 / 项目 · ${count}`,
+    add: "新增实习/项目",
+    intro: "这里是面试题生成使用的实习/项目库。上传简历时自动识别的条目可以在这里改名、改类型、补充描述或删除；没识别到的可以手动新增。",
+    empty: "还没有实习/项目记录。上传简历自动识别，或点击「新增实习/项目」手动添加。",
+    autoExtractedHint: "出题前由系统从简历自动识别，尚未经你确认；编辑一次即视为确认。",
+    autoExtracted: "自动识别，未确认",
+    source: (name: string) => `来源：${name}`,
+    noOrganization: "暂无公司/组织信息",
+    edit: "编辑",
+    delete: "删除",
+  },
+  en: {
+    cancel: "Cancel",
+    saving: "Saving...",
+    save: "Save",
+    heading: (count: number) => `Internships / projects · ${count}`,
+    add: "Add internship/project",
+    intro: "This is the internship/project library used to generate interview questions. Rename, retype, describe or delete items detected from your resume here, and add any that were missed.",
+    empty: "No internships or projects yet. Upload a resume to detect them, or click \"Add internship/project\" to add one by hand.",
+    autoExtractedHint: "Detected from your resume before question generation and not yet confirmed by you. Editing it once counts as confirming.",
+    autoExtracted: "Auto-detected, unconfirmed",
+    source: (name: string) => `Source: ${name}`,
+    noOrganization: "No company/organization info",
+    edit: "Edit",
+    delete: "Delete",
+  },
+});
 
 const NEW_PROJECT_ID = "new";
 
@@ -50,6 +85,7 @@ function ProjectEditor({
   onCancel: () => void;
   onSave: () => void;
 }) {
+  const t = useMessages(messages);
   return (
     <div className="grid gap-3">
       <ResumeExperienceFields
@@ -60,14 +96,14 @@ function ProjectEditor({
       />
       <div className="flex justify-end gap-2">
         <Button disabled={disabled} onClick={onCancel} size="sm" variant="outline">
-          取消
+          {t.cancel}
         </Button>
         <Button
           disabled={disabled || !draft.name.trim()}
           onClick={onSave}
           size="sm"
         >
-          {disabled ? "保存中..." : "保存"}
+          {disabled ? t.saving : t.save}
         </Button>
       </div>
     </div>
@@ -84,6 +120,8 @@ export function ResumeProjectsPanel({
   deleteAction = deleteResumeProject,
 }: ResumeProjectsPanelProps) {
   const router = useRouter();
+  const locale = useLocale();
+  const t = messages[locale];
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<ResumeExperienceFieldsValue>(blankDraft);
   const [message, setMessage] = useState<{
@@ -137,7 +175,7 @@ export function ResumeProjectsPanel({
   }
 
   function handleDelete(project: ResumeProjectListItem) {
-    if (!window.confirm(resumeProjectDeleteMessage(project.name))) {
+    if (!window.confirm(resumeProjectDeleteMessage(project.name, 0, locale))) {
       return;
     }
 
@@ -166,7 +204,7 @@ export function ResumeProjectsPanel({
             className="text-sm font-semibold text-foreground"
             id="resume-projects-title"
           >
-            实习 / 项目 · {projects.length}
+            {t.heading(projects.length)}
           </h2>
         </div>
         <Button
@@ -175,13 +213,13 @@ export function ResumeProjectsPanel({
           size="sm"
           variant="outline"
         >
-          新增实习/项目
+          {t.add}
         </Button>
       </div>
 
       <div className="grid gap-3 p-4">
         <p className="text-xs text-muted-foreground">
-          这里是面试题生成使用的实习/项目库。上传简历时自动识别的条目可以在这里改名、改类型、补充描述或删除；没识别到的可以手动新增。
+          {t.intro}
         </p>
 
         {message ? (
@@ -202,7 +240,7 @@ export function ResumeProjectsPanel({
             <ProjectEditor
               disabled={isPending}
               draft={draft}
-              label="新增实习/项目"
+              label={t.add}
               onCancel={cancelEdit}
               onChange={updateDraft}
               onSave={handleSave}
@@ -212,7 +250,7 @@ export function ResumeProjectsPanel({
 
         {projects.length === 0 && editingId !== NEW_PROJECT_ID ? (
           <p className="rounded-lg border border-dashed border-border-strong bg-surface-subtle p-4 text-sm text-muted-foreground">
-            还没有实习/项目记录。上传简历自动识别，或点击「新增实习/项目」手动添加。
+            {t.empty}
           </p>
         ) : null}
 
@@ -235,14 +273,14 @@ export function ResumeProjectsPanel({
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge tone={project.type === "internship" ? "brand" : "neutral"}>
-                      {resumeExperienceTypeLabel(project.type)}
+                      {resumeExperienceTypeLabel(project.type, locale)}
                     </Badge>
                     {project.autoExtracted ? (
                       <Badge
-                        title="出题前由系统从简历自动识别，尚未经你确认；编辑一次即视为确认。"
+                        title={t.autoExtractedHint}
                         tone="warning"
                       >
-                        自动识别，未确认
+                        {t.autoExtracted}
                       </Badge>
                     ) : null}
                     <h3 className="truncate text-sm font-semibold text-foreground">
@@ -253,11 +291,11 @@ export function ResumeProjectsPanel({
                     {[
                       project.organization,
                       project.sourceResumeName
-                        ? `来源：${project.sourceResumeName}`
+                        ? t.source(project.sourceResumeName)
                         : null,
                     ]
                       .filter(Boolean)
-                      .join(" · ") || "暂无公司/组织信息"}
+                      .join(" · ") || t.noOrganization}
                   </p>
                   {project.description ? (
                     <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
@@ -272,7 +310,7 @@ export function ResumeProjectsPanel({
                     size="sm"
                     variant="outline"
                   >
-                    编辑
+                    {t.edit}
                   </Button>
                   <Button
                     className="text-danger hover:bg-danger-soft hover:text-danger-strong"
@@ -281,7 +319,7 @@ export function ResumeProjectsPanel({
                     size="sm"
                     variant="ghost"
                   >
-                    删除
+                    {t.delete}
                   </Button>
                 </div>
               </div>

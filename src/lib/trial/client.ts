@@ -1,5 +1,7 @@
 import { DefaultChatTransport, type UIMessage } from "ai";
 
+import { browserMessages } from "@/lib/i18n/browser";
+import { defineMessages, type ContentLanguage } from "@/lib/i18n/locale";
 import type { RecentWeakness } from "@/lib/mock-interviews/context";
 import type { ConversationMessage } from "@/lib/interview/views";
 import type { InterviewBrief, InterviewPace } from "@/lib/mock-interviews/brief/brief";
@@ -14,6 +16,23 @@ import { readTrialResponse, TrialRequestError, isTrialRequestError } from "./res
 import type { TrialResumeParseResult } from "./resume";
 
 export { isTrialRequestError } from "./response";
+
+const messages = defineMessages({
+  "zh-CN": {
+    notConfigured: "请先连接你自己的模型服务。",
+    requestFailed: "请求失败，请重试。",
+    connectFailed: "连接失败，请重试。",
+    resumeParseFailed: "简历解析失败。",
+    jobDescriptionParseFailed: "岗位描述解析失败。",
+  },
+  en: {
+    notConfigured: "Connect your own model service first.",
+    requestFailed: "Request failed. Try again.",
+    connectFailed: "Couldn't connect. Try again.",
+    resumeParseFailed: "Couldn't parse the resume.",
+    jobDescriptionParseFailed: "Couldn't parse the job description.",
+  },
+});
 
 /**
  * 体验版接口的浏览器端封装。
@@ -33,7 +52,7 @@ type AiTokenPolicy = "required" | "optional" | "none";
 function requireAiToken(): string {
   const token = readAiToken();
   if (!token) {
-    throw new TrialRequestError({ message: "请先连接你自己的模型服务。", status: 401, kind: "not_configured" });
+    throw new TrialRequestError({ message: browserMessages(messages).notConfigured, status: 401, kind: "not_configured" });
   }
   return token;
 }
@@ -58,7 +77,7 @@ async function request<T>(
 }
 
 function postWithAi<T>(path: string, body: unknown): Promise<T> {
-  return request<T>(path, { body: JSON.stringify(body), ai: "required" }, "请求失败，请重试。");
+  return request<T>(path, { body: JSON.stringify(body), ai: "required" }, browserMessages(messages).requestFailed);
 }
 
 export async function connectAiConfig(input: {
@@ -71,7 +90,7 @@ export async function connectAiConfig(input: {
     token: string;
     provider: string;
     model: string;
-  }>("/api/trial/ai-config", { body: JSON.stringify(input) }, "连接失败，请重试。");
+  }>("/api/trial/ai-config", { body: JSON.stringify(input) }, browserMessages(messages).connectFailed);
   return { token, provider, model };
 }
 
@@ -80,7 +99,7 @@ async function parseResume(init: { body: BodyInit; json?: boolean }): Promise<Tr
   const { resume } = await request<{ resume: TrialResumeParseResult }>(
     "/api/trial/resume",
     { ...init, ai: "optional" },
-    "简历解析失败。",
+    browserMessages(messages).resumeParseFailed,
   );
   return resume;
 }
@@ -108,13 +127,13 @@ export function parseResumeForm(input: {
 export async function parseJobDescriptionFile(file: File): Promise<string> {
   const formData = new FormData();
   formData.append("jobDescriptionFile", file);
-  const { text } = await request<{ text: string }>("/api/trial/document", { body: formData, json: false }, "岗位描述解析失败。");
+  const { text } = await request<{ text: string }>("/api/trial/document", { body: formData, json: false }, browserMessages(messages).jobDescriptionParseFailed);
   return text;
 }
 
 /* ------------------------------ 模拟面试 ------------------------------ */
 
-export async function requestBlueprint(input: { jobTitle: string; jobDescription: string }): Promise<MockInterviewJobBlueprint> {
+export async function requestBlueprint(input: { jobTitle: string; jobDescription: string; language: ContentLanguage }): Promise<MockInterviewJobBlueprint> {
   const { blueprint } = await postWithAi<{ blueprint: MockInterviewJobBlueprint }>("/api/trial/blueprint", input);
   return blueprint;
 }
@@ -124,6 +143,7 @@ export async function requestBrief(input: {
   resume: TrialResumeInput;
   blueprint: MockInterviewJobBlueprint;
   pace: InterviewPace;
+  language: ContentLanguage;
   recentWeaknesses: RecentWeakness[];
   recentQuestions: string[];
 }): Promise<{ brief: InterviewBrief }> {
@@ -165,6 +185,8 @@ export async function evaluateSegment(input: {
   jobDescription: string;
   resumeText: string;
   skillPacks: string[];
+  /** 场次语言（brief.language），评分与示范按它写。 */
+  language?: ContentLanguage;
 }): Promise<TrialEvaluation> {
   const { evaluation } = await postWithAi<{ evaluation: TrialEvaluation }>("/api/trial/evaluate", input);
   return evaluation;
@@ -194,6 +216,8 @@ export async function assessInterview(input: {
     answer: string;
     category: string;
   }>;
+  /** 界面语言：评估器提示词按它写（摘录永远是回答原文）。 */
+  language: ContentLanguage;
 }): Promise<
   Array<{
     questionId: string;
@@ -221,6 +245,8 @@ export async function synthesizeInsights(input: {
   metrics: unknown;
   observations: { id: string }[];
   lockedInsights: unknown;
+  /** 界面语言：洞察正文按它写。 */
+  language: ContentLanguage;
 }): Promise<
   Array<{
     dimension: string;

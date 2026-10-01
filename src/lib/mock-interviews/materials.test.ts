@@ -37,3 +37,17 @@ test("面试官不带引号直接追数字（\"这个 40% 怎么量的\"）也�
   assert.deepEqual(quotedFragments([{ role: "interviewer", content: "这个 40% 是怎么量出来的？" }], resume), ["40%"]);
   assert.deepEqual(quotedFragments([{ role: "interviewer", content: "你写「响应时间下降 40%」，这 40% 怎么算的？" }], resume), ["响应时间下降 40%"]);
 });
+
+test("English sessions: straight-quoted fragments and numbers with English units count; '3 slots' is not '3 s'", () => {
+  const english = "Cut p95 latency by 40% across 3 services; cold start under 2 seconds.";
+  assert.deepEqual(
+    quotedFragments(
+      [
+        { role: "interviewer", content: 'You wrote "Cut p95 latency by 40%" — how did you measure that 40%? What about the 3 slots?' },
+        { role: "interviewer", content: "Walk me through the 2 seconds cold start." },
+      ],
+      english,
+    ),
+    ["Cut p95 latency by 40%", "2 seconds"],
+  );
+});

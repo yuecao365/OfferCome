@@ -228,6 +228,16 @@ user        [状态卡]
 
 **调试**：`replayMockInterviewTurn(sessionId, turnIndex)` 取前缀事件用现在的代码重跑那一回合，不落库。
 
+### 5.6 场次语言（`brief.language`，docs/i18n-plan.md §3）
+
+每场一个 `language: "zh" | "en"`（旧简报按 zh），面试官看到与说出的所有自然语言都跟它走；中文场次的提示词与固定句逐字不变。
+- **散文**：`interviewer-copy.ts` 的 `INTERVIEWER_COPY[language]`（方法段、系统提示、议程、状态卡外框、工具说明、退回原因、规划回放），结构与插值只在 `interviewer.ts` 一份；`state.ts` / `constraints.ts` / `notes.ts` / `turn.ts` 各自的 `COPY` 同形。英文方法段末尾明确要求 reply / notes / facet 全用英文。`buildSystem(context, language)`、`buildTools(context, language)`、`createAskTool(language)`、`createPlanTool(language)`；`renderAgenda` / `planningHead` 读 `brief.language`，`renderState` / `renderCard` / `checkAction` 读 `state.language`（`stateOf` 从 brief 带进来）。
+- **版本号**：`interviewerPromptVersion(language)`，英文为 `interviewer-v14-en`；档案 agent 同理 `dossier-v1-en`。
+- **协议**：笔记四段是键 `pending / concluded / doubtful / next`，标题表 `NOTE_HEADINGS`（en：To verify / Concluded / Doubtful / Next），解析两种语言都认、英文不分大小写；上限 `NOTES_MAX_CHARS`（zh 1200、en 2400）。档案五段是键 `verified / unclear / recurringWeaknesses / anglesAsked / sessions`（`DOSSIER_HEADINGS`），`writeCandidateDossier({ …, language })` 按本场语言整份重写，上限 zh 4000 / en 8000。
+- **内部词**：`checkReply(reply, language)` 按语言取词表；英文拦 rubric、expected signals、state card、my notes、system prompt、skill pack，以及当术语用的 material（the / next / backup material、material id），普通用法（"what material did you use"）不拦。
+- **信息量**：英文场次的新信息词 = 英文词与数字去掉虚词与口头语（`EN_STOPWORDS`），中文口径不变。
+- **固定句**：结束按钮的告别语、按钮替候选人说的话（`CONTROL_PLACEHOLDERS_BY_LANGUAGE`）、切段题面的"追问 n："（`segmentRecord(area, segment, language)`）都按场次语言。技能包按 `loadSkillPacks(brief.language)` 读。
+
 ## 6. 阶段 5：切段（`aftermath/cut.ts`、`segments.ts`，纯代码）
 
 一段 = 一份材料上的全部问答：面试官切回聊过的材料时，后面的问答并进原来那段（那句切回算追问）。`facets` 记模型写的角度短语（旧场次是 guides 文字）。

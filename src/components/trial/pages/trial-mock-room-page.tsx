@@ -7,6 +7,8 @@ import type { GenerationProgressDriver } from "@/components/interviews/mock-inte
 import { MockInterviewSessionView } from "@/components/interviews/mock-interview-session-view";
 import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { useLocale, useMessages } from "@/lib/i18n/client";
+import { defineMessages } from "@/lib/i18n/locale";
 import { readTrialInterview, trialInterviewsDocument } from "@/lib/trial/browser-store";
 import {
   applyTrialTurn,
@@ -19,11 +21,28 @@ import {
 import { trialInterviewToView } from "@/lib/trial/mock-view";
 import { useStoredDocument } from "@/lib/trial/stored-document";
 
+const messages = defineMessages({
+  "zh-CN": {
+    notInBrowser: "这场面试不在当前浏览器中。",
+    backToList: "返回模拟面试列表",
+    notFoundDescription: "这场面试不在当前浏览器中。网页版的数据只保存在你自己的浏览器里，换设备或清除站点数据后无法恢复。",
+    notFoundTitle: "没有找到这场模拟面试",
+  },
+  en: {
+    notInBrowser: "This interview isn't in this browser.",
+    backToList: "Back to mock interviews",
+    notFoundDescription: "This interview isn't in this browser. The web version keeps data only in your own browser, so it can't be recovered on another device or after clearing site data.",
+    notFoundTitle: "Mock interview not found",
+  },
+});
+
 /**
  * 网页版的单场模拟面试页：读浏览器里的会话文档，渲染与本地版相同的
  * 进度卡 / 全屏房间 / 报告页；备课、回合落地、评分与交卷都在这个页面里驱动。
  */
 export function TrialMockRoomPage({ id }: { id: string }) {
+  const t = useMessages(messages);
+  const locale = useLocale();
   const table = useStoredDocument(trialInterviewsDocument);
   const interview = table?.[id] ?? null;
 
@@ -39,12 +58,12 @@ export function TrialMockRoomPage({ id }: { id: string }) {
         return {
           status: current?.status ?? "generation_failed",
           generationPhase: current?.generationPhase ?? null,
-          error: current?.generationError ?? (current ? null : "这场面试不在当前浏览器中。"),
+          error: current?.generationError ?? (current ? null : t.notInBrowser),
         };
       },
       retry: () => retryTrialGeneration(id),
     }),
-    [id],
+    [id, t.notInBrowser],
   );
 
   // 传输只依赖会话 id（状态每次请求现读），只在"能开房"这个条件翻转时重建。
@@ -66,14 +85,14 @@ export function TrialMockRoomPage({ id }: { id: string }) {
     if (!table) return null;
     return (
       <EmptyState
-        action={<ButtonLink href="/interviews/mock">返回模拟面试列表</ButtonLink>}
-        description="这场面试不在当前浏览器中。网页版的数据只保存在你自己的浏览器里，换设备或清除站点数据后无法恢复。"
-        title="没有找到这场模拟面试"
+        action={<ButtonLink href="/interviews/mock">{t.backToList}</ButtonLink>}
+        description={t.notFoundDescription}
+        title={t.notFoundTitle}
       />
     );
   }
 
-  const session = trialInterviewToView(interview);
+  const session = trialInterviewToView(interview, locale);
   // 进行中与评分中的对话式面试独占整个视口；文档一变（报告写入）自动切回带导航的报告视图。
   if (session.conversation && session.status !== "completed" && chatDriver) {
     return (

@@ -16,7 +16,7 @@ import {
 import { FieldLabel, Input, Select } from "@/components/ui/form-controls";
 import {
   MODEL_OPTIONS,
-  PROVIDER_LABELS,
+  PROVIDER_LABELS_I18N,
   TASK_PROVIDERS,
   getDefaultBaseURL,
   isCustomProvider,
@@ -27,8 +27,53 @@ import {
   trialRememberDocument,
   writeAiToken,
 } from "@/lib/trial/browser-store";
+import { useLocale } from "@/lib/i18n/client";
+import { defineMessages } from "@/lib/i18n/locale";
 import { connectAiConfig } from "@/lib/trial/client";
 import { useStoredDocument } from "@/lib/trial/stored-document";
+
+const messages = defineMessages({
+  "zh-CN": {
+    connectFailed: "连接失败。",
+    title: "连接你自己的模型服务",
+    description: "Key 只保存在你自己的浏览器，随请求临时使用，服务器不存储。一场面试约 5–8 次模型调用。建议用设了额度上限的临时 Key，用完可随时吊销。",
+    provider: "服务商",
+    modelName: "模型名称",
+    otherModel: "其他（手动输入）",
+    otherModelName: "其他模型名称",
+    modelIdPlaceholder: "输入服务商控制台中的模型 ID",
+    baseUrl: "服务地址（Base URL）",
+    connectedPlaceholder: "已连接，如需更换请重新填写",
+    keyPlaceholder: "填写对应服务商的 API Key",
+    remember: "在这台设备上记住连接",
+    rememberOn: "关闭网页后无需重新连接。Key 会保存在本浏览器，公用电脑请关掉这一项。",
+    rememberOff: "只在当前标签页有效，关闭后需要重新连接。",
+    testing: "正在测试连接…",
+    connect: "测试并连接",
+    connected: "已连接",
+    disconnect: "断开连接",
+  },
+  en: {
+    connectFailed: "Connection failed.",
+    title: "Connect your own model service",
+    description: "Your key stays in your own browser and is only used for each request; the server never stores it. One interview takes about 5–8 model calls. Use a temporary key with a spending cap that you can revoke any time.",
+    provider: "Provider",
+    modelName: "Model",
+    otherModel: "Other (enter manually)",
+    otherModelName: "Other model name",
+    modelIdPlaceholder: "Enter the model ID from the provider's console",
+    baseUrl: "Base URL",
+    connectedPlaceholder: "Connected. Enter a new key to replace it",
+    keyPlaceholder: "Enter the API key for this provider",
+    remember: "Remember this connection on this device",
+    rememberOn: "No need to reconnect after closing the page. The key is saved in this browser; turn this off on shared computers.",
+    rememberOff: "Only valid in this tab; you'll need to reconnect after closing it.",
+    testing: "Testing connection…",
+    connect: "Test and connect",
+    connected: "Connected",
+    disconnect: "Disconnect",
+  },
+});
 
 const OTHER_MODEL_VALUE = "__other_model__";
 const DEFAULT_PROVIDER: AiProvider = "deepseek";
@@ -56,6 +101,8 @@ export function TrialAiConnect({
   const [message, setMessage] = useState("");
   // 未设置过（含 SSR 首帧）按默认"记住"渲染。
   const remember = useStoredDocument(trialRememberDocument) ?? true;
+  const locale = useLocale();
+  const t = messages[locale];
 
   const needsBaseURL = isCustomProvider(provider);
   const done = ready || state === "done";
@@ -78,7 +125,7 @@ export function TrialAiConnect({
       setApiKey("");
     } catch (error) {
       setState("error");
-      setMessage(error instanceof Error ? error.message : "连接失败。");
+      setMessage(error instanceof Error ? error.message : t.connectFailed);
     }
   }
 
@@ -93,17 +140,16 @@ export function TrialAiConnect({
       <CardHeader className="flex-row items-center gap-3">
         {stepBadge?.(done)}
         <div>
-          <CardTitle>连接你自己的模型服务</CardTitle>
+          <CardTitle>{t.title}</CardTitle>
           <CardDescription>
-            Key 只保存在你自己的浏览器，随请求临时使用，服务器不存储。一场面试约
-            5–8 次模型调用。建议用设了额度上限的临时 Key，用完可随时吊销。
+            {t.description}
           </CardDescription>
         </div>
       </CardHeader>
       <CardContent className="grid gap-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <FieldLabel>
-            服务商
+            {t.provider}
             <Select
               onChange={(event) => {
                 const next = event.target.value as AiProvider;
@@ -115,13 +161,13 @@ export function TrialAiConnect({
             >
               {TASK_PROVIDERS.text.map((option) => (
                 <option key={option} value={option}>
-                  {PROVIDER_LABELS[option]}
+                  {PROVIDER_LABELS_I18N[locale][option]}
                 </option>
               ))}
             </Select>
           </FieldLabel>
           <FieldLabel>
-            模型名称
+            {t.modelName}
             {modelOptions.length > 0 ? (
               <>
                 <Select
@@ -139,14 +185,14 @@ export function TrialAiConnect({
                       {option}
                     </option>
                   ))}
-                  <option value={OTHER_MODEL_VALUE}>其他（手动输入）</option>
+                  <option value={OTHER_MODEL_VALUE}>{t.otherModel}</option>
                 </Select>
                 {usesPresetModel ? null : (
                   <Input
-                    aria-label="其他模型名称"
+                    aria-label={t.otherModelName}
                     className="mt-2 font-normal"
                     onChange={(event) => setModel(event.target.value)}
-                    placeholder="输入服务商控制台中的模型 ID"
+                    placeholder={t.modelIdPlaceholder}
                     value={model}
                   />
                 )}
@@ -154,7 +200,7 @@ export function TrialAiConnect({
             ) : (
               <Input
                 onChange={(event) => setModel(event.target.value)}
-                placeholder="输入服务商控制台中的模型 ID"
+                placeholder={t.modelIdPlaceholder}
                 value={model}
               />
             )}
@@ -162,7 +208,7 @@ export function TrialAiConnect({
         </div>
         {needsBaseURL ? (
           <FieldLabel>
-            服务地址（Base URL）
+            {t.baseUrl}
             <Input
               onChange={(event) => setBaseURL(event.target.value)}
               placeholder="https://…/v1"
@@ -175,7 +221,7 @@ export function TrialAiConnect({
           <Input
             autoComplete="off"
             onChange={(event) => setApiKey(event.target.value)}
-            placeholder={done ? "已连接，如需更换请重新填写" : "填写对应服务商的 API Key"}
+            placeholder={done ? t.connectedPlaceholder : t.keyPlaceholder}
             type="password"
             value={apiKey}
           />
@@ -189,12 +235,10 @@ export function TrialAiConnect({
           />
           <span className="text-sm">
             <span className="font-semibold text-foreground">
-              在这台设备上记住连接
+              {t.remember}
             </span>
             <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">
-              {remember
-                ? "关闭网页后无需重新连接。Key 会保存在本浏览器，公用电脑请关掉这一项。"
-                : "只在当前标签页有效，关闭后需要重新连接。"}
+              {remember ? t.rememberOn : t.rememberOff}
             </span>
           </span>
         </label>
@@ -206,13 +250,13 @@ export function TrialAiConnect({
             {state === "busy" ? (
               <Loader2 aria-hidden="true" className="size-4 animate-spin" />
             ) : null}
-            {state === "busy" ? "正在测试连接…" : "测试并连接"}
+            {state === "busy" ? t.testing : t.connect}
           </Button>
-          {done ? <Badge tone="success">已连接</Badge> : null}
+          {done ? <Badge tone="success">{t.connected}</Badge> : null}
           {done ? (
             <Button onClick={handleDisconnect} size="sm" variant="outline">
               <Unplug aria-hidden="true" className="size-3.5" />
-              断开连接
+              {t.disconnect}
             </Button>
           ) : null}
         </div>

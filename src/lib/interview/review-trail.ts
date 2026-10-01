@@ -1,3 +1,4 @@
+import { defineMessages, type Locale } from "@/lib/i18n/locale";
 import type { InterviewArea } from "@/lib/mock-interviews/brief/brief";
 
 import type { InterviewEvent } from "./events";
@@ -58,30 +59,72 @@ export type ReviewTrail = {
   hasReasons: boolean;
 };
 
-const SIGNAL_NOTES: Partial<Record<Signal, string>> = {
-  thin: "你答得比较空",
-  dont_know: "你说不会",
-  help: "你要了提示",
-  not_mine: "你说这块不是你做的",
-  refuse: "你没有作答",
-  wants_end: "你想结束",
-};
+type Move = "opening" | "closing" | "clarify" | "switch" | "firstInArea" | "sameArea" | "sameFacet" | "newFacet";
+
+/** 人话动作与候选人信号的标签（界面语言）。 */
+const labels = defineMessages({
+  "zh-CN": {
+    moves: {
+      opening: "开场",
+      closing: "收尾",
+      clarify: "把题说具体",
+      switch: "换到另一段经历",
+      firstInArea: "问这段的第一个问题",
+      sameArea: "继续问这段",
+      sameFacet: "继续追这一点",
+      newFacet: "换个角度",
+    } satisfies Record<Move, string>,
+    signals: {
+      thin: "你答得比较空",
+      dont_know: "你说不会",
+      help: "你要了提示",
+      not_mine: "你说这块不是你做的",
+      refuse: "你没有作答",
+      wants_end: "你想结束",
+    } as Partial<Record<Signal, string>>,
+  },
+  en: {
+    moves: {
+      opening: "Opening",
+      closing: "Wrap-up",
+      clarify: "Made the question concrete",
+      switch: "Moved to another experience",
+      firstInArea: "First question on this one",
+      sameArea: "Kept on this experience",
+      sameFacet: "Pressed on the same point",
+      newFacet: "Tried another angle",
+    },
+    signals: {
+      thin: "Your answer was thin",
+      dont_know: "You said you didn't know",
+      help: "You asked for a hint",
+      not_mine: "You said this part wasn't yours",
+      refuse: "You didn't answer",
+      wants_end: "You wanted to end",
+    },
+  },
+});
 
 /** 笔记里这些字样表示面试官对你的回答记了存疑。 */
-export const DOUBT_PATTERN = /(存疑|说不清|没说清|讲不清|没讲清|没给|未给|没有给|缺数字|没有数字|没量|含糊|对不上|不一致|答不上|说不上|模糊|回避|没答|未答|没回答|待核|待验|自相矛盾|只到名词|自认没|没做过)/;
+export const DOUBT_PATTERN = /(存疑|说不清|没说清|讲不清|没讲清|没给|未给|没有给|缺数字|没有数字|没量|含糊|对不上|不一致|答不上|说不上|模糊|回避|没答|未答|没回答|待核|待验|自相矛盾|只到名词|自认没|没做过)|\b(doubtful|unclear|vague|unverified|unsubstantiated|inconsistent|contradict\w*|evasive|hand-?wav\w*|no (?:numbers?|metrics?|baseline|data)|couldn'?t (?:explain|answer|say|back)|didn'?t (?:explain|answer|say|give)|not (?:backed|explained|answered)|doesn'?t add up)\b/i;
 
-export function moveLabel(input: { action: Action | null | undefined; kind: string; opening: boolean; sameFacet: boolean; facet: string | number | null | undefined; firstInArea: boolean }): string {
-  if (input.opening) return "开场";
-  if (input.kind === "closing" || input.action === "end") return "收尾";
-  if (input.kind === "aside" || input.action === "clarify") return "把题说具体";
-  if (input.action === "switch") return "换到另一段经历";
-  if (input.firstInArea) return "问这段的第一个问题";
-  if (input.facet === null || input.facet === undefined) return "继续问这段";
-  return input.sameFacet ? "继续追这一点" : "换个角度";
+function moveOf(input: { action: Action | null | undefined; kind: string; opening: boolean; sameFacet: boolean; facet: string | number | null | undefined; firstInArea: boolean }): Move {
+  if (input.opening) return "opening";
+  if (input.kind === "closing" || input.action === "end") return "closing";
+  if (input.kind === "aside" || input.action === "clarify") return "clarify";
+  if (input.action === "switch") return "switch";
+  if (input.firstInArea) return "firstInArea";
+  if (input.facet === null || input.facet === undefined) return "sameArea";
+  return input.sameFacet ? "sameFacet" : "newFacet";
+}
+
+export function moveLabel(input: Parameters<typeof moveOf>[0], locale: Locale = "zh-CN"): string {
+  return labels[locale].moves[moveOf(input)];
 }
 
 /** 从消息拼思路。areas 给材料名与类型；没有 topic 的面试官发言（开场）不进任何组，收尾单独给一行。 */
-export function reviewTrail(areas: Pick<InterviewArea, "id" | "name" | "kind">[], messages: TrailMessage[]): ReviewTrail {
+export function reviewTrail(areas: Pick<InterviewArea, "id" | "name" | "kind">[], messages: TrailMessage[], locale: Locale = "zh-CN"): ReviewTrail {
+  const t = labels[locale];
   const areaById = new Map(areas.map((area) => [area.id, area]));
   const groups = new Map<string, TrailGroup>();
   let closing: string | null = null;
@@ -115,17 +158,17 @@ export function reviewTrail(areas: Pick<InterviewArea, "id" | "name" | "kind">[]
     const group: TrailGroup = groups.get(topic) ?? { areaId: topic, name: area?.name ?? topic, kind: area?.kind ?? "quick", probes: 0, doubts: 0, nodes: [] };
     const firstInArea = group.nodes.length === 0;
     const sameFacet = previous.topic === topic && previous.facet !== null && previous.facet === (message.facet ?? null);
-    const move = moveLabel({ action: message.action, kind: message.kind, opening: false, sameFacet, facet: message.facet, firstInArea });
+    const move = moveOf({ action: message.action, kind: message.kind, opening: false, sameFacet, facet: message.facet, firstInArea });
     const signal = candidate?.signal ?? message.signal ?? null;
-    const candidateNote = candidate && signal && signal !== "answered" ? (SIGNAL_NOTES[signal] ?? null) : null;
+    const candidateNote = candidate && signal && signal !== "answered" ? (t.signals[signal] ?? null) : null;
     const doubt = noted.some((item) => DOUBT_PATTERN.test(item));
     const stuck = signal === "dont_know" || signal === "not_mine" || signal === "thin";
-    const highlight: TrailNode["highlight"] = stuck ? "stuck" : doubt ? "doubt" : sameFacet && move === "继续追这一点" ? "pressed" : null;
+    const highlight: TrailNode["highlight"] = stuck ? "stuck" : doubt ? "doubt" : sameFacet && move === "sameFacet" ? "pressed" : null;
     if (highlight === "pressed") group.probes += 1;
     if (doubt) group.doubts += 1;
     group.nodes.push({
       turnIndex: message.turnIndex,
-      move,
+      move: t.moves[move],
       why,
       ledger: noted.length > 0 ? noted.join("；") : null,
       candidateNote,

@@ -1,17 +1,19 @@
 import { planMaterials } from "@/lib/interview/progress";
+import type { Locale } from "@/lib/i18n/locale";
 import { reviewTrail } from "@/lib/interview/review-trail";
 import { conversationView, traceTurns } from "@/lib/interview/views";
 import { buildSegmentInfo } from "@/lib/mock-interviews/segment-info";
 import type { MockInterviewTrace, MockInterviewView } from "@/lib/mock-interviews/types";
 
-import type { TrialInterview } from "./interview";
+import { trialInterviewLanguage, type TrialInterview } from "./interview";
 
 /**
  * 把体验版的会话文档适配成本地版房间 / 报告 / trace 组件吃的视图。
  * 拼装函数与本地版 queries.ts 用的是同一批（interview/views.ts、segment-info.ts），组件层感知不到数据来自浏览器还是数据库。
  */
 
-export function trialInterviewToView(interview: TrialInterview): MockInterviewView {
+/** locale 是界面语言（面试官思路的标签按它写）；面试内容的语言是 language，按场次。 */
+export function trialInterviewToView(interview: TrialInterview, locale: Locale): MockInterviewView {
   const completed = interview.status === "completed";
   return {
     id: interview.id,
@@ -24,6 +26,7 @@ export function trialInterviewToView(interview: TrialInterview): MockInterviewVi
     generationErrorCode: null,
     generationError: interview.generationError,
     interactionMode: "text",
+    language: trialInterviewLanguage(interview),
     questionCount: interview.questions.length,
     totalScore: interview.report?.totalScore ?? null,
     report: interview.report,
@@ -34,7 +37,7 @@ export function trialInterviewToView(interview: TrialInterview): MockInterviewVi
       ? conversationView({ brief: interview.brief, status: interview.status, startedAt: interview.startedAt, notes: interview.notes, messages: interview.messages })
       : null,
     estimates: [],
-    trail: completed && interview.brief ? reviewTrail(interview.brief.areas, interview.messages) : null,
+    trail: completed && interview.brief ? reviewTrail(interview.brief.areas, interview.messages, locale) : null,
     questions: interview.questions.map((segment, index) => ({
       id: segment.id,
       question: segment.question,

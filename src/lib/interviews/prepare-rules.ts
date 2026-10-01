@@ -1,4 +1,4 @@
-import { PROFILE_DIMENSION_LABELS, type ProfileDimension } from "@/lib/candidate-profile/types";
+import type { ProfileDimension } from "@/lib/candidate-profile/types";
 
 /**
  * 真实面试备战页的纯口径：同一家公司的历史题最多几组、弱项取几个、少于几场不下结论。
@@ -14,7 +14,6 @@ export const MIN_INTERVIEWS_FOR_METRIC = 2;
 
 export type PrepareWeakDimension = {
   dimension: ProfileDimension;
-  label: string;
   levelLabel: string;
   insightTitles: string[];
 };
@@ -30,7 +29,6 @@ export function pickWeakDimensions(
     .slice(0, WEAK_DIMENSION_LIMIT)
     .map((metric) => ({
       dimension: metric.dimension,
-      label: PROFILE_DIMENSION_LABELS[metric.dimension],
       levelLabel: metric.levelLabel,
       insightTitles: insights
         .filter((insight) => insight.dimension === metric.dimension)
