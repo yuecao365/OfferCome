@@ -92,6 +92,8 @@ Screenshots use fictional demo data.
 
 ## Under the Hood
 
+![Mock interview architecture: a code-run workflow with three agents (planner, interviewer, scorer), LLM calls for job analysis, the report and memory, and code for rule checks and topic splitting](docs/images/architecture.svg)
+
 - **Interview action validation.** The model outputs an action and target, such as a follow-up, topic change, clarification or end. Code validates it against the session state, requests a retry if needed, and selects a fallback after a second failure. Prompt instructions and citation checks help reduce interference from untrusted input.
 - **Event-sourced sessions.** An append-only event log is used to compute progress, session state for the model and scoring segments. Individual turns can be replayed to check the effect of prompt changes.
 - **Interview memory.** The model keeps notes on unresolved questions and its findings to help plan follow-ups and decide when to finish. There is no fixed time or turn limit. Cross-session records track recurring weaknesses, and scores update the capability profile.

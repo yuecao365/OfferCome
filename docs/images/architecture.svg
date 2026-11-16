@@ -1,0 +1,121 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 488" width="1000" height="488" role="img" aria-label="Mock interview architecture: a workflow run by code. Before: an LLM call analyzes the job, a planner agent writes the plan. During: an interviewer agent talks with the candidate while code checks each move. After: code splits the transcript by topic, a scoring agent scores each topic, LLM calls write the report and update memory, which the next interview's plan starts from.">
+  <style>
+    .bg { fill: #ffffff; }
+    .frame { fill: #f6f8fa; stroke: #e4e8ec; }
+    .card { fill: #ffffff; stroke: #d8dee4; }
+    .agent { fill: #f6f3ff; stroke: #b9a8f7; }
+    .pill { fill: #ffffff; stroke: #8c959f; stroke-width: 1.3; }
+    .t { fill: #1f2328; font: 600 15px -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+    .s { fill: #656d76; font: 12.5px -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+    .sec { fill: #8c959f; font: 600 11.5px -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; letter-spacing: .1em; }
+    .k { font: 700 10px -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; letter-spacing: .1em; }
+    .ka { fill: #6e56cf; } .kl { fill: #2f6fd6; } .kc { fill: #6e7781; }
+    .flow { fill: none; stroke: #8c959f; stroke-width: 1.6; stroke-linecap: round; }
+    .head { fill: #8c959f; }
+    .mem { fill: none; stroke: #2da44e; stroke-width: 1.6; stroke-dasharray: 6 5; stroke-linecap: round; }
+    .headm { fill: #2da44e; }
+    .memt { fill: #1a7f37; font: 600 12.5px -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #0d1117; }
+      .frame { fill: #11161d; stroke: #262c36; }
+      .card { fill: #161b22; stroke: #30363d; }
+      .agent { fill: #1d1838; stroke: #5d4bb5; }
+      .pill { fill: #161b22; stroke: #6e7681; }
+      .t { fill: #e6edf3; }
+      .s { fill: #9198a1; }
+      .sec { fill: #6e7681; }
+      .ka { fill: #b4a2ff; } .kl { fill: #79a8f2; } .kc { fill: #9198a1; }
+      .flow { stroke: #6e7681; } .head { fill: #6e7681; }
+      .mem { stroke: #3fb950; } .headm { fill: #3fb950; } .memt { fill: #56d364; }
+    }
+  </style>
+  <defs>
+    <filter id="sh" x="-10%" y="-20%" width="120%" height="150%">
+      <feDropShadow dx="0" dy="1.5" stdDeviation="2" flood-color="#1f2328" flood-opacity="0.08"/>
+    </filter>
+    <marker id="a" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path class="head" d="M0 0.5L10 5L0 9.5z"/>
+    </marker>
+    <marker id="g" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path class="headm" d="M0 0.5L10 5L0 9.5z"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" width="1000" height="488" rx="14"/>
+  <rect class="frame" x="20" y="20" width="960" height="400" rx="14"/>
+  <text class="sec" x="40" y="48">WORKFLOW · FIXED ORDER, RUN BY CODE</text>
+  <text class="sec" x="40" y="82">BEFORE</text>
+  <text class="sec" x="355" y="82">DURING</text>
+  <text class="sec" x="710" y="82">AFTER</text>
+
+  <!-- BEFORE -->
+  <rect class="pill" x="40" y="96" width="250" height="40" rx="20" filter="url(#sh)"/>
+  <text class="t" x="165" y="121" text-anchor="middle">Resume + job description</text>
+  <path class="flow" marker-end="url(#a)" d="M165 136 V154"/>
+
+  <rect class="card" x="40" y="156" width="250" height="66" rx="10" filter="url(#sh)"/>
+  <text class="k kl" x="56" y="176">LLM CALL</text>
+  <text class="t" x="56" y="196">Analyze the job</text>
+  <text class="s" x="56" y="213">skills the role needs</text>
+  <path class="flow" marker-end="url(#a)" d="M165 222 V240"/>
+
+  <rect class="agent" x="40" y="242" width="250" height="66" rx="10" filter="url(#sh)"/>
+  <text class="k ka" x="56" y="262">AGENT</text>
+  <text class="t" x="56" y="282">Plan the interview</text>
+  <text class="s" x="56" y="299">reads skill packs, writes the plan</text>
+
+  <path class="flow" marker-end="url(#a)" d="M290 275 C324 275 320 184 353 184"/>
+
+  <!-- DURING -->
+  <rect class="agent" x="355" y="96" width="290" height="176" rx="12" filter="url(#sh)"/>
+  <text class="k ka" x="373" y="118">AGENT</text>
+  <text class="t" x="373" y="139">Interviewer</text>
+  <text class="s" x="373" y="160">asks, follows up, switches topic</text>
+  <text class="s" x="373" y="177">and decides when to end</text>
+  <rect class="card" x="373" y="192" width="254" height="62" rx="9"/>
+  <text class="k kc" x="389" y="211">CODE</text>
+  <text class="t" x="389" y="230">Rule check on every move</text>
+  <text class="s" x="389" y="246">rejects invalid moves</text>
+
+  <rect class="pill" x="425" y="302" width="150" height="40" rx="20" filter="url(#sh)"/>
+  <text class="t" x="500" y="327" text-anchor="middle">Candidate</text>
+  <path class="flow" marker-end="url(#a)" d="M480 272 V300"/>
+  <path class="flow" marker-end="url(#a)" d="M520 302 V274"/>
+  <text class="s" x="472" y="292" text-anchor="end">question</text>
+  <text class="s" x="528" y="292">answer</text>
+
+  <path class="flow" marker-end="url(#a)" d="M645 129 H708"/>
+
+  <!-- AFTER -->
+  <rect class="card" x="710" y="96" width="250" height="66" rx="10" filter="url(#sh)"/>
+  <text class="k kc" x="726" y="116">CODE</text>
+  <text class="t" x="726" y="136">Split by topic</text>
+  <text class="s" x="726" y="153">one block per topic</text>
+  <path class="flow" marker-end="url(#a)" d="M835 162 V176"/>
+
+  <rect class="agent" x="710" y="178" width="250" height="66" rx="10" filter="url(#sh)"/>
+  <text class="k ka" x="726" y="198">AGENT</text>
+  <text class="t" x="726" y="218">Score each topic</text>
+  <text class="s" x="726" y="235">checks claims against the resume</text>
+  <path class="flow" marker-end="url(#a)" d="M835 244 V258"/>
+
+  <rect class="card" x="710" y="260" width="250" height="66" rx="10" filter="url(#sh)"/>
+  <text class="k kl" x="726" y="280">LLM CALL</text>
+  <text class="t" x="726" y="300">Write the report</text>
+  <text class="s" x="726" y="317">strengths, gaps, what to practise</text>
+  <path class="flow" marker-end="url(#a)" d="M835 326 V340"/>
+
+  <rect class="card" x="710" y="342" width="250" height="66" rx="10" filter="url(#sh)"/>
+  <text class="k kl" x="726" y="362">LLM CALL</text>
+  <text class="t" x="726" y="382">Update memory</text>
+  <text class="s" x="726" y="399">dossier + capability profile</text>
+
+  <!-- memory loop -->
+  <path class="mem" marker-end="url(#g)" d="M710 375 H165 V310"/>
+  <text class="memt" x="437" y="367" text-anchor="middle">the next interview is planned from it</text>
+
+  <!-- shared runtime -->
+  <rect class="frame" x="20" y="436" width="960" height="36" rx="10"/>
+  <text class="sec" x="40" y="459">SHARED RUNTIME</text>
+  <text class="s" x="170" y="459">every agent and LLM call: validated output, retries, tool permissions, budgets, logs</text>
+</svg>
